@@ -1,0 +1,44 @@
+services:
+  scraper:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - app-data:/app
+    environment:
+      - SEARXNG_URL=http://searxng:8080
+      - OLLAMA_URL=http://ollama:11434
+      - GIT_USER_NAME=community-scraper-bot
+      - GIT_USER_EMAIL=bot@localhost
+      - SCHEDULE_CRON=0 3 * * *
+      # Set GIT_REMOTE_URL and GIT_TOKEN to enable push
+      # - GIT_REMOTE_URL=https://github.com/frkandris/community-scraper.git
+      # - GIT_TOKEN=your_github_token
+      # - PUSH_AFTER_COMMIT=true
+    depends_on:
+      - searxng
+      - ollama
+    restart: unless-stopped
+
+  searxng:
+    image: searxng/searxng:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - searxng-data:/etc/searxng
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8080/
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  app-data:
+  searxng-data:
+  ollama-models:

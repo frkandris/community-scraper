@@ -1,0 +1,24 @@
+cities:
+  - name: Budapest
+    locale: hu
+    search_variants:
+      - Budapest
+      - "Budapest Hungary"
+  - name: Debrecen
+    locale: hu
+    search_variants:
+      - Debrecen
+  - name: Miskolc
+    locale: hu
+    search_variants:
+      - Miskolc
+  - name: Pécs
+    locale: hu
+    search_variants:
+      - Pécs
+      - Pecs
+  - name: Győr
+    locale: hu
+    search_variants:
+      - Győr
+      - Gyor

@@ -1,0 +1,30 @@
+ollama:
+  model: llama3.2:3b
+  temperature: 0.1
+  timeout_seconds: 120
+  max_text_chars: 3000
+
+search:
+  results_per_query: 10
+  max_pages_per_topic: 5
+  rate_limit_seconds: 1.5
+
+fetch:
+  timeout_seconds: 15
+  min_text_length: 100
+  max_concurrent: 3
+  blocked_domains:
+    - facebook.com
+    - instagram.com
+    - twitter.com
+    - x.com
+    - tiktok.com
+    - youtube.com
+    - linkedin.com
+
+pipeline:
+  commit_after_run: true
+  push_after_commit: false
+
+schedule:
+  cron: "0 3 * * *"

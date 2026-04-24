@@ -1,0 +1,85 @@
+topics:
+  - name: running
+    search_terms:
+      hu:
+        - futás
+        - futóklub
+        - futócsoport
+        - futóverseny
+      en:
+        - running
+        - running club
+        - running group
+        - fun run
+      de:
+        - Laufen
+        - Laufgruppe
+        - Lauftreff
+
+  - name: board_games
+    search_terms:
+      hu:
+        - társasjáték
+        - társasjáték kör
+        - társasjáték klub
+        - társasjáték este
+      en:
+        - board games
+        - board game club
+        - tabletop
+        - game night
+      de:
+        - Brettspiele
+        - Brettspielgruppe
+        - Spieleabend
+
+  - name: choir
+    search_terms:
+      hu:
+        - kórus
+        - énekkör
+        - daloskor
+        - énekcsoport
+      en:
+        - choir
+        - chorus
+        - choral society
+        - singing group
+      de:
+        - Chor
+        - Chorverein
+        - Singkreis
+
+  - name: dance
+    search_terms:
+      hu:
+        - tánc
+        - táncklub
+        - tánccsoport
+        - tánctanfolyam
+      en:
+        - dance
+        - dance club
+        - dance group
+        - dancing
+      de:
+        - Tanzen
+        - Tanzgruppe
+        - Tanzverein
+
+  - name: hiking
+    search_terms:
+      hu:
+        - túrázás
+        - túraklub
+        - gyalogtúra
+        - természetjárás
+      en:
+        - hiking
+        - hiking club
+        - hiking group
+        - trekking
+      de:
+        - Wandern
+        - Wandergruppe
+        - Wanderverein
