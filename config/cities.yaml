@@ -8,17 +8,8 @@ cities:
     locale: hu
     search_variants:
       - Debrecen
-  - name: Miskolc
-    locale: hu
+  - name: London
+    locale: en
     search_variants:
-      - Miskolc
-  - name: Pécs
-    locale: hu
-    search_variants:
-      - Pécs
-      - Pecs
-  - name: Győr
-    locale: hu
-    search_variants:
-      - Győr
-      - Gyor
+      - London
+      - "London UK"
