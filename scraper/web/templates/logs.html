@@ -8,6 +8,10 @@
     <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
       <input type="checkbox" id="autoScroll" checked class="rounded"> Auto-scroll
     </label>
+    <button id="copyBtn" onclick="copyLogs()"
+      class="px-3 py-1.5 text-xs text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+      Copy
+    </button>
     <button onclick="document.getElementById('log-box').innerHTML=''"
       class="px-3 py-1.5 text-xs text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
       Clear
@@ -54,6 +58,15 @@ es.onerror = () => {
   div.textContent = '-- connection closed --';
   box.appendChild(div);
 };
+
+function copyLogs() {
+  const lines = [...box.querySelectorAll('div')].map(d => d.textContent).join('\n');
+  navigator.clipboard.writeText(lines).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  });
+}
 </script>
 
 {% endblock %}
