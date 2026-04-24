@@ -1,8 +1,8 @@
 ollama:
-  model: llama3.2:3b
+  model: qwen2.5:7b
   temperature: 0.1
-  timeout_seconds: 120
-  max_text_chars: 3000
+  timeout_seconds: 180
+  max_text_chars: 6000
 
 search:
   results_per_query: 10

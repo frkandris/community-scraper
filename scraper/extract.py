@@ -1,5 +1,4 @@
 import json
-import re
 from datetime import datetime, timezone
 
 import httpx
@@ -10,25 +9,16 @@ from .models import CommunityRecord
 log = structlog.get_logger()
 
 SYSTEM_PROMPT = """\
-You are a data extraction assistant. Your only job is to find community groups and clubs.
+You are a data extraction assistant. Identify community groups and clubs from web page text.
 
-Respond ONLY with a valid JSON array. No explanation, no markdown, no code fences.
-If you find no community groups, respond with an empty array: []
+Extract ONLY genuine ongoing community groups, clubs, or associations — NOT individual events, \
+news articles, or commercial businesses.
 
-Each object must follow this schema (omit fields you cannot find, use null not empty strings):
-{
-  "name": "name of the group",
-  "description": "brief description or null",
-  "meeting_schedule": "when they meet or null",
-  "location": "venue or address or null",
-  "contact": "email, phone, or contact URL or null",
-  "website": "main website URL or null",
-  "social_links": ["list of social media URLs"],
-  "confidence": 0.0
-}
+The page may be in any language. Always output field values in the original language of the page.
 
-Only include groups clearly related to the requested topic and city.
-The page may be in any language – always output field values in the original language of the page.
+For 'confidence': 0.9 if the group clearly matches the topic and city, 0.5 if somewhat related \
+but uncertain, 0.1 if it barely qualifies. If nothing on the page is a real community group, \
+return an empty communities array.
 """
 
 USER_PROMPT_TEMPLATE = """\
@@ -40,30 +30,40 @@ The page was found at: {source_url}
 --- PAGE TEXT END ---
 """
 
-_CODE_FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
-
-
-def _repair_json(raw: str) -> str:
-    raw = raw.strip()
-    match = _CODE_FENCE_RE.search(raw)
-    if match:
-        raw = match.group(1).strip()
-    # Find first '[' and last ']' to extract the array
-    start = raw.find("[")
-    end = raw.rfind("]")
-    if start != -1 and end != -1 and end > start:
-        raw = raw[start : end + 1]
-    return raw
+# Enforced at token level by Ollama — guarantees valid JSON matching this schema
+EXTRACTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "communities": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name":             {"type": "string"},
+                    "description":      {"type": "string"},
+                    "meeting_schedule": {"type": "string"},
+                    "location":         {"type": "string"},
+                    "contact":          {"type": "string"},
+                    "website":          {"type": "string"},
+                    "social_links":     {"type": "array", "items": {"type": "string"}},
+                    "confidence":       {"type": "number"},
+                },
+                "required": ["name", "confidence"],
+            },
+        }
+    },
+    "required": ["communities"],
+}
 
 
 class OllamaExtractor:
     def __init__(
         self,
         base_url: str,
-        model: str = "llama3.2:3b",
+        model: str = "qwen2.5:7b",
         temperature: float = 0.1,
-        timeout_seconds: int = 120,
-        max_text_chars: int = 3000,
+        timeout_seconds: int = 180,
+        max_text_chars: int = 6000,
     ):
         self.base_url = base_url.rstrip("/")
         self.model = model
@@ -93,6 +93,7 @@ class OllamaExtractor:
                 {"role": "user", "content": user_message},
             ],
             "stream": False,
+            "format": EXTRACTION_SCHEMA,
             "options": {"temperature": self.temperature},
         }
         try:
@@ -104,10 +105,10 @@ class OllamaExtractor:
             log.warning("ollama_request_failed", url=source_url, error=str(exc))
             return []
 
-        raw_content = data.get("message", {}).get("content", "")
-        return self._parse_response(raw_content, city, topic, locale, source_url)
+        raw = data.get("message", {}).get("content", "")
+        return self._parse(raw, city, topic, locale, source_url)
 
-    def _parse_response(
+    def _parse(
         self,
         raw: str,
         city: str,
@@ -116,12 +117,12 @@ class OllamaExtractor:
         source_url: str,
     ) -> list[CommunityRecord]:
         try:
-            cleaned = _repair_json(raw)
-            items = json.loads(cleaned)
+            items = json.loads(raw).get("communities", [])
             if not isinstance(items, list):
                 return []
         except json.JSONDecodeError as exc:
-            log.warning("ollama_json_parse_failed", source_url=source_url, error=str(exc), raw=raw[:200])
+            log.warning("ollama_json_parse_failed", source_url=source_url,
+                        error=str(exc), raw=raw[:200])
             return []
 
         records = []
@@ -135,11 +136,11 @@ class OllamaExtractor:
                     topic=topic,
                     city=city,
                     locale=locale,
-                    description=item.get("description"),
-                    meeting_schedule=item.get("meeting_schedule"),
-                    location=item.get("location"),
-                    contact=item.get("contact"),
-                    website=item.get("website"),
+                    description=item.get("description") or None,
+                    meeting_schedule=item.get("meeting_schedule") or None,
+                    location=item.get("location") or None,
+                    contact=item.get("contact") or None,
+                    website=item.get("website") or None,
                     social_links=item.get("social_links") or [],
                     source_url=source_url,
                     extracted_at=extracted_at,
