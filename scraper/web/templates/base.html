@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Community Scraper{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+<nav class="bg-white border-b border-gray-200 shadow-sm">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-6">
+    <span class="font-bold text-gray-900 text-sm">🕷 Community Scraper</span>
+    <a href="/" class="text-sm text-gray-600 hover:text-gray-900 {% if request.url.path == '/' %}font-semibold text-gray-900{% endif %}">Dashboard</a>
+    <a href="/results" class="text-sm text-gray-600 hover:text-gray-900 {% if '/results' in request.url.path %}font-semibold text-gray-900{% endif %}">Results</a>
+    <a href="/config" class="text-sm text-gray-600 hover:text-gray-900 {% if '/config' in request.url.path %}font-semibold text-gray-900{% endif %}">Config</a>
+    <a href="/logs" class="text-sm text-gray-600 hover:text-gray-900 {% if '/logs' in request.url.path %}font-semibold text-gray-900{% endif %}">Logs</a>
+    <a href="/history" class="text-sm text-gray-600 hover:text-gray-900 {% if '/history' in request.url.path %}font-semibold text-gray-900{% endif %}">History</a>
+  </div>
+</nav>
+
+<main class="max-w-6xl mx-auto px-4 py-8">
+  {% block content %}{% endblock %}
+</main>
+
+</body>
+</html>

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}History – Community Scraper{% endblock %}
+{% block content %}
+
+<h1 class="text-2xl font-bold text-gray-900 mb-6">Git History</h1>
+
+{% if commits %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 border-b border-gray-200">
+      <tr>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Hash</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Message</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for c in commits %}
+      <tr class="hover:bg-gray-50 transition-colors">
+        <td class="px-5 py-3 font-mono text-xs text-gray-500">{{ c.hash }}</td>
+        <td class="px-5 py-3 text-gray-500 whitespace-nowrap">{{ c.date }}</td>
+        <td class="px-5 py-3 text-gray-800">{{ c.message }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+  <p class="text-gray-400">No commits yet.</p>
+</div>
+{% endif %}
+
+{% endblock %}

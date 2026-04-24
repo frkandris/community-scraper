@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Config – Community Scraper{% endblock %}
+{% block content %}
+
+<h1 class="text-2xl font-bold text-gray-900 mb-6">Configuration</h1>
+
+{% if saved %}
+<div class="mb-4 px-4 py-3 bg-green-50 border border-green-200 text-green-800 rounded-lg text-sm">
+  ✓ Saved: <strong>{{ saved }}.yaml</strong>
+</div>
+{% endif %}
+{% if error %}
+<div class="mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-800 rounded-lg text-sm">
+  ✗ Error: {{ error }}
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  <!-- Cities -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+    <h2 class="text-sm font-semibold text-gray-700 mb-3">cities.yaml</h2>
+    <form method="POST" action="/config/cities">
+      <textarea name="cities_yaml" rows="18"
+        class="w-full font-mono text-xs bg-gray-50 border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y">{{ cities_yaml }}</textarea>
+      <button type="submit"
+        class="mt-3 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+        Save Cities
+      </button>
+    </form>
+  </div>
+
+  <!-- Topics -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+    <h2 class="text-sm font-semibold text-gray-700 mb-3">topics.yaml</h2>
+    <form method="POST" action="/config/topics">
+      <textarea name="topics_yaml" rows="18"
+        class="w-full font-mono text-xs bg-gray-50 border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y">{{ topics_yaml }}</textarea>
+      <button type="submit"
+        class="mt-3 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+        Save Topics
+      </button>
+    </form>
+  </div>
+
+  <!-- Settings -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:col-span-2">
+    <h2 class="text-sm font-semibold text-gray-700 mb-3">settings.yaml</h2>
+    <form method="POST" action="/config/settings">
+      <textarea name="settings_yaml" rows="12"
+        class="w-full font-mono text-xs bg-gray-50 border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y">{{ settings_yaml }}</textarea>
+      <button type="submit"
+        class="mt-3 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+        Save Settings
+      </button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

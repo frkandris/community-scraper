@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Logs – Community Scraper{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold text-gray-900">Logs</h1>
+  <div class="flex items-center gap-3">
+    <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+      <input type="checkbox" id="autoScroll" checked class="rounded"> Auto-scroll
+    </label>
+    <button onclick="document.getElementById('log-box').innerHTML=''"
+      class="px-3 py-1.5 text-xs text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+      Clear
+    </button>
+  </div>
+</div>
+
+<div id="log-box"
+  class="bg-gray-900 rounded-xl p-4 h-[70vh] overflow-y-auto font-mono text-xs leading-relaxed">
+  {% for line in history %}
+  <div class="{{ 'text-yellow-400' if line.level == 'warning' else ('text-red-400' if line.level in ('error','critical') else 'text-green-400') }}">
+    <span class="text-gray-500">{{ line.ts }}</span>  {{ line.text }}
+  </div>
+  {% endfor %}
+</div>
+
+<script>
+const box = document.getElementById('log-box');
+const autoScrollCb = document.getElementById('autoScroll');
+
+function scroll() {
+  if (autoScrollCb.checked) box.scrollTop = box.scrollHeight;
+}
+scroll();
+
+function levelClass(level) {
+  if (level === 'warning') return 'text-yellow-400';
+  if (level === 'error' || level === 'critical') return 'text-red-400';
+  return 'text-green-400';
+}
+
+const es = new EventSource('/api/logs/stream?last_seq={{ last_seq }}');
+es.onmessage = (e) => {
+  const line = JSON.parse(e.data);
+  const div = document.createElement('div');
+  div.className = levelClass(line.level);
+  div.innerHTML = `<span class="text-gray-500">${line.ts}</span>  ${line.text}`;
+  box.appendChild(div);
+  scroll();
+};
+es.onerror = () => {
+  const div = document.createElement('div');
+  div.className = 'text-gray-600';
+  div.textContent = '-- connection closed --';
+  box.appendChild(div);
+};
+</script>
+
+{% endblock %}

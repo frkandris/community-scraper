@@ -1,23 +1,38 @@
 import argparse
 import asyncio
 import os
-import threading
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 import structlog
+import uvicorn
 import yaml
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from .pipeline import CityConfig, PipelineConfig, TopicConfig, run_pipeline
 from .vcs import ensure_repo
-
-log = structlog.get_logger()
+from .web.app import app as web_app
+from .web.log_stream import broadcaster
+from .web.state import app_state
 
 BASE_DIR = Path(__file__).parent.parent
 CONFIG_DIR = BASE_DIR / "config"
 DATA_DIR = BASE_DIR / "data"
+
+
+def broadcast_processor(logger, method, event_dict):
+    broadcaster.add_line({k: str(v) for k, v in event_dict.items()})
+    return event_dict
+
+
+def configure_logging() -> None:
+    structlog.configure(
+        processors=[
+            structlog.processors.TimeStamper(fmt="iso"),
+            broadcast_processor,
+            structlog.dev.ConsoleRenderer(),
+        ]
+    )
 
 
 def load_config() -> tuple[list[CityConfig], list[TopicConfig], PipelineConfig]:
@@ -37,13 +52,9 @@ def load_config() -> tuple[list[CityConfig], list[TopicConfig], PipelineConfig]:
         for c in cities_raw["cities"]
     ]
     topics = [
-        TopicConfig(
-            name=t["name"],
-            search_terms=t["search_terms"],
-        )
+        TopicConfig(name=t["name"], search_terms=t["search_terms"])
         for t in topics_raw["topics"]
     ]
-
     pipeline_cfg = PipelineConfig(
         searxng_url=os.environ.get("SEARXNG_URL", "http://localhost:8080"),
         ollama_url=os.environ.get("OLLAMA_URL", "http://localhost:11434"),
@@ -65,42 +76,24 @@ def load_config() -> tuple[list[CityConfig], list[TopicConfig], PipelineConfig]:
     return cities, topics, pipeline_cfg
 
 
-def start_health_server(port: int = 8000) -> None:
-    class Handler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b"OK")
-
-        def log_message(self, *args):
-            pass
-
-    server = HTTPServer(("0.0.0.0", port), Handler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    log.info("health_server_started", port=port)
-
-
 async def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--run-once", action="store_true", help="Run pipeline once and exit")
+    parser.add_argument("--run-once", action="store_true")
     args = parser.parse_args()
 
-    structlog.configure(
-        processors=[
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.dev.ConsoleRenderer(),
-        ]
-    )
+    configure_logging()
+    log = structlog.get_logger()
 
     cities, topics, pipeline_cfg = load_config()
     ensure_repo(pipeline_cfg.repo_dir)
 
+    app_state.cities = cities
+    app_state.topics = topics
+    app_state.pipeline_cfg = pipeline_cfg
+
     if args.run_once:
         await run_pipeline(cities, topics, pipeline_cfg)
         return
-
-    start_health_server()
 
     cron_expr = os.environ.get("SCHEDULE_CRON", "0 3 * * *")
     minute, hour, day, month, day_of_week = cron_expr.split()
@@ -108,25 +101,24 @@ async def main() -> None:
     scheduler = AsyncIOScheduler()
     scheduler.add_job(
         run_pipeline,
-        CronTrigger(
-            minute=minute,
-            hour=hour,
-            day=day,
-            month=month,
-            day_of_week=day_of_week,
-            timezone="UTC",
-        ),
+        CronTrigger(minute=minute, hour=hour, day=day, month=month,
+                    day_of_week=day_of_week, timezone="UTC"),
         args=[cities, topics, pipeline_cfg],
         misfire_grace_time=3600,
     )
     scheduler.start()
+    app_state.scheduler = scheduler
     log.info("scheduler_started", cron=cron_expr)
 
-    try:
-        while True:
-            await asyncio.sleep(60)
-    except (KeyboardInterrupt, SystemExit):
-        scheduler.shutdown()
+    config = uvicorn.Config(
+        web_app,
+        host="0.0.0.0",
+        port=8000,
+        log_level="warning",
+        loop="asyncio",
+    )
+    server = uvicorn.Server(config)
+    await server.serve()
 
 
 if __name__ == "__main__":
