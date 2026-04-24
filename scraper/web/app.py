@@ -1,6 +1,8 @@
 import asyncio
+import base64
 import importlib.metadata
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -11,8 +13,9 @@ import httpx
 import structlog
 import yaml
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from ..models import CommunityRecord
 from ..pipeline import run_pipeline
@@ -26,7 +29,29 @@ BASE_DIR = Path(__file__).parent.parent.parent
 CONFIG_DIR = BASE_DIR / "config"
 DATA_DIR = BASE_DIR / "data"
 
+_ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
+_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "almafa123")
+
+
+class _BasicAuth(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        auth = request.headers.get("Authorization", "")
+        if auth.lower().startswith("basic "):
+            try:
+                decoded = base64.b64decode(auth[6:]).decode("utf-8")
+                user, _, pwd = decoded.partition(":")
+                if user == _ADMIN_USER and pwd == _ADMIN_PASSWORD:
+                    return await call_next(request)
+            except Exception:
+                pass
+        return Response(
+            status_code=401,
+            headers={"WWW-Authenticate": 'Basic realm="Community Scraper"'},
+        )
+
+
 app = FastAPI(title="Community Scraper Admin")
+app.add_middleware(_BasicAuth)
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
