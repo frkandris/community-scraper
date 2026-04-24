@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Cache Detail – Community Scraper{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-6">
+  <a href="/cache" class="text-sm text-blue-600 hover:text-blue-800">← Cache</a>
+  <span class="text-gray-300">/</span>
+  <span class="text-sm text-gray-500 font-mono truncate max-w-xl">{{ entry.url }}</span>
+</div>
+
+<!-- Meta info -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+    <div>
+      <div class="text-xs text-gray-500 mb-0.5">Domain</div>
+      <div class="font-medium text-gray-800">{{ entry.domain }}</div>
+    </div>
+    <div>
+      <div class="text-xs text-gray-500 mb-0.5">City / Topic</div>
+      <div class="font-medium text-gray-800">
+        {% if entry.city %}{{ entry.city }}{% if entry.topic %} / {{ entry.topic.replace('_',' ') }}{% endif %}
+        {% else %}<span class="text-gray-400">—</span>{% endif %}
+      </div>
+    </div>
+    <div>
+      <div class="text-xs text-gray-500 mb-0.5">Scraped at</div>
+      <div class="font-mono text-xs text-gray-700">
+        {{ entry.scraped_at[:16].replace('T',' ') if entry.scraped_at else '—' }}
+      </div>
+    </div>
+    <div>
+      <div class="text-xs text-gray-500 mb-0.5">Extracted at</div>
+      <div class="font-mono text-xs text-gray-700">
+        {{ entry.extracted_at[:16].replace('T',' ') if entry.extracted_at else '—' }}
+      </div>
+    </div>
+  </div>
+  <div class="mt-3 pt-3 border-t border-gray-100">
+    <a href="{{ entry.url }}" target="_blank"
+       class="text-xs text-blue-600 hover:underline break-all">{{ entry.url }}</a>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  <!-- Scraped text -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-gray-700">Scraped text</h2>
+      {% if entry.scraped_at %}
+      <form method="POST" action="/cache/{{ entry.url_hash }}/delete-scraped"
+            onsubmit="return confirm('Delete scraped text?')">
+        <button class="text-xs text-orange-600 hover:text-orange-800 border border-orange-200 rounded px-2 py-0.5">
+          Delete
+        </button>
+      </form>
+      {% endif %}
+    </div>
+    {% if entry.raw_text %}
+    <pre class="text-xs text-gray-600 bg-gray-50 rounded-lg p-3 overflow-auto max-h-96 whitespace-pre-wrap leading-relaxed">{{ entry.raw_text }}</pre>
+    {% else %}
+    <p class="text-sm text-gray-400">No scraped text cached.</p>
+    {% endif %}
+  </div>
+
+  <!-- AI extraction -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-gray-700">AI extraction
+        {% if entry.records %}
+        <span class="ml-1 text-xs text-gray-400 font-normal">({{ entry.records|length }} records)</span>
+        {% endif %}
+      </h2>
+      {% if entry.extracted_at %}
+      <form method="POST" action="/cache/{{ entry.url_hash }}/delete-extracted"
+            onsubmit="return confirm('Delete AI extraction?')">
+        <button class="text-xs text-purple-600 hover:text-purple-800 border border-purple-200 rounded px-2 py-0.5">
+          Delete
+        </button>
+      </form>
+      {% endif %}
+    </div>
+    {% if entry.records %}
+    <div class="space-y-3 overflow-auto max-h-96">
+      {% for rec in entry.records %}
+      <div class="bg-gray-50 rounded-lg p-3 text-xs">
+        <div class="font-semibold text-gray-800 mb-1">{{ rec.name }}</div>
+        {% if rec.description %}
+        <div class="text-gray-600 mb-1">{{ rec.description }}</div>
+        {% endif %}
+        <div class="grid grid-cols-2 gap-1 text-gray-500">
+          {% if rec.meeting_schedule %}<div><span class="font-medium">Schedule:</span> {{ rec.meeting_schedule }}</div>{% endif %}
+          {% if rec.location %}<div><span class="font-medium">Location:</span> {{ rec.location }}</div>{% endif %}
+          {% if rec.contact %}<div><span class="font-medium">Contact:</span> {{ rec.contact }}</div>{% endif %}
+          {% if rec.website %}<div><span class="font-medium">Website:</span> <a href="{{ rec.website }}" target="_blank" class="text-blue-600 hover:underline">{{ rec.website }}</a></div>{% endif %}
+          {% if rec.confidence is not none %}<div><span class="font-medium">Confidence:</span> {{ "%.0f"|format(rec.confidence * 100) }}%</div>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-400">No AI extraction cached.</p>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Records in final store -->
+{% if store_records %}
+<div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+  <h2 class="text-sm font-semibold text-gray-700 mb-3">
+    In community store
+    <span class="text-xs text-gray-400 font-normal">({{ store_records|length }} records from this URL)</span>
+  </h2>
+  <div class="overflow-x-auto">
+    <table class="w-full text-xs">
+      <thead class="bg-gray-50 border-b border-gray-200">
+        <tr>
+          <th class="text-left px-3 py-2 text-gray-500 font-semibold">Name</th>
+          <th class="text-left px-3 py-2 text-gray-500 font-semibold">Description</th>
+          <th class="text-left px-3 py-2 text-gray-500 font-semibold">Schedule</th>
+          <th class="text-left px-3 py-2 text-gray-500 font-semibold">Location</th>
+          <th class="text-left px-3 py-2 text-gray-500 font-semibold">Extracted</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for r in store_records %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-3 py-2 font-medium text-gray-800">{{ r.name }}</td>
+          <td class="px-3 py-2 text-gray-600 max-w-xs truncate">{{ r.description or '—' }}</td>
+          <td class="px-3 py-2 text-gray-600">{{ r.meeting_schedule or '—' }}</td>
+          <td class="px-3 py-2 text-gray-600">{{ r.location or '—' }}</td>
+          <td class="px-3 py-2 text-gray-500 font-mono whitespace-nowrap">{{ r.extracted_at[:10] if r.extracted_at else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% elif entry.extracted_at %}
+<div class="mt-6 bg-yellow-50 border border-yellow-100 rounded-xl p-4 text-sm text-yellow-800">
+  AI extraction exists but no matching records found in the community store for this URL.
+</div>
+{% endif %}
+
+{% endblock %}

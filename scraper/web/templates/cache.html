@@ -31,10 +31,11 @@
       {% for e in entries %}
       <tr class="hover:bg-gray-50 transition-colors">
         <td class="px-4 py-3 max-w-xs">
-          <a href="{{ e.url }}" target="_blank"
-             class="text-xs text-blue-600 hover:underline truncate block max-w-xs"
+          <a href="/cache/{{ e.url_hash }}"
+             class="text-xs font-medium text-gray-800 hover:text-blue-600 truncate block max-w-xs"
              title="{{ e.url }}">{{ e.domain }}</a>
-          <span class="text-xs text-gray-400 truncate block max-w-xs">{{ e.url[len(e.domain)+8:] if e.url|length > 50 else '' }}</span>
+          <a href="{{ e.url }}" target="_blank"
+             class="text-xs text-gray-400 hover:underline truncate block max-w-xs">↗ open</a>
         </td>
         <td class="px-4 py-3 text-xs text-gray-600">
           {% if e.city %}

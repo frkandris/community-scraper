@@ -142,36 +142,28 @@
     {% endif %}
   </div>
 
-  <!-- Software -->
+  <!-- Run history -->
   <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Software</h2>
-    <div class="space-y-2 text-sm">
-      <div class="flex justify-between">
-        <span class="text-gray-600">SearXNG</span>
-        <span class="font-mono text-xs {% if software.searxng.status == 'ok' %}text-green-600{% else %}text-red-500{% endif %}">
-          {{ software.searxng.status }}
+    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Run History</h2>
+    {% if run_history %}
+    <div class="space-y-1.5">
+      {% for r in run_history %}
+      <div class="flex items-center justify-between text-xs">
+        <span class="text-gray-500 font-mono">{{ r.started_at[:16].replace('T',' ') }}</span>
+        <span class="px-1.5 py-0.5 rounded text-xs
+          {% if r.run_mode == 'ai_only' %}bg-purple-50 text-purple-700
+          {% else %}bg-blue-50 text-blue-700{% endif %}">
+          {{ r.run_mode }}
+        </span>
+        <span class="{% if r.success %}text-green-600{% else %}text-red-500{% endif %}">
+          {% if r.success %}✓{% else %}✗{% endif %}
         </span>
       </div>
-      <div class="flex justify-between">
-        <span class="text-gray-600">Ollama</span>
-        <span class="font-mono text-xs text-gray-700">
-          {{ software.ollama.version }}
-          <span class="text-gray-400">/ {{ software.ollama.model }}</span>
-        </span>
-      </div>
-      <div class="flex justify-between">
-        <span class="text-gray-600">Python</span>
-        <span class="font-mono text-xs text-gray-700">{{ software.python.version }}</span>
-      </div>
-      <div class="border-t border-gray-100 pt-2 mt-2 space-y-1">
-        {% for lib, ver in software.libs.items() %}
-        <div class="flex justify-between text-xs">
-          <span class="text-gray-500">{{ lib }}</span>
-          <span class="font-mono text-gray-600">{{ ver }}</span>
-        </div>
-        {% endfor %}
-      </div>
+      {% endfor %}
     </div>
+    {% else %}
+    <p class="text-sm text-gray-400">No runs recorded yet</p>
+    {% endif %}
   </div>
 
   <!-- Records by city -->
