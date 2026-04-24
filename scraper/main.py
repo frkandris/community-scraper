@@ -12,6 +12,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from .cache import CacheManager
+from .db import get_last_run, init_db
 from .pipeline import CityConfig, PipelineConfig, TopicConfig, run_pipeline
 from .vcs import ensure_repo
 from .web.app import app as web_app, templates
@@ -107,12 +108,22 @@ async def main() -> None:
 
     cache = CacheManager(DATA_DIR / "cache")
 
+    db_path = DATA_DIR / "scraper.db"
+    init_db(db_path)
+
     app_state.cities = cities
     app_state.topics = topics
     app_state.pipeline_cfg = pipeline_cfg
     app_state.cache_manager = cache
+    app_state.db_path = db_path
     app_state.version = _build_version()
     templates.env.globals["app_version"] = app_state.version
+
+    # Restore last_run_at from DB so it survives container restarts
+    persisted = get_last_run(db_path)
+    if persisted:
+        app_state.last_run_at = persisted
+        log.info("restored_last_run_at", last_run_at=persisted.isoformat())
 
     if args.run_once:
         await run_pipeline(cities, topics, pipeline_cfg, cache=cache)

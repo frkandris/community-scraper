@@ -11,3 +11,6 @@ logs/
 *.log
 
 .DS_Store
+
+data/scraper.db
+data/cache/
