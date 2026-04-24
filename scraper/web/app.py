@@ -48,8 +48,7 @@ async def dashboard(request: Request):
         if jobs and jobs[0].next_run_time:
             next_run = jobs[0].next_run_time.strftime("%Y-%m-%d %H:%M UTC")
 
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "dashboard.html", {
         "metadata": metadata,
         "commits": commits,
         "is_running": app_state.is_running,
@@ -74,10 +73,7 @@ async def results(request: Request):
         for topic, count in topics.items():
             rows.append({"city": city, "topic": topic, "count": count})
 
-    return templates.TemplateResponse("results.html", {
-        "request": request,
-        "rows": rows,
-    })
+    return templates.TemplateResponse(request, "results.html", {"rows": rows})
 
 
 @app.get("/results/{city}/{topic}", response_class=HTMLResponse)
@@ -87,8 +83,7 @@ async def result_detail(request: Request, city: str, topic: str):
     if file.exists():
         records = [CommunityRecord.model_validate(r) for r in json.loads(file.read_text(encoding="utf-8"))]
 
-    return templates.TemplateResponse("result_detail.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "result_detail.html", {
         "city": city,
         "topic": topic,
         "records": records,
@@ -99,8 +94,7 @@ async def result_detail(request: Request, city: str, topic: str):
 
 @app.get("/config", response_class=HTMLResponse)
 async def config_page(request: Request, saved: Optional[str] = None, error: Optional[str] = None):
-    return templates.TemplateResponse("config.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "config.html", {
         "cities_yaml": (CONFIG_DIR / "cities.yaml").read_text(encoding="utf-8"),
         "topics_yaml": (CONFIG_DIR / "topics.yaml").read_text(encoding="utf-8"),
         "settings_yaml": (CONFIG_DIR / "settings.yaml").read_text(encoding="utf-8"),
@@ -147,8 +141,7 @@ async def save_settings(request: Request, settings_yaml: str = Form(...)):
 async def logs_page(request: Request):
     history = broadcaster.get_all()
     last_seq = history[-1]["seq"] if history else 0
-    return templates.TemplateResponse("logs.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "logs.html", {
         "history": history,
         "last_seq": last_seq,
     })
@@ -220,7 +213,4 @@ async def history(request: Request):
         if len(parts) == 3:
             commits.append({"hash": parts[0], "date": parts[1][:16].replace("T", " "), "message": parts[2]})
 
-    return templates.TemplateResponse("history.html", {
-        "request": request,
-        "commits": commits,
-    })
+    return templates.TemplateResponse(request, "history.html", {"commits": commits})
