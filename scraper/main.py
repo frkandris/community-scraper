@@ -1,6 +1,8 @@
 import argparse
 import asyncio
 import os
+import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 import structlog
@@ -9,9 +11,10 @@ import yaml
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from .cache import CacheManager
 from .pipeline import CityConfig, PipelineConfig, TopicConfig, run_pipeline
 from .vcs import ensure_repo
-from .web.app import app as web_app
+from .web.app import app as web_app, templates
 from .web.log_stream import broadcaster
 from .web.state import app_state
 
@@ -35,6 +38,18 @@ def configure_logging() -> None:
     )
 
 
+def _build_version() -> str:
+    result = subprocess.run(
+        ["git", "log", "-1", "--format=%ci"],
+        cwd=str(BASE_DIR), capture_output=True, text=True,
+    )
+    commit_time = result.stdout.strip()
+    if commit_time and len(commit_time) >= 16:
+        # "2026-04-24 10:30:00 +0200" → "v.2026-04-24.10:30"
+        return "v." + commit_time[:16].replace(" ", ".")
+    return "v.unknown"
+
+
 def load_config() -> tuple[list[CityConfig], list[TopicConfig], PipelineConfig]:
     with open(CONFIG_DIR / "cities.yaml", encoding="utf-8") as f:
         cities_raw = yaml.safe_load(f)
@@ -55,6 +70,7 @@ def load_config() -> tuple[list[CityConfig], list[TopicConfig], PipelineConfig]:
         TopicConfig(name=t["name"], search_terms=t["search_terms"])
         for t in topics_raw["topics"]
     ]
+    cache_cfg = settings.get("cache", {})
     pipeline_cfg = PipelineConfig(
         searxng_url=os.environ.get("SEARXNG_URL", "http://localhost:8080"),
         ollama_url=os.environ.get("OLLAMA_URL", "http://localhost:11434"),
@@ -72,6 +88,8 @@ def load_config() -> tuple[list[CityConfig], list[TopicConfig], PipelineConfig]:
         commit_after_run=settings["pipeline"]["commit_after_run"],
         data_dir=DATA_DIR,
         repo_dir=BASE_DIR,
+        cache_skip_scraped=cache_cfg.get("skip_scraped", True),
+        cache_skip_extracted=cache_cfg.get("skip_extracted", True),
     )
     return cities, topics, pipeline_cfg
 
@@ -87,12 +105,17 @@ async def main() -> None:
     cities, topics, pipeline_cfg = load_config()
     ensure_repo(pipeline_cfg.repo_dir)
 
+    cache = CacheManager(DATA_DIR / "cache")
+
     app_state.cities = cities
     app_state.topics = topics
     app_state.pipeline_cfg = pipeline_cfg
+    app_state.cache_manager = cache
+    app_state.version = _build_version()
+    templates.env.globals["app_version"] = app_state.version
 
     if args.run_once:
-        await run_pipeline(cities, topics, pipeline_cfg)
+        await run_pipeline(cities, topics, pipeline_cfg, cache=cache)
         return
 
     cron_expr = os.environ.get("SCHEDULE_CRON", "0 3 * * *")
@@ -104,11 +127,12 @@ async def main() -> None:
         CronTrigger(minute=minute, hour=hour, day=day, month=month,
                     day_of_week=day_of_week, timezone="UTC"),
         args=[cities, topics, pipeline_cfg],
+        kwargs={"cache": cache},
         misfire_grace_time=3600,
     )
     scheduler.start()
     app_state.scheduler = scheduler
-    log.info("scheduler_started", cron=cron_expr)
+    log.info("scheduler_started", cron=cron_expr, version=app_state.version)
 
     config = uvicorn.Config(
         web_app,

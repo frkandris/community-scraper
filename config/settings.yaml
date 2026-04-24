@@ -26,5 +26,9 @@ pipeline:
   commit_after_run: true
   push_after_commit: false
 
+cache:
+  skip_scraped: true
+  skip_extracted: true
+
 schedule:
   cron: "0 3 * * *"

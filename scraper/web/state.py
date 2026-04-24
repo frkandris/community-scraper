@@ -11,6 +11,8 @@ class AppState:
     topics: list = field(default_factory=list)
     pipeline_cfg: Any = None
     scheduler: Any = None
+    cache_manager: Any = None
+    version: str = "v.unknown"
 
 
 app_state = AppState()

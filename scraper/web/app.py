@@ -1,10 +1,13 @@
 import asyncio
+import importlib.metadata
 import json
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+import httpx
 import structlog
 import yaml
 from fastapi import FastAPI, Form, Request
@@ -25,6 +28,34 @@ DATA_DIR = BASE_DIR / "data"
 
 app = FastAPI(title="Community Scraper Admin")
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+
+
+def _lib_version(name: str) -> str:
+    try:
+        return importlib.metadata.version(name)
+    except Exception:
+        return "?"
+
+
+async def _ollama_version(base_url: str) -> str:
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(f"{base_url.rstrip('/')}/api/version")
+            return resp.json().get("version", "?")
+    except Exception:
+        return "unreachable"
+
+
+async def _searxng_status(base_url: str) -> str:
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(f"{base_url.rstrip('/')}/search",
+                                    params={"q": "test", "format": "json"})
+            if resp.status_code == 200:
+                return "ok"
+            return f"HTTP {resp.status_code}"
+    except Exception:
+        return "unreachable"
 
 
 # ── Dashboard ──────────────────────────────────────────────────────────────────
@@ -48,6 +79,44 @@ async def dashboard(request: Request):
         if jobs and jobs[0].next_run_time:
             next_run = jobs[0].next_run_time.strftime("%Y-%m-%d %H:%M UTC")
 
+    cfg = app_state.pipeline_cfg
+    ollama_url = cfg.ollama_url if cfg else "http://localhost:11434"
+    ollama_model = cfg.ollama_model if cfg else "?"
+    searxng_url = cfg.searxng_url if cfg else "http://localhost:8080"
+
+    ollama_ver, searxng_st = await asyncio.gather(
+        _ollama_version(ollama_url),
+        _searxng_status(searxng_url),
+    )
+
+    software = {
+        "searxng": {"label": "SearXNG", "status": searxng_st},
+        "ollama": {"label": "Ollama", "version": ollama_ver, "model": ollama_model},
+        "python": {"label": "Python", "version": sys.version.split()[0]},
+        "libs": {
+            "httpx": _lib_version("httpx"),
+            "trafilatura": _lib_version("trafilatura"),
+            "pydantic": _lib_version("pydantic"),
+            "fastapi": _lib_version("fastapi"),
+        },
+    }
+
+    cache_defaults = {}
+    if cfg:
+        cache_defaults = {
+            "skip_scraped": cfg.cache_skip_scraped,
+            "skip_extracted": cfg.cache_skip_extracted,
+        }
+
+    cache_stats = {}
+    if app_state.cache_manager:
+        idx = app_state.cache_manager.get_index()
+        cache_stats = {
+            "total": len(idx),
+            "with_text": sum(1 for e in idx if e["has_text"]),
+            "with_extract": sum(1 for e in idx if e["extracted_at"]),
+        }
+
     return templates.TemplateResponse(request, "dashboard.html", {
         "metadata": metadata,
         "commits": commits,
@@ -56,6 +125,9 @@ async def dashboard(request: Request):
         "next_run": next_run,
         "city_count": len(app_state.cities),
         "topic_count": len(app_state.topics),
+        "software": software,
+        "cache_defaults": cache_defaults,
+        "cache_stats": cache_stats,
     })
 
 
@@ -173,14 +245,29 @@ async def log_stream(last_seq: int = 0):
 # ── Run ────────────────────────────────────────────────────────────────────────
 
 @app.post("/api/run")
-async def trigger_run():
+async def trigger_run(
+    run_mode: str = Form("full"),
+    skip_scraped: str = Form("off"),
+    skip_extracted: str = Form("off"),
+):
     if app_state.is_running:
         return RedirectResponse("/logs", status_code=302)
+
+    _skip_scraped = (skip_scraped == "on")
+    _skip_extracted = (skip_extracted == "on")
 
     async def _run() -> None:
         app_state.is_running = True
         try:
-            await run_pipeline(app_state.cities, app_state.topics, app_state.pipeline_cfg)
+            await run_pipeline(
+                app_state.cities,
+                app_state.topics,
+                app_state.pipeline_cfg,
+                cache=app_state.cache_manager,
+                run_mode=run_mode,
+                skip_scraped=_skip_scraped,
+                skip_extracted=_skip_extracted,
+            )
             app_state.last_run_at = datetime.now(timezone.utc)
         except Exception as exc:
             log.error("manual_run_failed", error=str(exc))
@@ -197,6 +284,37 @@ async def status():
         "is_running": app_state.is_running,
         "last_run_at": app_state.last_run_at.isoformat() if app_state.last_run_at else None,
     }
+
+
+# ── Cache ──────────────────────────────────────────────────────────────────────
+
+@app.get("/cache", response_class=HTMLResponse)
+async def cache_page(request: Request):
+    entries = []
+    if app_state.cache_manager:
+        entries = app_state.cache_manager.get_index()
+    return templates.TemplateResponse(request, "cache.html", {"entries": entries})
+
+
+@app.post("/cache/{url_hash}/delete-scraped")
+async def cache_delete_scraped(url_hash: str):
+    if app_state.cache_manager:
+        app_state.cache_manager.delete_scraped(url_hash)
+    return RedirectResponse("/cache", status_code=302)
+
+
+@app.post("/cache/{url_hash}/delete-extracted")
+async def cache_delete_extracted(url_hash: str):
+    if app_state.cache_manager:
+        app_state.cache_manager.delete_extracted(url_hash)
+    return RedirectResponse("/cache", status_code=302)
+
+
+@app.post("/cache/{url_hash}/delete")
+async def cache_delete_entry(url_hash: str):
+    if app_state.cache_manager:
+        app_state.cache_manager.delete_entry(url_hash)
+    return RedirectResponse("/cache", status_code=302)
 
 
 # ── History ────────────────────────────────────────────────────────────────────

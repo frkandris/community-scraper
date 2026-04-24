@@ -1,14 +1,19 @@
-from dataclasses import dataclass
+import asyncio
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import structlog
 
 from .extract import OllamaExtractor
-from .fetch import fetch_many
+from .fetch import fetch_and_clean
 from .search import SearXNGClient, build_queries
 from .store import save_results, update_metadata
 from .vcs import commit_data
+
+if TYPE_CHECKING:
+    from .cache import CacheManager
 
 log = structlog.get_logger()
 
@@ -44,14 +49,22 @@ class PipelineConfig:
     commit_after_run: bool
     data_dir: Path
     repo_dir: Path
+    cache_skip_scraped: bool = True
+    cache_skip_extracted: bool = True
 
 
 async def run_pipeline(
     cities: list[CityConfig],
     topics: list[TopicConfig],
     config: PipelineConfig,
+    cache: "CacheManager | None" = None,
+    run_mode: str = "full",
+    skip_scraped: bool | None = None,
+    skip_extracted: bool | None = None,
 ) -> None:
-    searxng = SearXNGClient(config.searxng_url, rate_limit_seconds=config.search_rate_limit)
+    _skip_scraped = skip_scraped if skip_scraped is not None else config.cache_skip_scraped
+    _skip_extracted = skip_extracted if skip_extracted is not None else config.cache_skip_extracted
+
     extractor = OllamaExtractor(
         base_url=config.ollama_url,
         model=config.ollama_model,
@@ -61,7 +74,39 @@ async def run_pipeline(
     )
 
     run_stats: dict[str, dict[str, int]] = {}
-    total_records = 0
+    total_new = 0
+
+    if run_mode == "ai_only":
+        total_new = await _run_ai_only(
+            cities, topics, config, extractor, cache, _skip_extracted, run_stats
+        )
+    else:
+        total_new = await _run_full(
+            cities, topics, config, extractor, cache, _skip_scraped, _skip_extracted, run_stats
+        )
+
+    update_metadata(run_stats, config.data_dir)
+    log.info("pipeline_complete", run_mode=run_mode, total_new_records=total_new)
+
+    if config.commit_after_run:
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        message = f"scraper: {timestamp} – {total_new} records ({run_mode})"
+        commit_data(config.repo_dir, message)
+
+
+async def _run_full(
+    cities: list[CityConfig],
+    topics: list[TopicConfig],
+    config: PipelineConfig,
+    extractor: OllamaExtractor,
+    cache: "CacheManager | None",
+    skip_scraped: bool,
+    skip_extracted: bool,
+    run_stats: dict,
+) -> int:
+    searxng = SearXNGClient(config.searxng_url, rate_limit_seconds=config.search_rate_limit)
+    semaphore = asyncio.Semaphore(config.fetch_max_concurrent)
+    total_new = 0
 
     for city in cities:
         run_stats[city.name] = {}
@@ -72,43 +117,108 @@ async def run_pipeline(
             queries = build_queries(city.name, city.search_variants, terms)
 
             search_results = await searxng.search_all(
-                queries,
-                locale=city.locale,
-                num_results=config.search_results_per_query,
+                queries, locale=city.locale, num_results=config.search_results_per_query,
             )
             log.info("search_done", city=city.name, topic=topic.name, urls=len(search_results))
 
-            urls = [r.url for r in search_results]
-            fetched = await fetch_many(
-                urls,
-                blocked_domains=config.fetch_blocked_domains,
-                max_pages=config.search_max_pages,
-                timeout_seconds=config.fetch_timeout,
-                min_text_length=config.fetch_min_text_length,
-                max_concurrent=config.fetch_max_concurrent,
-            )
+            urls = [r.url for r in search_results][:config.search_max_pages]
+            fetched: list[tuple[str, str]] = []
+
+            for url in urls:
+                if cache and skip_scraped:
+                    cached_text = cache.get_scraped(url)
+                    if cached_text:
+                        log.debug("cache_hit_scrape", url=url)
+                        fetched.append((url, cached_text))
+                        continue
+
+                text = await fetch_and_clean(
+                    url, config.fetch_blocked_domains,
+                    config.fetch_timeout, config.fetch_min_text_length,
+                    semaphore,
+                )
+                if text:
+                    if cache:
+                        cache.save_scraped(url, text, city.name, topic.name)
+                    fetched.append((url, text))
+
             log.info("fetch_done", city=city.name, topic=topic.name, pages=len(fetched))
 
             records = []
             for url, text in fetched:
+                if cache and skip_extracted:
+                    cached_records = cache.get_extracted(url)
+                    if cached_records is not None:
+                        log.debug("cache_hit_extract", url=url)
+                        records.extend(cached_records)
+                        continue
+
                 extracted = await extractor.extract(
-                    text=text,
-                    city=city.name,
-                    topic=topic.name,
-                    locale=city.locale,
-                    source_url=url,
+                    text=text, city=city.name, topic=topic.name,
+                    locale=city.locale, source_url=url,
                 )
+                if cache:
+                    cache.save_extracted(url, extracted)
                 records.extend(extracted)
+                total_new += len(extracted)
                 log.info("extracted", url=url, found=len(extracted))
 
             count = save_results(city.name, topic.name, records, config.data_dir)
             run_stats[city.name][topic.name] = count
-            total_records += len(records)
 
-    update_metadata(run_stats, config.data_dir)
-    log.info("pipeline_complete", total_new_records=total_records)
+    return total_new
 
-    if config.commit_after_run:
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-        message = f"scraper: {timestamp} – {total_records} records"
-        commit_data(config.repo_dir, message)
+
+async def _run_ai_only(
+    cities: list[CityConfig],
+    topics: list[TopicConfig],
+    config: PipelineConfig,
+    extractor: OllamaExtractor,
+    cache: "CacheManager | None",
+    skip_extracted: bool,
+    run_stats: dict,
+) -> int:
+    if not cache:
+        log.warning("ai_only_mode_no_cache")
+        return 0
+
+    all_scraped = cache.get_all_scraped()
+    log.info("ai_only_start", cached_pages=len(all_scraped))
+
+    city_topic_pages: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    for url, text, city, topic in all_scraped:
+        city_topic_pages.setdefault((city, topic), []).append((url, text))
+
+    total_new = 0
+    for city in cities:
+        run_stats[city.name] = {}
+        for topic in topics:
+            pages = city_topic_pages.get((city.name, topic.name), [])
+            if not pages:
+                log.info("ai_only_no_cache", city=city.name, topic=topic.name)
+                run_stats[city.name][topic.name] = 0
+                continue
+
+            log.info("ai_only_processing", city=city.name, topic=topic.name, pages=len(pages))
+            records = []
+            for url, text in pages:
+                if skip_extracted:
+                    cached = cache.get_extracted(url)
+                    if cached is not None:
+                        log.debug("cache_hit_extract", url=url)
+                        records.extend(cached)
+                        continue
+
+                extracted = await extractor.extract(
+                    text=text, city=city.name, topic=topic.name,
+                    locale=city.locale, source_url=url,
+                )
+                cache.save_extracted(url, extracted)
+                records.extend(extracted)
+                total_new += len(extracted)
+                log.info("extracted", url=url, found=len(extracted))
+
+            count = save_results(city.name, topic.name, records, config.data_dir)
+            run_stats[city.name][topic.name] = count
+
+    return total_new

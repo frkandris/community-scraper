@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Cache – Community Scraper{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold text-gray-900">Page Cache</h1>
+  <span class="text-sm text-gray-500">{{ entries|length }} entries</span>
+</div>
+
+<div class="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 text-sm text-blue-800">
+  <strong>Cache levels:</strong>
+  <span class="ml-2"><strong>Scrape</strong> – raw page text fetched from the web.</span>
+  <span class="ml-4"><strong>Extract</strong> – AI-interpreted community records from that text.</span>
+  <span class="ml-4">Delete a level to force re-processing on next run.</span>
+</div>
+
+{% if entries %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 border-b border-gray-200">
+      <tr>
+        <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">URL</th>
+        <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">City / Topic</th>
+        <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Scraped at</th>
+        <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Extracted at</th>
+        <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Records</th>
+        <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for e in entries %}
+      <tr class="hover:bg-gray-50 transition-colors">
+        <td class="px-4 py-3 max-w-xs">
+          <a href="{{ e.url }}" target="_blank"
+             class="text-xs text-blue-600 hover:underline truncate block max-w-xs"
+             title="{{ e.url }}">{{ e.domain }}</a>
+          <span class="text-xs text-gray-400 truncate block max-w-xs">{{ e.url[len(e.domain)+8:] if e.url|length > 50 else '' }}</span>
+        </td>
+        <td class="px-4 py-3 text-xs text-gray-600">
+          {% if e.city %}
+          <span class="font-medium">{{ e.city }}</span>
+          {% if e.topic %}<span class="text-gray-400"> / {{ e.topic.replace('_',' ') }}</span>{% endif %}
+          {% else %}
+          <span class="text-gray-400">—</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+          {% if e.scraped_at %}
+            {{ e.scraped_at[:16].replace('T',' ') }}
+          {% else %}
+            <span class="text-gray-300">—</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+          {% if e.extracted_at %}
+            {{ e.extracted_at[:16].replace('T',' ') }}
+          {% else %}
+            <span class="text-gray-300">—</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-right text-xs font-medium text-gray-700">
+          {% if e.extracted_at %}{{ e.record_count }}{% else %}<span class="text-gray-300">—</span>{% endif %}
+        </td>
+        <td class="px-4 py-3 text-right">
+          <div class="flex items-center justify-end gap-1">
+            {% if e.has_text %}
+            <form method="POST" action="/cache/{{ e.url_hash }}/delete-scraped"
+                  onsubmit="return confirm('Delete scraped text for this URL?')">
+              <button type="submit"
+                class="px-2 py-1 text-xs rounded bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 transition-colors">
+                Del scrape
+              </button>
+            </form>
+            {% endif %}
+            {% if e.extracted_at %}
+            <form method="POST" action="/cache/{{ e.url_hash }}/delete-extracted"
+                  onsubmit="return confirm('Delete AI extraction for this URL?')">
+              <button type="submit"
+                class="px-2 py-1 text-xs rounded bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 transition-colors">
+                Del AI
+              </button>
+            </form>
+            {% endif %}
+            <form method="POST" action="/cache/{{ e.url_hash }}/delete"
+                  onsubmit="return confirm('Delete entire cache entry?')">
+              <button type="submit"
+                class="px-2 py-1 text-xs rounded bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 transition-colors">
+                Del all
+              </button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+  <p class="text-gray-400">No cached pages yet. Run the scraper to populate the cache.</p>
+</div>
+{% endif %}
+
+{% endblock %}
