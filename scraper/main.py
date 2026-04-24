@@ -40,14 +40,11 @@ def configure_logging() -> None:
 
 
 def _build_version() -> str:
-    result = subprocess.run(
-        ["git", "log", "-1", "--format=%ci"],
-        cwd=str(BASE_DIR), capture_output=True, text=True,
-    )
-    commit_time = result.stdout.strip()
-    if commit_time and len(commit_time) >= 16:
-        # "2026-04-24 10:30:00 +0200" → "v.2026-04-24.10:30"
-        return "v." + commit_time[:16].replace(" ", ".")
+    version_file = BASE_DIR / "VERSION"
+    if version_file.exists():
+        ts = version_file.read_text().strip()
+        if ts:
+            return "v." + ts
     return "v.unknown"
 
 
