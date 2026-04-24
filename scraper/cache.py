@@ -137,6 +137,9 @@ class CacheManager:
         self._save(entry)
         return True
 
+    def get_entry(self, url_hash: str) -> dict | None:
+        return self._load(url_hash)
+
     def delete_entry(self, url_hash: str) -> bool:
         path = self._page_path(url_hash)
         if path.exists():

@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 
@@ -12,6 +13,7 @@ class AppState:
     pipeline_cfg: Any = None
     scheduler: Any = None
     cache_manager: Any = None
+    db_path: Path | None = None
     version: str = "v.unknown"
 
 
