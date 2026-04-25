@@ -462,7 +462,7 @@ async def _render_explore(
         })
 
     available_topics: dict[str, int] = {}
-    if city and not topic:
+    if city:
         for t in topics:
             count = len(_load_communities(city, t.name))
             if count > 0:
