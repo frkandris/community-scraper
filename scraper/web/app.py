@@ -558,6 +558,40 @@ async def public_subscribe(
     return RedirectResponse(f"/explore?{qs}", status_code=302)
 
 
+_FEEDBACK_EMAIL = os.environ.get("FEEDBACK_EMAIL", "")
+
+
+@_fastapi.post("/feedback")
+async def public_feedback(
+    community_name: str = Form(""),
+    city: str = Form(""),
+    topic: str = Form(""),
+    page_url: str = Form(""),
+    message: str = Form(""),
+):
+    if _FEEDBACK_EMAIL and message:
+        try:
+            import smtplib
+            from email.message import EmailMessage
+            smtp_host = os.environ.get("SMTP_HOST", "localhost")
+            smtp_port = int(os.environ.get("SMTP_PORT", "25"))
+            smtp_user = os.environ.get("SMTP_USER", "")
+            smtp_pass = os.environ.get("SMTP_PASS", "")
+            msg = EmailMessage()
+            msg["Subject"] = f"[CommUnity feedback] {community_name} – {city}"
+            msg["From"] = smtp_user or "noreply@community.local"
+            msg["To"] = _FEEDBACK_EMAIL
+            body = f"Community: {community_name}\nCity: {city}\nTopic: {topic}\nPage: {page_url}\n\n{message}"
+            msg.set_content(body)
+            with smtplib.SMTP(smtp_host, smtp_port) as s:
+                if smtp_user and smtp_pass:
+                    s.login(smtp_user, smtp_pass)
+                s.send_message(msg)
+        except Exception as exc:
+            log.warning("feedback_email_failed", error=str(exc))
+    return JSONResponse({"ok": True})
+
+
 @_fastapi.get("/unsubscribe", response_class=HTMLResponse)
 async def public_unsubscribe(request: Request, token: str = ""):
     removed = False
