@@ -1037,6 +1037,13 @@ async def cache_delete_entry(url_hash: str):
     return RedirectResponse("/admin/cache", status_code=302)
 
 
+@admin.post("/cache/clear-all")
+async def cache_clear_all():
+    if app_state.cache_manager:
+        app_state.cache_manager.clear_all()
+    return RedirectResponse("/admin/cache", status_code=302)
+
+
 @admin.post("/cache/{url_hash}/run-scrape")
 async def cache_run_scrape(url_hash: str):
     if not app_state.cache_manager or not app_state.pipeline_cfg:
