@@ -31,7 +31,7 @@
       {% for e in entries %}
       <tr class="hover:bg-gray-50 transition-colors">
         <td class="px-4 py-3 max-w-xs">
-          <a href="/cache/{{ e.url_hash }}"
+          <a href="/admin/cache/{{ e.url_hash }}"
              class="text-xs font-medium text-gray-800 hover:text-blue-600 truncate block max-w-xs"
              title="{{ e.url }}">{{ e.domain }}</a>
           <a href="{{ e.url }}" target="_blank"
@@ -65,7 +65,7 @@
         <td class="px-4 py-3 text-right">
           <div class="flex items-center justify-end gap-1">
             {% if e.has_text %}
-            <form method="POST" action="/cache/{{ e.url_hash }}/delete-scraped"
+            <form method="POST" action="/admin/cache/{{ e.url_hash }}/delete-scraped"
                   onsubmit="return confirm('Delete scraped text for this URL?')">
               <button type="submit"
                 class="px-2 py-1 text-xs rounded bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 transition-colors">
@@ -74,7 +74,7 @@
             </form>
             {% endif %}
             {% if e.extracted_at %}
-            <form method="POST" action="/cache/{{ e.url_hash }}/delete-extracted"
+            <form method="POST" action="/admin/cache/{{ e.url_hash }}/delete-extracted"
                   onsubmit="return confirm('Delete AI extraction for this URL?')">
               <button type="submit"
                 class="px-2 py-1 text-xs rounded bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 transition-colors">
@@ -82,7 +82,7 @@
               </button>
             </form>
             {% endif %}
-            <form method="POST" action="/cache/{{ e.url_hash }}/delete"
+            <form method="POST" action="/admin/cache/{{ e.url_hash }}/delete"
                   onsubmit="return confirm('Delete entire cache entry?')">
               <button type="submit"
                 class="px-2 py-1 text-xs rounded bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 transition-colors">

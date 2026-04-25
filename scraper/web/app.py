@@ -12,8 +12,8 @@ from typing import Optional
 import httpx
 import structlog
 import yaml
-from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi import APIRouter, FastAPI, Form, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -32,15 +32,66 @@ DATA_DIR = BASE_DIR / "data"
 _ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
 _ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "almafa123")
 
+TOPIC_ICONS: dict[str, str] = {
+    "running": "🏃",
+    "board_games": "🎲",
+    "choir": "🎵",
+    "dance": "💃",
+    "cycling": "🚴",
+    "hiking": "🥾",
+    "yoga": "🧘",
+    "photography": "📸",
+    "book_club": "📚",
+    "chess": "♟️",
+    "cooking": "🍳",
+    "theater": "🎭",
+    "music": "🎸",
+    "martial_arts": "🥋",
+    "gaming": "🎮",
+    "volunteering": "🤝",
+    "language_exchange": "🗣️",
+    "art": "🎨",
+    "meditation": "🕊️",
+    "swimming": "🏊",
+}
+
+TOPIC_LABELS: dict[str, str] = {
+    "running": "Running",
+    "board_games": "Board Games",
+    "choir": "Choir",
+    "dance": "Dance",
+    "cycling": "Cycling",
+    "hiking": "Hiking",
+    "yoga": "Yoga",
+    "photography": "Photography",
+    "book_club": "Book Club",
+    "chess": "Chess",
+    "cooking": "Cooking",
+    "theater": "Theater",
+    "music": "Music",
+    "martial_arts": "Martial Arts",
+    "gaming": "Gaming",
+    "volunteering": "Volunteering",
+    "language_exchange": "Language Exchange",
+    "art": "Art",
+    "meditation": "Meditation",
+    "swimming": "Swimming",
+}
+
 
 class _BasicAuth:
-    """Pure ASGI auth middleware — no response buffering, SSE works correctly."""
+    """Pure ASGI auth middleware — protects /admin/* only, no SSE buffering."""
 
     def __init__(self, inner: ASGIApp) -> None:
         self._inner = inner
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] not in ("http", "websocket"):
+            await self._inner(scope, receive, send)
+            return
+
+        path = scope.get("path", "")
+        if not path.startswith("/admin"):
             await self._inner(scope, receive, send)
             return
 
@@ -61,17 +112,21 @@ class _BasicAuth:
             "type": "http.response.start",
             "status": 401,
             "headers": [
-                [b"www-authenticate", b'Basic realm="Community Scraper"'],
+                [b"www-authenticate", b'Basic realm="Community Scraper Admin"'],
                 [b"content-length", b"0"],
             ],
         })
         await send({"type": "http.response.body", "body": b""})
 
 
-_fastapi = FastAPI(title="Community Scraper Admin")
+_fastapi = FastAPI(title="Community Scraper")
 app = _BasicAuth(_fastapi)
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
+admin = APIRouter(prefix="/admin")
+
+
+# ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _lib_version(name: str) -> str:
     try:
@@ -104,7 +159,6 @@ async def _build_software_info() -> dict:
     ollama_url = cfg.ollama_url if cfg else "http://localhost:11434"
     ollama_model = cfg.ollama_model if cfg else "?"
     searxng_url = cfg.searxng_url if cfg else "http://localhost:8080"
-
     ollama_ver, searxng_st = await asyncio.gather(
         _ollama_version(ollama_url),
         _searxng_status(searxng_url),
@@ -122,9 +176,123 @@ async def _build_software_info() -> dict:
     }
 
 
-# ── Dashboard ──────────────────────────────────────────────────────────────────
+def _load_communities(city: str, topic: str) -> list[dict]:
+    path = DATA_DIR / _normalize(city) / _normalize(topic) / "communities.json"
+    if not path.exists():
+        return []
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PUBLIC ROUTES
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @_fastapi.get("/", response_class=HTMLResponse)
+async def public_home(request: Request, city: str = ""):
+    cities = app_state.cities or []
+    topics = app_state.topics or []
+    return templates.TemplateResponse(request, "public_home.html", {
+        "cities": cities,
+        "topics": topics,
+        "topic_icons": TOPIC_ICONS,
+        "topic_labels": TOPIC_LABELS,
+        "selected_city": city,
+    })
+
+
+@_fastapi.get("/explore", response_class=HTMLResponse)
+async def public_explore(
+    request: Request,
+    city: str = "",
+    topic: list[str] = Query(default=[]),
+    subscribed: str = "",
+):
+    cities = app_state.cities or []
+    topics = app_state.topics or []
+
+    # Load communities for each selected city+topic
+    sections: list[dict] = []
+    total = 0
+    for t in (topic if topic else []):
+        records = _load_communities(city, t) if city else []
+        total += len(records)
+        sections.append({
+            "topic": t,
+            "label": TOPIC_LABELS.get(t, t.replace("_", " ").title()),
+            "icon": TOPIC_ICONS.get(t, "●"),
+            "records": records,
+        })
+
+    # If city provided but no topic, show available topics for that city
+    available_topics: dict[str, int] = {}
+    if city and not topic:
+        for t in topics:
+            count = len(_load_communities(city, t.name))
+            if count > 0:
+                available_topics[t.name] = count
+
+    return templates.TemplateResponse(request, "public_explore.html", {
+        "city": city,
+        "topics": topics,
+        "selected_topics": topic,
+        "sections": sections,
+        "total": total,
+        "topic_icons": TOPIC_ICONS,
+        "topic_labels": TOPIC_LABELS,
+        "available_topics": available_topics,
+        "cities": cities,
+        "subscribed": subscribed == "1",
+    })
+
+
+@_fastapi.post("/subscribe")
+async def public_subscribe(
+    request: Request,
+    email: str = Form(...),
+    city: str = Form(...),
+    topics: list[str] = Form(default=[]),
+):
+    if not app_state.db_path or not email or not city or not topics:
+        return RedirectResponse(
+            f"/explore?city={city}&" + "&".join(f"topic={t}" for t in topics),
+            status_code=302,
+        )
+    from ..db import save_subscription
+    for t in topics:
+        save_subscription(app_state.db_path, email, city, t)
+
+    qs = f"city={city}&" + "&".join(f"topic={t}" for t in topics) + "&subscribed=1"
+    return RedirectResponse(f"/explore?{qs}", status_code=302)
+
+
+@_fastapi.get("/unsubscribe", response_class=HTMLResponse)
+async def public_unsubscribe(request: Request, token: str = ""):
+    removed = False
+    if token and app_state.db_path:
+        from ..db import delete_subscription
+        removed = delete_subscription(app_state.db_path, token)
+    return templates.TemplateResponse(request, "public_unsubscribe.html", {"removed": removed})
+
+
+@_fastapi.get("/api/city-topics")
+async def api_city_topics(city: str = ""):
+    """Return per-topic community counts for a city (used by home page JS)."""
+    if not city:
+        return JSONResponse({})
+    result = {}
+    for t in (app_state.topics or []):
+        result[t.name] = len(_load_communities(city, t.name))
+    return JSONResponse(result)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ADMIN ROUTES  (prefix: /admin, protected by _BasicAuth)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@admin.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
     metadata = {}
     meta_file = DATA_DIR / "metadata.json"
@@ -189,9 +357,7 @@ async def dashboard(request: Request):
     })
 
 
-# ── Results ────────────────────────────────────────────────────────────────────
-
-@_fastapi.get("/results", response_class=HTMLResponse)
+@admin.get("/results", response_class=HTMLResponse)
 async def results(request: Request):
     metadata = {}
     meta_file = DATA_DIR / "metadata.json"
@@ -206,7 +372,7 @@ async def results(request: Request):
     return templates.TemplateResponse(request, "results.html", {"rows": rows})
 
 
-@_fastapi.get("/results/{city}/{topic}", response_class=HTMLResponse)
+@admin.get("/results/{city}/{topic}", response_class=HTMLResponse)
 async def result_detail(request: Request, city: str, topic: str):
     file = DATA_DIR / _normalize(city) / _normalize(topic) / "communities.json"
     records = []
@@ -220,11 +386,15 @@ async def result_detail(request: Request, city: str, topic: str):
     })
 
 
-# ── Config ─────────────────────────────────────────────────────────────────────
-
-@_fastapi.get("/config", response_class=HTMLResponse)
+@admin.get("/config", response_class=HTMLResponse)
 async def config_page(request: Request, saved: Optional[str] = None, error: Optional[str] = None):
     software = await _build_software_info()
+
+    sub_count = 0
+    if app_state.db_path:
+        from ..db import get_subscriptions
+        sub_count = len(get_subscriptions(app_state.db_path))
+
     return templates.TemplateResponse(request, "config.html", {
         "cities_yaml": (CONFIG_DIR / "cities.yaml").read_text(encoding="utf-8"),
         "topics_yaml": (CONFIG_DIR / "topics.yaml").read_text(encoding="utf-8"),
@@ -232,44 +402,56 @@ async def config_page(request: Request, saved: Optional[str] = None, error: Opti
         "saved": saved,
         "error": error,
         "software": software,
+        "sub_count": sub_count,
     })
 
 
-@_fastapi.post("/config/cities")
+@admin.post("/config/cities")
 async def save_cities(request: Request, cities_yaml: str = Form(...)):
     try:
         parsed = yaml.safe_load(cities_yaml)
         assert isinstance(parsed, dict) and "cities" in parsed, "Missing 'cities' key"
         (CONFIG_DIR / "cities.yaml").write_text(cities_yaml, encoding="utf-8")
-        return RedirectResponse("/config?saved=cities", status_code=302)
+        return RedirectResponse("/admin/config?saved=cities", status_code=302)
     except Exception as exc:
-        return RedirectResponse(f"/config?error={exc}", status_code=302)
+        return RedirectResponse(f"/admin/config?error={exc}", status_code=302)
 
 
-@_fastapi.post("/config/topics")
+@admin.post("/config/topics")
 async def save_topics(request: Request, topics_yaml: str = Form(...)):
     try:
         parsed = yaml.safe_load(topics_yaml)
         assert isinstance(parsed, dict) and "topics" in parsed, "Missing 'topics' key"
         (CONFIG_DIR / "topics.yaml").write_text(topics_yaml, encoding="utf-8")
-        return RedirectResponse("/config?saved=topics", status_code=302)
+        return RedirectResponse("/admin/config?saved=topics", status_code=302)
     except Exception as exc:
-        return RedirectResponse(f"/config?error={exc}", status_code=302)
+        return RedirectResponse(f"/admin/config?error={exc}", status_code=302)
 
 
-@_fastapi.post("/config/settings")
+@admin.post("/config/settings")
 async def save_settings(request: Request, settings_yaml: str = Form(...)):
     try:
         yaml.safe_load(settings_yaml)
         (CONFIG_DIR / "settings.yaml").write_text(settings_yaml, encoding="utf-8")
-        return RedirectResponse("/config?saved=settings", status_code=302)
+        return RedirectResponse("/admin/config?saved=settings", status_code=302)
     except Exception as exc:
-        return RedirectResponse(f"/config?error={exc}", status_code=302)
+        return RedirectResponse(f"/admin/config?error={exc}", status_code=302)
 
 
-# ── Logs ───────────────────────────────────────────────────────────────────────
+@admin.get("/subscriptions", response_class=HTMLResponse)
+async def subscriptions_page(request: Request):
+    subs = []
+    if app_state.db_path:
+        from ..db import get_subscriptions
+        subs = get_subscriptions(app_state.db_path)
+    return templates.TemplateResponse(request, "subscriptions.html", {
+        "subs": subs,
+        "topic_icons": TOPIC_ICONS,
+        "topic_labels": TOPIC_LABELS,
+    })
 
-@_fastapi.get("/logs", response_class=HTMLResponse)
+
+@admin.get("/logs", response_class=HTMLResponse)
 async def logs_page(request: Request):
     history = broadcaster.get_all()
     last_seq = history[-1]["seq"] if history else 0
@@ -279,7 +461,7 @@ async def logs_page(request: Request):
     })
 
 
-@_fastapi.get("/api/logs/stream")
+@admin.get("/api/logs/stream")
 async def log_stream(last_seq: int = 0):
     async def generate():
         current_seq = last_seq
@@ -302,16 +484,14 @@ async def log_stream(last_seq: int = 0):
     )
 
 
-# ── Run ────────────────────────────────────────────────────────────────────────
-
-@_fastapi.post("/api/run")
+@admin.post("/api/run")
 async def trigger_run(
     run_mode: str = Form("full"),
     skip_scraped: str = Form("off"),
     skip_extracted: str = Form("off"),
 ):
     if app_state.is_running:
-        return RedirectResponse("/logs", status_code=302)
+        return RedirectResponse("/admin/logs", status_code=302)
 
     _skip_scraped = (skip_scraped == "on")
     _skip_extracted = (skip_extracted == "on")
@@ -344,10 +524,10 @@ async def trigger_run(
                            json.dumps(pair_logs) if pair_logs else None)
 
     asyncio.create_task(_run())
-    return RedirectResponse("/logs", status_code=302)
+    return RedirectResponse("/admin/logs", status_code=302)
 
 
-@_fastapi.get("/api/status")
+@admin.get("/api/status")
 async def status():
     return {
         "is_running": app_state.is_running,
@@ -355,9 +535,7 @@ async def status():
     }
 
 
-# ── Cache ──────────────────────────────────────────────────────────────────────
-
-@_fastapi.get("/cache", response_class=HTMLResponse)
+@admin.get("/cache", response_class=HTMLResponse)
 async def cache_page(request: Request):
     entries = []
     if app_state.cache_manager:
@@ -365,16 +543,15 @@ async def cache_page(request: Request):
     return templates.TemplateResponse(request, "cache.html", {"entries": entries})
 
 
-@_fastapi.get("/cache/{url_hash}", response_class=HTMLResponse)
+@admin.get("/cache/{url_hash}", response_class=HTMLResponse)
 async def cache_detail(request: Request, url_hash: str):
     if not app_state.cache_manager:
-        return RedirectResponse("/cache", status_code=302)
+        return RedirectResponse("/admin/cache", status_code=302)
 
     entry = app_state.cache_manager.get_entry(url_hash)
     if not entry:
-        return RedirectResponse("/cache", status_code=302)
+        return RedirectResponse("/admin/cache", status_code=302)
 
-    # Find matching records in the final data store
     store_records = []
     city = entry.get("city", "")
     topic = entry.get("topic", "")
@@ -394,37 +571,35 @@ async def cache_detail(request: Request, url_hash: str):
     })
 
 
-@_fastapi.post("/cache/{url_hash}/delete-scraped")
+@admin.post("/cache/{url_hash}/delete-scraped")
 async def cache_delete_scraped(url_hash: str):
     if app_state.cache_manager:
         app_state.cache_manager.delete_scraped(url_hash)
-    return RedirectResponse("/cache", status_code=302)
+    return RedirectResponse("/admin/cache", status_code=302)
 
 
-@_fastapi.post("/cache/{url_hash}/delete-extracted")
+@admin.post("/cache/{url_hash}/delete-extracted")
 async def cache_delete_extracted(url_hash: str):
     if app_state.cache_manager:
         app_state.cache_manager.delete_extracted(url_hash)
-    return RedirectResponse("/cache", status_code=302)
+    return RedirectResponse("/admin/cache", status_code=302)
 
 
-@_fastapi.post("/cache/{url_hash}/delete")
+@admin.post("/cache/{url_hash}/delete")
 async def cache_delete_entry(url_hash: str):
     if app_state.cache_manager:
         app_state.cache_manager.delete_entry(url_hash)
-    return RedirectResponse("/cache", status_code=302)
+    return RedirectResponse("/admin/cache", status_code=302)
 
 
-# ── Run detail ─────────────────────────────────────────────────────────────────
-
-@_fastapi.get("/runs/{run_id}", response_class=HTMLResponse)
+@admin.get("/runs/{run_id}", response_class=HTMLResponse)
 async def run_detail(request: Request, run_id: int):
     if not app_state.db_path:
-        return RedirectResponse("/", status_code=302)
+        return RedirectResponse("/admin", status_code=302)
     from ..db import get_run_detail
     run = get_run_detail(app_state.db_path, run_id)
     if not run:
-        return RedirectResponse("/", status_code=302)
+        return RedirectResponse("/admin", status_code=302)
     pair_logs = json.loads(run["search_log"]) if run.get("search_log") else []
     return templates.TemplateResponse(request, "run_detail.html", {
         "run": run,
@@ -432,9 +607,7 @@ async def run_detail(request: Request, run_id: int):
     })
 
 
-# ── History ────────────────────────────────────────────────────────────────────
-
-@_fastapi.get("/history", response_class=HTMLResponse)
+@admin.get("/history", response_class=HTMLResponse)
 async def history(request: Request):
     result = subprocess.run(
         ["git", "log", "--pretty=format:%h|%ai|%s", "-30"],
@@ -449,11 +622,10 @@ async def history(request: Request):
     return templates.TemplateResponse(request, "history.html", {"commits": commits})
 
 
-@_fastapi.get("/history/{commit_hash}", response_class=HTMLResponse)
+@admin.get("/history/{commit_hash}", response_class=HTMLResponse)
 async def history_detail(request: Request, commit_hash: str):
-    # Validate: only hex chars allowed
     if not all(c in "0123456789abcdefABCDEF" for c in commit_hash):
-        return RedirectResponse("/history", status_code=302)
+        return RedirectResponse("/admin/history", status_code=302)
 
     stat = subprocess.run(
         ["git", "show", "--stat", "--no-color", commit_hash],
@@ -468,3 +640,6 @@ async def history_detail(request: Request, commit_hash: str):
         "stat": stat.stdout,
         "diff": diff.stdout,
     })
+
+
+_fastapi.include_router(admin)

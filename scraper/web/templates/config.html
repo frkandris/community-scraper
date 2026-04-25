@@ -20,7 +20,7 @@
   <!-- Cities -->
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
     <h2 class="text-sm font-semibold text-gray-700 mb-3">cities.yaml</h2>
-    <form method="POST" action="/config/cities">
+    <form method="POST" action="/admin/config/cities">
       <textarea name="cities_yaml" rows="18"
         class="w-full font-mono text-xs bg-gray-50 border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y">{{ cities_yaml }}</textarea>
       <button type="submit"
@@ -33,7 +33,7 @@
   <!-- Topics -->
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
     <h2 class="text-sm font-semibold text-gray-700 mb-3">topics.yaml</h2>
-    <form method="POST" action="/config/topics">
+    <form method="POST" action="/admin/config/topics">
       <textarea name="topics_yaml" rows="18"
         class="w-full font-mono text-xs bg-gray-50 border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y">{{ topics_yaml }}</textarea>
       <button type="submit"
@@ -46,7 +46,7 @@
   <!-- Settings -->
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:col-span-2">
     <h2 class="text-sm font-semibold text-gray-700 mb-3">settings.yaml</h2>
-    <form method="POST" action="/config/settings">
+    <form method="POST" action="/admin/config/settings">
       <textarea name="settings_yaml" rows="12"
         class="w-full font-mono text-xs bg-gray-50 border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y">{{ settings_yaml }}</textarea>
       <button type="submit"

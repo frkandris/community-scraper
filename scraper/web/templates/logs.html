@@ -43,7 +43,7 @@ function levelClass(level) {
   return 'text-green-400';
 }
 
-const es = new EventSource('/api/logs/stream?last_seq={{ last_seq }}');
+const es = new EventSource('/admin/api/logs/stream?last_seq={{ last_seq }}');
 es.onmessage = (e) => {
   const line = JSON.parse(e.data);
   const div = document.createElement('div');

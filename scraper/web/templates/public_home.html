@@ -1,0 +1,156 @@
+{% extends "public_base.html" %}
+{% block title %}CommUnity – Find your community{% endblock %}
+{% block content %}
+
+<!-- Hero -->
+<div class="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 text-white py-16 px-6">
+  <div class="max-w-2xl mx-auto text-center">
+    <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4 leading-tight">
+      Find your community
+    </h1>
+    <p class="text-indigo-200 text-lg mb-0">
+      Discover local clubs, groups and activities in cities worldwide.
+    </p>
+  </div>
+</div>
+
+<!-- Search form -->
+<div class="max-w-2xl mx-auto px-6 -mt-8 pb-16">
+  <div class="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sm:p-8">
+
+    <form action="/explore" method="GET" id="explore-form">
+
+      <!-- City input -->
+      <div class="mb-7">
+        <label for="city-input" class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">City</label>
+        <div class="relative">
+          <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none">🏙</span>
+          <input
+            type="text"
+            name="city"
+            id="city-input"
+            list="cities-list"
+            value="{{ selected_city }}"
+            placeholder="Type a city name…"
+            autocomplete="off"
+            class="w-full pl-11 pr-4 py-3.5 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors bg-gray-50 focus:bg-white placeholder-gray-400 text-gray-900"
+          >
+          <datalist id="cities-list">
+            {% for city in cities %}
+            <option value="{{ city.name }}">{{ city.name }}, {{ city.country }}</option>
+            {% endfor %}
+          </datalist>
+        </div>
+        <p id="city-hint" class="mt-1.5 text-xs text-gray-400 hidden">
+          <span id="city-count-text"></span>
+        </p>
+      </div>
+
+      <!-- Topics -->
+      <div class="mb-7">
+        <div class="flex items-center justify-between mb-3">
+          <label class="text-xs font-semibold text-gray-500 uppercase tracking-widest">Interests</label>
+          <button type="button" id="clear-topics" class="text-xs text-indigo-500 hover:text-indigo-700 hidden">Clear all</button>
+        </div>
+        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+          {% for topic in topics %}
+          <label class="topic-chip cursor-pointer select-none" data-topic="{{ topic.name }}">
+            <input type="checkbox" name="topic" value="{{ topic.name }}" class="sr-only">
+            <div class="flex flex-col items-center gap-1 py-3 px-2 rounded-xl border-2 border-gray-200 bg-gray-50 transition-all text-center">
+              <span class="text-xl leading-none">{{ topic_icons.get(topic.name, '●') }}</span>
+              <span class="chip-label text-xs text-gray-600 leading-tight">{{ topic_labels.get(topic.name, topic.name.replace('_',' ').title()) }}</span>
+              <span class="count-badge text-xs font-semibold text-green-600 hidden leading-none"></span>
+            </div>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <button type="submit" id="explore-btn"
+        class="w-full py-3.5 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 active:bg-indigo-800 transition-colors shadow-md text-base disabled:opacity-40 disabled:cursor-not-allowed">
+        Explore communities →
+      </button>
+
+    </form>
+  </div>
+</div>
+
+<script>
+const cityInput = document.getElementById('city-input');
+const hint = document.getElementById('city-hint');
+const cityCountText = document.getElementById('city-count-text');
+const clearBtn = document.getElementById('clear-topics');
+const chips = document.querySelectorAll('.topic-chip');
+
+// Track checked state
+function getCheckedTopics() {
+  return [...chips].filter(c => c.querySelector('input').checked);
+}
+
+// Show/hide clear button
+function updateClearBtn() {
+  const any = getCheckedTopics().length > 0;
+  clearBtn.classList.toggle('hidden', !any);
+}
+
+chips.forEach(chip => {
+  chip.querySelector('input').addEventListener('change', updateClearBtn);
+});
+
+clearBtn.addEventListener('click', () => {
+  chips.forEach(c => c.querySelector('input').checked = false);
+  updateClearBtn();
+});
+
+// Fetch topic counts when city changes
+let fetchTimeout;
+async function fetchCounts(city) {
+  if (!city || city.length < 2) {
+    chips.forEach(c => {
+      c.classList.remove('has-data');
+      c.querySelector('.count-badge').classList.add('hidden');
+    });
+    hint.classList.add('hidden');
+    return;
+  }
+  try {
+    const res = await fetch('/api/city-topics?city=' + encodeURIComponent(city));
+    const data = await res.json();
+    let totalCount = 0;
+    chips.forEach(chip => {
+      const topic = chip.dataset.topic;
+      const count = data[topic] || 0;
+      const badge = chip.querySelector('.count-badge');
+      if (count > 0) {
+        badge.textContent = count;
+        badge.classList.remove('hidden');
+        chip.classList.add('has-data');
+        totalCount += count;
+      } else {
+        badge.classList.add('hidden');
+        chip.classList.remove('has-data');
+      }
+    });
+    if (totalCount > 0) {
+      cityCountText.textContent = totalCount + ' communities found in ' + city;
+      hint.classList.remove('hidden');
+    } else {
+      cityCountText.textContent = 'No data yet for ' + city + ' – check back after the next run.';
+      hint.classList.remove('hidden');
+    }
+  } catch (e) {}
+}
+
+cityInput.addEventListener('input', () => {
+  clearTimeout(fetchTimeout);
+  fetchTimeout = setTimeout(() => fetchCounts(cityInput.value.trim()), 350);
+});
+
+// Run on load if city pre-filled
+if (cityInput.value.trim()) {
+  fetchCounts(cityInput.value.trim());
+}
+</script>
+
+{% endblock %}

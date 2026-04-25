@@ -1,0 +1,248 @@
+{% extends "public_base.html" %}
+{% block title %}
+  {% if city and selected_topics %}
+    {{ city }} · {{ selected_topics | map('replace', '_', ' ') | join(', ') | title }} – CommUnity
+  {% elif city %}
+    {{ city }} – CommUnity
+  {% else %}
+    Explore – CommUnity
+  {% endif %}
+{% endblock %}
+{% block content %}
+
+<!-- Top bar -->
+<div class="bg-white border-b border-gray-100 sticky top-[57px] z-10 shadow-sm">
+  <div class="max-w-5xl mx-auto px-6 py-3 flex items-center gap-2 flex-wrap">
+    <a href="/" class="text-sm text-gray-400 hover:text-gray-700 transition-colors">CommUnity</a>
+    {% if city %}
+    <span class="text-gray-300">/</span>
+    <a href="/explore?city={{ city }}" class="text-sm {% if not selected_topics %}font-semibold text-gray-900{% else %}text-gray-500 hover:text-gray-800{% endif %}">{{ city }}</a>
+    {% endif %}
+    {% for t in selected_topics %}
+    <span class="text-gray-300">/</span>
+    <span class="text-sm font-semibold text-indigo-700">{{ topic_icons.get(t, '') }} {{ topic_labels.get(t, t.replace('_',' ').title()) }}</span>
+    {% endfor %}
+
+    <a href="/{% if city %}?city={{ city }}{% endif %}" class="ml-auto text-xs text-indigo-500 hover:text-indigo-700 border border-indigo-200 rounded-lg px-3 py-1 transition-colors">
+      ← Change filters
+    </a>
+  </div>
+</div>
+
+<div class="max-w-5xl mx-auto px-6 py-8">
+
+  {% if subscribed %}
+  <div class="mb-6 bg-green-50 border border-green-200 rounded-xl px-5 py-4 flex items-center gap-3">
+    <span class="text-green-600 text-xl">✓</span>
+    <div>
+      <div class="text-sm font-semibold text-green-800">You're subscribed!</div>
+      <div class="text-xs text-green-600 mt-0.5">We'll notify you when new communities are found in {{ city }}.</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- If city given but no topics selected: show topic picker -->
+  {% if city and not selected_topics %}
+
+  <div class="text-center mb-8">
+    <h1 class="text-2xl font-bold text-gray-900 mb-2">What are you looking for in {{ city }}?</h1>
+    <p class="text-gray-500">Pick one or more interests to explore communities.</p>
+  </div>
+
+  <form action="/explore" method="GET">
+    <input type="hidden" name="city" value="{{ city }}">
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-8">
+      {% for topic in topics %}
+      <label class="cursor-pointer select-none group">
+        <input type="checkbox" name="topic" value="{{ topic.name }}" class="sr-only peer">
+        <div class="relative flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 border-gray-200 bg-white
+          peer-checked:border-indigo-500 peer-checked:bg-indigo-50
+          group-hover:border-gray-300 group-hover:bg-gray-50 transition-all text-center cursor-pointer">
+          <span class="text-2xl leading-none">{{ topic_icons.get(topic.name, '●') }}</span>
+          <span class="text-xs font-medium text-gray-700 peer-checked:text-indigo-700 leading-tight">
+            {{ topic_labels.get(topic.name, topic.name.replace('_',' ').title()) }}
+          </span>
+          {% if available_topics.get(topic.name, 0) > 0 %}
+          <span class="absolute top-2 right-2 text-xs font-bold text-green-600 bg-green-50 rounded-full px-1.5 leading-5">
+            {{ available_topics[topic.name] }}
+          </span>
+          {% endif %}
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="text-center">
+      <button type="submit" class="px-8 py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-md">
+        Explore →
+      </button>
+    </div>
+  </form>
+
+  <!-- If no city given: redirect to home -->
+  {% elif not city %}
+  <div class="text-center py-20">
+    <div class="text-5xl mb-4">🏙</div>
+    <h2 class="text-xl font-semibold text-gray-700 mb-3">Choose a city to get started</h2>
+    <a href="/" class="inline-block px-6 py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">
+      ← Back to search
+    </a>
+  </div>
+
+  <!-- Results -->
+  {% else %}
+
+  <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">
+        {% if selected_topics | length == 1 %}
+          {{ topic_icons.get(selected_topics[0], '') }} {{ topic_labels.get(selected_topics[0], selected_topics[0].replace('_',' ').title()) }} in {{ city }}
+        {% else %}
+          Communities in {{ city }}
+        {% endif %}
+      </h1>
+      {% if total > 0 %}
+      <p class="text-sm text-gray-500 mt-0.5">{{ total }} {{ 'community' if total == 1 else 'communities' }} found</p>
+      {% endif %}
+    </div>
+
+    <!-- Add/remove topics -->
+    <form action="/explore" method="GET" class="flex items-center gap-2 flex-wrap">
+      <input type="hidden" name="city" value="{{ city }}">
+      {% for t in topics %}
+      <label class="cursor-pointer">
+        <input type="checkbox" name="topic" value="{{ t.name }}" class="sr-only peer"
+          {% if t.name in selected_topics %}checked{% endif %}
+          onchange="this.form.submit()">
+        <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all cursor-pointer
+          peer-checked:bg-indigo-100 peer-checked:border-indigo-400 peer-checked:text-indigo-800
+          border-gray-200 bg-white text-gray-500 hover:border-gray-300">
+          {{ topic_icons.get(t.name, '') }} {{ topic_labels.get(t.name, t.name.replace('_',' ').title()) }}
+        </span>
+      </label>
+      {% endfor %}
+    </form>
+  </div>
+
+  {% if total == 0 %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center mb-8">
+    <div class="text-5xl mb-4">🔍</div>
+    <h3 class="text-lg font-semibold text-gray-700 mb-2">No communities found yet</h3>
+    <p class="text-sm text-gray-400 max-w-xs mx-auto">
+      We haven't scraped data for this combination yet. Subscribe below to get notified when communities are added.
+    </p>
+  </div>
+  {% else %}
+
+  {% for section in sections %}
+  {% if section.records %}
+  {% if sections | length > 1 %}
+  <h2 class="text-base font-semibold text-gray-700 mb-3 mt-6">
+    {{ section.icon }} {{ section.label }}
+    <span class="ml-2 text-xs text-gray-400 font-normal">{{ section.records | length }}</span>
+  </h2>
+  {% endif %}
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    {% for r in section.records %}
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow flex flex-col gap-3">
+
+      <div class="flex items-start justify-between gap-3">
+        <h3 class="font-semibold text-gray-900 text-base leading-snug">{{ r.name }}</h3>
+        {% if r.confidence and r.confidence >= 0.7 %}
+        <span class="shrink-0 text-xs px-1.5 py-0.5 rounded-full font-medium
+          {% if r.confidence >= 0.85 %}bg-green-100 text-green-700
+          {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+          {{ (r.confidence * 100) | int }}%
+        </span>
+        {% endif %}
+      </div>
+
+      {% if r.description %}
+      <p class="text-sm text-gray-600 leading-relaxed">{{ r.description }}</p>
+      {% endif %}
+
+      <div class="grid grid-cols-1 gap-1 text-sm">
+        {% if r.location %}
+        <div class="flex items-start gap-2 text-gray-600">
+          <span class="text-base leading-5 shrink-0">📍</span>
+          <span>{{ r.location }}</span>
+        </div>
+        {% endif %}
+        {% if r.meeting_schedule %}
+        <div class="flex items-start gap-2 text-gray-600">
+          <span class="text-base leading-5 shrink-0">🗓</span>
+          <span>{{ r.meeting_schedule }}</span>
+        </div>
+        {% endif %}
+        {% if r.contact %}
+        <div class="flex items-start gap-2 text-gray-600">
+          <span class="text-base leading-5 shrink-0">✉️</span>
+          <span>{{ r.contact }}</span>
+        </div>
+        {% endif %}
+      </div>
+
+      {% if r.website or r.social_links %}
+      <div class="flex flex-wrap gap-2 pt-1 border-t border-gray-50">
+        {% if r.website %}
+        <a href="{{ r.website }}" target="_blank" rel="noopener"
+           class="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-lg font-medium transition-colors">
+          🔗 Website
+        </a>
+        {% endif %}
+        {% for link in r.social_links[:2] %}
+        <a href="{{ link }}" target="_blank" rel="noopener"
+           class="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 bg-gray-50 px-2.5 py-1 rounded-lg transition-colors">
+          {{ link | replace('https://','') | replace('http://','') | truncate(28, True, '…') }}
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endfor %}
+
+  {% endif %}
+
+  <!-- Subscribe section -->
+  <div class="mt-8 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100 p-6 sm:p-8">
+    <div class="max-w-lg">
+      <h3 class="text-lg font-bold text-gray-900 mb-1">🔔 Get notified about new communities</h3>
+      <p class="text-sm text-gray-500 mb-5">
+        We'll email you when new
+        {% if selected_topics %}
+          <strong>{{ selected_topics | map('replace', '_', ' ') | join(', ') }}</strong>
+        {% else %}
+          community
+        {% endif %}
+        groups are found in <strong>{{ city }}</strong>.
+      </p>
+
+      <form action="/subscribe" method="POST" class="flex flex-col sm:flex-row gap-3">
+        <input type="hidden" name="city" value="{{ city }}">
+        {% for t in selected_topics %}
+        <input type="hidden" name="topics" value="{{ t }}">
+        {% endfor %}
+        <input
+          type="email"
+          name="email"
+          required
+          placeholder="your@email.com"
+          class="flex-1 px-4 py-2.5 border-2 border-indigo-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500 bg-white transition-colors"
+        >
+        <button type="submit"
+          class="px-6 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm whitespace-nowrap">
+          Subscribe
+        </button>
+      </form>
+      <p class="mt-2 text-xs text-gray-400">No spam. Unsubscribe anytime.</p>
+    </div>
+  </div>
+
+  {% endif %}
+
+</div>
+{% endblock %}

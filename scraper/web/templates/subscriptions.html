@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Subscribers – Community Scraper{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold text-gray-900">Email Subscribers</h1>
+  <span class="text-sm text-gray-500">{{ subs | length }} total</span>
+</div>
+
+{% if subs %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 border-b border-gray-200">
+      <tr>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Email</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">City</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Topic</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Subscribed</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for s in subs %}
+      <tr class="hover:bg-gray-50 transition-colors">
+        <td class="px-5 py-3 font-medium text-gray-800">{{ s.email }}</td>
+        <td class="px-5 py-3 text-gray-600">{{ s.city }}</td>
+        <td class="px-5 py-3 text-gray-600">
+          {{ topic_icons.get(s.topic, '') }}
+          {{ topic_labels.get(s.topic, s.topic.replace('_',' ').title()) }}
+        </td>
+        <td class="px-5 py-3 text-gray-400 text-xs font-mono whitespace-nowrap">
+          {{ s.created_at[:16].replace('T',' ') }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+  <p class="text-gray-400">No subscribers yet. They'll appear here once someone subscribes on the public site.</p>
+</div>
+{% endif %}
+
+{% endblock %}

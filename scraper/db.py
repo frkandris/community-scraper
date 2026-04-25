@@ -1,5 +1,6 @@
 import sqlite3
-from datetime import datetime
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -15,11 +16,24 @@ def init_db(db_path: Path) -> None:
                 search_log  TEXT
             )
         """)
-        # migrate: add search_log if table existed without it
         try:
             conn.execute("ALTER TABLE runs ADD COLUMN search_log TEXT")
         except sqlite3.OperationalError:
             pass
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS subscriptions (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                email      TEXT NOT NULL,
+                city       TEXT NOT NULL,
+                topic      TEXT NOT NULL,
+                token      TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_sub_uniq
+            ON subscriptions(email, city, topic)
+        """)
         conn.commit()
 
 
@@ -79,6 +93,42 @@ def get_run_history(db_path: Path, limit: int = 20) -> list[dict]:
         ]
     except Exception:
         return []
+
+
+def save_subscription(db_path: Path, email: str, city: str, topic: str) -> str:
+    token = str(uuid.uuid4())
+    with sqlite3.connect(db_path) as conn:
+        try:
+            conn.execute(
+                "INSERT INTO subscriptions (email, city, topic, token, created_at) VALUES (?,?,?,?,?)",
+                (email.strip().lower(), city, topic, token, datetime.now(timezone.utc).isoformat()),
+            )
+            conn.commit()
+        except sqlite3.IntegrityError:
+            row = conn.execute(
+                "SELECT token FROM subscriptions WHERE email=? AND city=? AND topic=?",
+                (email.strip().lower(), city, topic),
+            ).fetchone()
+            token = row[0] if row else token
+    return token
+
+
+def delete_subscription(db_path: Path, token: str) -> bool:
+    with sqlite3.connect(db_path) as conn:
+        cur = conn.execute("DELETE FROM subscriptions WHERE token=?", (token,))
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def get_subscriptions(db_path: Path) -> list[dict]:
+    if not db_path.exists():
+        return []
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT id, email, city, topic, created_at FROM subscriptions ORDER BY id DESC"
+        ).fetchall()
+    return [{"id": r[0], "email": r[1], "city": r[2], "topic": r[3], "created_at": r[4]}
+            for r in rows]
 
 
 def get_run_detail(db_path: Path, run_id: int) -> dict | None:
