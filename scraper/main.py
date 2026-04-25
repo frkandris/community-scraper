@@ -137,6 +137,9 @@ async def main() -> None:
     cron_expr = os.environ.get("SCHEDULE_CRON", "*/15 * * * *")
     minute, hour, day, month, day_of_week = cron_expr.split()
 
+    def _on_progress(url: str | None) -> None:
+        app_state.current_url = url
+
     async def _scheduled_run() -> None:
         if app_state.is_running:
             log.info("scheduled_run_skipped", reason="already_running")
@@ -146,13 +149,16 @@ async def main() -> None:
         success = False
         pair_logs: list = []
         try:
-            pair_logs = await run_pipeline(cities, topics, pipeline_cfg, cache=cache)
+            pair_logs = await run_pipeline(
+                cities, topics, pipeline_cfg, cache=cache, on_progress=_on_progress
+            )
             app_state.last_run_at = datetime.now(timezone.utc)
             success = True
         except Exception as exc:
             log.error("scheduled_run_failed", error=str(exc))
         finally:
             app_state.is_running = False
+            app_state.current_url = None
             record_run(db_path, started, datetime.now(timezone.utc), "full", success,
                        json.dumps(pair_logs) if pair_logs else None)
 

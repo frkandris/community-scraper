@@ -727,6 +727,9 @@ async def trigger_run(
     _skip_scraped = (skip_scraped == "on")
     _skip_extracted = (skip_extracted == "on")
 
+    def _on_progress(url: str | None) -> None:
+        app_state.current_url = url
+
     async def _run() -> None:
         app_state.is_running = True
         started = datetime.now(timezone.utc)
@@ -741,6 +744,7 @@ async def trigger_run(
                 run_mode=run_mode,
                 skip_scraped=_skip_scraped,
                 skip_extracted=_skip_extracted,
+                on_progress=_on_progress,
             )
             app_state.last_run_at = datetime.now(timezone.utc)
             success = True
@@ -748,6 +752,7 @@ async def trigger_run(
             log.error("manual_run_failed", error=str(exc))
         finally:
             app_state.is_running = False
+            app_state.current_url = None
             if app_state.db_path:
                 from ..db import record_run
                 record_run(app_state.db_path, started, datetime.now(timezone.utc),
@@ -764,6 +769,27 @@ async def status():
         "is_running": app_state.is_running,
         "last_run_at": app_state.last_run_at.isoformat() if app_state.last_run_at else None,
     }
+
+
+@admin.get("/api/progress")
+async def api_progress():
+    """Return the URL currently being AI-extracted (for live cache indicator)."""
+    url = app_state.current_url
+    if url and app_state.cache_manager:
+        import hashlib
+        url_hash = hashlib.sha256(url.encode()).hexdigest()[:16]
+    else:
+        url_hash = None
+    return JSONResponse({"url_hash": url_hash, "url": url})
+
+
+@admin.get("/api/cache-entries")
+async def api_cache_entries():
+    """Return fresh cache entries as JSON for live table refresh."""
+    entries = []
+    if app_state.cache_manager:
+        entries = app_state.cache_manager.get_index()
+    return JSONResponse(entries)
 
 
 @admin.get("/cache", response_class=HTMLResponse)

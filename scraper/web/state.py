@@ -15,6 +15,7 @@ class AppState:
     cache_manager: Any = None
     db_path: Path | None = None
     version: str = "v.unknown"
+    current_url: str | None = None  # URL currently being AI-extracted
 
 
 app_state = AppState()

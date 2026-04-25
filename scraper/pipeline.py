@@ -2,7 +2,7 @@ import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 import structlog
 
@@ -62,6 +62,7 @@ async def run_pipeline(
     run_mode: str = "full",
     skip_scraped: bool | None = None,
     skip_extracted: bool | None = None,
+    on_progress: Callable[[str | None], None] | None = None,
 ) -> list[dict]:
     _skip_scraped = skip_scraped if skip_scraped is not None else config.cache_skip_scraped
     _skip_extracted = skip_extracted if skip_extracted is not None else config.cache_skip_extracted
@@ -80,11 +81,11 @@ async def run_pipeline(
 
     if run_mode == "ai_only":
         total_new, pair_logs = await _run_ai_only(
-            cities, topics, config, extractor, cache, _skip_extracted, run_stats
+            cities, topics, config, extractor, cache, _skip_extracted, run_stats, on_progress
         )
     else:
         total_new, pair_logs = await _run_full(
-            cities, topics, config, extractor, cache, _skip_scraped, _skip_extracted, run_stats
+            cities, topics, config, extractor, cache, _skip_scraped, _skip_extracted, run_stats, on_progress
         )
 
     update_metadata(run_stats, config.data_dir)
@@ -107,6 +108,7 @@ async def _run_full(
     skip_scraped: bool,
     skip_extracted: bool,
     run_stats: dict,
+    on_progress: Callable[[str | None], None] | None,
 ) -> tuple[int, list[dict]]:
     searxng = SearXNGClient(config.searxng_url, rate_limit_seconds=config.search_rate_limit)
     semaphore = asyncio.Semaphore(config.fetch_max_concurrent)
@@ -173,20 +175,41 @@ async def _run_full(
                         pair_log["records_extracted"] += len(cached_records)
                         continue
 
-                extracted = await extractor.extract(
-                    text=text, city=city.name, topic=topic.name,
-                    locale=city.locale, source_url=url,
-                )
+                # Signal active URL before the slow AI step
+                if on_progress:
+                    on_progress(url)
+                try:
+                    extracted = await extractor.extract(
+                        text=text, city=city.name, topic=topic.name,
+                        locale=city.locale, source_url=url,
+                    )
+                finally:
+                    if on_progress:
+                        on_progress(None)
+
                 if cache:
                     cache.save_extracted(url, extracted)
+
+                # Persist immediately — safe even if server restarts mid-run
+                if extracted:
+                    save_results(city.name, topic.name, extracted, config.data_dir)
+
                 records.extend(extracted)
                 total_new += len(extracted)
                 pair_log["records_extracted"] += len(extracted)
                 log.info("extracted", url=url, found=len(extracted))
 
+            # Final merge for the pair (also covers cache-hit records) and accurate count
             count = save_results(city.name, topic.name, records, config.data_dir)
             run_stats[city.name][topic.name] = count
+            update_metadata(run_stats, config.data_dir)
             pair_logs.append(pair_log)
+
+        # Commit after each city completes (all its topics)
+        if config.commit_after_run:
+            city_total = sum(run_stats.get(city.name, {}).values())
+            ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+            commit_data(config.repo_dir, f"scraper: {ts} – {city.name} – {city_total} records")
 
     return total_new, pair_logs
 
@@ -199,6 +222,7 @@ async def _run_ai_only(
     cache: "CacheManager | None",
     skip_extracted: bool,
     run_stats: dict,
+    on_progress: Callable[[str | None], None] | None,
 ) -> tuple[int, list[dict]]:
     if not cache:
         log.warning("ai_only_mode_no_cache")
@@ -247,11 +271,22 @@ async def _run_ai_only(
                         pair_log["records_extracted"] += len(cached)
                         continue
 
-                extracted = await extractor.extract(
-                    text=text, city=city.name, topic=topic.name,
-                    locale=city.locale, source_url=url,
-                )
+                if on_progress:
+                    on_progress(url)
+                try:
+                    extracted = await extractor.extract(
+                        text=text, city=city.name, topic=topic.name,
+                        locale=city.locale, source_url=url,
+                    )
+                finally:
+                    if on_progress:
+                        on_progress(None)
+
                 cache.save_extracted(url, extracted)
+
+                if extracted:
+                    save_results(city.name, topic.name, extracted, config.data_dir)
+
                 records.extend(extracted)
                 total_new += len(extracted)
                 pair_log["records_extracted"] += len(extracted)
@@ -259,6 +294,12 @@ async def _run_ai_only(
 
             count = save_results(city.name, topic.name, records, config.data_dir)
             run_stats[city.name][topic.name] = count
+            update_metadata(run_stats, config.data_dir)
             pair_logs.append(pair_log)
+
+        if config.commit_after_run:
+            city_total = sum(run_stats.get(city.name, {}).values())
+            ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+            commit_data(config.repo_dir, f"scraper: {ts} – {city.name} – {city_total} records (ai_only)")
 
     return total_new, pair_logs
