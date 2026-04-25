@@ -8,10 +8,21 @@ import trafilatura
 
 log = structlog.get_logger()
 
-USER_AGENT = (
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-)
+_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "DNT": "1",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+}
 
 
 def _is_blocked(url: str, blocked_domains: list[str]) -> bool:
@@ -49,7 +60,7 @@ async def fetch_and_clean(
             async with httpx.AsyncClient(
                 timeout=timeout_seconds,
                 follow_redirects=True,
-                headers={"User-Agent": USER_AGENT},
+                headers=_HEADERS,
             ) as client:
                 resp = await client.get(url)
                 resp.raise_for_status()
