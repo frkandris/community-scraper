@@ -579,21 +579,33 @@ async def public_feedback(
             import smtplib
             from email.message import EmailMessage
             smtp_host = os.environ.get("SMTP_HOST", "localhost")
-            smtp_port = int(os.environ.get("SMTP_PORT", "25"))
+            smtp_port = int(os.environ.get("SMTP_PORT", "587"))
             smtp_user = os.environ.get("SMTP_USER", "")
             smtp_pass = os.environ.get("SMTP_PASS", "")
             msg = EmailMessage()
             msg["Subject"] = f"[CommUnity feedback] {community_name} – {city}"
-            msg["From"] = smtp_user or "noreply@community.local"
+            msg["From"] = smtp_user or f"noreply@{smtp_host}"
             msg["To"] = _FEEDBACK_EMAIL
-            body = f"Community: {community_name}\nCity: {city}\nTopic: {topic}\nPage: {page_url}\n\n{message}"
-            msg.set_content(body)
-            with smtplib.SMTP(smtp_host, smtp_port) as s:
-                if smtp_user and smtp_pass:
-                    s.login(smtp_user, smtp_pass)
-                s.send_message(msg)
+            msg.set_content(
+                f"Community: {community_name}\nCity: {city}\nTopic: {topic}\nPage: {page_url}\n\n{message}"
+            )
+            if smtp_port == 465:
+                with smtplib.SMTP_SSL(smtp_host, smtp_port) as s:
+                    if smtp_user and smtp_pass:
+                        s.login(smtp_user, smtp_pass)
+                    s.send_message(msg)
+            else:
+                with smtplib.SMTP(smtp_host, smtp_port) as s:
+                    s.ehlo()
+                    s.starttls()
+                    s.ehlo()
+                    if smtp_user and smtp_pass:
+                        s.login(smtp_user, smtp_pass)
+                    s.send_message(msg)
+            log.info("feedback_email_sent", to=_FEEDBACK_EMAIL, community=community_name)
         except Exception as exc:
-            log.warning("feedback_email_failed", error=str(exc))
+            log.warning("feedback_email_failed", error=str(exc), smtp_host=os.environ.get("SMTP_HOST"),
+                        smtp_port=os.environ.get("SMTP_PORT"), smtp_user=os.environ.get("SMTP_USER"))
     return JSONResponse({"ok": True})
 
 
