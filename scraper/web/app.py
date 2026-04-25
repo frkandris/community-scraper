@@ -653,6 +653,11 @@ async def public_map(request: Request):
     })
 
 
+@_fastapi.get("/admin", response_class=HTMLResponse)
+async def admin_root_redirect():
+    return RedirectResponse("/admin/", status_code=301)
+
+
 @_fastapi.get("/about", response_class=HTMLResponse)
 async def public_about(request: Request):
     metadata = {}
