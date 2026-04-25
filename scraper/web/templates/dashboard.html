@@ -3,7 +3,14 @@
 {% block content %}
 
 <div class="flex items-center justify-between mb-6">
-  <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+  <div class="flex items-center gap-3">
+    <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+    {% if test_mode %}
+    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-amber-100 text-amber-800 font-semibold border border-amber-200" title="Only running on: {{ test_cities | join(', ') }}">
+      ⚠ TEST MODE
+    </span>
+    {% endif %}
+  </div>
   {% if is_running %}
   <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm bg-yellow-100 text-yellow-800 font-medium">
     <span class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>Running…
@@ -20,6 +27,7 @@
   <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
     <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Cities</div>
     <div class="text-3xl font-bold text-gray-900">{{ city_count }}</div>
+    {% if test_mode %}<div class="text-xs text-amber-600 mt-0.5">test mode active</div>{% endif %}
   </div>
   <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
     <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Topics</div>

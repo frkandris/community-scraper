@@ -164,6 +164,15 @@ async def dashboard(request: Request):
         from ..db import get_run_history
         run_history = get_run_history(app_state.db_path, limit=10)
 
+    try:
+        _settings = yaml.safe_load((CONFIG_DIR / "settings.yaml").read_text(encoding="utf-8"))
+        _pipe = _settings.get("pipeline", {})
+        test_mode = _pipe.get("test_mode", False)
+        test_cities = _pipe.get("test_cities", [])
+    except Exception:
+        test_mode = False
+        test_cities = []
+
     return templates.TemplateResponse(request, "dashboard.html", {
         "metadata": metadata,
         "commits": commits,
@@ -175,6 +184,8 @@ async def dashboard(request: Request):
         "cache_defaults": cache_defaults,
         "cache_stats": cache_stats,
         "run_history": run_history,
+        "test_mode": test_mode,
+        "test_cities": test_cities,
     })
 
 

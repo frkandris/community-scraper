@@ -1,15 +1,440 @@
 cities:
+  # Hungary
+  - name: Szentendre
+    country: Hungary
+    locale: hu
+    search_variants: [Szentendre]
   - name: Budapest
+    country: Hungary
     locale: hu
-    search_variants:
-      - Budapest
-      - "Budapest Hungary"
+    search_variants: [Budapest, "Budapest Hungary"]
   - name: Debrecen
+    country: Hungary
     locale: hu
-    search_variants:
-      - Debrecen
+    search_variants: [Debrecen]
+  - name: Miskolc
+    country: Hungary
+    locale: hu
+    search_variants: [Miskolc]
+  - name: Győr
+    country: Hungary
+    locale: hu
+    search_variants: [Győr, Gyor]
+  - name: Pécs
+    country: Hungary
+    locale: hu
+    search_variants: [Pécs, Pecs]
+  - name: Szeged
+    country: Hungary
+    locale: hu
+    search_variants: [Szeged]
+  - name: Kecskemét
+    country: Hungary
+    locale: hu
+    search_variants: [Kecskemét, Kecskemet]
+  - name: Nyíregyháza
+    country: Hungary
+    locale: hu
+    search_variants: [Nyíregyháza, Nyiregyhaza]
+  - name: Székesfehérvár
+    country: Hungary
+    locale: hu
+    search_variants: [Székesfehérvár, Szekesfehervar]
+
+  # Austria
+  - name: Vienna
+    country: Austria
+    locale: de
+    search_variants: [Wien, Vienna, "Vienna Austria"]
+  - name: Graz
+    country: Austria
+    locale: de
+    search_variants: [Graz, "Graz Austria"]
+  - name: Salzburg
+    country: Austria
+    locale: de
+    search_variants: [Salzburg, "Salzburg Austria"]
+
+  # Germany
+  - name: Berlin
+    country: Germany
+    locale: de
+    search_variants: [Berlin, "Berlin Germany"]
+  - name: Munich
+    country: Germany
+    locale: de
+    search_variants: [München, Munich, "Munich Germany"]
+  - name: Hamburg
+    country: Germany
+    locale: de
+    search_variants: [Hamburg, "Hamburg Germany"]
+  - name: Frankfurt
+    country: Germany
+    locale: de
+    search_variants: [Frankfurt, "Frankfurt Germany"]
+  - name: Cologne
+    country: Germany
+    locale: de
+    search_variants: [Köln, Cologne, "Cologne Germany"]
+  - name: Düsseldorf
+    country: Germany
+    locale: de
+    search_variants: [Düsseldorf, Dusseldorf]
+  - name: Stuttgart
+    country: Germany
+    locale: de
+    search_variants: [Stuttgart]
+  - name: Leipzig
+    country: Germany
+    locale: de
+    search_variants: [Leipzig]
+
+  # Switzerland
+  - name: Zurich
+    country: Switzerland
+    locale: de
+    search_variants: [Zürich, Zurich, "Zurich Switzerland"]
+  - name: Bern
+    country: Switzerland
+    locale: de
+    search_variants: [Bern, "Bern Switzerland"]
+  - name: Geneva
+    country: Switzerland
+    locale: fr
+    search_variants: [Genève, Geneva, "Geneva Switzerland"]
+
+  # United Kingdom
   - name: London
+    country: United Kingdom
     locale: en
-    search_variants:
-      - London
-      - "London UK"
+    search_variants: [London, "London UK"]
+  - name: Manchester
+    country: United Kingdom
+    locale: en
+    search_variants: [Manchester, "Manchester UK"]
+  - name: Birmingham
+    country: United Kingdom
+    locale: en
+    search_variants: [Birmingham, "Birmingham UK"]
+  - name: Edinburgh
+    country: United Kingdom
+    locale: en
+    search_variants: [Edinburgh, "Edinburgh Scotland"]
+  - name: Bristol
+    country: United Kingdom
+    locale: en
+    search_variants: [Bristol, "Bristol UK"]
+
+  # Ireland
+  - name: Dublin
+    country: Ireland
+    locale: en
+    search_variants: [Dublin, "Dublin Ireland"]
+
+  # United States
+  - name: New York
+    country: United States
+    locale: en
+    search_variants: ["New York", "New York City", NYC]
+  - name: Los Angeles
+    country: United States
+    locale: en
+    search_variants: ["Los Angeles", LA, "Los Angeles CA"]
+  - name: Chicago
+    country: United States
+    locale: en
+    search_variants: [Chicago, "Chicago IL"]
+  - name: San Francisco
+    country: United States
+    locale: en
+    search_variants: ["San Francisco", "San Francisco CA", SF]
+  - name: Seattle
+    country: United States
+    locale: en
+    search_variants: [Seattle, "Seattle WA"]
+  - name: Boston
+    country: United States
+    locale: en
+    search_variants: [Boston, "Boston MA"]
+  - name: Austin
+    country: United States
+    locale: en
+    search_variants: [Austin, "Austin TX"]
+  - name: Portland
+    country: United States
+    locale: en
+    search_variants: [Portland, "Portland OR"]
+
+  # Canada
+  - name: Toronto
+    country: Canada
+    locale: en
+    search_variants: [Toronto, "Toronto Canada"]
+  - name: Vancouver
+    country: Canada
+    locale: en
+    search_variants: [Vancouver, "Vancouver Canada"]
+  - name: Montreal
+    country: Canada
+    locale: fr
+    search_variants: [Montréal, Montreal, "Montreal Canada"]
+
+  # Australia
+  - name: Sydney
+    country: Australia
+    locale: en
+    search_variants: [Sydney, "Sydney Australia"]
+  - name: Melbourne
+    country: Australia
+    locale: en
+    search_variants: [Melbourne, "Melbourne Australia"]
+  - name: Brisbane
+    country: Australia
+    locale: en
+    search_variants: [Brisbane, "Brisbane Australia"]
+
+  # New Zealand
+  - name: Auckland
+    country: New Zealand
+    locale: en
+    search_variants: [Auckland, "Auckland New Zealand"]
+
+  # France
+  - name: Paris
+    country: France
+    locale: fr
+    search_variants: [Paris, "Paris France"]
+  - name: Lyon
+    country: France
+    locale: fr
+    search_variants: [Lyon, "Lyon France"]
+  - name: Marseille
+    country: France
+    locale: fr
+    search_variants: [Marseille, "Marseille France"]
+  - name: Toulouse
+    country: France
+    locale: fr
+    search_variants: [Toulouse, "Toulouse France"]
+
+  # Belgium
+  - name: Brussels
+    country: Belgium
+    locale: fr
+    search_variants: [Bruxelles, Brussels, "Brussels Belgium"]
+
+  # Netherlands
+  - name: Amsterdam
+    country: Netherlands
+    locale: nl
+    search_variants: [Amsterdam, "Amsterdam Netherlands"]
+  - name: Rotterdam
+    country: Netherlands
+    locale: nl
+    search_variants: [Rotterdam, "Rotterdam Netherlands"]
+
+  # Spain
+  - name: Madrid
+    country: Spain
+    locale: es
+    search_variants: [Madrid, "Madrid Spain"]
+  - name: Barcelona
+    country: Spain
+    locale: es
+    search_variants: [Barcelona, "Barcelona Spain"]
+  - name: Seville
+    country: Spain
+    locale: es
+    search_variants: [Sevilla, Seville, "Seville Spain"]
+  - name: Valencia
+    country: Spain
+    locale: es
+    search_variants: [Valencia, "Valencia Spain"]
+
+  # Portugal
+  - name: Lisbon
+    country: Portugal
+    locale: pt
+    search_variants: [Lisboa, Lisbon, "Lisbon Portugal"]
+  - name: Porto
+    country: Portugal
+    locale: pt
+    search_variants: [Porto, "Porto Portugal"]
+
+  # Italy
+  - name: Rome
+    country: Italy
+    locale: it
+    search_variants: [Roma, Rome, "Rome Italy"]
+  - name: Milan
+    country: Italy
+    locale: it
+    search_variants: [Milano, Milan, "Milan Italy"]
+  - name: Florence
+    country: Italy
+    locale: it
+    search_variants: [Firenze, Florence, "Florence Italy"]
+
+  # Poland
+  - name: Warsaw
+    country: Poland
+    locale: pl
+    search_variants: [Warszawa, Warsaw, "Warsaw Poland"]
+  - name: Krakow
+    country: Poland
+    locale: pl
+    search_variants: [Kraków, Krakow, "Krakow Poland"]
+  - name: Wroclaw
+    country: Poland
+    locale: pl
+    search_variants: [Wrocław, Wroclaw]
+
+  # Czech Republic
+  - name: Prague
+    country: Czech Republic
+    locale: cs
+    search_variants: [Praha, Prague, "Prague Czech"]
+
+  # Slovakia
+  - name: Bratislava
+    country: Slovakia
+    locale: sk
+    search_variants: [Bratislava, "Bratislava Slovakia"]
+
+  # Romania
+  - name: Bucharest
+    country: Romania
+    locale: ro
+    search_variants: [București, Bucharest, "Bucharest Romania"]
+  - name: Cluj-Napoca
+    country: Romania
+    locale: ro
+    search_variants: [Cluj-Napoca, Cluj, "Cluj Romania"]
+
+  # Serbia
+  - name: Belgrade
+    country: Serbia
+    locale: sr
+    search_variants: [Beograd, Belgrade, "Belgrade Serbia"]
+
+  # Croatia
+  - name: Zagreb
+    country: Croatia
+    locale: hr
+    search_variants: [Zagreb, "Zagreb Croatia"]
+
+  # Scandinavia
+  - name: Copenhagen
+    country: Denmark
+    locale: da
+    search_variants: [København, Copenhagen, "Copenhagen Denmark"]
+  - name: Stockholm
+    country: Sweden
+    locale: sv
+    search_variants: [Stockholm, "Stockholm Sweden"]
+  - name: Oslo
+    country: Norway
+    locale: no
+    search_variants: [Oslo, "Oslo Norway"]
+  - name: Helsinki
+    country: Finland
+    locale: fi
+    search_variants: [Helsinki, "Helsinki Finland"]
+
+  # Turkey
+  - name: Istanbul
+    country: Turkey
+    locale: tr
+    search_variants: [İstanbul, Istanbul, "Istanbul Turkey"]
+
+  # Latin America
+  - name: Mexico City
+    country: Mexico
+    locale: es
+    search_variants: ["Ciudad de México", "Mexico City", CDMX]
+  - name: Buenos Aires
+    country: Argentina
+    locale: es
+    search_variants: ["Buenos Aires", "Buenos Aires Argentina"]
+  - name: Bogota
+    country: Colombia
+    locale: es
+    search_variants: [Bogotá, Bogota, "Bogota Colombia"]
+  - name: Lima
+    country: Peru
+    locale: es
+    search_variants: [Lima, "Lima Peru"]
+  - name: Santiago
+    country: Chile
+    locale: es
+    search_variants: [Santiago, "Santiago Chile"]
+  - name: Sao Paulo
+    country: Brazil
+    locale: pt
+    search_variants: ["São Paulo", "Sao Paulo", "São Paulo Brazil"]
+  - name: Rio de Janeiro
+    country: Brazil
+    locale: pt
+    search_variants: ["Rio de Janeiro", Rio, "Rio de Janeiro Brazil"]
+
+  # South Africa
+  - name: Cape Town
+    country: South Africa
+    locale: en
+    search_variants: ["Cape Town", "Cape Town South Africa"]
+  - name: Johannesburg
+    country: South Africa
+    locale: en
+    search_variants: [Johannesburg, "Johannesburg South Africa", Joburg]
+
+  # Japan
+  - name: Tokyo
+    country: Japan
+    locale: ja
+    search_variants: [東京, Tokyo, "Tokyo Japan"]
+  - name: Osaka
+    country: Japan
+    locale: ja
+    search_variants: [大阪, Osaka, "Osaka Japan"]
+
+  # South Korea
+  - name: Seoul
+    country: South Korea
+    locale: ko
+    search_variants: [서울, Seoul, "Seoul Korea"]
+
+  # China
+  - name: Beijing
+    country: China
+    locale: zh
+    search_variants: [北京, Beijing, "Beijing China"]
+  - name: Shanghai
+    country: China
+    locale: zh
+    search_variants: [上海, Shanghai, "Shanghai China"]
+
+  # Singapore
+  - name: Singapore
+    country: Singapore
+    locale: en
+    search_variants: [Singapore]
+
+  # India
+  - name: Bangalore
+    country: India
+    locale: en
+    search_variants: [Bangalore, Bengaluru, "Bangalore India"]
+  - name: Mumbai
+    country: India
+    locale: en
+    search_variants: [Mumbai, Bombay, "Mumbai India"]
+  - name: Delhi
+    country: India
+    locale: en
+    search_variants: ["New Delhi", Delhi, "Delhi India"]
+
+  # Israel
+  - name: Tel Aviv
+    country: Israel
+    locale: en
+    search_variants: ["Tel Aviv", "Tel Aviv Israel"]

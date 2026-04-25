@@ -57,14 +57,21 @@ def load_config() -> tuple[list[CityConfig], list[TopicConfig], PipelineConfig]:
     with open(CONFIG_DIR / "settings.yaml", encoding="utf-8") as f:
         settings = yaml.safe_load(f)
 
-    cities = [
+    pipeline_settings = settings.get("pipeline", {})
+    test_mode = pipeline_settings.get("test_mode", False)
+    test_cities = set(pipeline_settings.get("test_cities", []))
+
+    all_cities = [
         CityConfig(
             name=c["name"],
+            country=c.get("country", ""),
             locale=c["locale"],
             search_variants=c.get("search_variants", [c["name"]]),
         )
         for c in cities_raw["cities"]
     ]
+    cities = [c for c in all_cities if not test_mode or c.name in test_cities]
+
     topics = [
         TopicConfig(name=t["name"], search_terms=t["search_terms"])
         for t in topics_raw["topics"]

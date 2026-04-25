@@ -25,6 +25,11 @@ fetch:
 pipeline:
   commit_after_run: true
   push_after_commit: false
+  test_mode: false
+  test_cities:
+    - Szentendre
+    - Budapest
+    - London
 
 cache:
   skip_scraped: true
