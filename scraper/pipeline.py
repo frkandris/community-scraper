@@ -32,15 +32,22 @@ async def _enrich_record(
     semaphore: asyncio.Semaphore,
     on_progress: "Callable[[str | None, str | None], None] | None" = None,
     timing: "dict | None" = None,
+    enrich_log_entry: "dict | None" = None,
 ) -> "CommunityRecord":
     """timing dict accumulates {"scrape": s, "extract": s, "count": n} across calls."""
     query = f'"{record.name}" {record.city}'
+    if enrich_log_entry is not None:
+        enrich_log_entry["search_query"] = query
     try:
         results = await searxng.search_all([query], locale=record.locale, num_results=3)
     except Exception:
         return record
 
     for result in results[:2]:
+        url_log: dict = {"url": result.url, "fetched": False, "success": False}
+        if enrich_log_entry is not None:
+            enrich_log_entry["research_urls"].append(url_log)
+
         if on_progress:
             on_progress("enrich_scrape", record.source_url)
         t0 = time.monotonic()
@@ -56,6 +63,8 @@ async def _enrich_record(
         if not text:
             continue
 
+        url_log["fetched"] = True
+
         if on_progress:
             on_progress("enrich_extract", record.source_url)
         t0 = time.monotonic()
@@ -68,6 +77,17 @@ async def _enrich_record(
                 on_progress(None, None)
 
         if enriched.website or enriched.social_links or enriched.contact:
+            if enrich_log_entry is not None:
+                fields: list[str] = []
+                if not record.website and enriched.website:
+                    fields.append("website")
+                if not record.contact and enriched.contact:
+                    fields.append("contact")
+                if not record.social_links and enriched.social_links:
+                    fields.append("social_links")
+                enrich_log_entry["enriched"] = True
+                enrich_log_entry["fields_added"] = fields
+                url_log["success"] = True
             if timing is not None:
                 timing["count"] += 1
             log.info("enriched", community=record.name, city=record.city, source=result.url)
@@ -223,7 +243,8 @@ async def _run_full(
                     on_progress(None, None)
                 if text:
                     if cache:
-                        cache.save_scraped(url, text, city.name, topic.name, duration_s=scrape_dur)
+                        cache.save_scraped(url, text, city.name, topic.name,
+                                           duration_s=scrape_dur, source_queries=queries)
                     fetched.append((url, text))
                     pair_log["fetched_urls"].append(url)
 
@@ -262,13 +283,22 @@ async def _run_full(
                 # Enrich records that have no contact info
                 enrich_timing = {"scrape": 0.0, "extract": 0.0, "count": 0, "needed": False}
                 final_records = []
+                enrich_logs: list[dict] = []
                 for record in joinable:
+                    log_entry: dict = {
+                        "community_name": record.name,
+                        "search_query": None,
+                        "research_urls": [],
+                        "enriched": False,
+                        "fields_added": [],
+                    }
                     if config.enrich_communities and _needs_enrichment(record):
                         enrich_timing["needed"] = True
                         record = await _enrich_record(
                             record, searxng, extractor, config, semaphore,
-                            on_progress, enrich_timing,
+                            on_progress, enrich_timing, log_entry,
                         )
+                    enrich_logs.append(log_entry)
                     final_records.append(record)
 
                 if cache:
@@ -276,6 +306,7 @@ async def _run_full(
                     if enrich_timing["needed"]:
                         cache.mark_enrich_scraped(url, enrich_timing["scrape"])
                         cache.mark_enrich_extracted(url, enrich_timing["count"], enrich_timing["extract"])
+                        cache.save_enrich_log(url, enrich_logs)
 
                 # Persist immediately — safe even if server restarts mid-run
                 if final_records:

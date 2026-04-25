@@ -1,163 +1,349 @@
 {% extends "base.html" %}
-{% block title %}Cache Detail – Community Scraper{% endblock %}
+{% block title %}Audit Trail – Community Scraper{% endblock %}
 {% block content %}
 
-<div class="flex items-center gap-3 mb-6">
-  <a href="/admin/cache" class="text-sm text-blue-600 hover:text-blue-800">← Cache</a>
-  <span class="text-gray-300">/</span>
-  <span class="text-sm text-gray-500 font-mono truncate max-w-xl">{{ entry.url }}</span>
+<div class="flex items-center gap-2 mb-6 text-sm">
+  <a href="/admin/cache" class="text-blue-600 hover:text-blue-800">← Cache</a>
+  <span class="text-gray-400">/</span>
+  <span class="text-gray-500 font-mono text-xs truncate max-w-xl">{{ entry.url_hash }}</span>
 </div>
 
-<!-- Meta info -->
+<!-- URL header card -->
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-    <div>
-      <div class="text-xs text-gray-500 mb-0.5">Domain</div>
-      <div class="font-medium text-gray-800">{{ entry.domain }}</div>
-    </div>
-    <div>
-      <div class="text-xs text-gray-500 mb-0.5">City / Topic</div>
-      <div class="font-medium text-gray-800">
-        {% if entry.city %}{{ entry.city }}{% if entry.topic %} / {{ entry.topic.replace('_',' ') }}{% endif %}
-        {% else %}<span class="text-gray-400">—</span>{% endif %}
+  <div class="flex items-start gap-4">
+    <div class="min-w-0 flex-1">
+      <a href="{{ entry.url }}" target="_blank"
+         class="text-base font-semibold text-gray-900 hover:text-blue-600 break-all leading-tight">
+        {{ entry.url }}
+      </a>
+      <div class="flex flex-wrap items-center gap-2 mt-2">
+        {% if entry.city %}
+        <span class="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-medium">
+          {{ entry.city }}
+        </span>
+        {% endif %}
+        {% if entry.topic %}
+        <span class="text-xs bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full font-medium">
+          {{ entry.topic.replace('_',' ') }}
+        </span>
+        {% endif %}
+        <span class="text-xs text-gray-400 font-mono">{{ entry.url_hash }}</span>
       </div>
     </div>
-    <div>
-      <div class="text-xs text-gray-500 mb-0.5">Scraped at</div>
-      <div class="font-mono text-xs text-gray-700">
-        {{ entry.scraped_at[:16].replace('T',' ') if entry.scraped_at else '—' }}
-      </div>
-    </div>
-    <div>
-      <div class="text-xs text-gray-500 mb-0.5">Extracted at</div>
-      <div class="font-mono text-xs text-gray-700">
-        {{ entry.extracted_at[:16].replace('T',' ') if entry.extracted_at else '—' }}
-      </div>
-    </div>
-  </div>
-  <div class="mt-3 pt-3 border-t border-gray-100">
-    <a href="{{ entry.url }}" target="_blank"
-       class="text-xs text-blue-600 hover:underline break-all">{{ entry.url }}</a>
-  </div>
-</div>
-
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-  <!-- Scraped text -->
-  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="text-sm font-semibold text-gray-700">Scraped text</h2>
-      {% if entry.scraped_at %}
-      <form method="POST" action="/admin/cache/{{ entry.url_hash }}/delete-scraped"
-            onsubmit="return confirm('Delete scraped text?')">
-        <button class="text-xs text-orange-600 hover:text-orange-800 border border-orange-200 rounded px-2 py-0.5">
-          Delete
-        </button>
+    <div class="flex flex-col gap-1 shrink-0">
+      <form method="POST" action="/admin/cache/{{ entry.url_hash }}/run-scrape">
+        <button class="w-full text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-left whitespace-nowrap">↓ Re-scrape</button>
+      </form>
+      {% if entry.raw_text %}
+      <form method="POST" action="/admin/cache/{{ entry.url_hash }}/run-extract">
+        <button class="w-full text-xs px-3 py-1.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 text-left whitespace-nowrap">⟳ Re-extract</button>
       </form>
       {% endif %}
+      {% if entry.extracted_at %}
+      <form method="POST" action="/admin/cache/{{ entry.url_hash }}/run-enrich">
+        <button class="w-full text-xs px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-left whitespace-nowrap">↓ Re-enrich</button>
+      </form>
+      {% endif %}
+      <form method="POST" action="/admin/cache/{{ entry.url_hash }}/delete"
+            onsubmit="return confirm('Delete entire entry?')">
+        <button class="w-full text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-left whitespace-nowrap">✕ Delete all</button>
+      </form>
     </div>
-    {% if entry.raw_text %}
-    <pre class="text-xs text-gray-600 bg-gray-50 rounded-lg p-3 overflow-auto max-h-96 whitespace-pre-wrap leading-relaxed">{{ entry.raw_text }}</pre>
+  </div>
+</div>
+
+<!-- Pipeline audit trail -->
+<div class="space-y-1">
+
+{# ── Stage 1: Search Queries ─────────────────────────────────────────────────── #}
+{% if entry.source_queries %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+  <div class="flex items-center gap-3 px-5 py-3 bg-blue-50 border-b border-blue-100">
+    <span class="w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center shrink-0">1</span>
+    <h2 class="text-sm font-semibold text-blue-800">Search Queries</h2>
+    <span class="text-xs text-blue-500 ml-1">{{ entry.source_queries|length }} queries → this URL</span>
+  </div>
+  <div class="px-5 py-4 space-y-1">
+    {% for q in entry.source_queries %}
+    <div class="flex items-center gap-2 text-xs text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
+      <span class="text-gray-400 font-mono shrink-0">q{{ loop.index }}</span>
+      <span class="font-mono">{{ q }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+  <div class="flex items-center gap-3 px-5 py-3">
+    <span class="w-6 h-6 rounded-full bg-gray-200 text-gray-500 text-xs font-bold flex items-center justify-center shrink-0">1</span>
+    <h2 class="text-sm font-semibold text-gray-400">Search Queries</h2>
+    <span class="text-xs text-gray-400">— not recorded for this entry</span>
+  </div>
+</div>
+{% endif %}
+
+<div class="flex justify-center py-0.5 text-gray-300">↓</div>
+
+{# ── Stage 2: Fetch ──────────────────────────────────────────────────────────── #}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+  <div class="flex items-center gap-3 px-5 py-3 {% if entry.scraped_at %}bg-blue-50 border-b border-blue-100{% endif %}">
+    <span class="w-6 h-6 rounded-full {% if entry.scraped_at %}bg-blue-500 text-white{% else %}bg-gray-200 text-gray-400{% endif %} text-xs font-bold flex items-center justify-center shrink-0">2</span>
+    <h2 class="text-sm font-semibold {% if entry.scraped_at %}text-blue-800{% else %}text-gray-400{% endif %}">↓ Fetch</h2>
+    {% if entry.scraped_at %}
+    <span class="text-xs text-blue-600 font-mono">{{ entry.scraped_at[:16].replace('T',' ') }}</span>
+    {% if entry.scrape_duration_s %}<span class="text-xs text-blue-400">· {{ entry.scrape_duration_s | fmt_dur }}</span>{% endif %}
+    <form method="POST" action="/admin/cache/{{ entry.url_hash }}/delete-scraped"
+          onsubmit="return confirm('Delete scraped text?')" class="ml-auto">
+      <button class="text-xs text-gray-400 hover:text-red-500 transition-colors">✕ clear</button>
+    </form>
     {% else %}
-    <p class="text-sm text-gray-400">No scraped text cached.</p>
+    <span class="text-xs text-gray-400">— not done</span>
     {% endif %}
   </div>
+  {% if entry.raw_text %}
+  <div class="px-5 py-4">
+    <details>
+      <summary class="text-xs font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none list-none flex items-center gap-1.5">
+        <span class="text-gray-300">▶</span> Web content · {{ entry.raw_text|length }} chars
+      </summary>
+      <pre class="mt-3 text-xs text-gray-600 bg-gray-50 rounded-lg p-3 overflow-auto max-h-96 whitespace-pre-wrap leading-relaxed">{{ entry.raw_text }}</pre>
+    </details>
+  </div>
+  {% endif %}
+</div>
 
-  <!-- AI extraction -->
-  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="text-sm font-semibold text-gray-700">AI extraction
-        {% if entry.records %}
-        <span class="ml-1 text-xs text-gray-400 font-normal">({{ entry.records|length }} records)</span>
-        {% endif %}
-      </h2>
-      {% if entry.extracted_at %}
-      <form method="POST" action="/admin/cache/{{ entry.url_hash }}/delete-extracted"
-            onsubmit="return confirm('Delete AI extraction?')">
-        <button class="text-xs text-purple-600 hover:text-purple-800 border border-purple-200 rounded px-2 py-0.5">
-          Delete
-        </button>
-      </form>
-      {% endif %}
-    </div>
+<div class="flex justify-center py-0.5 text-gray-300">↓</div>
+
+{# ── Stage 3: AI Extraction ──────────────────────────────────────────────────── #}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+  <div class="flex items-center gap-3 px-5 py-3 {% if entry.extracted_at %}bg-purple-50 border-b border-purple-100{% endif %}">
+    <span class="w-6 h-6 rounded-full {% if entry.extracted_at %}bg-purple-500 text-white{% else %}bg-gray-200 text-gray-400{% endif %} text-xs font-bold flex items-center justify-center shrink-0">3</span>
+    <h2 class="text-sm font-semibold {% if entry.extracted_at %}text-purple-800{% else %}text-gray-400{% endif %}">⟳ AI Extraction</h2>
+    {% if entry.extracted_at %}
+    <span class="text-xs text-purple-600 font-mono">{{ entry.extracted_at[:16].replace('T',' ') }}</span>
+    {% if entry.extract_duration_s %}<span class="text-xs text-purple-400">· {{ entry.extract_duration_s | fmt_dur }}</span>{% endif %}
+    <span class="text-xs bg-purple-100 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full font-mono">{{ ollama_model }}</span>
+    <span class="text-xs text-purple-500">{{ entry.records|length if entry.records else 0 }} records</span>
+    <form method="POST" action="/admin/cache/{{ entry.url_hash }}/delete-extracted"
+          onsubmit="return confirm('Delete AI extraction?')" class="ml-auto">
+      <button class="text-xs text-gray-400 hover:text-red-500 transition-colors">✕ clear</button>
+    </form>
+    {% else %}
+    <span class="text-xs text-gray-400">— not done</span>
+    {% endif %}
+  </div>
+  {% if entry.extracted_at %}
+  <div class="px-5 py-4 space-y-3">
+
+    <details>
+      <summary class="text-xs font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none list-none flex items-center gap-1.5">
+        <span class="text-gray-300">▶</span> System prompt <span class="text-gray-400 font-normal">(current version)</span>
+      </summary>
+      <pre class="mt-2 text-xs text-gray-600 bg-gray-50 rounded-lg p-3 overflow-auto max-h-64 whitespace-pre-wrap leading-relaxed">{{ extract_system_prompt }}</pre>
+    </details>
+
+    {% if extract_user_prompt %}
+    <details>
+      <summary class="text-xs font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none list-none flex items-center gap-1.5">
+        <span class="text-gray-300">▶</span> User prompt <span class="text-gray-400 font-normal">(reconstructed from stored content)</span>
+      </summary>
+      <pre class="mt-2 text-xs text-gray-600 bg-gray-50 rounded-lg p-3 overflow-auto max-h-64 whitespace-pre-wrap leading-relaxed">{{ extract_user_prompt }}</pre>
+    </details>
+    {% endif %}
+
+    <details>
+      <summary class="text-xs font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none list-none flex items-center gap-1.5">
+        <span class="text-gray-300">▶</span> Output schema
+      </summary>
+      <pre class="mt-2 text-xs text-gray-600 bg-gray-50 rounded-lg p-3 overflow-auto max-h-48 whitespace-pre-wrap leading-relaxed">{{ extract_schema }}</pre>
+    </details>
+
     {% if entry.records %}
-    <div class="space-y-3 overflow-auto max-h-96">
-      {% for rec in entry.records %}
-      <div class="bg-gray-50 rounded-lg p-3 text-xs">
-        <div class="font-semibold text-gray-800 mb-1">{{ rec.name }}</div>
-        {% if rec.description %}
-        <div class="text-gray-600 mb-1">{{ rec.description }}</div>
-        {% endif %}
-        <div class="grid grid-cols-2 gap-1 text-gray-500">
-          {% if rec.meeting_schedule %}<div><span class="font-medium">Schedule:</span> {{ rec.meeting_schedule }}</div>{% endif %}
-          {% if rec.location %}<div><span class="font-medium">Location:</span> {{ rec.location }}</div>{% endif %}
-          {% if rec.contact %}<div><span class="font-medium">Contact:</span> {{ rec.contact }}</div>{% endif %}
-          {% if rec.website %}<div><span class="font-medium">Website:</span> <a href="{{ rec.website }}" target="_blank" class="text-blue-600 hover:underline">{{ rec.website }}</a></div>{% endif %}
-          {% if rec.confidence is not none %}<div><span class="font-medium">Confidence:</span> {{ "%.0f"|format(rec.confidence * 100) }}%</div>{% endif %}
+    <details open>
+      <summary class="text-xs font-medium text-gray-700 cursor-pointer hover:text-gray-900 select-none list-none flex items-center gap-1.5">
+        <span class="text-gray-400">▼</span> Extracted communities <span class="text-gray-400 font-normal">({{ entry.records|length }})</span>
+      </summary>
+      <div class="mt-3 space-y-2">
+        {% for rec in entry.records %}
+        {% set joinable = rec.get('joinable', true) %}
+        <div class="bg-gray-50 rounded-lg p-3 text-xs border-l-2 {% if joinable %}border-green-400{% else %}border-red-300 opacity-60{% endif %}">
+          <div class="flex items-start gap-2 mb-1.5 flex-wrap">
+            <span class="font-semibold text-gray-800">{{ rec.name }}</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded font-medium {% if joinable %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-600{% endif %}">
+              {{ 'joinable' if joinable else 'filtered out' }}
+            </span>
+            {% if rec.confidence is not none %}
+            <span class="text-gray-400">{{ "%.0f"|format(rec.confidence * 100) }}% confidence</span>
+            {% endif %}
+          </div>
+          {% if rec.description %}<div class="text-gray-600 mb-1.5">{{ rec.description }}</div>{% endif %}
+          <div class="flex flex-wrap gap-x-5 gap-y-0.5 text-gray-500">
+            {% if rec.meeting_schedule %}<div><span class="font-medium text-gray-600">Schedule:</span> {{ rec.meeting_schedule }}</div>{% endif %}
+            {% if rec.location %}<div><span class="font-medium text-gray-600">Location:</span> {{ rec.location }}</div>{% endif %}
+            {% if rec.contact %}<div><span class="font-medium text-gray-600">Contact:</span> {{ rec.contact }}</div>{% endif %}
+            {% if rec.website %}<div><span class="font-medium text-gray-600">Website:</span> <a href="{{ rec.website }}" target="_blank" class="text-blue-600 hover:underline">{{ rec.website }}</a></div>{% endif %}
+            {% if rec.social_links %}<div><span class="font-medium text-gray-600">Social:</span> {{ rec.social_links | join(' · ') }}</div>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </details>
+    {% else %}
+    <p class="text-xs text-gray-400">No communities extracted.</p>
+    {% endif %}
+
+  </div>
+  {% endif %}
+</div>
+
+<div class="flex justify-center py-0.5 text-gray-300">↓</div>
+
+{# ── Stage 4: Enrichment Research ────────────────────────────────────────────── #}
+{% set has_enrich = entry.enrich_extracted_at or entry.enrich_log %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+  <div class="flex items-center gap-3 px-5 py-3 {% if has_enrich %}bg-amber-50 border-b border-amber-100{% endif %}">
+    <span class="w-6 h-6 rounded-full {% if has_enrich %}bg-amber-500 text-white{% else %}bg-gray-200 text-gray-400{% endif %} text-xs font-bold flex items-center justify-center shrink-0">4</span>
+    <h2 class="text-sm font-semibold {% if has_enrich %}text-amber-800{% else %}text-gray-400{% endif %}">↓ Enrichment Research</h2>
+    {% if entry.enrich_extracted_at %}
+    <span class="text-xs text-amber-600 font-mono">{{ entry.enrich_extracted_at[:16].replace('T',' ') }}</span>
+    {% if entry.enrich_extract_duration_s %}<span class="text-xs text-amber-400">· {{ entry.enrich_extract_duration_s | fmt_dur }}</span>{% endif %}
+    {% if entry.enrich_count %}<span class="text-xs text-amber-600 font-medium">{{ entry.enrich_count }} enriched</span>{% endif %}
+    {% else %}
+    <span class="text-xs text-gray-400">— not done</span>
+    {% endif %}
+  </div>
+  {% if entry.enrich_log %}
+  <div class="px-5 py-4 space-y-4">
+
+    <details>
+      <summary class="text-xs font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none list-none flex items-center gap-1.5">
+        <span class="text-gray-300">▶</span> Enrich prompts <span class="text-gray-400 font-normal">(current version)</span>
+      </summary>
+      <div class="mt-3 space-y-3">
+        <div>
+          <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">System prompt</div>
+          <pre class="text-xs text-gray-600 bg-gray-50 rounded-lg p-3 overflow-auto max-h-40 whitespace-pre-wrap leading-relaxed">{{ enrich_system_prompt }}</pre>
+        </div>
+        <div>
+          <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Output schema</div>
+          <pre class="text-xs text-gray-600 bg-gray-50 rounded-lg p-3 overflow-auto max-h-32 whitespace-pre-wrap leading-relaxed">{{ enrich_schema }}</pre>
         </div>
       </div>
-      {% endfor %}
+    </details>
+
+    {% for log_entry in entry.enrich_log %}
+    <div class="border border-gray-100 rounded-xl overflow-hidden">
+      <div class="flex items-center gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+        <span class="font-semibold text-xs text-gray-800">{{ log_entry.community_name }}</span>
+        {% if log_entry.enriched %}
+        <span class="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">
+          +{{ log_entry.fields_added | join(', ') }}
+        </span>
+        {% elif log_entry.search_query %}
+        <span class="text-[10px] text-gray-400">no new data found</span>
+        {% else %}
+        <span class="text-[10px] text-gray-400">enrichment not needed</span>
+        {% endif %}
+      </div>
+      {% if log_entry.search_query %}
+      <div class="px-4 py-3 space-y-2 text-xs">
+        <div class="flex items-start gap-2">
+          <span class="text-gray-400 shrink-0 w-12">Query</span>
+          <span class="font-mono text-gray-700 bg-gray-50 rounded px-2 py-1 break-all">{{ log_entry.search_query }}</span>
+        </div>
+        {% if log_entry.research_urls %}
+        <div class="flex items-start gap-2">
+          <span class="text-gray-400 shrink-0 w-12">URLs</span>
+          <div class="space-y-1 min-w-0">
+            {% for u in log_entry.research_urls %}
+            <div class="flex items-center gap-1.5">
+              {% if u.success %}
+              <span class="text-green-600 font-bold shrink-0">✓</span>
+              {% elif u.fetched %}
+              <span class="text-yellow-500 shrink-0">~</span>
+              {% else %}
+              <span class="text-red-400 shrink-0">✕</span>
+              {% endif %}
+              <a href="{{ u.url }}" target="_blank"
+                 class="text-blue-600 hover:underline truncate min-w-0">{{ u.url }}</a>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
     </div>
+    {% endfor %}
+
+  </div>
+  {% endif %}
+</div>
+
+<div class="flex justify-center py-0.5 text-gray-300">↓</div>
+
+{# ── Stage 5: Community Store ─────────────────────────────────────────────────── #}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+  <div class="flex items-center gap-3 px-5 py-3 {% if store_records %}bg-green-50 border-b border-green-100{% endif %}">
+    <span class="w-6 h-6 rounded-full {% if store_records %}bg-green-500 text-white{% else %}bg-gray-200 text-gray-400{% endif %} text-xs font-bold flex items-center justify-center shrink-0">5</span>
+    <h2 class="text-sm font-semibold {% if store_records %}text-green-800{% else %}text-gray-400{% endif %}">💾 Community Store</h2>
+    {% if store_records %}
+    <span class="text-xs text-green-600">{{ store_records|length }} records from this URL</span>
+    {% elif entry.extracted_at %}
+    <span class="text-xs text-yellow-600">extraction done but nothing committed to store</span>
     {% else %}
-    <p class="text-sm text-gray-400">No AI extraction cached.</p>
+    <span class="text-xs text-gray-400">— no records</span>
     {% endif %}
   </div>
-
-</div>
-
-<!-- Records in final store -->
-{% if store_records %}
-<div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-  <h2 class="text-sm font-semibold text-gray-700 mb-3">
-    In community store
-    <span class="text-xs text-gray-400 font-normal">({{ store_records|length }} records from this URL)</span>
-  </h2>
-  <div class="overflow-x-auto">
-    <table class="w-full text-xs">
-      <thead class="bg-gray-50 border-b border-gray-200">
-        <tr>
-          <th class="text-left px-3 py-2 text-gray-500 font-semibold">Name</th>
-          <th class="text-left px-3 py-2 text-gray-500 font-semibold">Description</th>
-          <th class="text-left px-3 py-2 text-gray-500 font-semibold">Schedule</th>
-          <th class="text-left px-3 py-2 text-gray-500 font-semibold">Location</th>
-          <th class="text-left px-3 py-2 text-gray-500 font-semibold">Extracted</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-100">
-        {% for r in store_records %}
-        <tr class="hover:bg-gray-50">
-          <td class="px-3 py-2 font-medium text-gray-800">{{ r.name }}</td>
-          <td class="px-3 py-2 text-gray-600 max-w-xs truncate">{{ r.description or '—' }}</td>
-          <td class="px-3 py-2 text-gray-600">{{ r.meeting_schedule or '—' }}</td>
-          <td class="px-3 py-2 text-gray-600">{{ r.location or '—' }}</td>
-          <td class="px-3 py-2 text-gray-500 font-mono whitespace-nowrap">{{ r.extracted_at[:10] if r.extracted_at else '—' }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  {% if store_records %}
+  <div class="px-5 py-4 space-y-2">
+    {% for r in store_records %}
+    <div class="bg-gray-50 rounded-lg p-3 text-xs">
+      <div class="flex items-start justify-between gap-2 mb-1.5 flex-wrap">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-semibold text-gray-800">{{ r.name }}</span>
+          {% if r.community_id %}
+          <a href="/community/{{ r.community_id }}" target="_blank"
+             class="text-indigo-500 hover:text-indigo-700 text-[10px] font-medium">↗ public page</a>
+          {% endif %}
+        </div>
+        <span class="text-gray-400 font-mono shrink-0">{{ r.extracted_at[:10] if r.extracted_at else '' }}</span>
+      </div>
+      {% if r.description %}<div class="text-gray-600 mb-1.5">{{ r.description }}</div>{% endif %}
+      <div class="flex flex-wrap gap-x-5 gap-y-0.5 text-gray-500">
+        {% if r.meeting_schedule %}<div><span class="font-medium text-gray-600">Schedule:</span> {{ r.meeting_schedule }}</div>{% endif %}
+        {% if r.location %}<div><span class="font-medium text-gray-600">Location:</span> {{ r.location }}</div>{% endif %}
+        {% if r.contact %}<div><span class="font-medium text-gray-600">Contact:</span> {{ r.contact }}</div>{% endif %}
+        {% if r.website %}<div><span class="font-medium text-gray-600">Website:</span> <a href="{{ r.website }}" target="_blank" class="text-blue-600 hover:underline">{{ r.website }}</a></div>{% endif %}
+        {% if r.social_links %}<div><span class="font-medium text-gray-600">Social:</span> {{ r.social_links | join(' · ') }}</div>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
   </div>
+  {% endif %}
 </div>
-{% elif entry.extracted_at %}
-<div class="mt-6 bg-yellow-50 border border-yellow-100 rounded-xl p-4 text-sm text-yellow-800">
-  AI extraction exists but no matching records found in the community store for this URL.
-</div>
-{% endif %}
 
-{% if schema_json %}
-<div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-  <button onclick="this.nextElementSibling.classList.toggle('hidden')"
-          class="flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-gray-900 w-full text-left">
-    <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
-    </svg>
-    Schema.org JSON-LD
-    <span class="ml-1 text-xs text-gray-400 font-normal">(structured data)</span>
-  </button>
-  <div class="hidden mt-3">
-    <pre class="text-xs text-gray-600 bg-gray-50 rounded-lg p-3 overflow-auto max-h-96 whitespace-pre-wrap leading-relaxed">{{ schema_json }}</pre>
+<div class="flex justify-center py-0.5 text-gray-300">↓</div>
+
+{# ── Stage 6: Schema.org ──────────────────────────────────────────────────────── #}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+  <div class="flex items-center gap-3 px-5 py-3 {% if schema_json and schema_json != '{}' %}bg-indigo-50 border-b border-indigo-100{% endif %}">
+    <span class="w-6 h-6 rounded-full {% if schema_json and schema_json != '{}' %}bg-indigo-500 text-white{% else %}bg-gray-200 text-gray-400{% endif %} text-xs font-bold flex items-center justify-center shrink-0">6</span>
+    <h2 class="text-sm font-semibold {% if schema_json and schema_json != '{}' %}text-indigo-800{% else %}text-gray-400{% endif %}">🏷️ Schema.org JSON-LD</h2>
+    <span class="text-xs text-indigo-400">structured data for search engines</span>
   </div>
+  {% if schema_json %}
+  <div class="px-5 py-4">
+    <details open>
+      <summary class="text-xs font-medium text-gray-700 cursor-pointer hover:text-gray-900 select-none list-none flex items-center gap-1.5">
+        <span class="text-gray-400">▼</span> JSON-LD output
+      </summary>
+      <pre class="mt-3 text-xs text-gray-600 bg-gray-50 rounded-lg p-3 overflow-auto max-h-96 whitespace-pre-wrap leading-relaxed">{{ schema_json }}</pre>
+    </details>
+  </div>
+  {% endif %}
 </div>
-{% endif %}
+
+</div>{# end pipeline #}
 
 {% endblock %}

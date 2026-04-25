@@ -19,7 +19,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from ..extract import OllamaExtractor
+from ..extract import (ENRICH_SCHEMA, ENRICH_SYSTEM_PROMPT, EXTRACTION_SCHEMA,
+                       SYSTEM_PROMPT, USER_PROMPT_TEMPLATE, OllamaExtractor)
 from ..fetch import fetch_and_clean
 from ..models import CommunityRecord
 from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline
@@ -891,10 +892,28 @@ async def cache_detail(request: Request, url_hash: str):
     schema_records = store_records or (entry.get("records") or [])
     schema_json = records_to_jsonld(schema_records)
 
+    ollama_model = app_state.pipeline_cfg.ollama_model if app_state.pipeline_cfg else "?"
+    max_text_chars = app_state.pipeline_cfg.ollama_max_text_chars if app_state.pipeline_cfg else 6000
+
+    extract_user_prompt = ""
+    if entry.get("raw_text") and entry.get("topic") and entry.get("city"):
+        extract_user_prompt = USER_PROMPT_TEMPLATE.format(
+            topic=entry.get("topic", ""),
+            city=entry.get("city", ""),
+            source_url=entry.get("url", ""),
+            page_text=entry.get("raw_text", "")[:max_text_chars],
+        )
+
     return templates.TemplateResponse(request, "cache_detail.html", {
         "entry": entry,
         "store_records": store_records,
         "schema_json": schema_json,
+        "extract_system_prompt": SYSTEM_PROMPT,
+        "extract_user_prompt": extract_user_prompt,
+        "extract_schema": json.dumps(EXTRACTION_SCHEMA, indent=2),
+        "enrich_system_prompt": ENRICH_SYSTEM_PROMPT,
+        "enrich_schema": json.dumps(ENRICH_SCHEMA, indent=2),
+        "ollama_model": ollama_model,
     })
 
 

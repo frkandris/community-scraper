@@ -51,7 +51,8 @@ class CacheManager:
         return entry.get("raw_text") if entry else None
 
     def save_scraped(self, url: str, text: str, city: str, topic: str,
-                     duration_s: float | None = None) -> None:
+                     duration_s: float | None = None,
+                     source_queries: list[str] | None = None) -> None:
         h = _url_hash(url)
         entry = self._load(h) or {}
         entry.update({
@@ -65,6 +66,8 @@ class CacheManager:
         })
         if duration_s is not None:
             entry["scrape_duration_s"] = round(duration_s, 2)
+        if source_queries is not None:
+            entry["source_queries"] = source_queries
         self._save(entry)
         log.debug("cache_saved_scrape", url=url)
 
@@ -92,6 +95,7 @@ class CacheManager:
             "enrich_extracted_at": None,
             "enrich_extract_duration_s": None,
             "enrich_count": None,
+            "enrich_log": None,
         })
         if duration_s is not None:
             entry["extract_duration_s"] = round(duration_s, 2)
@@ -116,6 +120,14 @@ class CacheManager:
             return
         entry["enrich_scraped_at"] = datetime.now(timezone.utc).isoformat()
         entry["enrich_scrape_duration_s"] = round(duration_s, 2)
+        self._save(entry)
+
+    def save_enrich_log(self, url: str, enrich_log: list[dict]) -> None:
+        h = _url_hash(url)
+        entry = self._load(h)
+        if not entry:
+            return
+        entry["enrich_log"] = enrich_log
         self._save(entry)
 
     def mark_enrich_extracted(self, url: str, count: int, duration_s: float) -> None:
@@ -192,7 +204,8 @@ class CacheManager:
             return False
         for key in ("records", "extracted_at", "extract_duration_s",
                     "enrich_scraped_at", "enrich_scrape_duration_s",
-                    "enrich_extracted_at", "enrich_extract_duration_s", "enrich_count"):
+                    "enrich_extracted_at", "enrich_extract_duration_s", "enrich_count",
+                    "enrich_log"):
             entry.pop(key, None)
         self._save(entry)
         return True

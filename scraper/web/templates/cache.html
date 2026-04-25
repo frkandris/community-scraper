@@ -61,11 +61,16 @@
       {% for e in entries %}
       <tr class="hover:bg-gray-50 transition-colors" data-hash="{{ e.url_hash }}">
         <td class="px-4 py-3 max-w-xs">
-          <a href="/admin/cache/{{ e.url_hash }}"
-             class="text-xs font-medium text-gray-800 hover:text-blue-600 truncate block max-w-xs"
-             title="{{ e.url }}">{{ e.domain }}</a>
-          <a href="{{ e.url }}" target="_blank"
-             class="text-xs text-gray-400 hover:underline truncate block max-w-xs">↗ open</a>
+          <div class="flex items-center gap-1.5 min-w-0">
+            <a href="{{ e.url }}" target="_blank"
+               class="text-xs font-medium text-gray-800 hover:text-blue-600 truncate min-w-0"
+               title="{{ e.url }}">{{ e.domain }}</a>
+            <a href="/admin/cache/{{ e.url_hash }}"
+               title="Audit trail"
+               class="shrink-0 w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+              <i class="ph ph-clipboard-text" style="font-size:13px"></i>
+            </a>
+          </div>
         </td>
         <td class="px-4 py-3 text-xs text-gray-600">
           {% if e.city %}<span class="font-medium">{{ e.city }}</span>{% if e.topic %}<span class="text-gray-400"> / {{ e.topic.replace('_',' ') }}</span>{% endif %}
@@ -182,8 +187,12 @@ function rowHtml(e) {
   const h = e.url_hash;
   return `<tr class="hover:bg-gray-50 transition-colors" data-hash="${h}">
     <td class="px-4 py-3 max-w-xs">
-      <a href="/admin/cache/${h}" class="text-xs font-medium text-gray-800 hover:text-blue-600 truncate block max-w-xs" title="${e.url}">${e.domain || e.url}</a>
-      <a href="${e.url}" target="_blank" class="text-xs text-gray-400 hover:underline truncate block max-w-xs">↗ open</a>
+      <div class="flex items-center gap-1.5 min-w-0">
+        <a href="${e.url}" target="_blank" class="text-xs font-medium text-gray-800 hover:text-blue-600 truncate min-w-0" title="${e.url}">${e.domain || e.url}</a>
+        <a href="/admin/cache/${h}" title="Audit trail" class="shrink-0 w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+          <i class="ph ph-clipboard-text" style="font-size:13px"></i>
+        </a>
+      </div>
     </td>
     <td class="px-4 py-3 text-xs text-gray-600">${city}</td>
     ${phaseCell('scrape',         e.scraped_at,          e.scrape_duration_s,         h, '/admin/cache/'+h+'/run-scrape',  true)}
