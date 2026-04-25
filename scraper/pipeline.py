@@ -223,6 +223,7 @@ async def _run_full(
                 "queries": queries,
                 "urls_found": len(search_results),
                 "fetched_urls": [],
+                "fetch_failed": 0,
                 "cache_hits_scrape": 0,
                 "cache_hits_extract": 0,
                 "records_extracted": 0,
@@ -255,6 +256,8 @@ async def _run_full(
                                            duration_s=scrape_dur, source_queries=queries)
                     fetched.append((url, text))
                     pair_log["fetched_urls"].append(url)
+                else:
+                    pair_log["fetch_failed"] += 1
 
             log.info("fetch_done", city=city.name, topic=topic.name, pages=len(fetched))
 

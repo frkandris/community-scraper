@@ -63,7 +63,9 @@ async def fetch_and_clean(
                 headers=_HEADERS,
             ) as client:
                 resp = await client.get(url)
-                resp.raise_for_status()
+                if resp.status_code >= 400:
+                    log.warning("fetch_failed", url=url, status=resp.status_code)
+                    return None
                 if "text/html" not in resp.headers.get("content-type", ""):
                     return None
                 return _extract_text(resp.text)
