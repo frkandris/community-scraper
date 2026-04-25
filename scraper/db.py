@@ -11,9 +11,15 @@ def init_db(db_path: Path) -> None:
                 started_at  TEXT NOT NULL,
                 finished_at TEXT,
                 run_mode    TEXT NOT NULL DEFAULT 'full',
-                success     INTEGER NOT NULL DEFAULT 1
+                success     INTEGER NOT NULL DEFAULT 1,
+                search_log  TEXT
             )
         """)
+        # migrate: add search_log if table existed without it
+        try:
+            conn.execute("ALTER TABLE runs ADD COLUMN search_log TEXT")
+        except sqlite3.OperationalError:
+            pass
         conn.commit()
 
 
@@ -23,13 +29,17 @@ def record_run(
     finished_at: datetime,
     run_mode: str,
     success: bool,
-) -> None:
+    search_log: str | None = None,
+) -> int:
     with sqlite3.connect(db_path) as conn:
-        conn.execute(
-            "INSERT INTO runs (started_at, finished_at, run_mode, success) VALUES (?, ?, ?, ?)",
-            (started_at.isoformat(), finished_at.isoformat(), run_mode, int(success)),
+        cur = conn.execute(
+            "INSERT INTO runs (started_at, finished_at, run_mode, success, search_log) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (started_at.isoformat(), finished_at.isoformat(),
+             run_mode, int(success), search_log),
         )
         conn.commit()
+        return cur.lastrowid
 
 
 def get_last_run(db_path: Path) -> datetime | None:
@@ -53,18 +63,43 @@ def get_run_history(db_path: Path, limit: int = 20) -> list[dict]:
     try:
         with sqlite3.connect(db_path) as conn:
             rows = conn.execute(
-                "SELECT started_at, finished_at, run_mode, success "
+                "SELECT id, started_at, finished_at, run_mode, success "
                 "FROM runs ORDER BY id DESC LIMIT ?",
                 (limit,),
             ).fetchall()
         return [
             {
-                "started_at": r[0],
-                "finished_at": r[1],
-                "run_mode": r[2],
-                "success": bool(r[3]),
+                "id": r[0],
+                "started_at": r[1],
+                "finished_at": r[2],
+                "run_mode": r[3],
+                "success": bool(r[4]),
             }
             for r in rows
         ]
     except Exception:
         return []
+
+
+def get_run_detail(db_path: Path, run_id: int) -> dict | None:
+    if not db_path.exists():
+        return None
+    try:
+        with sqlite3.connect(db_path) as conn:
+            row = conn.execute(
+                "SELECT id, started_at, finished_at, run_mode, success, search_log "
+                "FROM runs WHERE id = ?",
+                (run_id,),
+            ).fetchone()
+            if not row:
+                return None
+            return {
+                "id": row[0],
+                "started_at": row[1],
+                "finished_at": row[2],
+                "run_mode": row[3],
+                "success": bool(row[4]),
+                "search_log": row[5],
+            }
+    except Exception:
+        return None

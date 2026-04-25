@@ -17,7 +17,9 @@
     <tbody class="divide-y divide-gray-100">
       {% for c in commits %}
       <tr class="hover:bg-gray-50 transition-colors">
-        <td class="px-5 py-3 font-mono text-xs text-gray-500">{{ c.hash }}</td>
+        <td class="px-5 py-3 font-mono text-xs">
+          <a href="/history/{{ c.hash }}" class="text-blue-600 hover:underline">{{ c.hash }}</a>
+        </td>
         <td class="px-5 py-3 text-gray-500 whitespace-nowrap">{{ c.date }}</td>
         <td class="px-5 py-3 text-gray-800">{{ c.message }}</td>
       </tr>

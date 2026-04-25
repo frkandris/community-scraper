@@ -23,6 +23,7 @@ class CityConfig:
     name: str
     locale: str
     search_variants: list[str]
+    country: str = ""
 
 
 @dataclass
@@ -61,7 +62,7 @@ async def run_pipeline(
     run_mode: str = "full",
     skip_scraped: bool | None = None,
     skip_extracted: bool | None = None,
-) -> None:
+) -> list[dict]:
     _skip_scraped = skip_scraped if skip_scraped is not None else config.cache_skip_scraped
     _skip_extracted = skip_extracted if skip_extracted is not None else config.cache_skip_extracted
 
@@ -75,13 +76,14 @@ async def run_pipeline(
 
     run_stats: dict[str, dict[str, int]] = {}
     total_new = 0
+    pair_logs: list[dict] = []
 
     if run_mode == "ai_only":
-        total_new = await _run_ai_only(
+        total_new, pair_logs = await _run_ai_only(
             cities, topics, config, extractor, cache, _skip_extracted, run_stats
         )
     else:
-        total_new = await _run_full(
+        total_new, pair_logs = await _run_full(
             cities, topics, config, extractor, cache, _skip_scraped, _skip_extracted, run_stats
         )
 
@@ -93,6 +95,8 @@ async def run_pipeline(
         message = f"scraper: {timestamp} – {total_new} records ({run_mode})"
         commit_data(config.repo_dir, message)
 
+    return pair_logs
+
 
 async def _run_full(
     cities: list[CityConfig],
@@ -103,10 +107,11 @@ async def _run_full(
     skip_scraped: bool,
     skip_extracted: bool,
     run_stats: dict,
-) -> int:
+) -> tuple[int, list[dict]]:
     searxng = SearXNGClient(config.searxng_url, rate_limit_seconds=config.search_rate_limit)
     semaphore = asyncio.Semaphore(config.fetch_max_concurrent)
     total_new = 0
+    pair_logs: list[dict] = []
 
     for city in cities:
         run_stats[city.name] = {}
@@ -123,6 +128,16 @@ async def _run_full(
 
             urls = [r.url for r in search_results][:config.search_max_pages]
             fetched: list[tuple[str, str]] = []
+            pair_log: dict = {
+                "city": city.name,
+                "topic": topic.name,
+                "queries": queries,
+                "urls_found": len(search_results),
+                "fetched_urls": [],
+                "cache_hits_scrape": 0,
+                "cache_hits_extract": 0,
+                "records_extracted": 0,
+            }
 
             for url in urls:
                 if cache and skip_scraped:
@@ -130,6 +145,8 @@ async def _run_full(
                     if cached_text:
                         log.debug("cache_hit_scrape", url=url)
                         fetched.append((url, cached_text))
+                        pair_log["cache_hits_scrape"] += 1
+                        pair_log["fetched_urls"].append(url)
                         continue
 
                 text = await fetch_and_clean(
@@ -141,6 +158,7 @@ async def _run_full(
                     if cache:
                         cache.save_scraped(url, text, city.name, topic.name)
                     fetched.append((url, text))
+                    pair_log["fetched_urls"].append(url)
 
             log.info("fetch_done", city=city.name, topic=topic.name, pages=len(fetched))
 
@@ -151,6 +169,8 @@ async def _run_full(
                     if cached_records is not None:
                         log.debug("cache_hit_extract", url=url)
                         records.extend(cached_records)
+                        pair_log["cache_hits_extract"] += 1
+                        pair_log["records_extracted"] += len(cached_records)
                         continue
 
                 extracted = await extractor.extract(
@@ -161,12 +181,14 @@ async def _run_full(
                     cache.save_extracted(url, extracted)
                 records.extend(extracted)
                 total_new += len(extracted)
+                pair_log["records_extracted"] += len(extracted)
                 log.info("extracted", url=url, found=len(extracted))
 
             count = save_results(city.name, topic.name, records, config.data_dir)
             run_stats[city.name][topic.name] = count
+            pair_logs.append(pair_log)
 
-    return total_new
+    return total_new, pair_logs
 
 
 async def _run_ai_only(
@@ -177,10 +199,10 @@ async def _run_ai_only(
     cache: "CacheManager | None",
     skip_extracted: bool,
     run_stats: dict,
-) -> int:
+) -> tuple[int, list[dict]]:
     if not cache:
         log.warning("ai_only_mode_no_cache")
-        return 0
+        return 0, []
 
     all_scraped = cache.get_all_scraped()
     log.info("ai_only_start", cached_pages=len(all_scraped))
@@ -190,13 +212,27 @@ async def _run_ai_only(
         city_topic_pages.setdefault((city, topic), []).append((url, text))
 
     total_new = 0
+    pair_logs: list[dict] = []
+
     for city in cities:
         run_stats[city.name] = {}
         for topic in topics:
             pages = city_topic_pages.get((city.name, topic.name), [])
+            pair_log: dict = {
+                "city": city.name,
+                "topic": topic.name,
+                "queries": [],
+                "urls_found": len(pages),
+                "fetched_urls": [url for url, _ in pages],
+                "cache_hits_scrape": len(pages),
+                "cache_hits_extract": 0,
+                "records_extracted": 0,
+            }
+
             if not pages:
                 log.info("ai_only_no_cache", city=city.name, topic=topic.name)
                 run_stats[city.name][topic.name] = 0
+                pair_logs.append(pair_log)
                 continue
 
             log.info("ai_only_processing", city=city.name, topic=topic.name, pages=len(pages))
@@ -207,6 +243,8 @@ async def _run_ai_only(
                     if cached is not None:
                         log.debug("cache_hit_extract", url=url)
                         records.extend(cached)
+                        pair_log["cache_hits_extract"] += 1
+                        pair_log["records_extracted"] += len(cached)
                         continue
 
                 extracted = await extractor.extract(
@@ -216,9 +254,11 @@ async def _run_ai_only(
                 cache.save_extracted(url, extracted)
                 records.extend(extracted)
                 total_new += len(extracted)
+                pair_log["records_extracted"] += len(extracted)
                 log.info("extracted", url=url, found=len(extracted))
 
             count = save_results(city.name, topic.name, records, config.data_dir)
             run_stats[city.name][topic.name] = count
+            pair_logs.append(pair_log)
 
-    return total_new
+    return total_new, pair_logs

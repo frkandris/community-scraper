@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import json
 import os
 import subprocess
 from datetime import datetime, timezone
@@ -12,7 +13,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from .cache import CacheManager
-from .db import get_last_run, init_db
+from .db import get_last_run, init_db, record_run
 from .pipeline import CityConfig, PipelineConfig, TopicConfig, run_pipeline
 from .vcs import ensure_repo
 from .web.app import app as web_app, templates
@@ -129,13 +130,25 @@ async def main() -> None:
     cron_expr = os.environ.get("SCHEDULE_CRON", "0 3 * * *")
     minute, hour, day, month, day_of_week = cron_expr.split()
 
+    async def _scheduled_run() -> None:
+        started = datetime.now(timezone.utc)
+        success = False
+        pair_logs: list = []
+        try:
+            pair_logs = await run_pipeline(cities, topics, pipeline_cfg, cache=cache)
+            app_state.last_run_at = datetime.now(timezone.utc)
+            success = True
+        except Exception as exc:
+            log.error("scheduled_run_failed", error=str(exc))
+        finally:
+            record_run(db_path, started, datetime.now(timezone.utc), "full", success,
+                       json.dumps(pair_logs) if pair_logs else None)
+
     scheduler = AsyncIOScheduler()
     scheduler.add_job(
-        run_pipeline,
+        _scheduled_run,
         CronTrigger(minute=minute, hour=hour, day=day, month=month,
                     day_of_week=day_of_week, timezone="UTC"),
-        args=[cities, topics, pipeline_cfg],
-        kwargs={"cache": cache},
         misfire_grace_time=3600,
     )
     scheduler.start()

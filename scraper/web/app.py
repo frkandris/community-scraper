@@ -309,8 +309,9 @@ async def trigger_run(
         app_state.is_running = True
         started = datetime.now(timezone.utc)
         success = False
+        pair_logs: list = []
         try:
-            await run_pipeline(
+            pair_logs = await run_pipeline(
                 app_state.cities,
                 app_state.topics,
                 app_state.pipeline_cfg,
@@ -327,8 +328,9 @@ async def trigger_run(
             app_state.is_running = False
             if app_state.db_path:
                 from ..db import record_run
-                record_run(app_state.db_path, started,
-                           datetime.now(timezone.utc), run_mode, success)
+                record_run(app_state.db_path, started, datetime.now(timezone.utc),
+                           run_mode, success,
+                           json.dumps(pair_logs) if pair_logs else None)
 
     asyncio.create_task(_run())
     return RedirectResponse("/logs", status_code=302)
@@ -402,6 +404,23 @@ async def cache_delete_entry(url_hash: str):
     return RedirectResponse("/cache", status_code=302)
 
 
+# ── Run detail ─────────────────────────────────────────────────────────────────
+
+@_fastapi.get("/runs/{run_id}", response_class=HTMLResponse)
+async def run_detail(request: Request, run_id: int):
+    if not app_state.db_path:
+        return RedirectResponse("/", status_code=302)
+    from ..db import get_run_detail
+    run = get_run_detail(app_state.db_path, run_id)
+    if not run:
+        return RedirectResponse("/", status_code=302)
+    pair_logs = json.loads(run["search_log"]) if run.get("search_log") else []
+    return templates.TemplateResponse(request, "run_detail.html", {
+        "run": run,
+        "pair_logs": pair_logs,
+    })
+
+
 # ── History ────────────────────────────────────────────────────────────────────
 
 @_fastapi.get("/history", response_class=HTMLResponse)
@@ -417,3 +436,24 @@ async def history(request: Request):
             commits.append({"hash": parts[0], "date": parts[1][:16].replace("T", " "), "message": parts[2]})
 
     return templates.TemplateResponse(request, "history.html", {"commits": commits})
+
+
+@_fastapi.get("/history/{commit_hash}", response_class=HTMLResponse)
+async def history_detail(request: Request, commit_hash: str):
+    # Validate: only hex chars allowed
+    if not all(c in "0123456789abcdefABCDEF" for c in commit_hash):
+        return RedirectResponse("/history", status_code=302)
+
+    stat = subprocess.run(
+        ["git", "show", "--stat", "--no-color", commit_hash],
+        cwd=str(BASE_DIR), capture_output=True, text=True,
+    )
+    diff = subprocess.run(
+        ["git", "show", "--no-color", commit_hash, "--", "data/"],
+        cwd=str(BASE_DIR), capture_output=True, text=True,
+    )
+    return templates.TemplateResponse(request, "history_detail.html", {
+        "commit_hash": commit_hash,
+        "stat": stat.stdout,
+        "diff": diff.stdout,
+    })
