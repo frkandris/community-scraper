@@ -62,16 +62,17 @@
 
         <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2" id="topics-grid">
           {% for topic in topics %}
-          <label class="cursor-pointer select-none relative" data-topic="{{ topic.name }}">
+          <label class="cursor-pointer select-none" data-topic="{{ topic.name }}">
             <input type="checkbox" name="topic" value="{{ topic.name }}" class="sr-only peer">
-            <div class="flex flex-col items-center gap-1 py-3 px-1 rounded-xl border-2 border-gray-200 bg-gray-50
+            <div class="relative flex flex-col items-center justify-center gap-1.5 h-[5.5rem] px-1
+              rounded-xl border-2 border-gray-200 bg-gray-50
               peer-checked:border-indigo-500 peer-checked:bg-indigo-50 peer-checked:shadow-sm
               hover:border-gray-300 hover:bg-white transition-all text-center cursor-pointer">
-              <i class="ph ph-{{ topic_icons.get(topic.name, 'circle') }} text-2xl text-gray-500 peer-checked:text-indigo-600 group-hover:text-gray-700 leading-none"></i>
-              <span class="text-xs text-gray-600 leading-tight mt-0.5">
+              <i class="ph ph-{{ topic_icons.get(topic.name, 'circle') }} text-2xl text-gray-500 leading-none shrink-0"></i>
+              <span class="text-xs text-gray-600 leading-tight text-center w-full px-1">
                 {{ topic_labels.get(topic.name, topic.name.replace('_',' ').title()) }}
               </span>
-              <span class="count-badge text-xs font-bold text-indigo-500 leading-none h-3.5">
+              <span class="count-badge absolute top-1.5 right-1.5 text-[10px] font-bold text-indigo-500 leading-none">
                 {%- set cnt = topic_counts.get(topic.name, 0) -%}
                 {%- if cnt > 0 %}{{ cnt }}{% endif -%}
               </span>

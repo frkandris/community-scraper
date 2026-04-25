@@ -71,10 +71,10 @@
     <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
       {% for topic in topics %}
       <a href="/explore?topic={{ topic.name }}"
-         class="flex flex-col items-center gap-2 py-4 px-2 bg-white rounded-xl border border-gray-100 shadow-sm
+         class="flex flex-col items-center justify-center gap-1.5 h-[5.5rem] px-2 bg-white rounded-xl border border-gray-100 shadow-sm
            hover:border-indigo-300 hover:bg-indigo-50 transition-all text-center group">
-        <i class="ph ph-{{ topic_icons.get(topic.name, 'circle') }} text-2xl text-gray-500 group-hover:text-indigo-600 leading-none"></i>
-        <span class="text-xs font-medium text-gray-600 group-hover:text-indigo-700 leading-tight">
+        <i class="ph ph-{{ topic_icons.get(topic.name, 'circle') }} text-2xl text-gray-500 group-hover:text-indigo-600 leading-none shrink-0"></i>
+        <span class="text-xs font-medium text-gray-600 group-hover:text-indigo-700 leading-tight w-full text-center">
           {{ topic_labels.get(topic.name, topic.name.replace('_',' ').title()) }}
         </span>
       </a>

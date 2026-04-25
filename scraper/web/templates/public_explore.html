@@ -60,15 +60,15 @@
       {% for topic in topics %}
       <label class="cursor-pointer select-none group">
         <input type="checkbox" name="topic" value="{{ topic.name }}" class="sr-only peer">
-        <div class="relative flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 border-gray-200 bg-white
+        <div class="relative flex flex-col items-center justify-center gap-1.5 h-[5.5rem] px-2 rounded-xl border-2 border-gray-200 bg-white
           peer-checked:border-indigo-500 peer-checked:bg-indigo-50
           group-hover:border-gray-300 group-hover:bg-gray-50 transition-all text-center cursor-pointer">
-          <i class="ph ph-{{ topic_icons.get(topic.name, 'circle') }} text-2xl text-gray-500 leading-none"></i>
-          <span class="text-xs font-medium text-gray-700 leading-tight">
+          <i class="ph ph-{{ topic_icons.get(topic.name, 'circle') }} text-2xl text-gray-500 leading-none shrink-0"></i>
+          <span class="text-xs font-medium text-gray-700 leading-tight w-full text-center">
             {{ topic_labels.get(topic.name, topic.name.replace('_',' ').title()) }}
           </span>
           {% if available_topics.get(topic.name, 0) > 0 %}
-          <span class="absolute top-2 right-2 text-xs font-bold text-indigo-600 bg-indigo-50 rounded-full px-1.5 leading-5">
+          <span class="absolute top-1.5 right-1.5 text-[10px] font-bold text-indigo-600 leading-none">
             {{ available_topics[topic.name] }}
           </span>
           {% endif %}
