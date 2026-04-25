@@ -26,12 +26,10 @@
 <div class="bg-white border-b border-gray-100">
   <div class="max-w-5xl mx-auto px-6 py-3 flex items-center gap-6 flex-wrap">
     <h1 class="text-sm font-semibold text-gray-900">🗺 World community map</h1>
-    <div class="flex items-center gap-4 text-xs text-gray-500 ml-auto flex-wrap">
-      <span class="flex items-center gap-1.5">
-        <span class="inline-block w-3 h-3 rounded-full bg-indigo-500 opacity-80"></span>
-        <strong class="text-gray-900">{{ cities_with_data }}</strong> cities with communities
-      </span>
-      <span class="text-indigo-600 font-semibold">{{ total }} total</span>
+    <div class="flex items-center gap-1.5 text-xs text-gray-500 ml-auto">
+      <span class="inline-block w-3 h-3 rounded-full bg-indigo-500 opacity-80 shrink-0"></span>
+      <strong class="text-gray-900">{{ total }}</strong> communities in
+      <strong class="text-gray-900">{{ cities_with_data }}</strong> {{ 'city' if cities_with_data == 1 else 'cities' }}
     </div>
   </div>
 </div>
