@@ -17,6 +17,7 @@ class AppState:
     version: str = "v.unknown"
     current_phase: str | None = None  # "scrape" | "extract" | "enrich_scrape" | "enrich_extract"
     current_url: str | None = None    # source URL of the cache row being processed
+    _run_task: Any = None
 
 
 app_state = AppState()

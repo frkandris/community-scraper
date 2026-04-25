@@ -53,8 +53,6 @@ class BraveSearchClient:
             "count": min(num_results, 20),
             "country": country,
             "search_lang": locale if len(locale) == 2 else "en",
-            "safesearch": "off",
-            "text_decorations": 0,
         }
         headers = {
             "Accept": "application/json",
@@ -64,7 +62,10 @@ class BraveSearchClient:
         try:
             async with httpx.AsyncClient(timeout=20.0) as client:
                 resp = await client.get(self._BASE, params=params, headers=headers)
-                resp.raise_for_status()
+                if resp.status_code >= 400:
+                    log.warning("brave_search_failed", query=query,
+                                status=resp.status_code, body=resp.text[:300])
+                    return []
                 data = resp.json()
         except Exception as exc:
             log.warning("brave_search_failed", query=query, error=str(exc))

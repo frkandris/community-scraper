@@ -936,8 +936,17 @@ async def trigger_run(
                            run_mode, success,
                            json.dumps(pair_logs) if pair_logs else None)
 
-    asyncio.create_task(_run())
+    app_state._run_task = asyncio.create_task(_run())
     return RedirectResponse("/admin/logs", status_code=302)
+
+
+@admin.post("/api/stop")
+async def stop_run():
+    task = app_state._run_task
+    if task and not task.done():
+        task.cancel()
+        log.info("run_cancelled_by_user")
+    return RedirectResponse("/admin/", status_code=302)
 
 
 @admin.get("/api/status")

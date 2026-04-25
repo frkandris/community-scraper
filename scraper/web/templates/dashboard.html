@@ -110,9 +110,16 @@
         </div>
       </div>
 
-      <button type="submit" {% if is_running %}disabled{% endif %}
+      <button id="run-btn" type="submit" {% if is_running %}disabled{% endif %}
         class="w-full px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2">
         <i class="ph ph-play" style="font-size:15px"></i> Run Now
+      </button>
+    </form>
+
+    <form id="stop-form" method="POST" action="/admin/api/stop" class="mt-2 {% if not is_running %}hidden{% endif %}">
+      <button type="submit"
+        class="w-full px-4 py-2.5 bg-red-50 text-red-700 border border-red-200 text-sm font-semibold rounded-xl hover:bg-red-100 transition-colors flex items-center justify-center gap-2">
+        <i class="ph ph-stop-circle" style="font-size:15px"></i> Stop
       </button>
     </form>
   </div>
@@ -244,6 +251,24 @@
 </div>
 
 <script>
+(function() {
+  const runBtn  = document.getElementById('run-btn');
+  const stopForm = document.getElementById('stop-form');
+  setInterval(async () => {
+    try {
+      const r = await fetch('/admin/api/status');
+      const d = await r.json();
+      if (d.is_running) {
+        runBtn.disabled = true;
+        stopForm.classList.remove('hidden');
+      } else {
+        runBtn.disabled = false;
+        stopForm.classList.add('hidden');
+      }
+    } catch (_) {}
+  }, 2000);
+})();
+
 function updateModeUI() {
   const full = document.querySelector('input[value="full"]').checked;
   const lFull = document.getElementById('mode-full-label');
