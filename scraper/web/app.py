@@ -8,6 +8,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+from urllib.parse import quote as _url_quote
 
 import httpx
 import structlog
@@ -34,26 +35,33 @@ _ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
 _ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "almafa123")
 
 TOPIC_ICONS: dict[str, str] = {
-    "running": "🏃",
-    "board_games": "🎲",
-    "choir": "🎵",
-    "dance": "💃",
-    "cycling": "🚴",
-    "hiking": "🥾",
-    "yoga": "🧘",
-    "photography": "📸",
-    "book_club": "📚",
-    "chess": "♟️",
-    "cooking": "🍳",
-    "theater": "🎭",
-    "music": "🎸",
-    "martial_arts": "🥋",
-    "gaming": "🎮",
-    "volunteering": "🤝",
-    "language_exchange": "🗣️",
-    "art": "🎨",
-    "meditation": "🕊️",
-    "swimming": "🏊",
+    "running": "person-simple-run",
+    "board_games": "puzzle-piece",
+    "choir": "microphone-stage",
+    "dance": "person-simple",
+    "cycling": "bicycle",
+    "hiking": "mountains",
+    "yoga": "flower-lotus",
+    "photography": "camera",
+    "book_club": "books",
+    "chess": "chess-knight",
+    "cooking": "cooking-pot",
+    "theater": "theater-masks",
+    "music": "music-notes",
+    "martial_arts": "sword",
+    "gaming": "game-controller",
+    "volunteering": "hand-heart",
+    "language_exchange": "translate",
+    "art": "paint-brush",
+    "meditation": "spiral",
+    "swimming": "waves",
+    "community_general": "users-three",
+    "gardening": "plant",
+    "film_club": "popcorn",
+    "trivia": "lightbulb",
+    "sustainability": "recycle",
+    "crafts": "scissors",
+    "fitness": "barbell",
 }
 
 TOPIC_LABELS: dict[str, str] = {
@@ -77,6 +85,13 @@ TOPIC_LABELS: dict[str, str] = {
     "art": "Art",
     "meditation": "Meditation",
     "swimming": "Swimming",
+    "community_general": "Communities",
+    "gardening": "Gardening",
+    "film_club": "Film Club",
+    "trivia": "Trivia & Quizzes",
+    "sustainability": "Sustainability",
+    "crafts": "Crafts & Making",
+    "fitness": "Fitness",
 }
 
 
@@ -123,6 +138,7 @@ class _BasicAuth:
 _fastapi = FastAPI(title="Community Scraper")
 app = _BasicAuth(_fastapi)
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+templates.env.filters["urlencode"] = lambda s: _url_quote(str(s), safe="")
 
 _static_dir = Path(__file__).parent / "static"
 _static_dir.mkdir(exist_ok=True)
@@ -193,7 +209,8 @@ CITY_COORDS: dict[str, tuple[float, float]] = {
     # Germany
     "Berlin": (52.52, 13.40), "Munich": (48.14, 11.58), "Hamburg": (53.55, 10.00),
     "Frankfurt": (50.11, 8.68), "Cologne": (50.94, 6.96), "Düsseldorf": (51.23, 6.78),
-    "Stuttgart": (48.78, 9.18), "Leipzig": (51.34, 12.38),
+    "Stuttgart": (48.78, 9.18), "Leipzig": (51.34, 12.38), "Nürnberg": (49.45, 11.08),
+    "Dresden": (51.05, 13.74), "Hannover": (52.37, 9.74),
     # Switzerland
     "Zurich": (47.38, 8.54), "Bern": (46.95, 7.45), "Geneva": (46.20, 6.15),
     # UK
@@ -204,62 +221,88 @@ CITY_COORDS: dict[str, tuple[float, float]] = {
     # USA
     "New York": (40.71, -74.01), "Los Angeles": (34.05, -118.24), "Chicago": (41.88, -87.63),
     "San Francisco": (37.77, -122.42), "Seattle": (47.61, -122.33), "Boston": (42.36, -71.06),
-    "Austin": (30.27, -97.74), "Portland": (45.52, -122.68),
+    "Austin": (30.27, -97.74), "Portland": (45.52, -122.68), "Denver": (39.74, -104.98),
+    "Miami": (25.77, -80.19), "Atlanta": (33.75, -84.39), "Minneapolis": (44.98, -93.27),
+    "Philadelphia": (39.95, -75.16), "Detroit": (42.33, -83.05),
     # Canada
     "Toronto": (43.65, -79.38), "Vancouver": (49.25, -123.12), "Montreal": (45.51, -73.55),
+    "Calgary": (51.04, -114.07), "Ottawa": (45.42, -75.70),
     # Australia
     "Sydney": (-33.87, 151.21), "Melbourne": (-37.81, 144.96), "Brisbane": (-27.47, 153.02),
+    "Perth": (-31.95, 115.86), "Adelaide": (-34.93, 138.60),
     # New Zealand
-    "Auckland": (-36.85, 174.76),
+    "Auckland": (-36.85, 174.76), "Wellington": (-41.29, 174.78),
     # France
     "Paris": (48.86, 2.35), "Lyon": (45.75, 4.83), "Marseille": (43.30, 5.37),
-    "Toulouse": (43.60, 1.44),
+    "Toulouse": (43.60, 1.44), "Nice": (43.71, 7.26), "Bordeaux": (44.84, -0.58),
+    "Strasbourg": (48.58, 7.75), "Nantes": (47.22, -1.55),
     # Belgium
-    "Brussels": (50.85, 4.35),
+    "Brussels": (50.85, 4.35), "Antwerp": (51.22, 4.40),
     # Netherlands
-    "Amsterdam": (52.37, 4.90), "Rotterdam": (51.92, 4.47),
+    "Amsterdam": (52.37, 4.90), "Rotterdam": (51.92, 4.47), "The Hague": (52.08, 4.31),
     # Spain
     "Madrid": (40.42, -3.70), "Barcelona": (41.39, 2.17), "Seville": (37.39, -5.99),
-    "Valencia": (39.47, -0.38),
+    "Valencia": (39.47, -0.38), "Bilbao": (43.26, -2.93), "Zaragoza": (41.65, -0.88),
     # Portugal
     "Lisbon": (38.72, -9.14), "Porto": (41.16, -8.63),
     # Italy
     "Rome": (41.90, 12.50), "Milan": (45.47, 9.19), "Florence": (43.77, 11.25),
+    "Turin": (45.07, 7.69), "Naples": (40.85, 14.27), "Bologna": (44.49, 11.34),
     # Poland
     "Warsaw": (52.23, 21.01), "Krakow": (50.06, 19.94), "Wroclaw": (51.11, 17.04),
+    "Gdansk": (54.35, 18.65), "Poznan": (52.41, 16.93),
     # Czech Republic
-    "Prague": (50.08, 14.44),
+    "Prague": (50.08, 14.44), "Brno": (49.19, 16.61),
     # Slovakia
     "Bratislava": (48.15, 17.11),
+    # Hungary → Slovenia
+    "Ljubljana": (46.05, 14.51),
     # Romania
     "Bucharest": (44.43, 26.10), "Cluj-Napoca": (46.77, 23.59),
     # Serbia
     "Belgrade": (44.82, 20.46),
     # Croatia
     "Zagreb": (45.81, 15.98),
+    # Bulgaria
+    "Sofia": (42.70, 23.32),
+    # Ukraine
+    "Kyiv": (50.45, 30.52),
+    # Baltic
+    "Riga": (56.95, 24.11), "Tallinn": (59.44, 24.75), "Vilnius": (54.69, 25.28),
+    # Greece
+    "Athens": (37.98, 23.73), "Thessaloniki": (40.64, 22.94),
     # Scandinavia
     "Copenhagen": (55.68, 12.57), "Stockholm": (59.33, 18.07), "Oslo": (59.91, 10.75),
-    "Helsinki": (60.17, 24.94),
+    "Helsinki": (60.17, 24.94), "Gothenburg": (57.71, 11.97), "Malmö": (55.61, 13.00),
     # Turkey
-    "Istanbul": (41.01, 28.95),
+    "Istanbul": (41.01, 28.95), "Ankara": (39.93, 32.86),
+    # Middle East
+    "Dubai": (25.20, 55.27), "Tel Aviv": (32.08, 34.78), "Beirut": (33.89, 35.50),
     # Latin America
     "Mexico City": (19.43, -99.13), "Buenos Aires": (-34.60, -58.38),
     "Bogota": (4.71, -74.07), "Lima": (-12.05, -77.04), "Santiago": (-33.45, -70.67),
     "Sao Paulo": (-23.55, -46.63), "Rio de Janeiro": (-22.91, -43.17),
+    "Guadalajara": (20.67, -103.35), "Medellin": (6.23, -75.57),
+    "Montevideo": (-34.90, -56.19), "Quito": (-0.22, -78.51),
     # Africa
     "Cape Town": (-33.93, 18.42), "Johannesburg": (-26.20, 28.04),
+    "Cairo": (30.06, 31.25), "Lagos": (6.52, 3.38), "Nairobi": (-1.29, 36.82),
+    "Accra": (5.56, -0.20), "Casablanca": (33.59, -7.61),
     # Japan
-    "Tokyo": (35.69, 139.69), "Osaka": (34.69, 135.50),
+    "Tokyo": (35.69, 139.69), "Osaka": (34.69, 135.50), "Kyoto": (35.02, 135.76),
     # Korea
-    "Seoul": (37.57, 126.98),
+    "Seoul": (37.57, 126.98), "Busan": (35.10, 129.04),
     # China
     "Beijing": (39.91, 116.39), "Shanghai": (31.23, 121.47),
+    "Shenzhen": (22.54, 114.06), "Chengdu": (30.57, 104.07),
     # SE Asia
-    "Singapore": (1.35, 103.82),
+    "Singapore": (1.35, 103.82), "Bangkok": (13.76, 100.50), "Taipei": (25.05, 121.56),
+    "Kuala Lumpur": (3.14, 101.69), "Hong Kong": (22.28, 114.17),
+    "Jakarta": (-6.21, 106.85), "Manila": (14.60, 120.98),
+    "Ho Chi Minh City": (10.82, 106.63), "Hanoi": (21.03, 105.85),
     # India
     "Bangalore": (12.97, 77.59), "Mumbai": (19.08, 72.88), "Delhi": (28.61, 77.21),
-    # Israel
-    "Tel Aviv": (32.08, 34.78),
+    "Chennai": (13.08, 80.27), "Hyderabad": (17.39, 78.49), "Pune": (18.52, 73.86),
 }
 
 
@@ -269,6 +312,40 @@ def _load_communities(city: str, topic: str) -> list[dict]:
         return []
     try:
         return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+
+def _global_topic_counts() -> dict[str, int]:
+    """Total community count per topic across all cities."""
+    meta_file = DATA_DIR / "metadata.json"
+    if not meta_file.exists():
+        return {}
+    try:
+        metadata = json.loads(meta_file.read_text(encoding="utf-8"))
+        result: dict[str, int] = {}
+        for city_topics in metadata.get("records_by_city_topic", {}).values():
+            for topic, count in city_topics.items():
+                result[topic] = result.get(topic, 0) + int(count)
+        return result
+    except Exception:
+        return {}
+
+
+def _top_cities(n: int = 8) -> list[tuple[str, str, int]]:
+    """Return top N cities (name, country, total_count) sorted by community count."""
+    meta_file = DATA_DIR / "metadata.json"
+    if not meta_file.exists():
+        return []
+    try:
+        metadata = json.loads(meta_file.read_text(encoding="utf-8"))
+        city_totals: dict[str, int] = {}
+        for city, topics in metadata.get("records_by_city_topic", {}).items():
+            city_totals[city] = sum(int(c) for c in topics.values())
+        sorted_cities = sorted(city_totals.items(), key=lambda x: x[1], reverse=True)
+        cities_map = {c.name: c.country for c in (app_state.cities or [])}
+        return [(name, cities_map.get(name, ""), count)
+                for name, count in sorted_cities[:n] if count > 0]
     except Exception:
         return []
 
@@ -287,6 +364,8 @@ async def public_home(request: Request, city: str = ""):
         "topic_icons": TOPIC_ICONS,
         "topic_labels": TOPIC_LABELS,
         "selected_city": city,
+        "topic_counts": _global_topic_counts(),
+        "featured_cities": _top_cities(8),
     })
 
 
@@ -309,7 +388,7 @@ async def public_explore(
         sections.append({
             "topic": t,
             "label": TOPIC_LABELS.get(t, t.replace("_", " ").title()),
-            "icon": TOPIC_ICONS.get(t, "●"),
+            "icon": TOPIC_ICONS.get(t, "circle"),
             "records": records,
         })
 
@@ -321,6 +400,24 @@ async def public_explore(
             if count > 0:
                 available_topics[t.name] = count
 
+    # If no city but topics selected, aggregate across all cities
+    cross_city_sections: list[dict] = []
+    if not city and topic:
+        for t in topic:
+            city_results = []
+            for c in cities:
+                records = _load_communities(c.name, t)
+                if records:
+                    city_results.append({"city": c.name, "country": c.country, "records": records})
+            city_results.sort(key=lambda x: len(x["records"]), reverse=True)
+            cross_city_sections.append({
+                "topic": t,
+                "label": TOPIC_LABELS.get(t, t.replace("_", " ").title()),
+                "icon": TOPIC_ICONS.get(t, "circle"),
+                "city_results": city_results[:6],
+                "total": sum(len(cr["records"]) for cr in city_results),
+            })
+
     return templates.TemplateResponse(request, "public_explore.html", {
         "city": city,
         "topics": topics,
@@ -330,6 +427,7 @@ async def public_explore(
         "topic_icons": TOPIC_ICONS,
         "topic_labels": TOPIC_LABELS,
         "available_topics": available_topics,
+        "cross_city_sections": cross_city_sections,
         "cities": cities,
         "subscribed": subscribed == "1",
     })
@@ -392,11 +490,11 @@ async def public_map(request: Request):
         })
 
     total = sum(c["count"] for c in cities_data)
-    cities_with_data = sum(1 for c in cities_data if c["count"] > 0)
+    cities_with_data = [c for c in cities_data if c["count"] > 0]
     return templates.TemplateResponse(request, "public_map.html", {
-        "cities_json": json.dumps(cities_data),
+        "cities_json": json.dumps(cities_with_data),
         "total": total,
-        "cities_with_data": cities_with_data,
+        "cities_with_data": len(cities_with_data),
         "cities_tracked": len(cities_data),
     })
 
@@ -417,6 +515,7 @@ async def public_about(request: Request):
         "topics": app_state.topics or [],
         "topic_icons": TOPIC_ICONS,
         "topic_labels": TOPIC_LABELS,
+        "featured_cities": _top_cities(12),
     })
 
 

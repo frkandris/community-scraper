@@ -18,7 +18,7 @@
 <div class="max-w-2xl mx-auto px-6 -mt-8 pb-16">
   <div class="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sm:p-8">
 
-    <form action="/explore" method="GET">
+    <form action="/explore" method="GET" id="main-form">
 
       <!-- City input -->
       <div class="mb-7">
@@ -26,7 +26,7 @@
           City
         </label>
         <div class="relative">
-          <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none select-none">🏙</span>
+          <i class="ph ph-city absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xl pointer-events-none"></i>
           <input
             type="text"
             name="city"
@@ -45,7 +45,7 @@
             {% endfor %}
           </datalist>
         </div>
-        <p id="city-hint" class="mt-2 text-xs text-gray-400 hidden min-h-[1rem]">
+        <p id="city-hint" class="mt-2 text-xs text-gray-400 hidden">
           <span id="city-count-text"></span>
         </p>
       </div>
@@ -60,20 +60,22 @@
           </button>
         </div>
 
-        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2" id="topics-grid">
           {% for topic in topics %}
           <label class="cursor-pointer select-none relative" data-topic="{{ topic.name }}">
             <input type="checkbox" name="topic" value="{{ topic.name }}" class="sr-only peer">
             <div class="flex flex-col items-center gap-1 py-3 px-1 rounded-xl border-2 border-gray-200 bg-gray-50
               peer-checked:border-indigo-500 peer-checked:bg-indigo-50 peer-checked:shadow-sm
               hover:border-gray-300 hover:bg-white transition-all text-center cursor-pointer">
-              <span class="text-2xl leading-none">{{ topic_icons.get(topic.name, '●') }}</span>
+              <i class="ph ph-{{ topic_icons.get(topic.name, 'circle') }} text-2xl text-gray-500 peer-checked:text-indigo-600 group-hover:text-gray-700 leading-none"></i>
               <span class="text-xs text-gray-600 leading-tight mt-0.5">
                 {{ topic_labels.get(topic.name, topic.name.replace('_',' ').title()) }}
               </span>
-              <span class="count-badge text-xs font-bold text-green-600 leading-none h-3.5"></span>
+              <span class="count-badge text-xs font-bold text-indigo-500 leading-none h-3.5">
+                {%- set cnt = topic_counts.get(topic.name, 0) -%}
+                {%- if cnt > 0 %}{{ cnt }}{% endif -%}
+              </span>
             </div>
-            <span class="data-dot absolute top-1.5 right-1.5 w-2 h-2 bg-green-400 rounded-full hidden border border-white"></span>
           </label>
           {% endfor %}
         </div>
@@ -89,11 +91,35 @@
     </form>
   </div>
 
+  {% if featured_cities %}
+  <!-- Featured cities -->
+  <div class="mt-6">
+    <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 text-center">Popular cities</p>
+    <div class="flex flex-wrap gap-2 justify-center">
+      {% for name, country, count in featured_cities %}
+      <a href="/explore?city={{ name | urlencode }}"
+         class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200
+                hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700
+                text-gray-600 text-sm rounded-full shadow-sm transition-all">
+        {{ name }}
+        {% if count > 0 %}
+        <span class="text-xs text-gray-400">{{ count }}</span>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Quick links -->
   <div class="mt-5 flex items-center justify-center gap-4 text-sm text-gray-400">
-    <a href="/map" class="hover:text-indigo-600 transition-colors flex items-center gap-1">🗺 View world map</a>
+    <a href="/map" class="hover:text-indigo-600 transition-colors flex items-center gap-1">
+      <i class="ph ph-map-trifold"></i> View world map
+    </a>
     <span>·</span>
-    <a href="/about" class="hover:text-indigo-600 transition-colors flex items-center gap-1">ℹ About</a>
+    <a href="/about" class="hover:text-indigo-600 transition-colors flex items-center gap-1">
+      <i class="ph ph-info"></i> About
+    </a>
   </div>
 </div>
 
@@ -103,6 +129,9 @@ const hint = document.getElementById('city-hint');
 const cityCountText = document.getElementById('city-count-text');
 const clearBtn = document.getElementById('clear-topics');
 const labels = document.querySelectorAll('label[data-topic]');
+
+// Global topic counts from server (shown when no city is typed)
+const globalCounts = {{ topic_counts | tojson }};
 
 function updateClearBtn() {
   const any = [...labels].some(l => l.querySelector('input').checked);
@@ -114,15 +143,32 @@ clearBtn.addEventListener('click', () => {
   updateClearBtn();
 });
 
+// Click-without-city: navigate directly to /explore?topic=X
+labels.forEach(label => {
+  label.addEventListener('click', function(e) {
+    const city = cityInput.value.trim();
+    if (!city) {
+      e.preventDefault();
+      window.location.href = '/explore?topic=' + encodeURIComponent(this.dataset.topic);
+    }
+    // With a city: let checkbox toggle normally, then form submit
+  });
+});
+
+function showGlobalCounts() {
+  labels.forEach(label => {
+    const topic = label.dataset.topic;
+    const count = globalCounts[topic] || 0;
+    const badge = label.querySelector('.count-badge');
+    badge.textContent = count > 0 ? count : '';
+  });
+  hint.classList.add('hidden');
+}
+
 let fetchTimeout;
 async function fetchCounts(city) {
   if (!city || city.length < 2) {
-    labels.forEach(l => {
-      l.classList.remove('has-data');
-      l.querySelector('.count-badge').textContent = '';
-      l.querySelector('.data-dot').classList.add('hidden');
-    });
-    hint.classList.add('hidden');
+    showGlobalCounts();
     return;
   }
   try {
@@ -133,22 +179,16 @@ async function fetchCounts(city) {
       const topic = label.dataset.topic;
       const count = data[topic] || 0;
       const badge = label.querySelector('.count-badge');
-      const dot = label.querySelector('.data-dot');
-      if (count > 0) {
-        badge.textContent = count;
-        dot.classList.remove('hidden');
-        total += count;
-      } else {
-        badge.textContent = '';
-        dot.classList.add('hidden');
-      }
+      badge.textContent = count > 0 ? count : '';
+      if (count > 0) total += count;
     });
     if (total > 0) {
       cityCountText.textContent = total + ' communities found in ' + city;
+      hint.classList.remove('hidden');
     } else {
       cityCountText.textContent = 'No data yet for ' + city + ' — check back after the next run.';
+      hint.classList.remove('hidden');
     }
-    hint.classList.remove('hidden');
   } catch (e) {}
 }
 
@@ -157,7 +197,9 @@ cityInput.addEventListener('input', () => {
   fetchTimeout = setTimeout(() => fetchCounts(cityInput.value.trim()), 300);
 });
 
-if (cityInput.value.trim()) fetchCounts(cityInput.value.trim());
+if (cityInput.value.trim()) {
+  fetchCounts(cityInput.value.trim());
+}
 </script>
 
 {% endblock %}

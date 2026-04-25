@@ -24,7 +24,7 @@
         <td class="px-5 py-3 font-medium text-gray-800">{{ s.email }}</td>
         <td class="px-5 py-3 text-gray-600">{{ s.city }}</td>
         <td class="px-5 py-3 text-gray-600">
-          {{ topic_icons.get(s.topic, '') }}
+          <i class="ph ph-{{ topic_icons.get(s.topic, 'circle') }}"></i>
           {{ topic_labels.get(s.topic, s.topic.replace('_',' ').title()) }}
         </td>
         <td class="px-5 py-3 text-gray-400 text-xs font-mono whitespace-nowrap">

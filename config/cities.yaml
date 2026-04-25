@@ -88,6 +88,18 @@ cities:
     country: Germany
     locale: de
     search_variants: [Leipzig]
+  - name: Nürnberg
+    country: Germany
+    locale: de
+    search_variants: [Nürnberg, Nuremberg]
+  - name: Dresden
+    country: Germany
+    locale: de
+    search_variants: [Dresden]
+  - name: Hannover
+    country: Germany
+    locale: de
+    search_variants: [Hannover, Hanover]
 
   # Switzerland
   - name: Zurich
@@ -216,12 +228,32 @@ cities:
     country: France
     locale: fr
     search_variants: [Toulouse, "Toulouse France"]
+  - name: Nice
+    country: France
+    locale: fr
+    search_variants: [Nice, "Nice France"]
+  - name: Bordeaux
+    country: France
+    locale: fr
+    search_variants: [Bordeaux, "Bordeaux France"]
+  - name: Strasbourg
+    country: France
+    locale: fr
+    search_variants: [Strasbourg, "Strasbourg France"]
+  - name: Nantes
+    country: France
+    locale: fr
+    search_variants: [Nantes, "Nantes France"]
 
   # Belgium
   - name: Brussels
     country: Belgium
     locale: fr
     search_variants: [Bruxelles, Brussels, "Brussels Belgium"]
+  - name: Antwerp
+    country: Belgium
+    locale: nl
+    search_variants: [Antwerpen, Antwerp, "Antwerp Belgium"]
 
   # Netherlands
   - name: Amsterdam
@@ -232,6 +264,10 @@ cities:
     country: Netherlands
     locale: nl
     search_variants: [Rotterdam, "Rotterdam Netherlands"]
+  - name: The Hague
+    country: Netherlands
+    locale: nl
+    search_variants: [Den Haag, "The Hague", "The Hague Netherlands"]
 
   # Spain
   - name: Madrid
@@ -250,6 +286,14 @@ cities:
     country: Spain
     locale: es
     search_variants: [Valencia, "Valencia Spain"]
+  - name: Bilbao
+    country: Spain
+    locale: es
+    search_variants: [Bilbao, "Bilbao Spain"]
+  - name: Zaragoza
+    country: Spain
+    locale: es
+    search_variants: [Zaragoza, "Zaragoza Spain"]
 
   # Portugal
   - name: Lisbon
@@ -274,6 +318,18 @@ cities:
     country: Italy
     locale: it
     search_variants: [Firenze, Florence, "Florence Italy"]
+  - name: Turin
+    country: Italy
+    locale: it
+    search_variants: [Torino, Turin, "Turin Italy"]
+  - name: Naples
+    country: Italy
+    locale: it
+    search_variants: [Napoli, Naples, "Naples Italy"]
+  - name: Bologna
+    country: Italy
+    locale: it
+    search_variants: [Bologna, "Bologna Italy"]
 
   # Poland
   - name: Warsaw
@@ -288,12 +344,24 @@ cities:
     country: Poland
     locale: pl
     search_variants: [Wrocław, Wroclaw]
+  - name: Gdansk
+    country: Poland
+    locale: pl
+    search_variants: [Gdańsk, Gdansk, "Gdansk Poland"]
+  - name: Poznan
+    country: Poland
+    locale: pl
+    search_variants: [Poznań, Poznan, "Poznan Poland"]
 
   # Czech Republic
   - name: Prague
     country: Czech Republic
     locale: cs
     search_variants: [Praha, Prague, "Prague Czech"]
+  - name: Brno
+    country: Czech Republic
+    locale: cs
+    search_variants: [Brno, "Brno Czech"]
 
   # Slovakia
   - name: Bratislava
@@ -323,6 +391,48 @@ cities:
     locale: hr
     search_variants: [Zagreb, "Zagreb Croatia"]
 
+  # Slovenia
+  - name: Ljubljana
+    country: Slovenia
+    locale: sl
+    search_variants: [Ljubljana, "Ljubljana Slovenia"]
+
+  # Bulgaria
+  - name: Sofia
+    country: Bulgaria
+    locale: bg
+    search_variants: [София, Sofia, "Sofia Bulgaria"]
+
+  # Ukraine
+  - name: Kyiv
+    country: Ukraine
+    locale: uk
+    search_variants: [Київ, Kyiv, Kiev, "Kyiv Ukraine"]
+
+  # Baltic states
+  - name: Riga
+    country: Latvia
+    locale: lv
+    search_variants: [Rīga, Riga, "Riga Latvia"]
+  - name: Tallinn
+    country: Estonia
+    locale: et
+    search_variants: [Tallinn, "Tallinn Estonia"]
+  - name: Vilnius
+    country: Lithuania
+    locale: lt
+    search_variants: [Vilnius, "Vilnius Lithuania"]
+
+  # Greece
+  - name: Athens
+    country: Greece
+    locale: el
+    search_variants: [Αθήνα, Athens, "Athens Greece"]
+  - name: Thessaloniki
+    country: Greece
+    locale: el
+    search_variants: [Θεσσαλονίκη, Thessaloniki, "Thessaloniki Greece"]
+
   # Scandinavia
   - name: Copenhagen
     country: Denmark
@@ -332,6 +442,14 @@ cities:
     country: Sweden
     locale: sv
     search_variants: [Stockholm, "Stockholm Sweden"]
+  - name: Gothenburg
+    country: Sweden
+    locale: sv
+    search_variants: [Göteborg, Gothenburg, "Gothenburg Sweden"]
+  - name: Malmö
+    country: Sweden
+    locale: sv
+    search_variants: [Malmö, Malmo, "Malmö Sweden"]
   - name: Oslo
     country: Norway
     locale: no
@@ -346,6 +464,20 @@ cities:
     country: Turkey
     locale: tr
     search_variants: [İstanbul, Istanbul, "Istanbul Turkey"]
+  - name: Ankara
+    country: Turkey
+    locale: tr
+    search_variants: [Ankara, "Ankara Turkey"]
+
+  # Middle East
+  - name: Dubai
+    country: UAE
+    locale: en
+    search_variants: [Dubai, "Dubai UAE"]
+  - name: Beirut
+    country: Lebanon
+    locale: en
+    search_variants: [Beirut, "Beirut Lebanon"]
 
   # Latin America
   - name: Mexico City
@@ -376,8 +508,24 @@ cities:
     country: Brazil
     locale: pt
     search_variants: ["Rio de Janeiro", Rio, "Rio de Janeiro Brazil"]
+  - name: Guadalajara
+    country: Mexico
+    locale: es
+    search_variants: [Guadalajara, "Guadalajara Mexico"]
+  - name: Medellin
+    country: Colombia
+    locale: es
+    search_variants: [Medellín, Medellin, "Medellin Colombia"]
+  - name: Montevideo
+    country: Uruguay
+    locale: es
+    search_variants: [Montevideo, "Montevideo Uruguay"]
+  - name: Quito
+    country: Ecuador
+    locale: es
+    search_variants: [Quito, "Quito Ecuador"]
 
-  # South Africa
+  # Africa
   - name: Cape Town
     country: South Africa
     locale: en
@@ -386,6 +534,26 @@ cities:
     country: South Africa
     locale: en
     search_variants: [Johannesburg, "Johannesburg South Africa", Joburg]
+  - name: Cairo
+    country: Egypt
+    locale: en
+    search_variants: [Cairo, "Cairo Egypt"]
+  - name: Lagos
+    country: Nigeria
+    locale: en
+    search_variants: [Lagos, "Lagos Nigeria"]
+  - name: Nairobi
+    country: Kenya
+    locale: en
+    search_variants: [Nairobi, "Nairobi Kenya"]
+  - name: Accra
+    country: Ghana
+    locale: en
+    search_variants: [Accra, "Accra Ghana"]
+  - name: Casablanca
+    country: Morocco
+    locale: fr
+    search_variants: [Casablanca, "Casablanca Maroc"]
 
   # Japan
   - name: Tokyo
@@ -396,12 +564,20 @@ cities:
     country: Japan
     locale: ja
     search_variants: [大阪, Osaka, "Osaka Japan"]
+  - name: Kyoto
+    country: Japan
+    locale: ja
+    search_variants: [京都, Kyoto, "Kyoto Japan"]
 
   # South Korea
   - name: Seoul
     country: South Korea
     locale: ko
     search_variants: [서울, Seoul, "Seoul Korea"]
+  - name: Busan
+    country: South Korea
+    locale: ko
+    search_variants: [부산, Busan, "Busan Korea"]
 
   # China
   - name: Beijing
@@ -412,12 +588,100 @@ cities:
     country: China
     locale: zh
     search_variants: [上海, Shanghai, "Shanghai China"]
+  - name: Shenzhen
+    country: China
+    locale: zh
+    search_variants: [深圳, Shenzhen, "Shenzhen China"]
+  - name: Chengdu
+    country: China
+    locale: zh
+    search_variants: [成都, Chengdu, "Chengdu China"]
 
-  # Singapore
+  # SE Asia
   - name: Singapore
     country: Singapore
     locale: en
     search_variants: [Singapore]
+  - name: Bangkok
+    country: Thailand
+    locale: en
+    search_variants: [Bangkok, "Bangkok Thailand"]
+  - name: Taipei
+    country: Taiwan
+    locale: zh
+    search_variants: [台北, Taipei, "Taipei Taiwan"]
+  - name: Kuala Lumpur
+    country: Malaysia
+    locale: en
+    search_variants: ["Kuala Lumpur", KL, "Kuala Lumpur Malaysia"]
+  - name: Hong Kong
+    country: Hong Kong
+    locale: en
+    search_variants: ["Hong Kong", "Hong Kong SAR"]
+  - name: Jakarta
+    country: Indonesia
+    locale: en
+    search_variants: [Jakarta, "Jakarta Indonesia"]
+  - name: Manila
+    country: Philippines
+    locale: en
+    search_variants: [Manila, "Manila Philippines"]
+  - name: Ho Chi Minh City
+    country: Vietnam
+    locale: en
+    search_variants: ["Ho Chi Minh City", Saigon, HCMC]
+  - name: Hanoi
+    country: Vietnam
+    locale: en
+    search_variants: [Hanoi, "Hanoi Vietnam"]
+
+  # Australia expanded
+  - name: Perth
+    country: Australia
+    locale: en
+    search_variants: [Perth, "Perth Australia"]
+  - name: Adelaide
+    country: Australia
+    locale: en
+    search_variants: [Adelaide, "Adelaide Australia"]
+
+  # New Zealand expanded
+  - name: Wellington
+    country: New Zealand
+    locale: en
+    search_variants: [Wellington, "Wellington New Zealand"]
+
+  # Canada expanded
+  - name: Calgary
+    country: Canada
+    locale: en
+    search_variants: [Calgary, "Calgary Canada"]
+  - name: Ottawa
+    country: Canada
+    locale: en
+    search_variants: [Ottawa, "Ottawa Canada"]
+
+  # USA expanded
+  - name: Denver
+    country: United States
+    locale: en
+    search_variants: [Denver, "Denver CO"]
+  - name: Miami
+    country: United States
+    locale: en
+    search_variants: [Miami, "Miami FL"]
+  - name: Atlanta
+    country: United States
+    locale: en
+    search_variants: [Atlanta, "Atlanta GA"]
+  - name: Minneapolis
+    country: United States
+    locale: en
+    search_variants: [Minneapolis, "Minneapolis MN"]
+  - name: Philadelphia
+    country: United States
+    locale: en
+    search_variants: [Philadelphia, Philly, "Philadelphia PA"]
 
   # India
   - name: Bangalore
@@ -432,6 +696,18 @@ cities:
     country: India
     locale: en
     search_variants: ["New Delhi", Delhi, "Delhi India"]
+  - name: Chennai
+    country: India
+    locale: en
+    search_variants: [Chennai, Madras, "Chennai India"]
+  - name: Hyderabad
+    country: India
+    locale: en
+    search_variants: [Hyderabad, "Hyderabad India"]
+  - name: Pune
+    country: India
+    locale: en
+    search_variants: [Pune, "Pune India"]
 
   # Israel
   - name: Tel Aviv

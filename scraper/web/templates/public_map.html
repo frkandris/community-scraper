@@ -29,13 +29,9 @@
     <div class="flex items-center gap-4 text-xs text-gray-500 ml-auto flex-wrap">
       <span class="flex items-center gap-1.5">
         <span class="inline-block w-3 h-3 rounded-full bg-indigo-500 opacity-80"></span>
-        <strong class="text-gray-900">{{ cities_with_data }}</strong> cities with data
+        <strong class="text-gray-900">{{ cities_with_data }}</strong> cities with communities
       </span>
-      <span class="flex items-center gap-1.5">
-        <span class="inline-block w-3 h-3 rounded-full bg-gray-300"></span>
-        <strong class="text-gray-900">{{ cities_tracked - cities_with_data }}</strong> cities tracked
-      </span>
-      <span class="text-indigo-600 font-semibold">{{ total }} communities total</span>
+      <span class="text-indigo-600 font-semibold">{{ total }} total</span>
     </div>
   </div>
 </div>
@@ -55,30 +51,22 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
 const cities = {{ cities_json | safe }};
 
 cities.forEach(city => {
-  const hasData = city.count > 0;
-  const radius = hasData ? Math.max(7, Math.min(22, 5 + Math.sqrt(city.count) * 1.6)) : 4;
+  const radius = Math.max(7, Math.min(22, 5 + Math.sqrt(city.count) * 1.6));
 
   const marker = L.circleMarker([city.lat, city.lng], {
     radius: radius,
-    fillColor: hasData ? '#6366f1' : '#d1d5db',
-    fillOpacity: hasData ? 0.82 : 0.45,
-    color: hasData ? '#4338ca' : '#9ca3af',
-    weight: hasData ? 1.5 : 1,
+    fillColor: '#6366f1',
+    fillOpacity: 0.82,
+    color: '#4338ca',
+    weight: 1.5,
   }).addTo(map);
 
-  const popupContent = hasData
-    ? `<div>
-        <div class="city-popup-name">${city.name}</div>
-        <div class="city-popup-country">${city.country}</div>
-        <div class="city-popup-count">${city.count} ${city.count === 1 ? 'community' : 'communities'}</div>
-        <a href="/explore?city=${encodeURIComponent(city.name)}" class="city-popup-btn">Explore →</a>
-      </div>`
-    : `<div>
-        <div class="city-popup-name">${city.name}</div>
-        <div class="city-popup-country">${city.country}</div>
-        <div style="font-size:12px;color:#d1d5db;margin-top:4px;">No data yet</div>
-        <a href="/explore?city=${encodeURIComponent(city.name)}" class="city-popup-btn" style="background:#9ca3af;margin-top:8px;">Browse anyway →</a>
-      </div>`;
+  const popupContent = `<div>
+    <div class="city-popup-name">${city.name}</div>
+    <div class="city-popup-country">${city.country}</div>
+    <div class="city-popup-count">${city.count} ${city.count === 1 ? 'community' : 'communities'}</div>
+    <a href="/explore?city=${encodeURIComponent(city.name)}" class="city-popup-btn">Explore →</a>
+  </div>`;
 
   marker.bindPopup(popupContent, { maxWidth: 200 });
 
@@ -87,10 +75,10 @@ cities.forEach(city => {
     this.openPopup();
   });
   marker.on('mouseout', function () {
-    this.setStyle({ radius, fillOpacity: hasData ? 0.82 : 0.45 });
+    this.setStyle({ radius, fillOpacity: 0.82 });
   });
   marker.on('click', function () {
-    if (hasData) window.location.href = '/explore?city=' + encodeURIComponent(city.name);
+    window.location.href = '/explore?city=' + encodeURIComponent(city.name);
   });
 });
 </script>
