@@ -1211,6 +1211,9 @@ async def history_detail(request: Request, commit_hash: str):
     })
 
 
+_fastapi.include_router(admin)
+
+
 @_fastapi.get("/{city_slug}/{segment}", response_class=HTMLResponse)
 async def public_city_segment(
     request: Request, city_slug: str, segment: str, subscribed: str = ""
@@ -1245,6 +1248,3 @@ async def public_city(request: Request, city_slug: str, subscribed: str = ""):
     if not city_name:
         return RedirectResponse("/", status_code=302)
     return await _render_explore(request, city=city_name, subscribed=subscribed)
-
-
-_fastapi.include_router(admin)
