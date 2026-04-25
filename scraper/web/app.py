@@ -564,6 +564,8 @@ async def public_subscribe(
 
 
 _FEEDBACK_EMAIL = os.environ.get("FEEDBACK_EMAIL", "")
+_RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+_RESEND_FROM = os.environ.get("RESEND_FROM", "onboarding@resend.dev")
 
 
 @_fastapi.post("/feedback")
@@ -574,38 +576,25 @@ async def public_feedback(
     page_url: str = Form(""),
     message: str = Form(""),
 ):
-    if _FEEDBACK_EMAIL and message:
+    if _FEEDBACK_EMAIL and message and _RESEND_API_KEY:
         try:
-            import smtplib
-            from email.message import EmailMessage
-            smtp_host = os.environ.get("SMTP_HOST", "localhost")
-            smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-            smtp_user = os.environ.get("SMTP_USER", "")
-            smtp_pass = os.environ.get("SMTP_PASS", "")
-            msg = EmailMessage()
-            msg["Subject"] = f"[CommUnity feedback] {community_name} – {city}"
-            msg["From"] = smtp_user or f"noreply@{smtp_host}"
-            msg["To"] = _FEEDBACK_EMAIL
-            msg.set_content(
-                f"Community: {community_name}\nCity: {city}\nTopic: {topic}\nPage: {page_url}\n\n{message}"
-            )
-            if smtp_port == 465:
-                with smtplib.SMTP_SSL(smtp_host, smtp_port) as s:
-                    if smtp_user and smtp_pass:
-                        s.login(smtp_user, smtp_pass)
-                    s.send_message(msg)
-            else:
-                with smtplib.SMTP(smtp_host, smtp_port) as s:
-                    s.ehlo()
-                    s.starttls()
-                    s.ehlo()
-                    if smtp_user and smtp_pass:
-                        s.login(smtp_user, smtp_pass)
-                    s.send_message(msg)
+            import resend
+            resend.api_key = _RESEND_API_KEY
+            resend.Emails.send({
+                "from": _RESEND_FROM,
+                "to": _FEEDBACK_EMAIL,
+                "subject": f"[CommUnity feedback] {community_name} – {city}",
+                "html": (
+                    f"<p><b>Community:</b> {community_name}<br>"
+                    f"<b>City:</b> {city}<br>"
+                    f"<b>Topic:</b> {topic}<br>"
+                    f"<b>Page:</b> <a href='{page_url}'>{page_url}</a></p>"
+                    f"<hr><p>{message.replace(chr(10), '<br>')}</p>"
+                ),
+            })
             log.info("feedback_email_sent", to=_FEEDBACK_EMAIL, community=community_name)
         except Exception as exc:
-            log.warning("feedback_email_failed", error=str(exc), smtp_host=os.environ.get("SMTP_HOST"),
-                        smtp_port=os.environ.get("SMTP_PORT"), smtp_user=os.environ.get("SMTP_USER"))
+            log.warning("feedback_email_failed", error=str(exc))
     return JSONResponse({"ok": True})
 
 
