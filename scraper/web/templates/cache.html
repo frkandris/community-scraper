@@ -51,14 +51,20 @@
         <i class="ph ph-warning text-red-600" style="font-size:20px"></i>
       </div>
       <div>
-        <h2 class="text-base font-bold text-gray-900">Clear entire cache?</h2>
-        <p class="text-xs text-gray-500 mt-0.5">This action cannot be undone.</p>
+        <h2 class="text-base font-bold text-gray-900">Full reset — cannot be undone</h2>
+        <p class="text-xs text-gray-500 mt-0.5">Cache + all scraped results will be deleted.</p>
       </div>
     </div>
-    <p class="text-sm text-gray-600 mb-6">
-      All <strong id="modal-entry-count">{{ entries|length }}</strong> cached pages will be permanently deleted.
-      Running the scraper again will re-fetch everything from scratch.
-    </p>
+    <ul class="text-sm text-gray-600 mb-6 space-y-1.5">
+      <li class="flex items-center gap-2">
+        <i class="ph ph-file-x text-red-400 shrink-0" style="font-size:15px"></i>
+        <span><strong id="modal-entry-count">{{ entries|length }}</strong> cached pages</span>
+      </li>
+      <li class="flex items-center gap-2">
+        <i class="ph ph-folder-open text-red-400 shrink-0" style="font-size:15px"></i>
+        <span>All <code class="text-xs bg-gray-100 px-1 rounded">data/</code> communities.json files</span>
+      </li>
+    </ul>
     <div class="flex gap-3">
       <form method="POST" action="/admin/cache/clear-all" class="flex-1">
         <button type="submit"

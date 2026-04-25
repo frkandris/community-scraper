@@ -1041,6 +1041,15 @@ async def cache_delete_entry(url_hash: str):
 async def cache_clear_all():
     if app_state.cache_manager:
         app_state.cache_manager.clear_all()
+    # Also wipe scraped results so re-runs start fresh without stale merges
+    deleted_data = 0
+    for f in DATA_DIR.rglob("communities.json"):
+        f.unlink()
+        deleted_data += 1
+    meta = DATA_DIR / "metadata.json"
+    if meta.exists():
+        meta.unlink()
+    log.info("clear_all_data", deleted_files=deleted_data)
     return RedirectResponse("/admin/cache", status_code=302)
 
 
