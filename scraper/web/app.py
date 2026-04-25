@@ -322,14 +322,34 @@ CITY_COORDS: dict[str, tuple[float, float]] = {
 }
 
 
+def _ensure_community_id(record: dict) -> dict:
+    if not record.get("community_id"):
+        import hashlib
+        key = f"{record.get('name', '').lower()}|{record.get('city', '').lower()}"
+        return dict(record, community_id=hashlib.sha256(key.encode()).hexdigest()[:12])
+    return record
+
+
 def _load_communities(city: str, topic: str) -> list[dict]:
     path = DATA_DIR / _normalize(city) / _normalize(topic) / "communities.json"
     if not path.exists():
         return []
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return [_ensure_community_id(r) for r in json.loads(path.read_text(encoding="utf-8"))]
     except Exception:
         return []
+
+
+def _find_community(community_id: str) -> dict | None:
+    for json_file in sorted(DATA_DIR.glob("*/*/communities.json")):
+        try:
+            for r in json.loads(json_file.read_text(encoding="utf-8")):
+                r = _ensure_community_id(r)
+                if r.get("community_id") == community_id:
+                    return r
+        except Exception:
+            continue
+    return None
 
 
 def _global_topic_counts() -> dict[str, int]:
@@ -455,6 +475,24 @@ async def public_explore(
         "cities": cities,
         "subscribed": subscribed == "1",
         "schema_json": schema_json,
+    })
+
+
+@_fastapi.get("/community/{community_id}", response_class=HTMLResponse)
+async def public_community(request: Request, community_id: str):
+    record = _find_community(community_id)
+    if not record:
+        return RedirectResponse("/", status_code=302)
+    topic = record.get("topic", "")
+    city = record.get("city", "")
+    schema_json = records_to_jsonld([record])
+    return templates.TemplateResponse(request, "public_community.html", {
+        "r": record,
+        "topic": topic,
+        "city": city,
+        "schema_json": schema_json,
+        "topic_icons": TOPIC_ICONS,
+        "topic_labels": TOPIC_LABELS,
     })
 
 

@@ -1,0 +1,145 @@
+{% extends "public_base.html" %}
+{% block head %}{% if schema_json %}<script type="application/ld+json">{{ schema_json | safe }}</script>{% endif %}{% endblock %}
+{% block title %}{{ r.name }} – CommUnity{% endblock %}
+
+{% block content %}
+
+<div class="max-w-2xl mx-auto px-6 py-10">
+
+  <!-- Breadcrumb -->
+  <nav class="flex items-center gap-2 text-sm text-gray-400 mb-8">
+    <a href="/" class="hover:text-gray-700 transition-colors">CommUnity</a>
+    <span>/</span>
+    {% if city %}
+    <a href="/explore?city={{ city | urlencode }}" class="hover:text-gray-700 transition-colors">{{ city }}</a>
+    <span>/</span>
+    {% endif %}
+    {% if topic %}
+    <a href="/explore?city={{ city | urlencode }}&topic={{ topic }}"
+       class="hover:text-gray-700 transition-colors">
+      {{ topic_labels.get(topic, topic.replace('_',' ').title()) }}
+    </a>
+    <span>/</span>
+    {% endif %}
+    <span class="text-gray-600 font-medium truncate">{{ r.name }}</span>
+  </nav>
+
+  <!-- Header card -->
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 mb-6">
+
+    <div class="flex items-start gap-4 mb-5">
+      <div class="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
+        <i class="ph ph-{{ topic_icons.get(topic, 'users-three') }} text-indigo-600 text-2xl"></i>
+      </div>
+      <div class="min-w-0">
+        <h1 class="text-2xl font-bold text-gray-900 leading-tight">{{ r.name }}</h1>
+        <div class="flex flex-wrap items-center gap-2 mt-1.5">
+          {% if city %}
+          <span class="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">
+            <i class="ph ph-map-pin text-gray-400"></i> {{ city }}
+          </span>
+          {% endif %}
+          {% if topic %}
+          <span class="inline-flex items-center gap-1 text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
+            <i class="ph ph-{{ topic_icons.get(topic, 'circle') }}"></i>
+            {{ topic_labels.get(topic, topic.replace('_',' ').title()) }}
+          </span>
+          {% endif %}
+          {% if r.confidence and r.confidence >= 0.7 %}
+          <span class="text-xs px-2 py-0.5 rounded-full font-medium
+            {% if r.confidence >= 0.85 %}bg-green-100 text-green-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">
+            {{ (r.confidence * 100) | int }}% confidence
+          </span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {% if r.description %}
+    <p class="text-gray-700 leading-relaxed mb-6">{{ r.description }}</p>
+    {% endif %}
+
+    <!-- Details grid -->
+    <div class="space-y-3">
+      {% if r.location %}
+      <div class="flex items-start gap-3 text-sm">
+        <div class="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0 mt-0.5">
+          <i class="ph ph-map-pin text-gray-500"></i>
+        </div>
+        <div>
+          <div class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">Location</div>
+          <div class="text-gray-700">{{ r.location }}</div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if r.meeting_schedule %}
+      <div class="flex items-start gap-3 text-sm">
+        <div class="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0 mt-0.5">
+          <i class="ph ph-calendar text-gray-500"></i>
+        </div>
+        <div>
+          <div class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">Schedule</div>
+          <div class="text-gray-700">{{ r.meeting_schedule }}</div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if r.contact %}
+      <div class="flex items-start gap-3 text-sm">
+        <div class="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0 mt-0.5">
+          <i class="ph ph-envelope text-gray-500"></i>
+        </div>
+        <div>
+          <div class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">Contact</div>
+          <div class="text-gray-700">{{ r.contact }}</div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Links -->
+    {% if r.website or r.social_links %}
+    <div class="mt-6 pt-5 border-t border-gray-100 flex flex-wrap gap-3">
+      {% if r.website %}
+      <a href="{{ r.website }}" target="_blank" rel="noopener"
+         class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm">
+        <i class="ph ph-globe"></i> Visit website
+      </a>
+      {% endif %}
+      {% for link in r.social_links %}
+      <a href="{{ link }}" target="_blank" rel="noopener"
+         class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors">
+        <i class="ph ph-link"></i>
+        {{ link | replace('https://','') | replace('http://','') | truncate(32, True, '…') }}
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Source attribution -->
+  {% if r.source_url %}
+  <div class="text-center">
+    <a href="{{ r.source_url }}" target="_blank" rel="noopener"
+       class="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+      <i class="ph ph-arrow-square-out"></i> Source page
+    </a>
+  </div>
+  {% endif %}
+
+  <!-- Back link -->
+  {% if city and topic %}
+  <div class="mt-8 text-center">
+    <a href="/explore?city={{ city | urlencode }}&topic={{ topic }}"
+       class="inline-flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 transition-colors font-medium">
+      <i class="ph ph-arrow-left"></i>
+      More {{ topic_labels.get(topic, 'communities') }} in {{ city }}
+    </a>
+  </div>
+  {% endif %}
+
+</div>
+
+{% endblock %}

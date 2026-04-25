@@ -1,4 +1,6 @@
-from pydantic import BaseModel, Field
+import hashlib
+
+from pydantic import BaseModel, Field, model_validator
 
 
 class SearchResult(BaseModel):
@@ -22,6 +24,14 @@ class CommunityRecord(BaseModel):
     extracted_at: str
     confidence: float | None = None
     joinable: bool = True  # open, recurring group a person can join
+    community_id: str = ""
+
+    @model_validator(mode="after")
+    def _generate_id(self) -> "CommunityRecord":
+        if not self.community_id:
+            key = f"{self.name.lower()}|{self.city.lower()}"
+            self.community_id = hashlib.sha256(key.encode()).hexdigest()[:12]
+        return self
 
 
 class RunMetadata(BaseModel):
