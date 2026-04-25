@@ -134,10 +134,14 @@ async def main() -> None:
         await run_pipeline(cities, topics, pipeline_cfg, cache=cache)
         return
 
-    cron_expr = os.environ.get("SCHEDULE_CRON", "0 3 * * *")
+    cron_expr = os.environ.get("SCHEDULE_CRON", "*/15 * * * *")
     minute, hour, day, month, day_of_week = cron_expr.split()
 
     async def _scheduled_run() -> None:
+        if app_state.is_running:
+            log.info("scheduled_run_skipped", reason="already_running")
+            return
+        app_state.is_running = True
         started = datetime.now(timezone.utc)
         success = False
         pair_logs: list = []
@@ -148,6 +152,7 @@ async def main() -> None:
         except Exception as exc:
             log.error("scheduled_run_failed", error=str(exc))
         finally:
+            app_state.is_running = False
             record_run(db_path, started, datetime.now(timezone.utc), "full", success,
                        json.dumps(pair_logs) if pair_logs else None)
 
@@ -156,7 +161,7 @@ async def main() -> None:
         _scheduled_run,
         CronTrigger(minute=minute, hour=hour, day=day, month=month,
                     day_of_week=day_of_week, timezone="UTC"),
-        misfire_grace_time=3600,
+        misfire_grace_time=900,
     )
     scheduler.start()
     app_state.scheduler = scheduler
