@@ -9,7 +9,7 @@ import structlog
 
 from .extract import OllamaExtractor
 from .fetch import fetch_and_clean
-from .search import SearXNGClient, build_queries
+from .search import BraveSearchClient, SearXNGClient, build_queries
 from .store import save_results, update_metadata
 from .vcs import commit_data
 
@@ -26,7 +26,7 @@ def _needs_enrichment(record: "CommunityRecord") -> bool:
 
 async def _enrich_record(
     record: "CommunityRecord",
-    searxng: "SearXNGClient",
+    searxng: "SearXNGClient | BraveSearchClient",
     extractor: "OllamaExtractor",
     config: "PipelineConfig",
     semaphore: asyncio.Semaphore,
@@ -128,6 +128,7 @@ class PipelineConfig:
     commit_after_run: bool
     data_dir: Path
     repo_dir: Path
+    brave_api_key: str = ""
     cache_skip_scraped: bool = True
     cache_skip_extracted: bool = True
     enrich_communities: bool = True
@@ -189,7 +190,14 @@ async def _run_full(
     run_stats: dict,
     on_progress: Callable[[str | None, str | None], None] | None,
 ) -> tuple[int, list[dict]]:
-    searxng = SearXNGClient(config.searxng_url, rate_limit_seconds=config.search_rate_limit)
+    if config.brave_api_key:
+        searxng: BraveSearchClient | SearXNGClient = BraveSearchClient(
+            config.brave_api_key, rate_limit_seconds=config.search_rate_limit
+        )
+        log.info("search_client", backend="brave")
+    else:
+        searxng = SearXNGClient(config.searxng_url, rate_limit_seconds=config.search_rate_limit)
+        log.info("search_client", backend="searxng")
     semaphore = asyncio.Semaphore(config.fetch_max_concurrent)
     total_new = 0
     pair_logs: list[dict] = []

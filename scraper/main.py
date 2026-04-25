@@ -97,6 +97,7 @@ def load_config() -> tuple[list[CityConfig], list[TopicConfig], PipelineConfig]:
         cache_skip_scraped=cache_cfg.get("skip_scraped", True),
         cache_skip_extracted=cache_cfg.get("skip_extracted", True),
         enrich_communities=pipeline_settings.get("enrich_communities", True),
+        brave_api_key=os.environ.get("BRAVE_API_KEY", ""),
     )
     return cities, topics, pipeline_cfg
 

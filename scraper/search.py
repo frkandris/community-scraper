@@ -14,6 +14,96 @@ LOCALE_TO_LANGUAGE = {
     "es": "es-ES",
 }
 
+LOCALE_TO_BRAVE_COUNTRY = {
+    "hu": "HU",
+    "en": "US",
+    "de": "DE",
+    "fr": "FR",
+    "es": "ES",
+    "it": "IT",
+    "pt": "BR",
+    "nl": "NL",
+    "pl": "PL",
+    "cs": "CZ",
+    "sv": "SE",
+    "ro": "RO",
+}
+
+
+class BraveSearchClient:
+    """Brave Search API — works from datacenter IPs, no CAPTCHA."""
+
+    _BASE = "https://api.search.brave.com/res/v1/web/search"
+
+    def __init__(self, api_key: str, rate_limit_seconds: float = 1.0):
+        self.api_key = api_key
+        self.rate_limit_seconds = rate_limit_seconds
+        self._last_request_time: float = 0.0
+
+    async def search(
+        self,
+        query: str,
+        locale: str = "en",
+        num_results: int = 10,
+    ) -> list[SearchResult]:
+        await self._rate_limit()
+        country = LOCALE_TO_BRAVE_COUNTRY.get(locale, "US")
+        params = {
+            "q": query,
+            "count": min(num_results, 20),
+            "country": country,
+            "search_lang": locale if len(locale) == 2 else "en",
+            "safesearch": "off",
+            "text_decorations": False,
+        }
+        headers = {
+            "Accept": "application/json",
+            "Accept-Encoding": "gzip",
+            "X-Subscription-Token": self.api_key,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                resp = await client.get(self._BASE, params=params, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+        except Exception as exc:
+            log.warning("brave_search_failed", query=query, error=str(exc))
+            return []
+
+        items = data.get("web", {}).get("results", [])
+        log.debug("brave_results", query=query, raw=len(items))
+        return [
+            SearchResult(
+                url=item.get("url", ""),
+                title=item.get("title", ""),
+                snippet=item.get("description", ""),
+            )
+            for item in items[:num_results]
+        ]
+
+    async def search_all(
+        self,
+        queries: list[str],
+        locale: str = "en",
+        num_results: int = 10,
+    ) -> list[SearchResult]:
+        seen_urls: set[str] = set()
+        combined: list[SearchResult] = []
+        for query in queries:
+            for r in await self.search(query, locale=locale, num_results=num_results):
+                if r.url not in seen_urls:
+                    seen_urls.add(r.url)
+                    combined.append(r)
+        return combined
+
+    async def _rate_limit(self) -> None:
+        import time
+        now = time.monotonic()
+        elapsed = now - self._last_request_time
+        if elapsed < self.rate_limit_seconds:
+            await asyncio.sleep(self.rate_limit_seconds - elapsed)
+        self._last_request_time = time.monotonic()
+
 
 class SearXNGClient:
     def __init__(self, base_url: str, rate_limit_seconds: float = 1.5):
@@ -46,22 +136,19 @@ class SearXNGClient:
 
         raw_count = len(data.get("results", []))
         if raw_count == 0:
-            answers = data.get("answers", [])
-            suggestions = data.get("suggestions", [])
             log.warning("searxng_empty_results", query=query, language=language,
-                        answers=len(answers), suggestions=len(suggestions),
                         unresponsive=data.get("unresponsive_engines", []))
         else:
             log.debug("searxng_results", query=query, raw=raw_count)
 
-        results = []
-        for item in data.get("results", [])[:num_results]:
-            results.append(SearchResult(
+        return [
+            SearchResult(
                 url=item.get("url", ""),
                 title=item.get("title", ""),
                 snippet=item.get("content", ""),
-            ))
-        return results
+            )
+            for item in data.get("results", [])[:num_results]
+        ]
 
     async def search_all(
         self,
@@ -72,8 +159,7 @@ class SearXNGClient:
         seen_urls: set[str] = set()
         combined: list[SearchResult] = []
         for query in queries:
-            results = await self.search(query, locale=locale, num_results=num_results)
-            for r in results:
+            for r in await self.search(query, locale=locale, num_results=num_results):
                 if r.url not in seen_urls:
                     seen_urls.add(r.url)
                     combined.append(r)

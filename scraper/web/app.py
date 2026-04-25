@@ -26,7 +26,7 @@ from ..extract import (ENRICH_SCHEMA, ENRICH_SYSTEM_PROMPT, EXTRACTION_SCHEMA,
 from ..fetch import fetch_and_clean
 from ..models import CommunityRecord
 from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline
-from ..search import SearXNGClient
+from ..search import BraveSearchClient, SearXNGClient
 from ..store import _normalize, save_results
 from .i18n import get_topic_labels, lang_context
 from .log_stream import broadcaster
@@ -208,13 +208,19 @@ async def _build_software_info() -> dict:
     cfg = app_state.pipeline_cfg
     ollama_url = cfg.ollama_url if cfg else "http://localhost:11434"
     ollama_model = cfg.ollama_model if cfg else "?"
-    searxng_url = cfg.searxng_url if cfg else "http://localhost:8080"
-    ollama_ver, searxng_st = await asyncio.gather(
-        _ollama_version(ollama_url),
-        _searxng_status(searxng_url),
-    )
+    brave_key = cfg.brave_api_key if cfg else ""
+    if brave_key:
+        search_info = {"label": "Brave Search", "status": "ok", "backend": "brave"}
+        ollama_ver = await _ollama_version(ollama_url)
+    else:
+        searxng_url = cfg.searxng_url if cfg else "http://localhost:8080"
+        ollama_ver, searxng_st = await asyncio.gather(
+            _ollama_version(ollama_url),
+            _searxng_status(searxng_url),
+        )
+        search_info = {"label": "SearXNG", "status": searxng_st, "backend": "searxng"}
     return {
-        "searxng": {"label": "SearXNG", "status": searxng_st},
+        "searxng": search_info,
         "ollama": {"label": "Ollama", "version": ollama_ver, "model": ollama_model},
         "python": {"label": "Python", "version": sys.version.split()[0]},
         "libs": {
@@ -946,7 +952,6 @@ async def status():
 async def test_searxng(q: str = "running club Budapest"):
     if not app_state.pipeline_cfg:
         return JSONResponse({"error": "not configured"}, status_code=503)
-    from ..search import SearXNGClient
     client = SearXNGClient(app_state.pipeline_cfg.searxng_url)
     try:
         import httpx
@@ -1187,7 +1192,12 @@ async def cache_run_enrich(url_hash: str):
                 temperature=cfg.ollama_temperature, timeout_seconds=cfg.ollama_timeout,
                 max_text_chars=cfg.ollama_max_text_chars,
             )
-            searxng = SearXNGClient(cfg.searxng_url, rate_limit_seconds=cfg.search_rate_limit)
+            if cfg.brave_api_key:
+                searxng: BraveSearchClient | SearXNGClient = BraveSearchClient(
+                    cfg.brave_api_key, rate_limit_seconds=cfg.search_rate_limit
+                )
+            else:
+                searxng = SearXNGClient(cfg.searxng_url, rate_limit_seconds=cfg.search_rate_limit)
             semaphore = asyncio.Semaphore(cfg.fetch_max_concurrent)
             timing = {"scrape": 0.0, "extract": 0.0, "count": 0, "needed": False}
             enriched: list = []
