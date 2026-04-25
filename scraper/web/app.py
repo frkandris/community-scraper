@@ -579,6 +579,7 @@ async def public_about(request: Request):
         "topics": app_state.topics or [],
         "topic_icons": TOPIC_ICONS,
         "topic_labels": TOPIC_LABELS,
+        "topic_counts": _global_topic_counts(),
         "featured_cities": _top_cities(12),
     })
 
