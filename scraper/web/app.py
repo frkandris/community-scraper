@@ -737,7 +737,8 @@ async def trigger_run(
     _skip_scraped = (skip_scraped == "on")
     _skip_extracted = (skip_extracted == "on")
 
-    def _on_progress(url: str | None) -> None:
+    def _on_progress(phase: str | None, url: str | None) -> None:
+        app_state.current_phase = phase
         app_state.current_url = url
 
     async def _run() -> None:
@@ -762,6 +763,7 @@ async def trigger_run(
             log.error("manual_run_failed", error=str(exc))
         finally:
             app_state.is_running = False
+            app_state.current_phase = None
             app_state.current_url = None
             if app_state.db_path:
                 from ..db import record_run
@@ -783,14 +785,15 @@ async def status():
 
 @admin.get("/api/progress")
 async def api_progress():
-    """Return the URL currently being AI-extracted (for live cache indicator)."""
+    """Return the current pipeline phase and active URL hash for live cache indicators."""
+    import hashlib
     url = app_state.current_url
-    if url and app_state.cache_manager:
-        import hashlib
-        url_hash = hashlib.sha256(url.encode()).hexdigest()[:16]
-    else:
-        url_hash = None
-    return JSONResponse({"url_hash": url_hash, "url": url})
+    url_hash = hashlib.sha256(url.encode()).hexdigest()[:16] if url else None
+    return JSONResponse({
+        "phase": app_state.current_phase,
+        "url_hash": url_hash,
+        "url": url,
+    })
 
 
 @admin.get("/api/cache-entries")

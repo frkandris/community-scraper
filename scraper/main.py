@@ -138,7 +138,8 @@ async def main() -> None:
     cron_expr = os.environ.get("SCHEDULE_CRON", "*/15 * * * *")
     minute, hour, day, month, day_of_week = cron_expr.split()
 
-    def _on_progress(url: str | None) -> None:
+    def _on_progress(phase: str | None, url: str | None) -> None:
+        app_state.current_phase = phase
         app_state.current_url = url
 
     async def _scheduled_run() -> None:
@@ -159,6 +160,7 @@ async def main() -> None:
             log.error("scheduled_run_failed", error=str(exc))
         finally:
             app_state.is_running = False
+            app_state.current_phase = None
             app_state.current_url = None
             record_run(db_path, started, datetime.now(timezone.utc), "full", success,
                        json.dumps(pair_logs) if pair_logs else None)

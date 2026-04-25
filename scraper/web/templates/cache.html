@@ -9,6 +9,7 @@
       <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse inline-block"></span>
       Live
     </span>
+    <div id="phase-badge" class="hidden items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border"></div>
     <span class="text-sm text-gray-500"><span id="entry-count">{{ entries|length }}</span> entries</span>
   </div>
 </div>
@@ -20,13 +21,25 @@
   <span class="ml-4">Delete a level to force re-processing on next run.</span>
 </div>
 
+<!-- Progress legend -->
+<div id="progress-legend" class="hidden mb-4 flex items-center gap-3 text-xs text-gray-500">
+  <span class="font-semibold text-gray-600">Active:</span>
+  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 font-medium">↓ fetch</span>
+  <span class="text-gray-300">→</span>
+  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200 font-medium">⟳ AI</span>
+  <span class="text-gray-300">→</span>
+  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 font-medium">↓ enrich</span>
+  <span class="text-gray-300">→</span>
+  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-200 font-medium">⟳ AI+</span>
+</div>
+
 <div id="cache-table-wrap">
 {% if entries %}
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
   <table class="w-full text-sm" id="cache-table">
     <thead class="bg-gray-50 border-b border-gray-200">
       <tr>
-        <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-6"></th>
+        <th class="px-3 py-3 w-20"></th>
         <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">URL</th>
         <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">City / Topic</th>
         <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Scraped at</th>
@@ -38,13 +51,8 @@
     <tbody class="divide-y divide-gray-100" id="cache-tbody">
       {% for e in entries %}
       <tr class="hover:bg-gray-50 transition-colors" data-hash="{{ e.url_hash }}">
-        <td class="px-2 py-3 text-center w-6">
-          <span class="spinner hidden">
-            <svg class="animate-spin h-4 w-4 text-purple-500" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-            </svg>
-          </span>
+        <td class="px-3 py-3 text-center w-20">
+          <span class="phase-indicator hidden text-xs font-semibold px-1.5 py-0.5 rounded-full border"></span>
         </td>
         <td class="px-4 py-3 max-w-xs">
           <a href="/admin/cache/{{ e.url_hash }}"
@@ -121,7 +129,59 @@
 
 <script>
 let activeHash = null;
+let activePhase = null;
 let lastEntryCount = {{ entries|length }};
+
+const PHASE_CFG = {
+  scrape:         { label: '↓ fetch',   badge: 'text-blue-700 bg-blue-100 border-blue-300',   row: ['bg-blue-50',   'border-l-4', 'border-blue-400']   },
+  extract:        { label: '⟳ AI',      badge: 'text-purple-700 bg-purple-100 border-purple-300', row: ['bg-purple-50', 'border-l-4', 'border-purple-400'] },
+  enrich_scrape:  { label: '↓ enrich',  badge: 'text-amber-700 bg-amber-100 border-amber-300',  row: ['bg-amber-50',  'border-l-4', 'border-amber-400']  },
+  enrich_extract: { label: '⟳ AI+',     badge: 'text-green-700 bg-green-100 border-green-300',  row: ['bg-green-50',  'border-l-4', 'border-green-400']  },
+};
+
+const ALL_ROW_CLS = ['bg-blue-50','bg-purple-50','bg-amber-50','bg-green-50',
+                     'border-l-4','border-blue-400','border-purple-400','border-amber-400','border-green-400'];
+
+function applyProgress(phase, hash) {
+  document.querySelectorAll('#cache-tbody tr').forEach(row => {
+    const indicator = row.querySelector('.phase-indicator');
+    const isActive = phase && hash && row.dataset.hash === hash;
+
+    row.classList.remove(...ALL_ROW_CLS);
+    if (indicator) {
+      indicator.classList.add('hidden');
+      indicator.className = 'phase-indicator hidden text-xs font-semibold px-1.5 py-0.5 rounded-full border';
+    }
+
+    if (isActive) {
+      const cfg = PHASE_CFG[phase];
+      if (!cfg) return;
+      row.classList.add(...cfg.row);
+      if (indicator) {
+        indicator.textContent = cfg.label;
+        indicator.classList.remove('hidden');
+        cfg.badge.split(' ').forEach(c => indicator.classList.add(c));
+      }
+    }
+  });
+
+  // Top phase badge
+  const phaseBadge = document.getElementById('phase-badge');
+  if (phaseBadge) {
+    if (phase && PHASE_CFG[phase]) {
+      const cfg = PHASE_CFG[phase];
+      phaseBadge.className = `flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${cfg.badge}`;
+      phaseBadge.textContent = cfg.label;
+      phaseBadge.classList.remove('hidden');
+    } else {
+      phaseBadge.classList.add('hidden');
+    }
+  }
+
+  // Legend
+  const legend = document.getElementById('progress-legend');
+  if (legend) legend.classList.toggle('hidden', !phase);
+}
 
 function rowHtml(e) {
   const scrapedAt = e.scraped_at ? e.scraped_at.slice(0,16).replace('T',' ') : '<span class="text-gray-300">—</span>';
@@ -132,13 +192,8 @@ function rowHtml(e) {
   const delAI = e.extracted_at ? `<form method="POST" action="/admin/cache/${e.url_hash}/delete-extracted" onsubmit="return confirm('Delete AI extraction?')"><button type="submit" class="px-2 py-1 text-xs rounded bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200">Del AI</button></form>` : '';
   return `
     <tr class="hover:bg-gray-50 transition-colors" data-hash="${e.url_hash}">
-      <td class="px-2 py-3 text-center w-6">
-        <span class="spinner hidden">
-          <svg class="animate-spin h-4 w-4 text-purple-500" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-          </svg>
-        </span>
+      <td class="px-3 py-3 text-center w-20">
+        <span class="phase-indicator hidden text-xs font-semibold px-1.5 py-0.5 rounded-full border"></span>
       </td>
       <td class="px-4 py-3 max-w-xs">
         <a href="/admin/cache/${e.url_hash}" class="text-xs font-medium text-gray-800 hover:text-blue-600 truncate block max-w-xs" title="${e.url}">${e.domain || e.url}</a>
@@ -160,25 +215,14 @@ function rowHtml(e) {
     </tr>`;
 }
 
-function applySpinner(hash) {
-  document.querySelectorAll('#cache-tbody tr').forEach(row => {
-    const spinner = row.querySelector('.spinner');
-    if (!spinner) return;
-    const isActive = hash && row.dataset.hash === hash;
-    spinner.classList.toggle('hidden', !isActive);
-    row.classList.toggle('bg-purple-50', isActive);
-    row.classList.toggle('border-l-2', isActive);
-    row.classList.toggle('border-purple-400', isActive);
-  });
-}
-
 async function pollProgress() {
   try {
     const resp = await fetch('/admin/api/progress');
-    const { url_hash, url } = await resp.json();
-    if (url_hash !== activeHash) {
+    const { phase, url_hash } = await resp.json();
+    if (phase !== activePhase || url_hash !== activeHash) {
+      activePhase = phase;
       activeHash = url_hash;
-      applySpinner(activeHash);
+      applyProgress(activePhase, activeHash);
     }
   } catch (e) {}
   setTimeout(pollProgress, 800);
@@ -204,13 +248,11 @@ async function refreshTable() {
       lastEntryCount = entries.length;
       document.getElementById('entry-count').textContent = entries.length;
 
-      // Rebuild tbody
       const tbody = document.getElementById('cache-tbody');
       if (tbody) {
         tbody.innerHTML = entries.map(rowHtml).join('');
-        applySpinner(activeHash);
+        applyProgress(activePhase, activeHash);
       } else {
-        // Was empty state, full reload
         location.reload();
       }
     }

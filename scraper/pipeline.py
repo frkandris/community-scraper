@@ -29,6 +29,7 @@ async def _enrich_record(
     extractor: "OllamaExtractor",
     config: "PipelineConfig",
     semaphore: asyncio.Semaphore,
+    on_progress: "Callable[[str | None, str | None], None] | None" = None,
 ) -> "CommunityRecord":
     query = f'"{record.name}" {record.city}'
     try:
@@ -37,14 +38,26 @@ async def _enrich_record(
         return record
 
     for result in results[:2]:
+        if on_progress:
+            on_progress("enrich_scrape", record.source_url)
         text = await fetch_and_clean(
             result.url, config.fetch_blocked_domains,
             config.fetch_timeout, config.fetch_min_text_length,
             semaphore,
         )
+        if on_progress:
+            on_progress(None, None)
         if not text:
             continue
-        enriched = await extractor.enrich(record, text)
+
+        if on_progress:
+            on_progress("enrich_extract", record.source_url)
+        try:
+            enriched = await extractor.enrich(record, text)
+        finally:
+            if on_progress:
+                on_progress(None, None)
+
         if enriched.website or enriched.social_links or enriched.contact:
             log.info("enriched", community=record.name, city=record.city, source=result.url)
             return enriched
@@ -97,7 +110,7 @@ async def run_pipeline(
     run_mode: str = "full",
     skip_scraped: bool | None = None,
     skip_extracted: bool | None = None,
-    on_progress: Callable[[str | None], None] | None = None,
+    on_progress: Callable[[str | None, str | None], None] | None = None,
 ) -> list[dict]:
     _skip_scraped = skip_scraped if skip_scraped is not None else config.cache_skip_scraped
     _skip_extracted = skip_extracted if skip_extracted is not None else config.cache_skip_extracted
@@ -143,7 +156,7 @@ async def _run_full(
     skip_scraped: bool,
     skip_extracted: bool,
     run_stats: dict,
-    on_progress: Callable[[str | None], None] | None,
+    on_progress: Callable[[str | None, str | None], None] | None,
 ) -> tuple[int, list[dict]]:
     searxng = SearXNGClient(config.searxng_url, rate_limit_seconds=config.search_rate_limit)
     semaphore = asyncio.Semaphore(config.fetch_max_concurrent)
@@ -186,11 +199,15 @@ async def _run_full(
                         pair_log["fetched_urls"].append(url)
                         continue
 
+                if on_progress:
+                    on_progress("scrape", url)
                 text = await fetch_and_clean(
                     url, config.fetch_blocked_domains,
                     config.fetch_timeout, config.fetch_min_text_length,
                     semaphore,
                 )
+                if on_progress:
+                    on_progress(None, None)
                 if text:
                     if cache:
                         cache.save_scraped(url, text, city.name, topic.name)
@@ -210,9 +227,8 @@ async def _run_full(
                         pair_log["records_extracted"] += len(cached_records)
                         continue
 
-                # Signal active URL before the slow AI step
                 if on_progress:
-                    on_progress(url)
+                    on_progress("extract", url)
                 try:
                     extracted = await extractor.extract(
                         text=text, city=city.name, topic=topic.name,
@@ -220,7 +236,7 @@ async def _run_full(
                     )
                 finally:
                     if on_progress:
-                        on_progress(None)
+                        on_progress(None, None)
 
                 # Filter out non-joinable communities
                 joinable = [r for r in extracted if r.joinable]
@@ -232,7 +248,9 @@ async def _run_full(
                 final_records = []
                 for record in joinable:
                     if config.enrich_communities and _needs_enrichment(record):
-                        record = await _enrich_record(record, searxng, extractor, config, semaphore)
+                        record = await _enrich_record(
+                            record, searxng, extractor, config, semaphore, on_progress
+                        )
                     final_records.append(record)
 
                 if cache:
@@ -270,7 +288,7 @@ async def _run_ai_only(
     cache: "CacheManager | None",
     skip_extracted: bool,
     run_stats: dict,
-    on_progress: Callable[[str | None], None] | None,
+    on_progress: Callable[[str | None, str | None], None] | None,
 ) -> tuple[int, list[dict]]:
     if not cache:
         log.warning("ai_only_mode_no_cache")
@@ -320,7 +338,7 @@ async def _run_ai_only(
                         continue
 
                 if on_progress:
-                    on_progress(url)
+                    on_progress("extract", url)
                 try:
                     extracted = await extractor.extract(
                         text=text, city=city.name, topic=topic.name,
@@ -328,7 +346,7 @@ async def _run_ai_only(
                     )
                 finally:
                     if on_progress:
-                        on_progress(None)
+                        on_progress(None, None)
 
                 cache.save_extracted(url, extracted)
 

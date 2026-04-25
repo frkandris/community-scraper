@@ -15,7 +15,8 @@ class AppState:
     cache_manager: Any = None
     db_path: Path | None = None
     version: str = "v.unknown"
-    current_url: str | None = None  # URL currently being AI-extracted
+    current_phase: str | None = None  # "scrape" | "extract" | "enrich_scrape" | "enrich_extract"
+    current_url: str | None = None    # source URL of the cache row being processed
 
 
 app_state = AppState()
