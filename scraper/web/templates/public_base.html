@@ -4,24 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}CommUnity – Find your community{% endblock %}</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    .topic-chip input:checked ~ div { border-color: #6366f1; background-color: #eef2ff; box-shadow: 0 2px 8px rgba(99,102,241,0.2); }
-    .topic-chip input:checked ~ div .chip-label { color: #4338ca; font-weight: 600; }
-    .topic-chip:hover div { border-color: #a5b4fc; }
-    .has-data { position: relative; }
-    .has-data::after { content: ''; position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; background: #22c55e; border-radius: 50%; }
-  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/app.css">
+  {% block head %}{% endblock %}
 </head>
-<body class="bg-gray-50 min-h-screen font-sans antialiased">
+<body class="bg-gray-50 min-h-screen font-sans antialiased text-gray-900">
 
 <header class="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-20">
   <div class="max-w-5xl mx-auto px-6 py-3.5 flex items-center justify-between">
     <a href="/" class="flex items-center gap-2 font-bold text-indigo-600 text-xl tracking-tight">
-      <span>🌐</span> CommUnity
+      🌐 CommUnity
     </a>
-    <nav class="flex items-center gap-5">
-      <a href="/" class="text-sm text-gray-500 hover:text-gray-900 transition-colors">Discover</a>
+    <nav class="flex items-center gap-1">
+      <a href="/" class="px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">Discover</a>
+      <a href="/map" class="px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">Map</a>
+      <a href="/about" class="px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">About</a>
     </nav>
   </div>
 </header>
@@ -32,10 +30,15 @@
 
 <footer class="mt-20 border-t border-gray-100 bg-white py-8">
   <div class="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-    <p class="text-xs text-gray-400 text-center sm:text-left">
-      Communities discovered automatically by scraping public web pages. Data may be incomplete or outdated.
-    </p>
-    <a href="/admin" class="text-xs text-gray-300 hover:text-gray-500 transition-colors whitespace-nowrap">Admin</a>
+    <div class="flex items-center gap-2">
+      <span class="font-semibold text-indigo-600 text-sm">🌐 CommUnity</span>
+      <span class="text-xs text-gray-400">· Communities discovered from public web data</span>
+    </div>
+    <div class="flex items-center gap-4">
+      <a href="/about" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">About</a>
+      <a href="/map" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">Map</a>
+      <a href="/admin" class="text-xs text-gray-300 hover:text-gray-500 transition-colors">Admin</a>
+    </div>
   </div>
 </footer>
 

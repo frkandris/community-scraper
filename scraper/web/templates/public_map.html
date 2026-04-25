@@ -1,0 +1,98 @@
+{% extends "public_base.html" %}
+{% block title %}World Map – CommUnity{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<style>
+  #map { height: calc(100vh - 57px - 64px); min-height: 480px; }
+  .leaflet-popup-content-wrapper { border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+  .leaflet-popup-content { margin: 14px 16px; }
+  .city-popup-name { font-size: 15px; font-weight: 700; color: #111827; margin-bottom: 2px; }
+  .city-popup-country { font-size: 12px; color: #9ca3af; margin-bottom: 8px; }
+  .city-popup-count { font-size: 13px; font-weight: 600; color: #6366f1; margin-bottom: 10px; }
+  .city-popup-btn {
+    display: inline-block; background: #6366f1; color: #fff;
+    padding: 5px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+    text-decoration: none; transition: background 0.15s;
+  }
+  .city-popup-btn:hover { background: #4f46e5; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Stats bar -->
+<div class="bg-white border-b border-gray-100">
+  <div class="max-w-5xl mx-auto px-6 py-3 flex items-center gap-6 flex-wrap">
+    <h1 class="text-sm font-semibold text-gray-900">🗺 World community map</h1>
+    <div class="flex items-center gap-4 text-xs text-gray-500 ml-auto flex-wrap">
+      <span class="flex items-center gap-1.5">
+        <span class="inline-block w-3 h-3 rounded-full bg-indigo-500 opacity-80"></span>
+        <strong class="text-gray-900">{{ cities_with_data }}</strong> cities with data
+      </span>
+      <span class="flex items-center gap-1.5">
+        <span class="inline-block w-3 h-3 rounded-full bg-gray-300"></span>
+        <strong class="text-gray-900">{{ cities_tracked - cities_with_data }}</strong> cities tracked
+      </span>
+      <span class="text-indigo-600 font-semibold">{{ total }} communities total</span>
+    </div>
+  </div>
+</div>
+
+<!-- Map -->
+<div id="map"></div>
+
+<script>
+const map = L.map('map', { zoomControl: true }).setView([25, 10], 2);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+  subdomains: 'abcd',
+  maxZoom: 18,
+}).addTo(map);
+
+const cities = {{ cities_json | safe }};
+
+cities.forEach(city => {
+  const hasData = city.count > 0;
+  const radius = hasData ? Math.max(7, Math.min(22, 5 + Math.sqrt(city.count) * 1.6)) : 4;
+
+  const marker = L.circleMarker([city.lat, city.lng], {
+    radius: radius,
+    fillColor: hasData ? '#6366f1' : '#d1d5db',
+    fillOpacity: hasData ? 0.82 : 0.45,
+    color: hasData ? '#4338ca' : '#9ca3af',
+    weight: hasData ? 1.5 : 1,
+  }).addTo(map);
+
+  const popupContent = hasData
+    ? `<div>
+        <div class="city-popup-name">${city.name}</div>
+        <div class="city-popup-country">${city.country}</div>
+        <div class="city-popup-count">${city.count} ${city.count === 1 ? 'community' : 'communities'}</div>
+        <a href="/explore?city=${encodeURIComponent(city.name)}" class="city-popup-btn">Explore →</a>
+      </div>`
+    : `<div>
+        <div class="city-popup-name">${city.name}</div>
+        <div class="city-popup-country">${city.country}</div>
+        <div style="font-size:12px;color:#d1d5db;margin-top:4px;">No data yet</div>
+        <a href="/explore?city=${encodeURIComponent(city.name)}" class="city-popup-btn" style="background:#9ca3af;margin-top:8px;">Browse anyway →</a>
+      </div>`;
+
+  marker.bindPopup(popupContent, { maxWidth: 200 });
+
+  marker.on('mouseover', function () {
+    this.setStyle({ radius: radius + 3, fillOpacity: 1 });
+    this.openPopup();
+  });
+  marker.on('mouseout', function () {
+    this.setStyle({ radius, fillOpacity: hasData ? 0.82 : 0.45 });
+  });
+  marker.on('click', function () {
+    if (hasData) window.location.href = '/explore?city=' + encodeURIComponent(city.name);
+  });
+});
+</script>
+
+{% endblock %}

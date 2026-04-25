@@ -14,6 +14,7 @@ import structlog
 import yaml
 from fastapi import APIRouter, FastAPI, Form, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -123,6 +124,10 @@ _fastapi = FastAPI(title="Community Scraper")
 app = _BasicAuth(_fastapi)
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
+_static_dir = Path(__file__).parent / "static"
+_static_dir.mkdir(exist_ok=True)
+_fastapi.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+
 admin = APIRouter(prefix="/admin")
 
 
@@ -174,6 +179,87 @@ async def _build_software_info() -> dict:
             "fastapi": _lib_version("fastapi"),
         },
     }
+
+
+CITY_COORDS: dict[str, tuple[float, float]] = {
+    # Hungary
+    "Szentendre": (47.67, 19.07), "Budapest": (47.50, 19.04), "Debrecen": (47.53, 21.63),
+    "Miskolc": (48.10, 20.78), "Győr": (47.68, 17.63), "Pécs": (46.07, 18.23),
+    "Szeged": (46.25, 20.15), "Kecskemét": (46.91, 19.69), "Nyíregyháza": (47.95, 21.72),
+    "Székesfehérvár": (47.19, 18.41),
+    # Austria
+    "Vienna": (48.21, 16.37), "Graz": (47.07, 15.44), "Salzburg": (47.80, 13.04),
+    # Germany
+    "Berlin": (52.52, 13.40), "Munich": (48.14, 11.58), "Hamburg": (53.55, 10.00),
+    "Frankfurt": (50.11, 8.68), "Cologne": (50.94, 6.96), "Düsseldorf": (51.23, 6.78),
+    "Stuttgart": (48.78, 9.18), "Leipzig": (51.34, 12.38),
+    # Switzerland
+    "Zurich": (47.38, 8.54), "Bern": (46.95, 7.45), "Geneva": (46.20, 6.15),
+    # UK
+    "London": (51.51, -0.13), "Manchester": (53.48, -2.24), "Birmingham": (52.48, -1.90),
+    "Edinburgh": (55.95, -3.19), "Bristol": (51.45, -2.59),
+    # Ireland
+    "Dublin": (53.33, -6.25),
+    # USA
+    "New York": (40.71, -74.01), "Los Angeles": (34.05, -118.24), "Chicago": (41.88, -87.63),
+    "San Francisco": (37.77, -122.42), "Seattle": (47.61, -122.33), "Boston": (42.36, -71.06),
+    "Austin": (30.27, -97.74), "Portland": (45.52, -122.68),
+    # Canada
+    "Toronto": (43.65, -79.38), "Vancouver": (49.25, -123.12), "Montreal": (45.51, -73.55),
+    # Australia
+    "Sydney": (-33.87, 151.21), "Melbourne": (-37.81, 144.96), "Brisbane": (-27.47, 153.02),
+    # New Zealand
+    "Auckland": (-36.85, 174.76),
+    # France
+    "Paris": (48.86, 2.35), "Lyon": (45.75, 4.83), "Marseille": (43.30, 5.37),
+    "Toulouse": (43.60, 1.44),
+    # Belgium
+    "Brussels": (50.85, 4.35),
+    # Netherlands
+    "Amsterdam": (52.37, 4.90), "Rotterdam": (51.92, 4.47),
+    # Spain
+    "Madrid": (40.42, -3.70), "Barcelona": (41.39, 2.17), "Seville": (37.39, -5.99),
+    "Valencia": (39.47, -0.38),
+    # Portugal
+    "Lisbon": (38.72, -9.14), "Porto": (41.16, -8.63),
+    # Italy
+    "Rome": (41.90, 12.50), "Milan": (45.47, 9.19), "Florence": (43.77, 11.25),
+    # Poland
+    "Warsaw": (52.23, 21.01), "Krakow": (50.06, 19.94), "Wroclaw": (51.11, 17.04),
+    # Czech Republic
+    "Prague": (50.08, 14.44),
+    # Slovakia
+    "Bratislava": (48.15, 17.11),
+    # Romania
+    "Bucharest": (44.43, 26.10), "Cluj-Napoca": (46.77, 23.59),
+    # Serbia
+    "Belgrade": (44.82, 20.46),
+    # Croatia
+    "Zagreb": (45.81, 15.98),
+    # Scandinavia
+    "Copenhagen": (55.68, 12.57), "Stockholm": (59.33, 18.07), "Oslo": (59.91, 10.75),
+    "Helsinki": (60.17, 24.94),
+    # Turkey
+    "Istanbul": (41.01, 28.95),
+    # Latin America
+    "Mexico City": (19.43, -99.13), "Buenos Aires": (-34.60, -58.38),
+    "Bogota": (4.71, -74.07), "Lima": (-12.05, -77.04), "Santiago": (-33.45, -70.67),
+    "Sao Paulo": (-23.55, -46.63), "Rio de Janeiro": (-22.91, -43.17),
+    # Africa
+    "Cape Town": (-33.93, 18.42), "Johannesburg": (-26.20, 28.04),
+    # Japan
+    "Tokyo": (35.69, 139.69), "Osaka": (34.69, 135.50),
+    # Korea
+    "Seoul": (37.57, 126.98),
+    # China
+    "Beijing": (39.91, 116.39), "Shanghai": (31.23, 121.47),
+    # SE Asia
+    "Singapore": (1.35, 103.82),
+    # India
+    "Bangalore": (12.97, 77.59), "Mumbai": (19.08, 72.88), "Delhi": (28.61, 77.21),
+    # Israel
+    "Tel Aviv": (32.08, 34.78),
+}
 
 
 def _load_communities(city: str, topic: str) -> list[dict]:
@@ -286,6 +372,51 @@ async def api_city_topics(city: str = ""):
     for t in (app_state.topics or []):
         result[t.name] = len(_load_communities(city, t.name))
     return JSONResponse(result)
+
+
+@_fastapi.get("/map", response_class=HTMLResponse)
+async def public_map(request: Request):
+    cities_data = []
+    for city in (app_state.cities or []):
+        coords = CITY_COORDS.get(city.name)
+        if not coords:
+            continue
+        count = sum(len(_load_communities(city.name, t.name)) for t in (app_state.topics or []))
+        cities_data.append({
+            "name": city.name,
+            "country": city.country,
+            "lat": coords[0],
+            "lng": coords[1],
+            "count": count,
+        })
+
+    total = sum(c["count"] for c in cities_data)
+    cities_with_data = sum(1 for c in cities_data if c["count"] > 0)
+    return templates.TemplateResponse(request, "public_map.html", {
+        "cities_json": json.dumps(cities_data),
+        "total": total,
+        "cities_with_data": cities_with_data,
+        "cities_tracked": len(cities_data),
+    })
+
+
+@_fastapi.get("/about", response_class=HTMLResponse)
+async def public_about(request: Request):
+    metadata = {}
+    meta_file = DATA_DIR / "metadata.json"
+    if meta_file.exists():
+        try:
+            metadata = json.loads(meta_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return templates.TemplateResponse(request, "public_about.html", {
+        "city_count": len(app_state.cities or []),
+        "topic_count": len(app_state.topics or []),
+        "total_records": metadata.get("total_records", 0),
+        "topics": app_state.topics or [],
+        "topic_icons": TOPIC_ICONS,
+        "topic_labels": TOPIC_LABELS,
+    })
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

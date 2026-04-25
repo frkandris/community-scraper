@@ -14,3 +14,5 @@ logs/
 
 data/scraper.db
 data/cache/
+
+scraper/web/static/css/app.css

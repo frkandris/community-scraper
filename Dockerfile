@@ -12,12 +12,19 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
 
 COPY scraper/ ./scraper/
 COPY config/   ./config/
+COPY tailwind.config.js .
 
-# Embed build timestamp so the version string works without git history in the container
+# Build Tailwind CSS (pytailwindcss uses the standalone binary, no Node needed)
+RUN pip install --no-cache-dir pytailwindcss && \
+    tailwindcss -i ./scraper/web/static/css/input.css \
+                -o ./scraper/web/static/css/app.css \
+                --minify && \
+    pip uninstall -y pytailwindcss
+
+# Embed build timestamp so the version string works without git history
 RUN date -u '+%Y-%m-%d.%H:%M' > /app/VERSION
 
 # data/ is mounted as a persistent volume at /app/data
-# The full /app directory is used as the git working tree
 
 EXPOSE 8000
 
