@@ -19,9 +19,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from ..extract import OllamaExtractor
+from ..fetch import fetch_and_clean
 from ..models import CommunityRecord
-from ..pipeline import run_pipeline
-from ..store import _normalize
+from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline
+from ..search import SearXNGClient
+from ..store import _normalize, save_results
 from .log_stream import broadcaster
 from .schema import records_to_jsonld
 from .state import app_state
@@ -140,6 +143,18 @@ _fastapi = FastAPI(title="Community Scraper")
 app = _BasicAuth(_fastapi)
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 templates.env.filters["urlencode"] = lambda s: _url_quote(str(s), safe="")
+
+
+def _fmt_dur(s: float | None) -> str:
+    if s is None:
+        return ""
+    s = float(s)
+    if s < 60:
+        return f"{s:.1f}s"
+    return f"{int(s / 60)}m {int(s % 60)}s"
+
+
+templates.env.filters["fmt_dur"] = _fmt_dur
 
 _static_dir = Path(__file__).parent / "static"
 _static_dir.mkdir(exist_ok=True)
@@ -864,6 +879,137 @@ async def cache_delete_entry(url_hash: str):
     if app_state.cache_manager:
         app_state.cache_manager.delete_entry(url_hash)
     return RedirectResponse("/admin/cache", status_code=302)
+
+
+@admin.post("/cache/{url_hash}/run-scrape")
+async def cache_run_scrape(url_hash: str):
+    if not app_state.cache_manager or not app_state.pipeline_cfg:
+        return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
+    entry = app_state.cache_manager.get_entry(url_hash)
+    if not entry:
+        return RedirectResponse("/admin/cache", status_code=302)
+
+    url = entry["url"]
+    city = entry.get("city", "")
+    topic = entry.get("topic", "")
+    cfg = app_state.pipeline_cfg
+
+    async def _do() -> None:
+        import time as _time
+        app_state.current_phase = "scrape"
+        app_state.current_url = url
+        try:
+            t0 = _time.monotonic()
+            text = await fetch_and_clean(
+                url, cfg.fetch_blocked_domains, cfg.fetch_timeout,
+                cfg.fetch_min_text_length, asyncio.Semaphore(1),
+            )
+            if text:
+                app_state.cache_manager.save_scraped(
+                    url, text, city, topic, duration_s=_time.monotonic() - t0
+                )
+        except Exception as exc:
+            log.error("manual_scrape_failed", url=url, error=str(exc))
+        finally:
+            app_state.current_phase = None
+            app_state.current_url = None
+
+    asyncio.create_task(_do())
+    return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
+
+
+@admin.post("/cache/{url_hash}/run-extract")
+async def cache_run_extract(url_hash: str):
+    if not app_state.cache_manager or not app_state.pipeline_cfg:
+        return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
+    entry = app_state.cache_manager.get_entry(url_hash)
+    if not entry or not entry.get("raw_text"):
+        return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
+
+    url = entry["url"]
+    city = entry.get("city", "")
+    topic = entry.get("topic", "")
+    raw_text = entry["raw_text"]
+    cfg = app_state.pipeline_cfg
+    locale = next((c.locale for c in (app_state.cities or []) if c.name == city), "en")
+
+    async def _do() -> None:
+        import time as _time
+        app_state.current_phase = "extract"
+        app_state.current_url = url
+        try:
+            extractor = OllamaExtractor(
+                base_url=cfg.ollama_url, model=cfg.ollama_model,
+                temperature=cfg.ollama_temperature, timeout_seconds=cfg.ollama_timeout,
+                max_text_chars=cfg.ollama_max_text_chars,
+            )
+            t0 = _time.monotonic()
+            extracted = await extractor.extract(raw_text, city, topic, locale, url)
+            extract_dur = _time.monotonic() - t0
+            joinable = [r for r in extracted if r.joinable]
+            app_state.cache_manager.save_extracted(url, joinable, duration_s=extract_dur)
+            if joinable:
+                save_results(city, topic, joinable, cfg.data_dir)
+        except Exception as exc:
+            log.error("manual_extract_failed", url=url, error=str(exc))
+        finally:
+            app_state.current_phase = None
+            app_state.current_url = None
+
+    asyncio.create_task(_do())
+    return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
+
+
+@admin.post("/cache/{url_hash}/run-enrich")
+async def cache_run_enrich(url_hash: str):
+    if not app_state.cache_manager or not app_state.pipeline_cfg:
+        return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
+    entry = app_state.cache_manager.get_entry(url_hash)
+    records = app_state.cache_manager.get_extracted(entry["url"]) if entry else None
+    if not records:
+        return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
+
+    url = entry["url"]
+    city = entry.get("city", "")
+    topic = entry.get("topic", "")
+    cfg = app_state.pipeline_cfg
+
+    def _on_progress(phase: str | None, p_url: str | None) -> None:
+        app_state.current_phase = phase
+        app_state.current_url = p_url
+
+    async def _do() -> None:
+        try:
+            extractor = OllamaExtractor(
+                base_url=cfg.ollama_url, model=cfg.ollama_model,
+                temperature=cfg.ollama_temperature, timeout_seconds=cfg.ollama_timeout,
+                max_text_chars=cfg.ollama_max_text_chars,
+            )
+            searxng = SearXNGClient(cfg.searxng_url, rate_limit_seconds=cfg.search_rate_limit)
+            semaphore = asyncio.Semaphore(cfg.fetch_max_concurrent)
+            timing = {"scrape": 0.0, "extract": 0.0, "count": 0, "needed": False}
+            enriched: list = []
+            for record in records:
+                if _needs_enrichment(record):
+                    timing["needed"] = True
+                    record = await _enrich_record(
+                        record, searxng, extractor, cfg, semaphore, _on_progress, timing
+                    )
+                enriched.append(record)
+            app_state.cache_manager.save_enriched_records(url, enriched)
+            if timing["needed"]:
+                app_state.cache_manager.mark_enrich_scraped(url, timing["scrape"])
+                app_state.cache_manager.mark_enrich_extracted(url, timing["count"], timing["extract"])
+            if enriched:
+                save_results(city, topic, enriched, cfg.data_dir)
+        except Exception as exc:
+            log.error("manual_enrich_failed", url=url, error=str(exc))
+        finally:
+            app_state.current_phase = None
+            app_state.current_url = None
+
+    asyncio.create_task(_do())
+    return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
 
 
 @admin.get("/runs/{run_id}", response_class=HTMLResponse)

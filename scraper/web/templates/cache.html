@@ -1,5 +1,32 @@
 {% extends "base.html" %}
 {% block title %}Cache – Community Scraper{% endblock %}
+
+{%- macro phase_cell(phase, done_at, dur_s, url_hash, run_url, can_run) -%}
+{%- set label = {'scrape': '↓', 'extract': '⟳', 'enrich_scrape': '↓', 'enrich_extract': '⟳'}[phase] -%}
+<td class="px-2 py-3 text-center" data-phase="{{ phase }}" data-hash="{{ url_hash }}">
+  <div class="phase-normal flex items-center justify-center">
+    {%- if done_at -%}
+      {%- set tip -%}{{ done_at[:16].replace('T',' ') }}{% if dur_s %} · {{ dur_s | fmt_dur }}{% endif %}{%- endset -%}
+      <form method="POST" action="{{ run_url }}" onsubmit="return confirm('Re-run this phase?')">
+        <button type="submit" title="{{ tip }}"
+          class="w-8 h-8 rounded-full bg-green-100 border border-green-300 text-green-700
+                 hover:bg-green-200 text-sm font-bold flex items-center justify-center">✓</button>
+      </form>
+    {%- elif can_run -%}
+      <form method="POST" action="{{ run_url }}">
+        <button type="submit"
+          class="w-8 h-8 rounded-full bg-gray-100 border border-gray-200 text-gray-400
+                 hover:bg-gray-200 hover:text-gray-600 text-sm flex items-center justify-center">{{ label }}</button>
+      </form>
+    {%- else -%}
+      <span class="w-8 h-8 rounded-full bg-gray-50 border border-gray-100 text-gray-200
+                   text-xs flex items-center justify-center">—</span>
+    {%- endif -%}
+  </div>
+  <div class="phase-active hidden flex items-center justify-center"></div>
+</td>
+{%- endmacro -%}
+
 {% block content %}
 
 <div class="flex items-center justify-between mb-6">
@@ -14,36 +41,18 @@
   </div>
 </div>
 
-<div class="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 text-sm text-blue-800">
-  <strong>Cache levels:</strong>
-  <span class="ml-2"><strong>Scrape</strong> – raw page text fetched from the web.</span>
-  <span class="ml-4"><strong>Extract</strong> – AI-interpreted community records from that text.</span>
-  <span class="ml-4">Delete a level to force re-processing on next run.</span>
-</div>
-
-<!-- Progress legend -->
-<div id="progress-legend" class="hidden mb-4 flex items-center gap-3 text-xs text-gray-500">
-  <span class="font-semibold text-gray-600">Active:</span>
-  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 font-medium">↓ fetch</span>
-  <span class="text-gray-300">→</span>
-  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200 font-medium">⟳ AI</span>
-  <span class="text-gray-300">→</span>
-  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 font-medium">↓ enrich</span>
-  <span class="text-gray-300">→</span>
-  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-200 font-medium">⟳ AI+</span>
-</div>
-
 <div id="cache-table-wrap">
 {% if entries %}
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
   <table class="w-full text-sm" id="cache-table">
     <thead class="bg-gray-50 border-b border-gray-200">
       <tr>
-        <th class="px-3 py-3 w-20"></th>
         <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">URL</th>
         <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">City / Topic</th>
-        <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Scraped at</th>
-        <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Extracted at</th>
+        <th class="text-center px-2 py-3 text-xs font-semibold text-blue-400 uppercase tracking-wide w-16" title="Fetch raw page">↓ Fetch</th>
+        <th class="text-center px-2 py-3 text-xs font-semibold text-purple-400 uppercase tracking-wide w-16" title="AI extraction">⟳ AI</th>
+        <th class="text-center px-2 py-3 text-xs font-semibold text-amber-400 uppercase tracking-wide w-16" title="Enrichment fetch">↓ Enrich</th>
+        <th class="text-center px-2 py-3 text-xs font-semibold text-green-400 uppercase tracking-wide w-16" title="Enrichment AI">⟳ AI+</th>
         <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Records</th>
         <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
       </tr>
@@ -51,9 +60,6 @@
     <tbody class="divide-y divide-gray-100" id="cache-tbody">
       {% for e in entries %}
       <tr class="hover:bg-gray-50 transition-colors" data-hash="{{ e.url_hash }}">
-        <td class="px-3 py-3 text-center w-20">
-          <span class="phase-indicator hidden text-xs font-semibold px-1.5 py-0.5 rounded-full border"></span>
-        </td>
         <td class="px-4 py-3 max-w-xs">
           <a href="/admin/cache/{{ e.url_hash }}"
              class="text-xs font-medium text-gray-800 hover:text-blue-600 truncate block max-w-xs"
@@ -62,58 +68,24 @@
              class="text-xs text-gray-400 hover:underline truncate block max-w-xs">↗ open</a>
         </td>
         <td class="px-4 py-3 text-xs text-gray-600">
-          {% if e.city %}
-          <span class="font-medium">{{ e.city }}</span>
-          {% if e.topic %}<span class="text-gray-400"> / {{ e.topic.replace('_',' ') }}</span>{% endif %}
-          {% else %}
-          <span class="text-gray-400">—</span>
-          {% endif %}
+          {% if e.city %}<span class="font-medium">{{ e.city }}</span>{% if e.topic %}<span class="text-gray-400"> / {{ e.topic.replace('_',' ') }}</span>{% endif %}
+          {% else %}<span class="text-gray-400">—</span>{% endif %}
         </td>
-        <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
-          {% if e.scraped_at %}
-            {{ e.scraped_at[:16].replace('T',' ') }}
-          {% else %}
-            <span class="text-gray-300">—</span>
-          {% endif %}
-        </td>
-        <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
-          {% if e.extracted_at %}
-            {{ e.extracted_at[:16].replace('T',' ') }}
-          {% else %}
-            <span class="text-gray-300">—</span>
-          {% endif %}
-        </td>
+        {{ phase_cell("scrape",         e.scraped_at,           e.scrape_duration_s,        e.url_hash, "/admin/cache/"+e.url_hash+"/run-scrape",   true) }}
+        {{ phase_cell("extract",        e.extracted_at,         e.extract_duration_s,       e.url_hash, "/admin/cache/"+e.url_hash+"/run-extract",  e.has_text) }}
+        {{ phase_cell("enrich_scrape",  e.enrich_scraped_at,    e.enrich_scrape_duration_s, e.url_hash, "/admin/cache/"+e.url_hash+"/run-enrich",   e.extracted_at) }}
+        {{ phase_cell("enrich_extract", e.enrich_extracted_at,  e.enrich_extract_duration_s,e.url_hash, "/admin/cache/"+e.url_hash+"/run-enrich",   e.extracted_at) }}
         <td class="px-4 py-3 text-right text-xs font-medium text-gray-700">
           {% if e.extracted_at %}{{ e.record_count }}{% else %}<span class="text-gray-300">—</span>{% endif %}
         </td>
         <td class="px-4 py-3 text-right">
-          <div class="flex items-center justify-end gap-1">
-            {% if e.has_text %}
-            <form method="POST" action="/admin/cache/{{ e.url_hash }}/delete-scraped"
-                  onsubmit="return confirm('Delete scraped text for this URL?')">
-              <button type="submit"
-                class="px-2 py-1 text-xs rounded bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 transition-colors">
-                Del scrape
-              </button>
-            </form>
-            {% endif %}
-            {% if e.extracted_at %}
-            <form method="POST" action="/admin/cache/{{ e.url_hash }}/delete-extracted"
-                  onsubmit="return confirm('Delete AI extraction for this URL?')">
-              <button type="submit"
-                class="px-2 py-1 text-xs rounded bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 transition-colors">
-                Del AI
-              </button>
-            </form>
-            {% endif %}
-            <form method="POST" action="/admin/cache/{{ e.url_hash }}/delete"
-                  onsubmit="return confirm('Delete entire cache entry?')">
-              <button type="submit"
-                class="px-2 py-1 text-xs rounded bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 transition-colors">
-                Del all
-              </button>
-            </form>
-          </div>
+          <form method="POST" action="/admin/cache/{{ e.url_hash }}/delete"
+                onsubmit="return confirm('Delete entire cache entry?')">
+            <button type="submit"
+              class="px-2 py-1 text-xs rounded bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 transition-colors">
+              Del all
+            </button>
+          </form>
         </td>
       </tr>
       {% endfor %}
@@ -133,86 +105,98 @@ let activePhase = null;
 let lastEntryCount = {{ entries|length }};
 
 const PHASE_CFG = {
-  scrape:         { label: '↓ fetch',   badge: 'text-blue-700 bg-blue-100 border-blue-300',   row: ['bg-blue-50',   'border-l-4', 'border-blue-400']   },
-  extract:        { label: '⟳ AI',      badge: 'text-purple-700 bg-purple-100 border-purple-300', row: ['bg-purple-50', 'border-l-4', 'border-purple-400'] },
-  enrich_scrape:  { label: '↓ enrich',  badge: 'text-amber-700 bg-amber-100 border-amber-300',  row: ['bg-amber-50',  'border-l-4', 'border-amber-400']  },
-  enrich_extract: { label: '⟳ AI+',     badge: 'text-green-700 bg-green-100 border-green-300',  row: ['bg-green-50',  'border-l-4', 'border-green-400']  },
+  scrape:         { label: '↓ fetch',   badge: 'text-blue-700 bg-blue-100 border-blue-300'    },
+  extract:        { label: '⟳ AI',      badge: 'text-purple-700 bg-purple-100 border-purple-300' },
+  enrich_scrape:  { label: '↓ enrich',  badge: 'text-amber-700 bg-amber-100 border-amber-300'  },
+  enrich_extract: { label: '⟳ AI+',     badge: 'text-green-700 bg-green-100 border-green-300'  },
 };
 
-const ALL_ROW_CLS = ['bg-blue-50','bg-purple-50','bg-amber-50','bg-green-50',
-                     'border-l-4','border-blue-400','border-purple-400','border-amber-400','border-green-400'];
-
 function applyProgress(phase, hash) {
-  document.querySelectorAll('#cache-tbody tr').forEach(row => {
-    const indicator = row.querySelector('.phase-indicator');
-    const isActive = phase && hash && row.dataset.hash === hash;
-
-    row.classList.remove(...ALL_ROW_CLS);
-    if (indicator) {
-      indicator.classList.add('hidden');
-      indicator.className = 'phase-indicator hidden text-xs font-semibold px-1.5 py-0.5 rounded-full border';
-    }
-
-    if (isActive) {
-      const cfg = PHASE_CFG[phase];
-      if (!cfg) return;
-      row.classList.add(...cfg.row);
-      if (indicator) {
-        indicator.textContent = cfg.label;
-        indicator.classList.remove('hidden');
-        cfg.badge.split(' ').forEach(c => indicator.classList.add(c));
-      }
-    }
+  // Reset all phase cells
+  document.querySelectorAll('.phase-normal').forEach(el => el.classList.remove('hidden'));
+  document.querySelectorAll('.phase-active').forEach(el => {
+    el.classList.add('hidden');
+    el.innerHTML = '';
   });
 
-  // Top phase badge
+  // Update top badge
   const phaseBadge = document.getElementById('phase-badge');
-  if (phaseBadge) {
-    if (phase && PHASE_CFG[phase]) {
-      const cfg = PHASE_CFG[phase];
-      phaseBadge.className = `flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${cfg.badge}`;
-      phaseBadge.textContent = cfg.label;
-      phaseBadge.classList.remove('hidden');
-    } else {
-      phaseBadge.classList.add('hidden');
-    }
+  if (phase && PHASE_CFG[phase]) {
+    const cfg = PHASE_CFG[phase];
+    phaseBadge.className = `flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${cfg.badge}`;
+    phaseBadge.textContent = cfg.label;
+    phaseBadge.classList.remove('hidden');
+  } else if (phaseBadge) {
+    phaseBadge.classList.add('hidden');
+    phaseBadge.classList.remove('flex');
   }
 
-  // Legend
-  const legend = document.getElementById('progress-legend');
-  if (legend) legend.classList.toggle('hidden', !phase);
+  if (!phase || !hash) return;
+
+  // Highlight the specific phase cell
+  const cell = document.querySelector(`td[data-phase="${phase}"][data-hash="${hash}"]`);
+  if (!cell) return;
+  const normal = cell.querySelector('.phase-normal');
+  const active = cell.querySelector('.phase-active');
+  if (normal) normal.classList.add('hidden');
+  if (active && PHASE_CFG[phase]) {
+    const cfg = PHASE_CFG[phase];
+    active.innerHTML = `<span class="w-8 h-8 rounded-full border ${cfg.badge} text-sm font-bold flex items-center justify-center animate-pulse">${cfg.label.slice(0,1)}</span>`;
+    active.classList.remove('hidden');
+  }
+}
+
+function fmtDur(s) {
+  if (s == null) return '';
+  if (s < 60) return s.toFixed(1) + 's';
+  return Math.floor(s / 60) + 'm ' + (s % 60 | 0) + 's';
+}
+
+function phaseCell(phase, doneAt, durS, hash, runUrl, canRun) {
+  const labels = { scrape: '↓', extract: '⟳', enrich_scrape: '↓', enrich_extract: '⟳' };
+  const lbl = labels[phase] || '?';
+  let normalHtml;
+  if (doneAt) {
+    const ts = doneAt.slice(0, 16).replace('T', ' ');
+    const dur = fmtDur(durS);
+    const tip = ts + (dur ? ' · ' + dur : '');
+    normalHtml = `<form method="POST" action="${runUrl}" onsubmit="return confirm('Re-run this phase?')">
+      <button type="submit" title="${tip}" class="w-8 h-8 rounded-full bg-green-100 border border-green-300 text-green-700 hover:bg-green-200 text-sm font-bold flex items-center justify-center">✓</button></form>`;
+  } else if (canRun) {
+    normalHtml = `<form method="POST" action="${runUrl}">
+      <button type="submit" class="w-8 h-8 rounded-full bg-gray-100 border border-gray-200 text-gray-400 hover:bg-gray-200 hover:text-gray-600 text-sm flex items-center justify-center">${lbl}</button></form>`;
+  } else {
+    normalHtml = `<span class="w-8 h-8 rounded-full bg-gray-50 border border-gray-100 text-gray-200 text-xs flex items-center justify-center">—</span>`;
+  }
+  return `<td class="px-2 py-3 text-center" data-phase="${phase}" data-hash="${hash}">
+    <div class="phase-normal flex items-center justify-center">${normalHtml}</div>
+    <div class="phase-active hidden flex items-center justify-center"></div>
+  </td>`;
 }
 
 function rowHtml(e) {
-  const scrapedAt = e.scraped_at ? e.scraped_at.slice(0,16).replace('T',' ') : '<span class="text-gray-300">—</span>';
-  const extractedAt = e.extracted_at ? e.extracted_at.slice(0,16).replace('T',' ') : '<span class="text-gray-300">—</span>';
+  const city = e.city
+    ? `<span class="font-medium">${e.city}</span>${e.topic ? ' <span class="text-gray-400">/ ' + e.topic.replace(/_/g,' ') + '</span>' : ''}`
+    : '<span class="text-gray-400">—</span>';
   const records = e.extracted_at ? e.record_count : '<span class="text-gray-300">—</span>';
-  const city = e.city ? `<span class="font-medium">${e.city}</span>${e.topic ? ' <span class="text-gray-400">/ '+e.topic.replace(/_/g,' ')+'</span>' : ''}` : '<span class="text-gray-400">—</span>';
-  const delScrape = e.has_text ? `<form method="POST" action="/admin/cache/${e.url_hash}/delete-scraped" onsubmit="return confirm('Delete scraped text?')"><button type="submit" class="px-2 py-1 text-xs rounded bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200">Del scrape</button></form>` : '';
-  const delAI = e.extracted_at ? `<form method="POST" action="/admin/cache/${e.url_hash}/delete-extracted" onsubmit="return confirm('Delete AI extraction?')"><button type="submit" class="px-2 py-1 text-xs rounded bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200">Del AI</button></form>` : '';
-  return `
-    <tr class="hover:bg-gray-50 transition-colors" data-hash="${e.url_hash}">
-      <td class="px-3 py-3 text-center w-20">
-        <span class="phase-indicator hidden text-xs font-semibold px-1.5 py-0.5 rounded-full border"></span>
-      </td>
-      <td class="px-4 py-3 max-w-xs">
-        <a href="/admin/cache/${e.url_hash}" class="text-xs font-medium text-gray-800 hover:text-blue-600 truncate block max-w-xs" title="${e.url}">${e.domain || e.url}</a>
-        <a href="${e.url}" target="_blank" class="text-xs text-gray-400 hover:underline truncate block max-w-xs">↗ open</a>
-      </td>
-      <td class="px-4 py-3 text-xs text-gray-600">${city}</td>
-      <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">${scrapedAt}</td>
-      <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">${extractedAt}</td>
-      <td class="px-4 py-3 text-right text-xs font-medium text-gray-700">${records}</td>
-      <td class="px-4 py-3 text-right">
-        <div class="flex items-center justify-end gap-1">
-          ${delScrape}
-          ${delAI}
-          <form method="POST" action="/admin/cache/${e.url_hash}/delete" onsubmit="return confirm('Delete entire cache entry?')">
-            <button type="submit" class="px-2 py-1 text-xs rounded bg-red-50 text-red-700 hover:bg-red-100 border border-red-200">Del all</button>
-          </form>
-        </div>
-      </td>
-    </tr>`;
+  const h = e.url_hash;
+  return `<tr class="hover:bg-gray-50 transition-colors" data-hash="${h}">
+    <td class="px-4 py-3 max-w-xs">
+      <a href="/admin/cache/${h}" class="text-xs font-medium text-gray-800 hover:text-blue-600 truncate block max-w-xs" title="${e.url}">${e.domain || e.url}</a>
+      <a href="${e.url}" target="_blank" class="text-xs text-gray-400 hover:underline truncate block max-w-xs">↗ open</a>
+    </td>
+    <td class="px-4 py-3 text-xs text-gray-600">${city}</td>
+    ${phaseCell('scrape',         e.scraped_at,          e.scrape_duration_s,         h, '/admin/cache/'+h+'/run-scrape',  true)}
+    ${phaseCell('extract',        e.extracted_at,        e.extract_duration_s,        h, '/admin/cache/'+h+'/run-extract', e.has_text)}
+    ${phaseCell('enrich_scrape',  e.enrich_scraped_at,   e.enrich_scrape_duration_s,  h, '/admin/cache/'+h+'/run-enrich',  !!e.extracted_at)}
+    ${phaseCell('enrich_extract', e.enrich_extracted_at, e.enrich_extract_duration_s, h, '/admin/cache/'+h+'/run-enrich',  !!e.extracted_at)}
+    <td class="px-4 py-3 text-right text-xs font-medium text-gray-700">${records}</td>
+    <td class="px-4 py-3 text-right">
+      <form method="POST" action="/admin/cache/${h}/delete" onsubmit="return confirm('Delete entire cache entry?')">
+        <button type="submit" class="px-2 py-1 text-xs rounded bg-red-50 text-red-700 hover:bg-red-100 border border-red-200">Del all</button>
+      </form>
+    </td>
+  </tr>`;
 }
 
 async function pollProgress() {
@@ -233,21 +217,14 @@ async function refreshTable() {
     const statusResp = await fetch('/admin/api/status');
     const { is_running } = await statusResp.json();
     const badge = document.getElementById('live-badge');
-    if (is_running) {
-      badge.classList.remove('hidden');
-      badge.classList.add('flex');
-    } else {
-      badge.classList.add('hidden');
-      badge.classList.remove('flex');
-    }
+    if (is_running) { badge.classList.remove('hidden'); badge.classList.add('flex'); }
+    else { badge.classList.add('hidden'); badge.classList.remove('flex'); }
 
     const resp = await fetch('/admin/api/cache-entries');
     const entries = await resp.json();
-
     if (entries.length !== lastEntryCount) {
       lastEntryCount = entries.length;
       document.getElementById('entry-count').textContent = entries.length;
-
       const tbody = document.getElementById('cache-tbody');
       if (tbody) {
         tbody.innerHTML = entries.map(rowHtml).join('');

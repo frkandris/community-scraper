@@ -1,4 +1,5 @@
 import asyncio
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -30,7 +31,9 @@ async def _enrich_record(
     config: "PipelineConfig",
     semaphore: asyncio.Semaphore,
     on_progress: "Callable[[str | None, str | None], None] | None" = None,
+    timing: "dict | None" = None,
 ) -> "CommunityRecord":
+    """timing dict accumulates {"scrape": s, "extract": s, "count": n} across calls."""
     query = f'"{record.name}" {record.city}'
     try:
         results = await searxng.search_all([query], locale=record.locale, num_results=3)
@@ -40,11 +43,14 @@ async def _enrich_record(
     for result in results[:2]:
         if on_progress:
             on_progress("enrich_scrape", record.source_url)
+        t0 = time.monotonic()
         text = await fetch_and_clean(
             result.url, config.fetch_blocked_domains,
             config.fetch_timeout, config.fetch_min_text_length,
             semaphore,
         )
+        if timing is not None:
+            timing["scrape"] += time.monotonic() - t0
         if on_progress:
             on_progress(None, None)
         if not text:
@@ -52,13 +58,18 @@ async def _enrich_record(
 
         if on_progress:
             on_progress("enrich_extract", record.source_url)
+        t0 = time.monotonic()
         try:
             enriched = await extractor.enrich(record, text)
         finally:
+            if timing is not None:
+                timing["extract"] += time.monotonic() - t0
             if on_progress:
                 on_progress(None, None)
 
         if enriched.website or enriched.social_links or enriched.contact:
+            if timing is not None:
+                timing["count"] += 1
             log.info("enriched", community=record.name, city=record.city, source=result.url)
             return enriched
 
@@ -201,16 +212,18 @@ async def _run_full(
 
                 if on_progress:
                     on_progress("scrape", url)
+                t0 = time.monotonic()
                 text = await fetch_and_clean(
                     url, config.fetch_blocked_domains,
                     config.fetch_timeout, config.fetch_min_text_length,
                     semaphore,
                 )
+                scrape_dur = time.monotonic() - t0
                 if on_progress:
                     on_progress(None, None)
                 if text:
                     if cache:
-                        cache.save_scraped(url, text, city.name, topic.name)
+                        cache.save_scraped(url, text, city.name, topic.name, duration_s=scrape_dur)
                     fetched.append((url, text))
                     pair_log["fetched_urls"].append(url)
 
@@ -229,12 +242,14 @@ async def _run_full(
 
                 if on_progress:
                     on_progress("extract", url)
+                t0 = time.monotonic()
                 try:
                     extracted = await extractor.extract(
                         text=text, city=city.name, topic=topic.name,
                         locale=city.locale, source_url=url,
                     )
                 finally:
+                    extract_dur = time.monotonic() - t0
                     if on_progress:
                         on_progress(None, None)
 
@@ -245,16 +260,22 @@ async def _run_full(
                              kept=len(joinable), removed=len(extracted) - len(joinable))
 
                 # Enrich records that have no contact info
+                enrich_timing = {"scrape": 0.0, "extract": 0.0, "count": 0, "needed": False}
                 final_records = []
                 for record in joinable:
                     if config.enrich_communities and _needs_enrichment(record):
+                        enrich_timing["needed"] = True
                         record = await _enrich_record(
-                            record, searxng, extractor, config, semaphore, on_progress
+                            record, searxng, extractor, config, semaphore,
+                            on_progress, enrich_timing,
                         )
                     final_records.append(record)
 
                 if cache:
-                    cache.save_extracted(url, final_records)
+                    cache.save_extracted(url, final_records, duration_s=extract_dur)
+                    if enrich_timing["needed"]:
+                        cache.mark_enrich_scraped(url, enrich_timing["scrape"])
+                        cache.mark_enrich_extracted(url, enrich_timing["count"], enrich_timing["extract"])
 
                 # Persist immediately — safe even if server restarts mid-run
                 if final_records:

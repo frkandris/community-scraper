@@ -44,11 +44,14 @@ class CacheManager:
         path = self._page_path(entry["url_hash"])
         path.write_text(json.dumps(entry, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    # ── Scrape ──────────────────────────────────────────────────────────────
+
     def get_scraped(self, url: str) -> str | None:
         entry = self._load(_url_hash(url))
         return entry.get("raw_text") if entry else None
 
-    def save_scraped(self, url: str, text: str, city: str, topic: str) -> None:
+    def save_scraped(self, url: str, text: str, city: str, topic: str,
+                     duration_s: float | None = None) -> None:
         h = _url_hash(url)
         entry = self._load(h) or {}
         entry.update({
@@ -60,8 +63,12 @@ class CacheManager:
             "scraped_at": datetime.now(timezone.utc).isoformat(),
             "raw_text": text,
         })
+        if duration_s is not None:
+            entry["scrape_duration_s"] = round(duration_s, 2)
         self._save(entry)
         log.debug("cache_saved_scrape", url=url)
+
+    # ── Extract ─────────────────────────────────────────────────────────────
 
     def get_extracted(self, url: str) -> list[CommunityRecord] | None:
         entry = self._load(_url_hash(url))
@@ -72,15 +79,56 @@ class CacheManager:
         except Exception:
             return None
 
-    def save_extracted(self, url: str, records: list[CommunityRecord]) -> None:
+    def save_extracted(self, url: str, records: list[CommunityRecord],
+                       duration_s: float | None = None) -> None:
         h = _url_hash(url)
         entry = self._load(h) or {"url": url, "url_hash": h, "domain": _domain(url)}
         entry.update({
             "extracted_at": datetime.now(timezone.utc).isoformat(),
             "records": [r.model_dump() for r in records],
+            # Clear stale enrich timing — pipeline will re-set it immediately after
+            "enrich_scraped_at": None,
+            "enrich_scrape_duration_s": None,
+            "enrich_extracted_at": None,
+            "enrich_extract_duration_s": None,
+            "enrich_count": None,
         })
+        if duration_s is not None:
+            entry["extract_duration_s"] = round(duration_s, 2)
         self._save(entry)
         log.debug("cache_saved_extract", url=url, records=len(records))
+
+    def save_enriched_records(self, url: str, records: list[CommunityRecord]) -> None:
+        """Update records in the cache entry without touching timestamps or timing fields."""
+        h = _url_hash(url)
+        entry = self._load(h)
+        if not entry:
+            return
+        entry["records"] = [r.model_dump() for r in records]
+        self._save(entry)
+
+    # ── Enrich timing markers ────────────────────────────────────────────────
+
+    def mark_enrich_scraped(self, url: str, duration_s: float) -> None:
+        h = _url_hash(url)
+        entry = self._load(h)
+        if not entry:
+            return
+        entry["enrich_scraped_at"] = datetime.now(timezone.utc).isoformat()
+        entry["enrich_scrape_duration_s"] = round(duration_s, 2)
+        self._save(entry)
+
+    def mark_enrich_extracted(self, url: str, count: int, duration_s: float) -> None:
+        h = _url_hash(url)
+        entry = self._load(h)
+        if not entry:
+            return
+        entry["enrich_extracted_at"] = datetime.now(timezone.utc).isoformat()
+        entry["enrich_extract_duration_s"] = round(duration_s, 2)
+        entry["enrich_count"] = count
+        self._save(entry)
+
+    # ── Bulk read ────────────────────────────────────────────────────────────
 
     def get_all_scraped(self) -> list[tuple[str, str, str, str]]:
         """Returns (url, raw_text, city, topic) for all cached scraped pages."""
@@ -105,19 +153,28 @@ class CacheManager:
             try:
                 entry = json.loads(path.read_text(encoding="utf-8"))
                 entries.append({
-                    "url_hash": entry.get("url_hash", path.stem),
-                    "url": entry.get("url", ""),
-                    "domain": entry.get("domain", ""),
-                    "city": entry.get("city", ""),
-                    "topic": entry.get("topic", ""),
-                    "scraped_at": entry.get("scraped_at"),
-                    "extracted_at": entry.get("extracted_at"),
-                    "record_count": len(entry.get("records") or []),
-                    "has_text": bool(entry.get("raw_text")),
+                    "url_hash":               entry.get("url_hash", path.stem),
+                    "url":                    entry.get("url", ""),
+                    "domain":                 entry.get("domain", ""),
+                    "city":                   entry.get("city", ""),
+                    "topic":                  entry.get("topic", ""),
+                    "scraped_at":             entry.get("scraped_at"),
+                    "scrape_duration_s":      entry.get("scrape_duration_s"),
+                    "extracted_at":           entry.get("extracted_at"),
+                    "extract_duration_s":     entry.get("extract_duration_s"),
+                    "enrich_scraped_at":      entry.get("enrich_scraped_at"),
+                    "enrich_scrape_duration_s": entry.get("enrich_scrape_duration_s"),
+                    "enrich_extracted_at":    entry.get("enrich_extracted_at"),
+                    "enrich_extract_duration_s": entry.get("enrich_extract_duration_s"),
+                    "enrich_count":           entry.get("enrich_count"),
+                    "record_count":           len(entry.get("records") or []),
+                    "has_text":               bool(entry.get("raw_text")),
                 })
             except Exception:
                 continue
         return sorted(entries, key=lambda e: e.get("scraped_at") or "", reverse=True)
+
+    # ── Delete ───────────────────────────────────────────────────────────────
 
     def delete_scraped(self, url_hash: str) -> bool:
         entry = self._load(url_hash)
@@ -125,6 +182,7 @@ class CacheManager:
             return False
         entry.pop("raw_text", None)
         entry.pop("scraped_at", None)
+        entry.pop("scrape_duration_s", None)
         self._save(entry)
         return True
 
@@ -132,8 +190,10 @@ class CacheManager:
         entry = self._load(url_hash)
         if not entry:
             return False
-        entry.pop("records", None)
-        entry.pop("extracted_at", None)
+        for key in ("records", "extracted_at", "extract_duration_s",
+                    "enrich_scraped_at", "enrich_scrape_duration_s",
+                    "enrich_extracted_at", "enrich_extract_duration_s", "enrich_count"):
+            entry.pop(key, None)
         self._save(entry)
         return True
 
