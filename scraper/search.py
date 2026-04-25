@@ -14,8 +14,8 @@ LOCALE_TO_LANGUAGE = {
     "es": "es-ES",
 }
 
+# Brave Search only accepts a fixed list of country codes; unmapped locales fall back to US.
 LOCALE_TO_BRAVE_COUNTRY = {
-    "hu": "HU",
     "en": "US",
     "de": "DE",
     "fr": "FR",
@@ -23,10 +23,17 @@ LOCALE_TO_BRAVE_COUNTRY = {
     "it": "IT",
     "pt": "BR",
     "nl": "NL",
-    "pl": "PL",
-    "cs": "CZ",
     "sv": "SE",
-    "ro": "RO",
+    "da": "DK",
+    "fi": "FI",
+    "no": "NO",
+    "pl": "PL",
+    "tr": "TR",
+    "ar": "SA",
+    "zh": "CN",
+    "ja": "JP",
+    "ko": "KR",
+    "ru": "RU",
 }
 
 
