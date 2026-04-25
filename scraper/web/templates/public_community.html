@@ -11,11 +11,11 @@
     <a href="/" class="hover:text-gray-700 transition-colors">CommUnity</a>
     <span>/</span>
     {% if city %}
-    <a href="/explore?city={{ city | urlencode }}" class="hover:text-gray-700 transition-colors">{{ city }}</a>
+    <a href="/{{ city | slugify }}" class="hover:text-gray-700 transition-colors">{{ city }}</a>
     <span>/</span>
     {% endif %}
     {% if topic %}
-    <a href="/explore?city={{ city | urlencode }}&topic={{ topic }}"
+    <a href="/{{ city | slugify }}/{{ topic }}"
        class="hover:text-gray-700 transition-colors">
       {{ topic_labels.get(topic, topic.replace('_',' ').title()) }}
     </a>
@@ -132,7 +132,7 @@
   <!-- Back link -->
   {% if city and topic %}
   <div class="mt-8 text-center">
-    <a href="/explore?city={{ city | urlencode }}&topic={{ topic }}"
+    <a href="/{{ city | slugify }}/{{ topic }}"
        class="inline-flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 transition-colors font-medium">
       <i class="ph ph-arrow-left"></i>
       More {{ topic_labels.get(topic, 'communities') }} in {{ city }}

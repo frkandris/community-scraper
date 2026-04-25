@@ -303,7 +303,7 @@
         <div class="flex items-center gap-2 flex-wrap">
           <span class="font-semibold text-gray-800">{{ r.name }}</span>
           {% if r.community_id %}
-          <a href="/community/{{ r.community_id }}" target="_blank"
+          <a href="{{ r.community_url }}" target="_blank"
              class="text-indigo-500 hover:text-indigo-700 text-[10px] font-medium">↗ public page</a>
           {% endif %}
         </div>

@@ -3,8 +3,10 @@ import base64
 import importlib.metadata
 import json
 import os
+import re
 import subprocess
 import sys
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -156,6 +158,14 @@ def _fmt_dur(s: float | None) -> str:
 
 
 templates.env.filters["fmt_dur"] = _fmt_dur
+
+
+def _slugify(text: str) -> str:
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+
+
+templates.env.filters["slugify"] = _slugify
 
 _static_dir = Path(__file__).parent / "static"
 _static_dir.mkdir(exist_ok=True)
@@ -327,8 +337,30 @@ def _ensure_community_id(record: dict) -> dict:
     if not record.get("community_id"):
         import hashlib
         key = f"{record.get('name', '').lower()}|{record.get('city', '').lower()}"
-        return dict(record, community_id=hashlib.sha256(key.encode()).hexdigest()[:12])
+        record = dict(record, community_id=hashlib.sha256(key.encode()).hexdigest()[:12])
+    if "community_url" not in record:
+        city_sl = _slugify(record.get("city", ""))
+        name_sl = _slugify(record.get("name", ""))
+        record = dict(record, community_url=f"/{city_sl}/{name_sl}")
     return record
+
+
+def _city_from_slug(city_slug: str) -> str | None:
+    for city in (app_state.cities or []):
+        if _slugify(city.name) == city_slug:
+            return city.name
+    dir_name = _normalize(city_slug)
+    if (DATA_DIR / dir_name).is_dir():
+        return city_slug
+    return None
+
+
+def _find_community_by_slug(city_name: str, name_slug: str) -> dict | None:
+    for topic in (app_state.topics or []):
+        for r in _load_communities(city_name, topic.name):
+            if _slugify(r.get("name", "")) == name_slug:
+                return r
+    return None
 
 
 def _load_communities(city: str, topic: str) -> list[dict]:
@@ -406,20 +438,20 @@ async def public_home(request: Request, city: str = ""):
     })
 
 
-@_fastapi.get("/explore", response_class=HTMLResponse)
-async def public_explore(
+async def _render_explore(
     request: Request,
     city: str = "",
-    topic: list[str] = Query(default=[]),
+    topic: list[str] | None = None,
     subscribed: str = "",
-):
+) -> HTMLResponse:
+    if topic is None:
+        topic = []
     cities = app_state.cities or []
     topics = app_state.topics or []
 
-    # Load communities for each selected city+topic
     sections: list[dict] = []
     total = 0
-    for t in (topic if topic else []):
+    for t in topic:
         records = _load_communities(city, t) if city else []
         total += len(records)
         sections.append({
@@ -429,7 +461,6 @@ async def public_explore(
             "records": records,
         })
 
-    # If city provided but no topic, show available topics for that city
     available_topics: dict[str, int] = {}
     if city and not topic:
         for t in topics:
@@ -437,7 +468,6 @@ async def public_explore(
             if count > 0:
                 available_topics[t.name] = count
 
-    # If no city but topics selected, aggregate across all cities
     cross_city_sections: list[dict] = []
     if not city and topic:
         for t in topic:
@@ -479,22 +509,28 @@ async def public_explore(
     })
 
 
+@_fastapi.get("/explore", response_class=HTMLResponse)
+async def public_explore(
+    request: Request,
+    city: str = "",
+    topic: list[str] = Query(default=[]),
+    subscribed: str = "",
+):
+    city_sl = _slugify(city) if city else ""
+    if city_sl and len(topic) == 1:
+        qs = f"?subscribed=1" if subscribed == "1" else ""
+        return RedirectResponse(f"/{city_sl}/{topic[0]}{qs}", status_code=301)
+    if city_sl and not topic:
+        return RedirectResponse(f"/{city_sl}", status_code=301)
+    return await _render_explore(request, city=city, topic=topic, subscribed=subscribed)
+
+
 @_fastapi.get("/community/{community_id}", response_class=HTMLResponse)
-async def public_community(request: Request, community_id: str):
+async def public_community_legacy(request: Request, community_id: str):
     record = _find_community(community_id)
     if not record:
         return RedirectResponse("/", status_code=302)
-    topic = record.get("topic", "")
-    city = record.get("city", "")
-    schema_json = records_to_jsonld([record])
-    return templates.TemplateResponse(request, "public_community.html", {
-        "r": record,
-        "topic": topic,
-        "city": city,
-        "schema_json": schema_json,
-        "topic_icons": TOPIC_ICONS,
-        "topic_labels": TOPIC_LABELS,
-    })
+    return RedirectResponse(record["community_url"], status_code=301)
 
 
 @_fastapi.post("/subscribe")
@@ -504,7 +540,10 @@ async def public_subscribe(
     city: str = Form(...),
     topics: list[str] = Form(default=[]),
 ):
+    city_sl = _slugify(city) if city else ""
     if not app_state.db_path or not email or not city or not topics:
+        if city_sl and len(topics) == 1:
+            return RedirectResponse(f"/{city_sl}/{topics[0]}", status_code=302)
         return RedirectResponse(
             f"/explore?city={city}&" + "&".join(f"topic={t}" for t in topics),
             status_code=302,
@@ -513,6 +552,8 @@ async def public_subscribe(
     for t in topics:
         save_subscription(app_state.db_path, email, city, t)
 
+    if city_sl and len(topics) == 1:
+        return RedirectResponse(f"/{city_sl}/{topics[0]}?subscribed=1", status_code=302)
     qs = f"city={city}&" + "&".join(f"topic={t}" for t in topics) + "&subscribed=1"
     return RedirectResponse(f"/explore?{qs}", status_code=302)
 
@@ -886,7 +927,7 @@ async def cache_detail(request: Request, url_hash: str):
         if file.exists():
             try:
                 all_records = json.loads(file.read_text(encoding="utf-8"))
-                store_records = [r for r in all_records if r.get("source_url") == url]
+                store_records = [_ensure_community_id(r) for r in all_records if r.get("source_url") == url]
             except Exception:
                 pass
 
@@ -1118,6 +1159,41 @@ async def history_detail(request: Request, commit_hash: str):
         "stat": stat.stdout,
         "diff": diff.stdout,
     })
+
+
+@_fastapi.get("/{city_slug}/{segment}", response_class=HTMLResponse)
+async def public_city_segment(
+    request: Request, city_slug: str, segment: str, subscribed: str = ""
+):
+    city_name = _city_from_slug(city_slug)
+    if not city_name:
+        return RedirectResponse("/", status_code=302)
+    topic_names = {t.name for t in (app_state.topics or [])}
+    actual_topic = segment if segment in topic_names else segment.replace("-", "_")
+    if actual_topic in topic_names:
+        return await _render_explore(
+            request, city=city_name, topic=[actual_topic], subscribed=subscribed
+        )
+    record = _find_community_by_slug(city_name, segment)
+    if record:
+        schema_json = records_to_jsonld([record])
+        return templates.TemplateResponse(request, "public_community.html", {
+            "r": record,
+            "topic": record.get("topic", ""),
+            "city": city_name,
+            "schema_json": schema_json,
+            "topic_icons": TOPIC_ICONS,
+            "topic_labels": TOPIC_LABELS,
+        })
+    return RedirectResponse(f"/{city_slug}", status_code=302)
+
+
+@_fastapi.get("/{city_slug}", response_class=HTMLResponse)
+async def public_city(request: Request, city_slug: str, subscribed: str = ""):
+    city_name = _city_from_slug(city_slug)
+    if not city_name:
+        return RedirectResponse("/", status_code=302)
+    return await _render_explore(request, city=city_name, subscribed=subscribed)
 
 
 _fastapi.include_router(admin)
