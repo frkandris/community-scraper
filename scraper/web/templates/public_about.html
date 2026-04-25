@@ -2,23 +2,35 @@
 {% block title %}About – CommUnity{% endblock %}
 {% block content %}
 
-<!-- Hero -->
-<div class="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 text-white py-16 px-6 text-center">
-  <div class="max-w-2xl mx-auto">
-    <h1 class="text-4xl font-extrabold tracking-tight mb-4">Find your people</h1>
-    <p class="text-indigo-200 text-lg leading-relaxed">
-      CommUnity automatically discovers local clubs, groups and activities — so you spend less time searching and more time doing what you love.
-    </p>
-  </div>
-</div>
+<div class="max-w-3xl mx-auto px-6 py-14 space-y-12">
 
-<div class="max-w-4xl mx-auto px-6 py-14 space-y-16">
+  <!-- Project description -->
+  <div>
+    <h1 class="text-3xl font-extrabold text-gray-900 mb-6">About CommUnity</h1>
+    <div class="prose prose-gray max-w-none space-y-4 text-gray-600 leading-relaxed">
+      <p>
+        CommUnity started in 2025 with a simple goal: make it easier to find local hobby groups,
+        clubs and communities without spending hours searching the web.
+      </p>
+      <p>
+        Every few hours an automated pipeline searches the web for community groups matching each
+        city × interest combination. It downloads the relevant pages, runs a local AI language
+        model to extract structured data — meeting schedules, locations, contacts, websites — and
+        filters out results that aren't genuine joinable groups. No cloud AI services are used;
+        everything runs on self-hosted, open-source infrastructure.
+      </p>
+      <p>
+        The goal is to eventually cover every major city in the world across dozens of interest
+        categories, so anyone relocating or looking for new people can find their people in minutes.
+      </p>
+    </div>
+  </div>
 
   <!-- Stats -->
   <div class="grid grid-cols-3 gap-4">
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
       <div class="text-4xl font-extrabold text-indigo-600 mb-1">{{ city_count }}</div>
-      <div class="text-sm text-gray-500 font-medium">Cities covered</div>
+      <div class="text-sm text-gray-500 font-medium">Cities tracked</div>
     </div>
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
       <div class="text-4xl font-extrabold text-indigo-600 mb-1">{{ topic_count }}</div>
@@ -30,53 +42,22 @@
     </div>
   </div>
 
-  <!-- How it works -->
-  <div>
-    <h2 class="text-2xl font-bold text-gray-900 mb-8 text-center">How to find your community</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
-
-      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center relative">
-        <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-7 h-7 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow">1</div>
-        <i class="ph ph-map-pin text-4xl text-indigo-600 mt-2 mb-3 block"></i>
-        <h3 class="font-semibold text-gray-900 mb-2">Pick your city</h3>
-        <p class="text-sm text-gray-500 leading-relaxed">
-          Start by typing your city name. We cover {{ city_count }} cities worldwide — from Budapest to Bangkok.
-        </p>
-      </div>
-
-      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center relative">
-        <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-7 h-7 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow">2</div>
-        <i class="ph ph-tag text-4xl text-indigo-600 mt-2 mb-3 block"></i>
-        <h3 class="font-semibold text-gray-900 mb-2">Choose your interests</h3>
-        <p class="text-sm text-gray-500 leading-relaxed">
-          Select from {{ topic_count }} interest categories — running, board games, choir, dance, and many more.
-        </p>
-      </div>
-
-      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center relative">
-        <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-7 h-7 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow">3</div>
-        <i class="ph ph-users-three text-4xl text-indigo-600 mt-2 mb-3 block"></i>
-        <h3 class="font-semibold text-gray-900 mb-2">Explore &amp; connect</h3>
-        <p class="text-sm text-gray-500 leading-relaxed">
-          Browse community listings with meeting schedules, locations and contact details — then reach out directly.
-        </p>
-      </div>
-
-    </div>
-  </div>
-
   <!-- Browse by interest -->
   <div>
-    <h2 class="text-2xl font-bold text-gray-900 mb-6 text-center">Browse by interest</h2>
+    <h2 class="text-xl font-bold text-gray-900 mb-5">Browse by interest</h2>
     <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
       {% for topic in topics %}
       <a href="/explore?topic={{ topic.name }}"
-         class="flex flex-col items-center justify-center gap-1.5 h-[5.5rem] px-2 bg-white rounded-xl border border-gray-100 shadow-sm
+         class="relative flex flex-col items-center justify-center gap-1.5 h-[5.5rem] px-2 bg-white rounded-xl border border-gray-100 shadow-sm
            hover:border-indigo-300 hover:bg-indigo-50 transition-all text-center group">
         <i class="ph ph-{{ topic_icons.get(topic.name, 'circle') }} text-2xl text-gray-500 group-hover:text-indigo-600 leading-none shrink-0"></i>
         <span class="text-xs font-medium text-gray-600 group-hover:text-indigo-700 leading-tight w-full text-center">
           {{ topic_labels.get(topic.name, topic.name.replace('_',' ').title()) }}
         </span>
+        {%- set cnt = topic_counts.get(topic.name, 0) -%}
+        {%- if cnt > 0 -%}
+        <span class="absolute top-1.5 right-1.5 text-[10px] font-bold text-indigo-500 leading-none">{{ cnt }}</span>
+        {%- endif -%}
       </a>
       {% endfor %}
     </div>
@@ -85,17 +66,17 @@
   {% if featured_cities %}
   <!-- Popular cities -->
   <div>
-    <h2 class="text-2xl font-bold text-gray-900 mb-6 text-center">Popular cities</h2>
+    <h2 class="text-xl font-bold text-gray-900 mb-5">Popular cities</h2>
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
       {% for name, country, count in featured_cities %}
       <a href="/explore?city={{ name | urlencode }}"
          class="flex items-center justify-between bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3
                 hover:border-indigo-300 hover:bg-indigo-50 transition-all group">
-        <div>
-          <div class="text-sm font-semibold text-gray-800 group-hover:text-indigo-700">{{ name }}</div>
+        <div class="min-w-0">
+          <div class="text-sm font-semibold text-gray-800 group-hover:text-indigo-700 truncate">{{ name }}</div>
           <div class="text-xs text-gray-400">{{ country }}</div>
         </div>
-        <span class="text-sm font-bold text-indigo-600">{{ count }}</span>
+        <span class="text-sm font-bold text-indigo-600 shrink-0 ml-2">{{ count }}</span>
       </a>
       {% endfor %}
     </div>
@@ -105,12 +86,12 @@
   <!-- Data quality notice -->
   <div class="bg-amber-50 border border-amber-100 rounded-2xl p-6">
     <h3 class="font-semibold text-amber-900 mb-2 flex items-center gap-2">
-      <i class="ph ph-warning text-amber-600"></i> Data quality notice
+      <i class="ph ph-warning text-amber-600"></i> Data quality
     </h3>
     <p class="text-sm text-amber-800 leading-relaxed">
       All community data is extracted automatically from public web pages using an AI language model.
       Information may be incomplete, inaccurate or out of date. We do not verify listings manually.
-      Always check directly with the community organisation before relying on any details shown here.
+      Always check directly with the community before relying on any details shown here.
     </p>
   </div>
 
@@ -118,13 +99,8 @@
   <div class="text-center">
     <a href="/"
       class="inline-block px-8 py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition-colors shadow-lg text-base">
-      Start exploring communities →
+      Start exploring →
     </a>
-    <div class="mt-4 flex items-center justify-center gap-4 text-sm text-gray-400">
-      <a href="/map" class="hover:text-indigo-600 transition-colors flex items-center gap-1">
-        <i class="ph ph-map-trifold"></i> World map
-      </a>
-    </div>
   </div>
 
 </div>
