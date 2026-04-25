@@ -14,8 +14,42 @@ from .vcs import commit_data
 
 if TYPE_CHECKING:
     from .cache import CacheManager
+    from .models import CommunityRecord
 
 log = structlog.get_logger()
+
+
+def _needs_enrichment(record: "CommunityRecord") -> bool:
+    return not record.website and not record.social_links and not record.contact
+
+
+async def _enrich_record(
+    record: "CommunityRecord",
+    searxng: "SearXNGClient",
+    extractor: "OllamaExtractor",
+    config: "PipelineConfig",
+    semaphore: asyncio.Semaphore,
+) -> "CommunityRecord":
+    query = f'"{record.name}" {record.city}'
+    try:
+        results = await searxng.search_all([query], locale=record.locale, num_results=3)
+    except Exception:
+        return record
+
+    for result in results[:2]:
+        text = await fetch_and_clean(
+            result.url, config.fetch_blocked_domains,
+            config.fetch_timeout, config.fetch_min_text_length,
+            semaphore,
+        )
+        if not text:
+            continue
+        enriched = await extractor.enrich(record, text)
+        if enriched.website or enriched.social_links or enriched.contact:
+            log.info("enriched", community=record.name, city=record.city, source=result.url)
+            return enriched
+
+    return record
 
 
 @dataclass
@@ -52,6 +86,7 @@ class PipelineConfig:
     repo_dir: Path
     cache_skip_scraped: bool = True
     cache_skip_extracted: bool = True
+    enrich_communities: bool = True
 
 
 async def run_pipeline(
@@ -187,17 +222,30 @@ async def _run_full(
                     if on_progress:
                         on_progress(None)
 
+                # Filter out non-joinable communities
+                joinable = [r for r in extracted if r.joinable]
+                if len(joinable) < len(extracted):
+                    log.info("joinability_filtered", url=url,
+                             kept=len(joinable), removed=len(extracted) - len(joinable))
+
+                # Enrich records that have no contact info
+                final_records = []
+                for record in joinable:
+                    if config.enrich_communities and _needs_enrichment(record):
+                        record = await _enrich_record(record, searxng, extractor, config, semaphore)
+                    final_records.append(record)
+
                 if cache:
-                    cache.save_extracted(url, extracted)
+                    cache.save_extracted(url, final_records)
 
                 # Persist immediately — safe even if server restarts mid-run
-                if extracted:
-                    save_results(city.name, topic.name, extracted, config.data_dir)
+                if final_records:
+                    save_results(city.name, topic.name, final_records, config.data_dir)
 
-                records.extend(extracted)
-                total_new += len(extracted)
-                pair_log["records_extracted"] += len(extracted)
-                log.info("extracted", url=url, found=len(extracted))
+                records.extend(final_records)
+                total_new += len(final_records)
+                pair_log["records_extracted"] += len(final_records)
+                log.info("extracted", url=url, found=len(extracted), kept=len(final_records))
 
             # Final merge for the pair (also covers cache-hit records) and accurate count
             count = save_results(city.name, topic.name, records, config.data_dir)

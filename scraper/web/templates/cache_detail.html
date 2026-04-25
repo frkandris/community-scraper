@@ -143,4 +143,21 @@
 </div>
 {% endif %}
 
+{% if schema_json %}
+<div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+  <button onclick="this.nextElementSibling.classList.toggle('hidden')"
+          class="flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-gray-900 w-full text-left">
+    <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+    </svg>
+    Schema.org JSON-LD
+    <span class="ml-1 text-xs text-gray-400 font-normal">(structured data)</span>
+  </button>
+  <div class="hidden mt-3">
+    <pre class="text-xs text-gray-600 bg-gray-50 rounded-lg p-3 overflow-auto max-h-96 whitespace-pre-wrap leading-relaxed">{{ schema_json }}</pre>
+  </div>
+</div>
+{% endif %}
+
 {% endblock %}

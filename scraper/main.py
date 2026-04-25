@@ -96,6 +96,7 @@ def load_config() -> tuple[list[CityConfig], list[TopicConfig], PipelineConfig]:
         repo_dir=BASE_DIR,
         cache_skip_scraped=cache_cfg.get("skip_scraped", True),
         cache_skip_extracted=cache_cfg.get("skip_extracted", True),
+        enrich_communities=pipeline_settings.get("enrich_communities", True),
     )
     return cities, topics, pipeline_cfg
 

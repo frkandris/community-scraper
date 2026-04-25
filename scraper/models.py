@@ -21,6 +21,7 @@ class CommunityRecord(BaseModel):
     source_url: str
     extracted_at: str
     confidence: float | None = None
+    joinable: bool = True  # open, recurring group a person can join
 
 
 class RunMetadata(BaseModel):

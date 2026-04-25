@@ -23,6 +23,7 @@ from ..models import CommunityRecord
 from ..pipeline import run_pipeline
 from ..store import _normalize
 from .log_stream import broadcaster
+from .schema import records_to_jsonld
 from .state import app_state
 
 log = structlog.get_logger()
@@ -418,6 +419,14 @@ async def public_explore(
                 "total": sum(len(cr["records"]) for cr in city_results),
             })
 
+    all_records: list = []
+    for s in sections:
+        all_records.extend(s["records"])
+    for cs in cross_city_sections:
+        for cr in cs["city_results"]:
+            all_records.extend(cr["records"])
+    schema_json = records_to_jsonld(all_records)
+
     return templates.TemplateResponse(request, "public_explore.html", {
         "city": city,
         "topics": topics,
@@ -430,6 +439,7 @@ async def public_explore(
         "cross_city_sections": cross_city_sections,
         "cities": cities,
         "subscribed": subscribed == "1",
+        "schema_json": schema_json,
     })
 
 
@@ -822,9 +832,13 @@ async def cache_detail(request: Request, url_hash: str):
             except Exception:
                 pass
 
+    schema_records = store_records or (entry.get("records") or [])
+    schema_json = records_to_jsonld(schema_records)
+
     return templates.TemplateResponse(request, "cache_detail.html", {
         "entry": entry,
         "store_records": store_records,
+        "schema_json": schema_json,
     })
 
 

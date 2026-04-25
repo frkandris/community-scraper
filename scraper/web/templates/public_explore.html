@@ -1,4 +1,5 @@
 {% extends "public_base.html" %}
+{% block head %}{% if schema_json %}<script type="application/ld+json">{{ schema_json | safe }}</script>{% endif %}{% endblock %}
 {% block title %}
   {% if city and selected_topics %}
     {{ city }} · {{ selected_topics | map('replace', '_', ' ') | join(', ') | title }} – CommUnity

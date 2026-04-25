@@ -17,8 +17,16 @@ news articles, or commercial businesses.
 The page may be in any language. Always output field values in the original language of the page.
 
 For 'confidence': 0.9 if the group clearly matches the topic and city, 0.5 if somewhat related \
-but uncertain, 0.1 if it barely qualifies. If nothing on the page is a real community group, \
-return an empty communities array.
+but uncertain, 0.1 if it barely qualifies.
+
+For 'joinable': set true only if ALL of these apply:
+  - the group meets or organizes activities on a regular, recurring basis
+  - it is open to new members from the general public (not invite-only or audition-only)
+  - it has a group identity (not just a venue, gym, or place you can visit)
+Set joinable to false for: professional/competitive ensembles, paid instruction courses where you \
+are a student not a member, venues or sports facilities, one-time or annual events.
+
+If nothing on the page is a real community group, return an empty communities array.
 """
 
 USER_PROMPT_TEMPLATE = """\
@@ -30,7 +38,6 @@ The page was found at: {source_url}
 --- PAGE TEXT END ---
 """
 
-# Enforced at token level by Ollama — guarantees valid JSON matching this schema
 EXTRACTION_SCHEMA = {
     "type": "object",
     "properties": {
@@ -47,12 +54,28 @@ EXTRACTION_SCHEMA = {
                     "website":          {"type": "string"},
                     "social_links":     {"type": "array", "items": {"type": "string"}},
                     "confidence":       {"type": "number"},
+                    "joinable":         {"type": "boolean"},
                 },
-                "required": ["name", "confidence"],
+                "required": ["name", "confidence", "joinable"],
             },
         }
     },
     "required": ["communities"],
+}
+
+ENRICH_SYSTEM_PROMPT = """\
+Extract contact information for a specific named community group from a web page.
+Return only fields where the page has clear evidence. Leave others as empty string or empty array.
+"""
+
+ENRICH_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "website":      {"type": "string"},
+        "contact":      {"type": "string"},
+        "social_links": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["website", "contact", "social_links"],
 }
 
 
@@ -108,6 +131,45 @@ class OllamaExtractor:
         raw = data.get("message", {}).get("content", "")
         return self._parse(raw, city, topic, locale, source_url)
 
+    async def enrich(self, record: CommunityRecord, page_text: str) -> CommunityRecord:
+        """Try to fill in missing website/contact/social_links from an additional page."""
+        user_message = (
+            f"Community group: '{record.name}' in {record.city}\n\n"
+            f"--- PAGE TEXT ---\n{page_text[:self.max_text_chars]}"
+        )
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": ENRICH_SYSTEM_PROMPT},
+                {"role": "user", "content": user_message},
+            ],
+            "stream": False,
+            "format": ENRICH_SCHEMA,
+            "options": {"temperature": 0.0},
+        }
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                resp = await client.post(f"{self.base_url}/api/chat", json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+            raw = data.get("message", {}).get("content", "")
+            enrichment = json.loads(raw)
+
+            updates: dict = {}
+            if not record.website and enrichment.get("website"):
+                updates["website"] = enrichment["website"]
+            if not record.contact and enrichment.get("contact"):
+                updates["contact"] = enrichment["contact"]
+            if not record.social_links and enrichment.get("social_links"):
+                updates["social_links"] = enrichment["social_links"]
+
+            if updates:
+                log.debug("enrich_merged", community=record.name, fields=list(updates))
+                return record.model_copy(update=updates)
+        except Exception as exc:
+            log.debug("enrich_failed", community=record.name, error=str(exc))
+        return record
+
     def _parse(
         self,
         raw: str,
@@ -145,6 +207,7 @@ class OllamaExtractor:
                     source_url=source_url,
                     extracted_at=extracted_at,
                     confidence=item.get("confidence"),
+                    joinable=item.get("joinable", True),
                 )
                 records.append(record)
             except Exception as exc:
