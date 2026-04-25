@@ -54,7 +54,7 @@ class BraveSearchClient:
             "country": country,
             "search_lang": locale if len(locale) == 2 else "en",
             "safesearch": "off",
-            "text_decorations": False,
+            "text_decorations": 0,
         }
         headers = {
             "Accept": "application/json",
