@@ -12,7 +12,7 @@
 </head>
 <body class="bg-gray-100 min-h-screen font-sans antialiased">
 
-<nav class="bg-white border-b border-gray-200 shadow-sm">
+<nav class="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
   <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-6">
     <a href="/admin" class="font-bold text-gray-900 text-sm">🕷 Admin</a>
     <a href="/admin" class="text-sm text-gray-600 hover:text-gray-900">Dashboard</a>
@@ -23,9 +23,41 @@
     <a href="/admin/history" class="text-sm text-gray-600 hover:text-gray-900">History</a>
     <a href="/admin/subscriptions" class="text-sm text-gray-600 hover:text-gray-900">Subscribers</a>
     <a href="/" class="text-sm text-indigo-500 hover:text-indigo-700 ml-2">← Public site</a>
-    <span class="ml-auto text-xs text-gray-400 font-mono">{{ app_version }}</span>
+    <div class="ml-auto flex items-center gap-3">
+      <span id="global-running-badge" class="hidden items-center gap-1.5 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full">
+        <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse inline-block"></span>
+        Running
+      </span>
+      <span id="global-idle-badge" class="hidden items-center gap-1.5 text-xs font-medium text-gray-400 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full">
+        <span class="w-1.5 h-1.5 bg-gray-300 rounded-full inline-block"></span>
+        Idle
+      </span>
+      <span class="text-xs text-gray-400 font-mono">{{ app_version }}</span>
+    </div>
   </div>
 </nav>
+<script>
+(function() {
+  let _prevRunning = null;
+  async function _pollStatus() {
+    try {
+      const r = await fetch('/admin/api/status');
+      const { is_running } = await r.json();
+      if (is_running !== _prevRunning) {
+        _prevRunning = is_running;
+        const rb = document.getElementById('global-running-badge');
+        const ib = document.getElementById('global-idle-badge');
+        if (rb && ib) {
+          if (is_running) { rb.classList.remove('hidden'); rb.classList.add('flex'); ib.classList.add('hidden'); ib.classList.remove('flex'); }
+          else { ib.classList.remove('hidden'); ib.classList.add('flex'); rb.classList.add('hidden'); rb.classList.remove('flex'); }
+        }
+      }
+    } catch (_) {}
+    setTimeout(_pollStatus, 2000);
+  }
+  _pollStatus();
+})();
+</script>
 
 <main class="max-w-6xl mx-auto px-4 py-8">
   {% block content %}{% endblock %}
