@@ -700,10 +700,13 @@ async def dashboard(request: Request):
     commits = [l.strip() for l in result.stdout.strip().splitlines() if l]
 
     next_run = None
+    schedule_cron = None
     if app_state.scheduler:
         jobs = app_state.scheduler.get_jobs()
         if jobs and jobs[0].next_run_time:
             next_run = jobs[0].next_run_time.strftime("%Y-%m-%d %H:%M UTC")
+        if jobs:
+            schedule_cron = str(jobs[0].trigger)
 
     cache_defaults = {}
     if app_state.pipeline_cfg:
@@ -719,6 +722,7 @@ async def dashboard(request: Request):
             "total": len(idx),
             "with_text": sum(1 for e in idx if e["has_text"]),
             "with_extract": sum(1 for e in idx if e["extracted_at"]),
+            "with_enrich": sum(1 for e in idx if e["enrich_extracted_at"]),
         }
 
     run_history = []
@@ -741,6 +745,7 @@ async def dashboard(request: Request):
         "is_running": app_state.is_running,
         "last_run_at": app_state.last_run_at,
         "next_run": next_run,
+        "schedule_cron": schedule_cron,
         "city_count": len(app_state.cities),
         "topic_count": len(app_state.topics),
         "cache_defaults": cache_defaults,

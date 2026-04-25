@@ -23,7 +23,7 @@ fetch:
     - linkedin.com
 
 pipeline:
-  commit_after_run: true
+  commit_after_run: false
   push_after_commit: false
   test_mode: false
   test_cities:
@@ -37,4 +37,4 @@ cache:
   skip_extracted: true
 
 schedule:
-  cron: "0 3 * * *"
+  cron: "*/15 * * * *"

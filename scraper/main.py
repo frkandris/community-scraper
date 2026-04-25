@@ -135,7 +135,11 @@ async def main() -> None:
         await run_pipeline(cities, topics, pipeline_cfg, cache=cache)
         return
 
-    cron_expr = os.environ.get("SCHEDULE_CRON", "*/15 * * * *")
+    try:
+        _settings_cron = yaml.safe_load((CONFIG_DIR / "settings.yaml").read_text()).get("schedule", {}).get("cron", "*/15 * * * *")
+    except Exception:
+        _settings_cron = "*/15 * * * *"
+    cron_expr = os.environ.get("SCHEDULE_CRON") or _settings_cron
     minute, hour, day, month, day_of_week = cron_expr.split()
 
     def _on_progress(phase: str | None, url: str | None) -> None:
