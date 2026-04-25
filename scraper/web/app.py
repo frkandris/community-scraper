@@ -28,7 +28,7 @@ from ..models import CommunityRecord
 from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline
 from ..search import SearXNGClient
 from ..store import _normalize, save_results
-from .i18n import lang_context
+from .i18n import get_topic_labels, lang_context
 from .log_stream import broadcaster
 from .schema import records_to_jsonld
 from .state import app_state
@@ -451,6 +451,8 @@ async def _render_explore(
     cities = app_state.cities or []
     topics = app_state.topics or []
 
+    _topic_labels = get_topic_labels(lang_context(request)["lang"])
+
     sections: list[dict] = []
     total = 0
     for t in topic:
@@ -458,7 +460,7 @@ async def _render_explore(
         total += len(records)
         sections.append({
             "topic": t,
-            "label": TOPIC_LABELS.get(t, t.replace("_", " ").title()),
+            "label": _topic_labels.get(t, t.replace("_", " ").title()),
             "icon": TOPIC_ICONS.get(t, "circle"),
             "records": records,
         })
@@ -481,7 +483,7 @@ async def _render_explore(
             city_results.sort(key=lambda x: len(x["records"]), reverse=True)
             cross_city_sections.append({
                 "topic": t,
-                "label": TOPIC_LABELS.get(t, t.replace("_", " ").title()),
+                "label": _topic_labels.get(t, t.replace("_", " ").title()),
                 "icon": TOPIC_ICONS.get(t, "circle"),
                 "city_results": city_results[:6],
                 "total": sum(len(cr["records"]) for cr in city_results),

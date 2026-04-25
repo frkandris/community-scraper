@@ -58,6 +58,126 @@ LANGUAGES: dict[str, dict] = {
     "ha": {"name": "Hausa", "flag": "🇳🇬"},
 }
 
+# ── Topic labels ────────────────────────────────────────────────────────────
+
+TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
+"en": {
+    "running": "Running", "board_games": "Board Games", "choir": "Choir",
+    "dance": "Dance", "cycling": "Cycling", "hiking": "Hiking",
+    "yoga": "Yoga", "photography": "Photography", "book_club": "Book Club",
+    "chess": "Chess", "cooking": "Cooking", "theater": "Theater",
+    "music": "Music", "martial_arts": "Martial Arts", "gaming": "Gaming",
+    "volunteering": "Volunteering", "language_exchange": "Language Exchange",
+    "art": "Art", "meditation": "Meditation", "swimming": "Swimming",
+    "community_general": "Communities", "gardening": "Gardening",
+    "film_club": "Film Club", "trivia": "Trivia & Quizzes",
+    "sustainability": "Sustainability", "crafts": "Crafts & Making", "fitness": "Fitness",
+},
+"hu": {
+    "running": "Futás", "board_games": "Társasjáték", "choir": "Kórus",
+    "dance": "Tánc", "cycling": "Kerékpározás", "hiking": "Túrázás",
+    "yoga": "Jóga", "photography": "Fotózás", "book_club": "Könyvklub",
+    "chess": "Sakk", "cooking": "Főzés", "theater": "Színház",
+    "music": "Zene", "martial_arts": "Harcművészetek", "gaming": "Játék",
+    "volunteering": "Önkéntesség", "language_exchange": "Nyelvcsere",
+    "art": "Művészet", "meditation": "Meditáció", "swimming": "Úszás",
+    "community_general": "Közösségek", "gardening": "Kertészet",
+    "film_club": "Filmklub", "trivia": "Kvíz",
+    "sustainability": "Fenntarthatóság", "crafts": "Kézművesség", "fitness": "Fitnesz",
+},
+"de": {
+    "running": "Laufen", "board_games": "Brettspiele", "choir": "Chor",
+    "dance": "Tanzen", "cycling": "Radfahren", "hiking": "Wandern",
+    "yoga": "Yoga", "photography": "Fotografie", "book_club": "Buchklub",
+    "chess": "Schach", "cooking": "Kochen", "theater": "Theater",
+    "music": "Musik", "martial_arts": "Kampfsport", "gaming": "Gaming",
+    "volunteering": "Ehrenamt", "language_exchange": "Sprachaustausch",
+    "art": "Kunst", "meditation": "Meditation", "swimming": "Schwimmen",
+    "community_general": "Gemeinschaften", "gardening": "Gärtnern",
+    "film_club": "Filmklub", "trivia": "Quiz",
+    "sustainability": "Nachhaltigkeit", "crafts": "Basteln", "fitness": "Fitness",
+},
+"fr": {
+    "running": "Course à pied", "board_games": "Jeux de société", "choir": "Chœur",
+    "dance": "Danse", "cycling": "Cyclisme", "hiking": "Randonnée",
+    "yoga": "Yoga", "photography": "Photographie", "book_club": "Club de lecture",
+    "chess": "Échecs", "cooking": "Cuisine", "theater": "Théâtre",
+    "music": "Musique", "martial_arts": "Arts martiaux", "gaming": "Jeux vidéo",
+    "volunteering": "Bénévolat", "language_exchange": "Échange linguistique",
+    "art": "Art", "meditation": "Méditation", "swimming": "Natation",
+    "community_general": "Communautés", "gardening": "Jardinage",
+    "film_club": "Ciné-club", "trivia": "Quiz",
+    "sustainability": "Développement durable", "crafts": "Artisanat", "fitness": "Fitness",
+},
+"es": {
+    "running": "Correr", "board_games": "Juegos de mesa", "choir": "Coro",
+    "dance": "Baile", "cycling": "Ciclismo", "hiking": "Senderismo",
+    "yoga": "Yoga", "photography": "Fotografía", "book_club": "Club de lectura",
+    "chess": "Ajedrez", "cooking": "Cocina", "theater": "Teatro",
+    "music": "Música", "martial_arts": "Artes marciales", "gaming": "Videojuegos",
+    "volunteering": "Voluntariado", "language_exchange": "Intercambio de idiomas",
+    "art": "Arte", "meditation": "Meditación", "swimming": "Natación",
+    "community_general": "Comunidades", "gardening": "Jardinería",
+    "film_club": "Cineclub", "trivia": "Trivia",
+    "sustainability": "Sostenibilidad", "crafts": "Manualidades", "fitness": "Fitness",
+},
+"it": {
+    "running": "Corsa", "board_games": "Giochi da tavolo", "choir": "Coro",
+    "dance": "Danza", "cycling": "Ciclismo", "hiking": "Escursionismo",
+    "yoga": "Yoga", "photography": "Fotografia", "book_club": "Club del libro",
+    "chess": "Scacchi", "cooking": "Cucina", "theater": "Teatro",
+    "music": "Musica", "martial_arts": "Arti marziali", "gaming": "Videogiochi",
+    "volunteering": "Volontariato", "language_exchange": "Scambio linguistico",
+    "art": "Arte", "meditation": "Meditazione", "swimming": "Nuoto",
+    "community_general": "Comunità", "gardening": "Giardinaggio",
+    "film_club": "Cineforum", "trivia": "Quiz",
+    "sustainability": "Sostenibilità", "crafts": "Artigianato", "fitness": "Fitness",
+},
+"pt": {
+    "running": "Corrida", "board_games": "Jogos de tabuleiro", "choir": "Coro",
+    "dance": "Dança", "cycling": "Ciclismo", "hiking": "Caminhada",
+    "yoga": "Yoga", "photography": "Fotografia", "book_club": "Clube do livro",
+    "chess": "Xadrez", "cooking": "Culinária", "theater": "Teatro",
+    "music": "Música", "martial_arts": "Artes marciais", "gaming": "Jogos",
+    "volunteering": "Voluntariado", "language_exchange": "Intercâmbio de idiomas",
+    "art": "Arte", "meditation": "Meditação", "swimming": "Natação",
+    "community_general": "Comunidades", "gardening": "Jardinagem",
+    "film_club": "Cineclube", "trivia": "Quiz",
+    "sustainability": "Sustentabilidade", "crafts": "Artesanato", "fitness": "Fitness",
+},
+"ru": {
+    "running": "Бег", "board_games": "Настольные игры", "choir": "Хор",
+    "dance": "Танцы", "cycling": "Велоспорт", "hiking": "Походы",
+    "yoga": "Йога", "photography": "Фотография", "book_club": "Книжный клуб",
+    "chess": "Шахматы", "cooking": "Кулинария", "theater": "Театр",
+    "music": "Музыка", "martial_arts": "Единоборства", "gaming": "Игры",
+    "volunteering": "Волонтёрство", "language_exchange": "Языковой обмен",
+    "art": "Искусство", "meditation": "Медитация", "swimming": "Плавание",
+    "community_general": "Сообщества", "gardening": "Садоводство",
+    "film_club": "Киноклуб", "trivia": "Викторина",
+    "sustainability": "Устойчивость", "crafts": "Рукоделие", "fitness": "Фитнес",
+},
+"pl": {
+    "running": "Bieganie", "board_games": "Gry planszowe", "choir": "Chór",
+    "dance": "Taniec", "cycling": "Kolarstwo", "hiking": "Piesze wędrówki",
+    "yoga": "Joga", "photography": "Fotografia", "book_club": "Klub książki",
+    "chess": "Szachy", "cooking": "Gotowanie", "theater": "Teatr",
+    "music": "Muzyka", "martial_arts": "Sztuki walki", "gaming": "Gry",
+    "volunteering": "Wolontariat", "language_exchange": "Wymiana językowa",
+    "art": "Sztuka", "meditation": "Medytacja", "swimming": "Pływanie",
+    "community_general": "Społeczności", "gardening": "Ogrodnictwo",
+    "film_club": "Klub filmowy", "trivia": "Quiz",
+    "sustainability": "Zrównoważony rozwój", "crafts": "Rękodzieło", "fitness": "Fitness",
+},
+}
+
+
+def get_topic_labels(lang: str) -> dict[str, str]:
+    base = TOPIC_LABELS_I18N.get("en", {})
+    overrides = TOPIC_LABELS_I18N.get(lang, {})
+    return {**base, **overrides}
+
+
 # ── Translations ────────────────────────────────────────────────────────────
 
 _T: dict[str, dict[str, str]] = {
@@ -1259,4 +1379,5 @@ def lang_context(request: Request) -> dict:
         "t": make_t(lang),
         "languages": dict(sorted(LANGUAGES.items(), key=lambda x: x[1]["name"])),
         "current_lang": LANGUAGES.get(lang, LANGUAGES["en"]),
+        "topic_labels": get_topic_labels(lang),
     }
