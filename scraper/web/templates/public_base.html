@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang }}" dir="{{ lang_dir }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -19,9 +19,27 @@
       🌐 CommUnity
     </a>
     <nav class="flex items-center gap-1">
-      <a href="/" class="px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">Discover</a>
-      <a href="/map" class="px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">Map</a>
-      <a href="/about" class="px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">About</a>
+      <a href="/" class="px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">{{ t('nav_discover') }}</a>
+      <a href="/map" class="px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">{{ t('nav_map') }}</a>
+      <a href="/about" class="px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">{{ t('nav_about') }}</a>
+
+      <!-- Language switcher -->
+      <details class="relative ml-1">
+        <summary class="list-none cursor-pointer flex items-center gap-1 px-2 py-1.5 text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors select-none">
+          <span>{{ current_lang.flag }}</span>
+          <i class="ph ph-caret-down text-xs"></i>
+        </summary>
+        <div class="absolute right-0 top-full mt-1 w-44 max-h-72 overflow-y-auto bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+          {% for code, info in languages.items() %}
+          <a href="/set-lang?lang={{ code }}&next={{ request.url.path }}"
+             class="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors
+               {% if code == lang %}font-semibold text-indigo-600{% else %}text-gray-700{% endif %}">
+            <span>{{ info.flag }}</span>
+            <span>{{ info.name }}</span>
+          </a>
+          {% endfor %}
+        </div>
+      </details>
     </nav>
   </div>
 </header>
@@ -34,11 +52,11 @@
   <div class="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
     <div class="flex items-center gap-2">
       <span class="font-semibold text-indigo-600 text-sm">🌐 CommUnity</span>
-      <span class="text-xs text-gray-400">· Communities discovered from public web data</span>
+      <span class="text-xs text-gray-400">· {{ t('footer_tagline') }}</span>
     </div>
     <div class="flex items-center gap-4">
-      <a href="/about" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">About</a>
-      <a href="/map" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">Map</a>
+      <a href="/about" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">{{ t('nav_about') }}</a>
+      <a href="/map" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">{{ t('nav_map') }}</a>
       <a href="/admin" class="text-xs text-gray-300 hover:text-gray-500 transition-colors">Admin</a>
     </div>
   </div>

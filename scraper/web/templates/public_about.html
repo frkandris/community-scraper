@@ -6,7 +6,7 @@
 
   <!-- Project description -->
   <div>
-    <h1 class="text-3xl font-extrabold text-gray-900 mb-6">About CommUnity</h1>
+    <h1 class="text-3xl font-extrabold text-gray-900 mb-6">{{ t('about_title') }}</h1>
     <div class="prose prose-gray max-w-none space-y-4 text-gray-600 leading-relaxed">
       <p>
         CommUnity started in 2026 with a simple goal: make it easier to find local hobby groups,
@@ -28,21 +28,21 @@
   <div class="grid grid-cols-3 gap-4">
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
       <div class="text-4xl font-extrabold text-indigo-600 mb-1">{{ city_count }}</div>
-      <div class="text-sm text-gray-500 font-medium">Cities tracked</div>
+      <div class="text-sm text-gray-500 font-medium">{{ t('about_cities') }}</div>
     </div>
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
       <div class="text-4xl font-extrabold text-indigo-600 mb-1">{{ topic_count }}</div>
-      <div class="text-sm text-gray-500 font-medium">Interest categories</div>
+      <div class="text-sm text-gray-500 font-medium">{{ t('about_topics') }}</div>
     </div>
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
       <div class="text-4xl font-extrabold text-indigo-600 mb-1">{{ total_records }}</div>
-      <div class="text-sm text-gray-500 font-medium">Communities found</div>
+      <div class="text-sm text-gray-500 font-medium">{{ t('about_communities') }}</div>
     </div>
   </div>
 
   <!-- Browse by interest -->
   <div>
-    <h2 class="text-xl font-bold text-gray-900 mb-5">Browse by interest</h2>
+    <h2 class="text-xl font-bold text-gray-900 mb-5">{{ t('about_browse_interest') }}</h2>
     <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
       {% for topic in topics %}
       <a href="/explore?topic={{ topic.name }}"
@@ -64,7 +64,7 @@
   {% if featured_cities %}
   <!-- Popular cities -->
   <div>
-    <h2 class="text-xl font-bold text-gray-900 mb-5">Popular cities</h2>
+    <h2 class="text-xl font-bold text-gray-900 mb-5">{{ t('about_popular_cities') }}</h2>
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
       {% for name, country, count in featured_cities %}
       <a href="/{{ name | slugify }}"
@@ -97,7 +97,7 @@
   <div class="text-center">
     <a href="/"
       class="inline-block px-8 py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition-colors shadow-lg text-base">
-      Start exploring →
+      {{ t('about_start_exploring') }}
     </a>
   </div>
 

@@ -28,6 +28,7 @@ from ..models import CommunityRecord
 from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline
 from ..search import SearXNGClient
 from ..store import _normalize, save_results
+from .i18n import lang_context
 from .log_stream import broadcaster
 from .schema import records_to_jsonld
 from .state import app_state
@@ -435,6 +436,7 @@ async def public_home(request: Request, city: str = ""):
         "selected_city": city,
         "topic_counts": _global_topic_counts(),
         "featured_cities": _top_cities(8),
+        **lang_context(request),
     })
 
 
@@ -506,6 +508,7 @@ async def _render_explore(
         "cities": cities,
         "subscribed": subscribed == "1",
         "schema_json": schema_json,
+        **lang_context(request),
     })
 
 
@@ -612,6 +615,17 @@ async def api_city_topics(city: str = ""):
     return JSONResponse(result)
 
 
+@_fastapi.get("/set-lang")
+async def set_lang(lang: str = "en", next: str = "/"):
+    from .i18n import LANGUAGES
+    if lang not in LANGUAGES:
+        lang = "en"
+    safe_next = next if next.startswith("/") else "/"
+    resp = RedirectResponse(safe_next, status_code=302)
+    resp.set_cookie("lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
+    return resp
+
+
 @_fastapi.get("/map", response_class=HTMLResponse)
 async def public_map(request: Request):
     cities_data = []
@@ -635,6 +649,7 @@ async def public_map(request: Request):
         "total": total,
         "cities_with_data": len(cities_with_data),
         "cities_tracked": len(cities_data),
+        **lang_context(request),
     })
 
 
@@ -656,6 +671,7 @@ async def public_about(request: Request):
         "topic_labels": TOPIC_LABELS,
         "topic_counts": _global_topic_counts(),
         "featured_cities": _top_cities(12),
+        **lang_context(request),
     })
 
 
@@ -1218,6 +1234,7 @@ async def public_city_segment(
             "schema_json": schema_json,
             "topic_icons": TOPIC_ICONS,
             "topic_labels": TOPIC_LABELS,
+            **lang_context(request),
         })
     return RedirectResponse(f"/{city_slug}", status_code=302)
 

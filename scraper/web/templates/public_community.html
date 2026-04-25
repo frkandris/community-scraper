@@ -61,7 +61,7 @@
           <i class="ph ph-map-pin text-gray-500"></i>
         </div>
         <div>
-          <div class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">Location</div>
+          <div class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">{{ t('community_location') }}</div>
           <div class="text-gray-700">{{ r.location }}</div>
         </div>
       </div>
@@ -73,7 +73,7 @@
           <i class="ph ph-calendar text-gray-500"></i>
         </div>
         <div>
-          <div class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">Schedule</div>
+          <div class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">{{ t('community_schedule') }}</div>
           <div class="text-gray-700">{{ r.meeting_schedule }}</div>
         </div>
       </div>
@@ -85,7 +85,7 @@
           <i class="ph ph-envelope text-gray-500"></i>
         </div>
         <div>
-          <div class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">Contact</div>
+          <div class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">{{ t('community_contact') }}</div>
           <div class="text-gray-700">{{ r.contact }}</div>
         </div>
       </div>
@@ -98,7 +98,7 @@
       {% if r.website %}
       <a href="{{ r.website }}" target="_blank" rel="noopener"
          class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm">
-        <i class="ph ph-globe"></i> Visit website
+        <i class="ph ph-globe"></i> {{ t('community_visit_website') }}
       </a>
       {% endif %}
       {% for link in r.social_links %}
@@ -118,7 +118,7 @@
   <div class="text-center">
     <a href="{{ r.source_url }}" target="_blank" rel="noopener"
        class="text-xs text-gray-400 hover:text-gray-600 transition-colors">
-      <i class="ph ph-arrow-square-out"></i> Source page
+      <i class="ph ph-arrow-square-out"></i> {{ t('community_source_page') }}
     </a>
   </div>
   {% endif %}
@@ -126,10 +126,10 @@
   <!-- Feedback -->
   <div class="mt-8 bg-gray-50 border border-gray-100 rounded-2xl p-5" id="feedback-section">
     <div id="feedback-prompt" class="flex items-center justify-between gap-4">
-      <p class="text-sm text-gray-500">Is the information on this page correct?</p>
+      <p class="text-sm text-gray-500">{{ t('community_feedback_prompt') }}</p>
       <button onclick="document.getElementById('feedback-prompt').classList.add('hidden'); document.getElementById('feedback-form').classList.remove('hidden');"
         class="shrink-0 text-xs px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:border-indigo-400 hover:text-indigo-700 transition-colors">
-        Report an issue
+        {{ t('community_report_issue') }}
       </button>
     </div>
     <div id="feedback-form" class="hidden">
@@ -145,18 +145,18 @@
         <div class="flex items-center gap-3">
           <button type="submit"
             class="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors">
-            Send
+            {{ t('community_feedback_send') }}
           </button>
           <button type="button"
             onclick="document.getElementById('feedback-form').classList.add('hidden'); document.getElementById('feedback-prompt').classList.remove('hidden');"
             class="text-xs text-gray-400 hover:text-gray-600 transition-colors">
-            Cancel
+            {{ t('community_feedback_cancel') }}
           </button>
         </div>
       </form>
     </div>
     <div id="feedback-thanks" class="hidden text-sm text-green-700 flex items-center gap-2">
-      <i class="ph ph-check-circle"></i> Thanks for your feedback!
+      <i class="ph ph-check-circle"></i> {{ t('community_feedback_thanks') }}
     </div>
   </div>
 
