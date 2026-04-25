@@ -184,7 +184,13 @@ class CacheManager:
                 })
             except Exception:
                 continue
-        return sorted(entries, key=lambda e: e.get("scraped_at") or "", reverse=True)
+        def _sort_key(e: dict) -> tuple:
+            # Incomplete entries (missing extract) float to the top; within each tier, newest first
+            complete = 1 if (e.get("scraped_at") and e.get("extracted_at")) else 0
+            ts = e.get("scraped_at") or "0000-00-00T00:00:00+00:00"
+            return (complete, tuple(-ord(c) for c in ts))
+
+        return sorted(entries, key=_sort_key)
 
     # ── Delete ───────────────────────────────────────────────────────────────
 
@@ -219,3 +225,11 @@ class CacheManager:
             path.unlink()
             return True
         return False
+
+    def clear_all(self) -> int:
+        count = 0
+        for path in self.pages_dir.glob("*.json"):
+            path.unlink()
+            count += 1
+        log.info("cache_cleared_all", deleted=count)
+        return count
