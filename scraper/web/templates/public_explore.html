@@ -221,13 +221,6 @@
         <h3 class="font-semibold text-gray-900 text-base leading-snug">
           <a href="{{ r.community_url }}" class="hover:text-indigo-700 transition-colors">{{ r.name }}</a>
         </h3>
-        {% if r.confidence and r.confidence >= 0.7 %}
-        <span class="shrink-0 text-xs px-1.5 py-0.5 rounded-full font-medium
-          {% if r.confidence >= 0.85 %}bg-green-100 text-green-700
-          {% else %}bg-yellow-100 text-yellow-700{% endif %}">
-          {{ (r.confidence * 100) | int }}%
-        </span>
-        {% endif %}
       </div>
 
       {% if r.description %}

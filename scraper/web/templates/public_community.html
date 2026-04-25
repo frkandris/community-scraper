@@ -45,12 +45,6 @@
             {{ topic_labels.get(topic, topic.replace('_',' ').title()) }}
           </span>
           {% endif %}
-          {% if r.confidence and r.confidence >= 0.7 %}
-          <span class="text-xs px-2 py-0.5 rounded-full font-medium
-            {% if r.confidence >= 0.85 %}bg-green-100 text-green-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">
-            {{ (r.confidence * 100) | int }}% confidence
-          </span>
-          {% endif %}
         </div>
       </div>
     </div>
