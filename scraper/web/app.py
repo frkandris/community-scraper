@@ -128,6 +128,9 @@ _static_dir = Path(__file__).parent / "static"
 _static_dir.mkdir(exist_ok=True)
 _fastapi.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
+# If the CSS hasn't been built yet, templates fall back to Tailwind CDN
+templates.env.globals["has_built_css"] = (_static_dir / "css" / "app.css").exists()
+
 admin = APIRouter(prefix="/admin")
 
 
