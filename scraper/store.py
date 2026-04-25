@@ -1,6 +1,7 @@
 import json
 import re
 from datetime import datetime, timezone
+from difflib import SequenceMatcher
 from pathlib import Path
 
 import structlog
@@ -16,6 +17,38 @@ def _normalize(name: str) -> str:
 
 def _record_key(r: CommunityRecord) -> str:
     return f"{_normalize(r.name)}|{_normalize(r.city)}|{_normalize(r.topic)}"
+
+
+def _strip_articles(name: str) -> str:
+    return re.sub(r"^(a |az |the |die |le |la |el |los |las )", "", name.lower().strip())
+
+
+def _richness(r: CommunityRecord) -> int:
+    return sum(1 for f in [r.description, r.meeting_schedule, r.location, r.contact, r.website] if f) + len(r.social_links)
+
+
+def _is_duplicate(a: CommunityRecord, b: CommunityRecord) -> bool:
+    if a.website and b.website and a.website.rstrip("/") == b.website.rstrip("/"):
+        return True
+    an = _strip_articles(a.name)
+    bn = _strip_articles(b.name)
+    if an and bn and (an in bn or bn in an):
+        return True
+    if an and bn and SequenceMatcher(None, an, bn).ratio() > 0.88:
+        return True
+    return False
+
+
+def _dedup(records: list[CommunityRecord]) -> list[CommunityRecord]:
+    result: list[CommunityRecord] = []
+    for r in records:
+        idx = next((i for i, e in enumerate(result) if _is_duplicate(r, e)), None)
+        if idx is not None:
+            if _richness(r) > _richness(result[idx]):
+                result[idx] = r
+        else:
+            result.append(r)
+    return result
 
 
 def save_results(
@@ -40,13 +73,15 @@ def save_results(
     for r in records:
         merged[_record_key(r)] = r
 
-    ordered = sorted(merged.values(), key=lambda r: r.name)
+    deduped = _dedup(sorted(merged.values(), key=lambda r: r.name))
     output_file.write_text(
-        json.dumps([r.model_dump() for r in ordered], ensure_ascii=False, indent=2),
+        json.dumps([r.model_dump() for r in deduped], ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    log.info("saved_results", city=city, topic=topic, total=len(ordered), new=len(records))
-    return len(ordered)
+    before = len(merged)
+    log.info("saved_results", city=city, topic=topic, total=len(deduped),
+             new=len(records), deduped=before - len(deduped))
+    return len(deduped)
 
 
 def update_metadata(
