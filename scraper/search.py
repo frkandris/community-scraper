@@ -44,6 +44,16 @@ class SearXNGClient:
             log.warning("searxng_search_failed", query=query, error=str(exc))
             return []
 
+        raw_count = len(data.get("results", []))
+        if raw_count == 0:
+            answers = data.get("answers", [])
+            suggestions = data.get("suggestions", [])
+            log.warning("searxng_empty_results", query=query, language=language,
+                        answers=len(answers), suggestions=len(suggestions),
+                        unresponsive=data.get("unresponsive_engines", []))
+        else:
+            log.debug("searxng_results", query=query, raw=raw_count)
+
         results = []
         for item in data.get("results", [])[:num_results]:
             results.append(SearchResult(

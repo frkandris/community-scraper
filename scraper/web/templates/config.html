@@ -101,5 +101,37 @@
     </div>
   </div>
 
+  <!-- SearXNG test -->
+  <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+    <h2 class="text-sm font-semibold text-gray-700 mb-3">Test SearXNG</h2>
+    <div class="flex gap-2">
+      <input id="searxng-q" type="text" value="running club Budapest"
+        class="flex-1 font-mono text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <button onclick="testSearXNG()"
+        class="px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors shrink-0">
+        Test
+      </button>
+    </div>
+    <pre id="searxng-result" class="hidden mt-3 text-xs bg-gray-50 border border-gray-100 rounded-lg p-3 overflow-auto whitespace-pre-wrap text-gray-700"></pre>
+  </div>
+
 </div>
+
+<script>
+async function testSearXNG() {
+  const q = document.getElementById('searxng-q').value;
+  const pre = document.getElementById('searxng-result');
+  pre.classList.remove('hidden');
+  pre.textContent = 'Testing…';
+  try {
+    const r = await fetch('/admin/api/test-searxng?q=' + encodeURIComponent(q));
+    const data = await r.json();
+    pre.textContent = JSON.stringify(data, null, 2);
+    pre.className = pre.className.replace(/\btext-\S+/, data.results > 0 ? 'text-green-700' : 'text-red-700');
+  } catch (e) {
+    pre.textContent = 'Error: ' + e;
+    pre.classList.add('text-red-700');
+  }
+}
+</script>
 {% endblock %}

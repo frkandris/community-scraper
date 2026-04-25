@@ -953,6 +953,30 @@ async def status():
     }
 
 
+@admin.get("/api/test-searxng")
+async def test_searxng(q: str = "running club Budapest"):
+    if not app_state.pipeline_cfg:
+        return JSONResponse({"error": "not configured"}, status_code=503)
+    from ..search import SearXNGClient
+    client = SearXNGClient(app_state.pipeline_cfg.searxng_url)
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as hc:
+            resp = await hc.get(f"{app_state.pipeline_cfg.searxng_url}/search",
+                                params={"q": q, "format": "json", "language": "en-US"})
+            data = resp.json()
+        return {
+            "url": app_state.pipeline_cfg.searxng_url,
+            "query": q,
+            "status": resp.status_code,
+            "results": len(data.get("results", [])),
+            "unresponsive_engines": data.get("unresponsive_engines", []),
+            "top3": [{"url": r["url"], "title": r.get("title", "")} for r in data.get("results", [])[:3]],
+        }
+    except Exception as exc:
+        return JSONResponse({"error": str(exc), "url": app_state.pipeline_cfg.searxng_url}, status_code=500)
+
+
 @admin.get("/api/progress")
 async def api_progress():
     """Return the current pipeline phase and active URL hash for live cache indicators."""
