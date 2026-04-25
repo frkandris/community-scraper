@@ -107,6 +107,12 @@ _T: dict[str, dict[str, str]] = {
     "about_start_exploring": "Start exploring →",
     "map_title": "World community map",
     "map_explore_btn": "Explore →",
+    "map_n_community": "community",
+    "map_n_communities": "communities",
+    "map_n_in": "in",
+    "map_n_city": "city",
+    "map_n_cities": "cities",
+    "about_data_quality_text": "All community data is extracted automatically from public web pages using an AI language model. Information may be incomplete, inaccurate or out of date. We do not verify listings manually. Always check directly with the community before relying on any details shown here.",
     "footer_tagline": "Communities discovered from public web data",
 },
 "hu": {
@@ -155,6 +161,12 @@ _T: dict[str, dict[str, str]] = {
     "about_start_exploring": "Felfedezés megkezdése →",
     "map_title": "Világ közösségi térkép",
     "map_explore_btn": "Felfedezés →",
+    "map_n_community": "közösség",
+    "map_n_communities": "közösség",
+    "map_n_in": "",
+    "map_n_city": "városban",
+    "map_n_cities": "városban",
+    "about_data_quality_text": "Minden közösségi adat automatikusan kerül kinyerésre nyilvános weboldalakról AI nyelvi modell segítségével. Az információk hiányosak, pontatlanok vagy elavultak lehetnek. A listákat kézileg nem ellenőrizzük. Az itt szereplő adatokra támaszkodás előtt mindig ellenőrizd közvetlenül a közösségnél.",
     "footer_tagline": "Közösségek felfedezve nyilvános weboldalakról",
 },
 "de": {
@@ -1245,6 +1257,6 @@ def lang_context(request: Request) -> dict:
         "lang": lang,
         "lang_dir": "rtl" if lang in RTL_LANGS else "ltr",
         "t": make_t(lang),
-        "languages": LANGUAGES,
+        "languages": dict(sorted(LANGUAGES.items(), key=lambda x: x[1]["name"])),
         "current_lang": LANGUAGES.get(lang, LANGUAGES["en"]),
     }

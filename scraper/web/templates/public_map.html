@@ -28,8 +28,9 @@
     <h1 class="text-sm font-semibold text-gray-900">🗺 {{ t('map_title') }}</h1>
     <div class="flex items-center gap-1.5 text-xs text-gray-500 ml-auto">
       <span class="inline-block w-3 h-3 rounded-full bg-indigo-500 opacity-80 shrink-0"></span>
-      <strong class="text-gray-900">{{ total }}</strong> communities in
-      <strong class="text-gray-900">{{ cities_with_data }}</strong> {{ 'city' if cities_with_data == 1 else 'cities' }}
+      <strong class="text-gray-900">{{ total }}</strong> {{ t('map_n_communities') }}
+      {% if t('map_n_in') %} {{ t('map_n_in') }} {% else %} {% endif %}
+      <strong class="text-gray-900">{{ cities_with_data }}</strong> {{ t('map_n_city') if cities_with_data == 1 else t('map_n_cities') }}
     </div>
   </div>
 </div>
@@ -47,6 +48,9 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
 }).addTo(map);
 
 const cities = {{ cities_json | safe }};
+const _communitySingular = {{ t('map_n_community') | tojson }};
+const _communityPlural = {{ t('map_n_communities') | tojson }};
+const _exploreBtn = {{ t('map_explore_btn') | tojson }};
 
 cities.forEach(city => {
   const radius = Math.max(7, Math.min(22, 5 + Math.sqrt(city.count) * 1.6));
@@ -62,8 +66,8 @@ cities.forEach(city => {
   const popupContent = `<div>
     <div class="city-popup-name">${city.name}</div>
     <div class="city-popup-country">${city.country}</div>
-    <div class="city-popup-count">${city.count} ${city.count === 1 ? 'community' : 'communities'}</div>
-    <a href="/explore?city=${encodeURIComponent(city.name)}" class="city-popup-btn">Explore →</a>
+    <div class="city-popup-count">${city.count} ${city.count === 1 ? _communitySingular : _communityPlural}</div>
+    <a href="/explore?city=${encodeURIComponent(city.name)}" class="city-popup-btn">${_exploreBtn}</a>
   </div>`;
 
   marker.bindPopup(popupContent, { maxWidth: 200 });
