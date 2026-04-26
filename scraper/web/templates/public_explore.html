@@ -54,13 +54,13 @@
     <h1 class="text-2xl font-bold text-gray-900 mb-1">
       {% if cross_city_sections | length == 1 %}
         <i class="ph ph-{{ cross_city_sections[0].icon }} text-indigo-600"></i>
-        {{ cross_city_sections[0].label }} communities worldwide
+        {{ t('explore_topic_communities_worldwide', label=cross_city_sections[0].label) }}
       {% else %}
-        Communities worldwide
+        {{ t('explore_communities_worldwide') }}
       {% endif %}
     </h1>
     <p class="text-sm text-gray-500 mt-1">
-      Showing communities across all cities — <a href="/" class="text-indigo-600 hover:underline">pick a city</a> to filter.
+      {{ t('explore_showing_all_cities', link='<a href="/" class="text-indigo-600 hover:underline">' ~ t('explore_pick_city') ~ '</a>') | safe }}
     </p>
   </div>
 
@@ -69,7 +69,7 @@
   <h2 class="text-lg font-semibold text-gray-800 mb-4 mt-8 flex items-center gap-2">
     <i class="ph ph-{{ section.icon }} text-indigo-600"></i>
     {{ section.label }}
-    <span class="text-sm font-normal text-gray-400">{{ section.total }} communities</span>
+    <span class="text-sm font-normal text-gray-400">{{ t('explore_n_communities', n=section.total) }}</span>
   </h2>
   {% endif %}
 
@@ -84,7 +84,7 @@
       </h3>
       <a href="/{{ cr.city | slugify }}/{{ section.topic }}"
          class="text-xs text-indigo-500 hover:text-indigo-700 transition-colors">
-        See all {{ cr.records | length }} →
+        {{ t('explore_see_all', n=cr.records|length) }}
       </a>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">

@@ -21,6 +21,7 @@ class CommunityRecord(BaseModel):
     website: str | None = None
     social_links: list[str] = Field(default_factory=list)
     source_url: str
+    source_urls: list[str] = Field(default_factory=list)
     extracted_at: str
     confidence: float | None = None
     joinable: bool = True  # open, recurring group a person can join
@@ -60,6 +61,10 @@ class CommunityRecord(BaseModel):
         # Tags: strip, deduplicate, cap at 8
         if self.tags:
             self.tags = list(dict.fromkeys(t.strip() for t in self.tags if t.strip()))[:8]
+
+        # Ensure source_url is always in source_urls
+        if self.source_url and self.source_url not in self.source_urls:
+            self.source_urls = [self.source_url] + self.source_urls
 
         if not self.community_id:
             key = f"{self.name.lower()}|{self.city.lower()}"
