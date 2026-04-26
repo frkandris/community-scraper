@@ -9,7 +9,7 @@ groq:
   temperature: 0.1
   timeout_seconds: 60
   max_text_chars: 4000
-  rate_limit_seconds: 4.0
+  rate_limit_seconds: 10.0
 
 search:
   results_per_query: 10
