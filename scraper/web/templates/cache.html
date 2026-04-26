@@ -82,6 +82,35 @@
 
 <div id="cache-table-wrap">
 {% if entries %}
+
+<!-- Filters -->
+{% set cities = entries | map(attribute='city') | select | unique | sort | list %}
+{% set topics = entries | map(attribute='topic') | select | unique | sort | list %}
+<div class="flex items-center gap-3 mb-4 flex-wrap">
+  <select id="f-city" onchange="applyFilters()"
+    class="text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:border-indigo-400">
+    <option value="">All cities</option>
+    {% for c in cities %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+  </select>
+  <select id="f-topic" onchange="applyFilters()"
+    class="text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:border-indigo-400">
+    <option value="">All topics</option>
+    {% for t in topics %}<option value="{{ t }}">{{ t.replace('_',' ') }}</option>{% endfor %}
+  </select>
+  <select id="f-stage" onchange="applyFilters()"
+    class="text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:border-indigo-400">
+    <option value="">All stages</option>
+    <option value="incomplete">Incomplete (no extract)</option>
+    <option value="complete">Complete (extracted)</option>
+    <option value="enriched">Enriched</option>
+  </select>
+  <button onclick="clearFilters()"
+    class="text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors">
+    Clear
+  </button>
+  <span id="filter-count" class="text-xs text-gray-400 hidden"></span>
+</div>
+
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
   <table class="w-full text-sm" id="cache-table">
     <thead class="bg-gray-50 border-b border-gray-200">
@@ -109,7 +138,9 @@
     </thead>
     <tbody class="divide-y divide-gray-100" id="cache-tbody">
       {% for e in entries %}
-      <tr class="hover:bg-gray-50 transition-colors" data-hash="{{ e.url_hash }}">
+      <tr class="hover:bg-gray-50 transition-colors" data-hash="{{ e.url_hash }}"
+          data-city="{{ e.city }}" data-topic="{{ e.topic }}"
+          data-stage="{{ 'enriched' if e.enrich_extracted_at else ('complete' if e.extracted_at else 'incomplete') }}">
         <td class="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
           {% if e.city %}<span class="font-medium">{{ e.city }}</span>{% if e.topic %}<span class="text-gray-400"> / {{ e.topic.replace('_',' ') }}</span>{% endif %}
           {% else %}<span class="text-gray-400">—</span>{% endif %}
@@ -233,7 +264,8 @@ function rowHtml(e) {
     : '<span class="text-gray-400">—</span>';
   const records = e.extracted_at ? e.record_count : '<span class="text-gray-300">—</span>';
   const h = e.url_hash;
-  return `<tr class="hover:bg-gray-50 transition-colors" data-hash="${h}">
+  const stage = e.enrich_extracted_at ? 'enriched' : (e.extracted_at ? 'complete' : 'incomplete');
+  return `<tr class="hover:bg-gray-50 transition-colors" data-hash="${h}" data-city="${e.city||''}" data-topic="${e.topic||''}" data-stage="${stage}">
     <td class="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">${city}</td>
     <td class="px-4 py-3 max-w-xs">
       <a href="${e.url}" target="_blank" class="text-xs font-medium text-gray-800 hover:text-blue-600 truncate block min-w-0" title="${e.url}">${e.domain || e.url}</a>
@@ -283,6 +315,7 @@ async function refreshTable() {
       if (tbody) {
         tbody.innerHTML = entries.map(rowHtml).join('');
         applyProgress(activePhase, activeHash);
+        applyFilters();
       } else {
         location.reload();
       }
@@ -293,6 +326,32 @@ async function refreshTable() {
 
 pollProgress();
 refreshTable();
+
+function applyFilters() {
+  const city  = document.getElementById('f-city').value;
+  const topic = document.getElementById('f-topic').value;
+  const stage = document.getElementById('f-stage').value;
+  let visible = 0;
+  document.querySelectorAll('#cache-tbody tr').forEach(row => {
+    const ok = (!city  || row.dataset.city  === city)
+            && (!topic || row.dataset.topic === topic)
+            && (!stage || row.dataset.stage === stage);
+    row.style.display = ok ? '' : 'none';
+    if (ok) visible++;
+  });
+  const fc = document.getElementById('filter-count');
+  if (city || topic || stage) {
+    fc.textContent = visible + ' shown';
+    fc.classList.remove('hidden');
+  } else {
+    fc.classList.add('hidden');
+  }
+}
+
+function clearFilters() {
+  ['f-city','f-topic','f-stage'].forEach(id => document.getElementById(id).value = '');
+  applyFilters();
+}
 </script>
 
 {% endblock %}
