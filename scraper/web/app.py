@@ -1282,41 +1282,6 @@ async def run_detail(request: Request, run_id: int):
     })
 
 
-@admin.get("/history", response_class=HTMLResponse)
-async def history(request: Request):
-    result = subprocess.run(
-        ["git", "log", "--pretty=format:%h|%ai|%s", "-30"],
-        cwd=str(BASE_DIR), capture_output=True, text=True,
-    )
-    commits = []
-    for line in result.stdout.strip().splitlines():
-        parts = line.split("|", 2)
-        if len(parts) == 3:
-            commits.append({"hash": parts[0], "date": parts[1][:16].replace("T", " "), "message": parts[2]})
-
-    return templates.TemplateResponse(request, "history.html", {"commits": commits})
-
-
-@admin.get("/history/{commit_hash}", response_class=HTMLResponse)
-async def history_detail(request: Request, commit_hash: str):
-    if not all(c in "0123456789abcdefABCDEF" for c in commit_hash):
-        return RedirectResponse("/admin/history", status_code=302)
-
-    stat = subprocess.run(
-        ["git", "show", "--stat", "--no-color", commit_hash],
-        cwd=str(BASE_DIR), capture_output=True, text=True,
-    )
-    diff = subprocess.run(
-        ["git", "show", "--no-color", commit_hash, "--", "data/"],
-        cwd=str(BASE_DIR), capture_output=True, text=True,
-    )
-    return templates.TemplateResponse(request, "history_detail.html", {
-        "commit_hash": commit_hash,
-        "stat": stat.stdout,
-        "diff": diff.stdout,
-    })
-
-
 _fastapi.include_router(admin)
 
 
