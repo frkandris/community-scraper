@@ -4,7 +4,6 @@ import importlib.metadata
 import json
 import os
 import re
-import subprocess
 import sys
 import unicodedata
 from datetime import datetime, timezone
@@ -21,6 +20,16 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from ..db import (
+    delete_all_communities,
+    find_community_by_id,
+    get_city_topic_counts,
+    get_city_totals,
+    get_communities,
+    get_communities_for_city,
+    get_topic_counts,
+    get_total_community_count,
+)
 from ..false_positives import (add as fp_add, diff_html as fp_diff_html,
                                load as fp_load, load_history as fp_load_history,
                                remove as fp_remove, build_prompt_section)
@@ -355,78 +364,43 @@ def _ensure_community_id(record: dict) -> dict:
     return record
 
 
+def _db() -> Path:
+    return app_state.db_path or DATA_DIR / "scraper.db"
+
+
 def _city_from_slug(city_slug: str) -> str | None:
     for city in (app_state.cities or []):
         if _slugify(city.name) == city_slug:
             return city.name
-    dir_name = _normalize(city_slug)
-    if (DATA_DIR / dir_name).is_dir():
-        return city_slug
     return None
 
 
 def _find_community_by_slug(city_name: str, name_slug: str) -> dict | None:
-    for topic in (app_state.topics or []):
-        for r in _load_communities(city_name, topic.name):
-            if _slugify(r.get("name", "")) == name_slug:
-                return r
+    for r in get_communities_for_city(_db(), city_name):
+        r = _ensure_community_id(r)
+        if _slugify(r.get("name", "")) == name_slug:
+            return r
     return None
 
 
 def _load_communities(city: str, topic: str) -> list[dict]:
-    path = DATA_DIR / _normalize(city) / _normalize(topic) / "communities.json"
-    if not path.exists():
-        return []
-    try:
-        return [_ensure_community_id(r) for r in json.loads(path.read_text(encoding="utf-8"))]
-    except Exception:
-        return []
+    return [_ensure_community_id(r) for r in get_communities(_db(), city, topic)]
 
 
 def _find_community(community_id: str) -> dict | None:
-    for json_file in sorted(DATA_DIR.glob("*/*/communities.json")):
-        try:
-            for r in json.loads(json_file.read_text(encoding="utf-8")):
-                r = _ensure_community_id(r)
-                if r.get("community_id") == community_id:
-                    return r
-        except Exception:
-            continue
-    return None
+    r = find_community_by_id(_db(), community_id)
+    return _ensure_community_id(r) if r else None
 
 
 def _global_topic_counts() -> dict[str, int]:
-    """Total community count per topic across all cities."""
-    meta_file = DATA_DIR / "metadata.json"
-    if not meta_file.exists():
-        return {}
-    try:
-        metadata = json.loads(meta_file.read_text(encoding="utf-8"))
-        result: dict[str, int] = {}
-        for city_topics in metadata.get("records_by_city_topic", {}).values():
-            for topic, count in city_topics.items():
-                result[topic] = result.get(topic, 0) + int(count)
-        return result
-    except Exception:
-        return {}
+    return get_topic_counts(_db())
 
 
 def _top_cities(n: int = 8) -> list[tuple[str, str, int]]:
-    """Return top N cities (name, country, total_count) sorted by community count."""
-    meta_file = DATA_DIR / "metadata.json"
-    if not meta_file.exists():
-        return []
-    try:
-        metadata = json.loads(meta_file.read_text(encoding="utf-8"))
-        city_totals: dict[str, int] = {}
-        for city, topics in metadata.get("records_by_city_topic", {}).items():
-            city_totals[city] = sum(int(c) for c in topics.values())
-        sorted_cities = sorted(city_totals.items(), key=lambda x: x[1], reverse=True)
-        cities_map = {c.name: c.country for c in (app_state.cities or [])}
-        return [(name, cities_map.get(name, ""), count)
-                for name, count in sorted_cities[:n] if count > 0]
-    except Exception:
-        return []
+    city_totals = get_city_totals(_db())
+    cities_map = {c.name: c.country for c in (app_state.cities or [])}
+    return [(name, cities_map.get(name, ""), count)
+            for name, count in city_totals[:n] if count > 0]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -688,17 +662,10 @@ async def admin_root_redirect():
 
 @_fastapi.get("/about", response_class=HTMLResponse)
 async def public_about(request: Request):
-    metadata = {}
-    meta_file = DATA_DIR / "metadata.json"
-    if meta_file.exists():
-        try:
-            metadata = json.loads(meta_file.read_text(encoding="utf-8"))
-        except Exception:
-            pass
     return templates.TemplateResponse(request, "public_about.html", {
         "city_count": len(app_state.cities or []),
         "topic_count": len(app_state.topics or []),
-        "total_records": metadata.get("total_records", 0),
+        "total_records": get_total_community_count(_db()),
         "topics": app_state.topics or [],
         "topic_icons": TOPIC_ICONS,
         "topic_labels": TOPIC_LABELS,
@@ -714,16 +681,12 @@ async def public_about(request: Request):
 
 @admin.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
-    metadata = {}
-    meta_file = DATA_DIR / "metadata.json"
-    if meta_file.exists():
-        metadata = json.loads(meta_file.read_text(encoding="utf-8"))
-
-    result = subprocess.run(
-        ["git", "log", "--oneline", "-5"],
-        cwd=str(BASE_DIR), capture_output=True, text=True,
-    )
-    commits = [l.strip() for l in result.stdout.strip().splitlines() if l]
+    city_topic_counts = get_city_topic_counts(_db())
+    total_records = get_total_community_count(_db())
+    metadata = {
+        "total_records": total_records,
+        "records_by_city_topic": city_topic_counts,
+    }
 
     next_run = None
     schedule_cron = None
@@ -767,7 +730,6 @@ async def dashboard(request: Request):
 
     return templates.TemplateResponse(request, "dashboard.html", {
         "metadata": metadata,
-        "commits": commits,
         "is_running": app_state.is_running,
         "last_run_at": app_state.last_run_at,
         "next_run": next_run,
@@ -784,35 +746,25 @@ async def dashboard(request: Request):
 
 @admin.get("/results", response_class=HTMLResponse)
 async def results(request: Request):
-    metadata = {}
-    meta_file = DATA_DIR / "metadata.json"
-    if meta_file.exists():
-        metadata = json.loads(meta_file.read_text(encoding="utf-8"))
-
+    city_topic_counts = get_city_topic_counts(_db())
     cities_map = {c.name: c.country for c in (app_state.cities or [])}
     rows = []
-    for city, topics in metadata.get("records_by_city_topic", {}).items():
+    for city, topics in city_topic_counts.items():
         country = cities_map.get(city, "")
         for topic, count in topics.items():
             rows.append({"city": city, "country": country, "topic": topic, "count": count})
-
     return templates.TemplateResponse(request, "results.html", {"rows": rows})
 
 
 @admin.get("/results/{city}/{topic}", response_class=HTMLResponse)
 async def result_detail(request: Request, city: str, topic: str):
     import hashlib
-    file = DATA_DIR / _normalize(city) / _normalize(topic) / "communities.json"
-    records = []
-    if file.exists():
-        records = [CommunityRecord.model_validate(r) for r in json.loads(file.read_text(encoding="utf-8"))]
-
-    # Build url→hash map so template can link to cache detail
+    records_data = get_communities(_db(), city, topic)
+    records = [CommunityRecord.model_validate(r) for r in records_data]
     url_hashes = {
         r.source_url: hashlib.sha256(r.source_url.encode()).hexdigest()[:16]
         for r in records if r.source_url
     }
-
     return templates.TemplateResponse(request, "result_detail.html", {
         "city": city,
         "topic": topic,
@@ -831,8 +783,8 @@ async def fp_add_route(
     fp_type: str = Form("extraction"),
     redirect_to: str = Form(""),
 ):
-    fp_add(DATA_DIR, name, city, topic, reason, source_url, fp_type=fp_type)
-    return RedirectResponse(redirect_to or f"/admin/cache", status_code=302)
+    fp_add(_db(), name, city, topic, reason, source_url, fp_type=fp_type)
+    return RedirectResponse(redirect_to or "/admin/cache", status_code=302)
 
 
 @admin.post("/false-positive/remove")
@@ -843,16 +795,16 @@ async def fp_remove_route(
     fp_type: str = Form("extraction"),
     redirect_to: str = Form(""),
 ):
-    fp_remove(DATA_DIR, name, city, topic, fp_type=fp_type)
-    return RedirectResponse(redirect_to or f"/admin/cache", status_code=302)
+    fp_remove(_db(), name, city, topic, fp_type=fp_type)
+    return RedirectResponse(redirect_to or "/admin/cache", status_code=302)
 
 
 @admin.get("/prompts", response_class=HTMLResponse)
 async def prompts_page(request: Request):
-    fps = fp_load(DATA_DIR) if DATA_DIR.exists() else []
+    fps = fp_load(_db())
 
     def _versioned(fp_type: str, base: str) -> list[dict]:
-        history = fp_load_history(DATA_DIR, fp_type) if DATA_DIR.exists() else []
+        history = fp_load_history(_db(), fp_type)
         out = []
         for i, v in enumerate(reversed(history)):
             prev = history[-(i + 2)]["content"] if i + 1 < len(history) else base
@@ -1100,13 +1052,8 @@ async def cache_detail(request: Request, url_hash: str):
     topic = entry.get("topic", "")
     url = entry.get("url", "")
     if city and topic and url:
-        file = DATA_DIR / _normalize(city) / _normalize(topic) / "communities.json"
-        if file.exists():
-            try:
-                all_records = json.loads(file.read_text(encoding="utf-8"))
-                store_records = [_ensure_community_id(r) for r in all_records if r.get("source_url") == url]
-            except Exception:
-                pass
+        all_records = get_communities(_db(), city, topic)
+        store_records = [_ensure_community_id(r) for r in all_records if r.get("source_url") == url]
 
     schema_records = store_records or (entry.get("records") or [])
     schema_json = records_to_jsonld(schema_records)
@@ -1123,8 +1070,7 @@ async def cache_detail(request: Request, url_hash: str):
             page_text=entry.get("raw_text", "")[:max_text_chars],
         )
 
-    # False positive sets for both prompt types
-    fps = fp_load(DATA_DIR) if DATA_DIR.exists() else []
+    fps = fp_load(_db())
     fp_extraction = {(fp["name"], fp["city"], fp["topic"])
                      for fp in fps if fp.get("fp_type", "extraction") == "extraction"}
     fp_enrichment = {(fp["name"], fp["city"], fp["topic"])
@@ -1180,15 +1126,8 @@ async def cache_delete_entry(url_hash: str):
 async def cache_clear_all():
     if app_state.cache_manager:
         app_state.cache_manager.clear_all()
-    # Also wipe scraped results so re-runs start fresh without stale merges
-    deleted_data = 0
-    for f in DATA_DIR.rglob("communities.json"):
-        f.unlink()
-        deleted_data += 1
-    meta = DATA_DIR / "metadata.json"
-    if meta.exists():
-        meta.unlink()
-    log.info("clear_all_data", deleted_files=deleted_data)
+    deleted = delete_all_communities(_db())
+    log.info("clear_all_data", deleted_communities=deleted)
     return RedirectResponse("/admin/cache", status_code=302)
 
 
@@ -1260,7 +1199,7 @@ async def cache_run_extract(url_hash: str):
             joinable = [r for r in extracted if r.joinable]
             app_state.cache_manager.save_extracted(url, joinable, duration_s=extract_dur)
             if joinable:
-                save_results(city, topic, joinable, cfg.data_dir)
+                save_results(city, topic, joinable, _db())
         except Exception as exc:
             log.error("manual_extract_failed", url=url, error=str(exc))
         finally:
@@ -1317,7 +1256,7 @@ async def cache_run_enrich(url_hash: str):
                 app_state.cache_manager.mark_enrich_scraped(url, timing["scrape"])
                 app_state.cache_manager.mark_enrich_extracted(url, timing["count"], timing["extract"])
             if enriched:
-                save_results(city, topic, enriched, cfg.data_dir)
+                save_results(city, topic, enriched, _db())
         except Exception as exc:
             log.error("manual_enrich_failed", url=url, error=str(exc))
         finally:

@@ -1,12 +1,11 @@
-import json
 import re
-from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from pathlib import Path
 
 import structlog
 
-from .models import CommunityRecord, RunMetadata
+from .db import bulk_upsert_communities, delete_communities_for_topic, get_communities
+from .models import CommunityRecord
 
 log = structlog.get_logger()
 
@@ -55,47 +54,31 @@ def save_results(
     city: str,
     topic: str,
     records: list[CommunityRecord],
-    data_dir: Path,
+    db_path: Path,
 ) -> int:
-    city_dir = data_dir / _normalize(city) / _normalize(topic)
-    city_dir.mkdir(parents=True, exist_ok=True)
-    output_file = city_dir / "communities.json"
-
+    existing_data = get_communities(db_path, city, topic)
     existing: list[CommunityRecord] = []
-    if output_file.exists():
+    for item in existing_data:
         try:
-            raw = json.loads(output_file.read_text(encoding="utf-8"))
-            existing = [CommunityRecord.model_validate(item) for item in raw]
+            existing.append(CommunityRecord.model_validate(item))
         except Exception as exc:
-            log.warning("failed_to_load_existing", path=str(output_file), error=str(exc))
+            log.warning("failed_to_load_existing_record", error=str(exc))
 
     merged: dict[str, CommunityRecord] = {_record_key(r): r for r in existing}
     for r in records:
         merged[_record_key(r)] = r
 
     deduped = _dedup(sorted(merged.values(), key=lambda r: r.name))
-    output_file.write_text(
-        json.dumps([r.model_dump() for r in deduped], ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+
+    # Replace all records for this city/topic atomically
+    delete_communities_for_topic(db_path, city, topic)
+    bulk_upsert_communities(db_path, [r.model_dump() for r in deduped])
+
     before = len(merged)
     log.info("saved_results", city=city, topic=topic, total=len(deduped),
              new=len(records), deduped=before - len(deduped))
     return len(deduped)
 
 
-def update_metadata(
-    run_stats: dict[str, dict[str, int]],
-    data_dir: Path,
-) -> None:
-    metadata_file = data_dir / "metadata.json"
-    total = sum(count for topics in run_stats.values() for count in topics.values())
-    metadata = RunMetadata(
-        last_run=datetime.now(timezone.utc).isoformat(),
-        records_by_city_topic=run_stats,
-        total_records=total,
-    )
-    metadata_file.write_text(
-        json.dumps(metadata.model_dump(), ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+def update_metadata(run_stats: dict, db_path: Path) -> None:
+    pass

@@ -1,7 +1,6 @@
 import asyncio
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
@@ -13,7 +12,6 @@ from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
 from .search import BraveSearchClient, SearXNGClient, build_queries
 from .store import save_results, update_metadata
-from .vcs import commit_data
 
 if TYPE_CHECKING:
     from .cache import CacheManager
@@ -128,9 +126,7 @@ class PipelineConfig:
     fetch_min_text_length: int
     fetch_max_concurrent: int
     fetch_blocked_domains: list[str]
-    commit_after_run: bool
-    data_dir: Path
-    repo_dir: Path
+    db_path: Path
     brave_api_key: str = ""
     cache_skip_scraped: bool = True
     cache_skip_extracted: bool = True
@@ -171,14 +167,8 @@ async def run_pipeline(
             cities, topics, config, extractor, cache, _skip_scraped, _skip_extracted, run_stats, on_progress
         )
 
-    update_metadata(run_stats, config.data_dir)
+    update_metadata(run_stats, config.db_path)
     log.info("pipeline_complete", run_mode=run_mode, total_new_records=total_new)
-
-    if config.commit_after_run:
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-        message = f"scraper: {timestamp} – {total_new} records ({run_mode})"
-        commit_data(config.repo_dir, message)
-
     return pair_logs
 
 
@@ -202,7 +192,7 @@ async def _run_full(
         searxng = SearXNGClient(config.searxng_url, rate_limit_seconds=config.search_rate_limit)
         log.info("search_client", backend="searxng")
     semaphore = asyncio.Semaphore(config.fetch_max_concurrent)
-    all_fps = load_false_positives(config.data_dir)
+    all_fps = load_false_positives(config.db_path)
     enrich_fp_section = build_prompt_section(all_fps, fp_type="enrichment")
     total_new = 0
     pair_logs: list[dict] = []
@@ -293,13 +283,11 @@ async def _run_full(
                     if on_progress:
                         on_progress(None, None)
 
-                # Filter out non-joinable communities
                 joinable = [r for r in extracted if r.joinable]
                 if len(joinable) < len(extracted):
                     log.info("joinability_filtered", url=url,
                              kept=len(joinable), removed=len(extracted) - len(joinable))
 
-                # Enrich records that have no contact info
                 enrich_timing = {"scrape": 0.0, "extract": 0.0, "count": 0, "needed": False}
                 final_records = []
                 enrich_logs: list[dict] = []
@@ -328,26 +316,18 @@ async def _run_full(
                         cache.mark_enrich_extracted(url, enrich_timing["count"], enrich_timing["extract"])
                         cache.save_enrich_log(url, enrich_logs)
 
-                # Persist immediately — safe even if server restarts mid-run
                 if final_records:
-                    save_results(city.name, topic.name, final_records, config.data_dir)
+                    save_results(city.name, topic.name, final_records, config.db_path)
 
                 records.extend(final_records)
                 total_new += len(final_records)
                 pair_log["records_extracted"] += len(final_records)
                 log.info("extracted", url=url, found=len(extracted), kept=len(final_records))
 
-            # Final merge for the pair (also covers cache-hit records) and accurate count
-            count = save_results(city.name, topic.name, records, config.data_dir)
+            count = save_results(city.name, topic.name, records, config.db_path)
             run_stats[city.name][topic.name] = count
-            update_metadata(run_stats, config.data_dir)
+            update_metadata(run_stats, config.db_path)
             pair_logs.append(pair_log)
-
-        # Commit after each city completes (all its topics)
-        if config.commit_after_run:
-            city_total = sum(run_stats.get(city.name, {}).values())
-            ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-            commit_data(config.repo_dir, f"scraper: {ts} – {city.name} – {city_total} records")
 
     return total_new, pair_logs
 
@@ -423,21 +403,16 @@ async def _run_ai_only(
                 cache.save_extracted(url, extracted)
 
                 if extracted:
-                    save_results(city.name, topic.name, extracted, config.data_dir)
+                    save_results(city.name, topic.name, extracted, config.db_path)
 
                 records.extend(extracted)
                 total_new += len(extracted)
                 pair_log["records_extracted"] += len(extracted)
                 log.info("extracted", url=url, found=len(extracted))
 
-            count = save_results(city.name, topic.name, records, config.data_dir)
+            count = save_results(city.name, topic.name, records, config.db_path)
             run_stats[city.name][topic.name] = count
-            update_metadata(run_stats, config.data_dir)
+            update_metadata(run_stats, config.db_path)
             pair_logs.append(pair_log)
-
-        if config.commit_after_run:
-            city_total = sum(run_stats.get(city.name, {}).values())
-            ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-            commit_data(config.repo_dir, f"scraper: {ts} – {city.name} – {city_total} records (ai_only)")
 
     return total_new, pair_logs

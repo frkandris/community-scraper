@@ -1,56 +1,32 @@
 import difflib
-import json
 from datetime import datetime, timezone
 from pathlib import Path
+
+from .db import (
+    append_prompt_history,
+    delete_false_positive,
+    get_false_positives,
+    get_prompt_history,
+    upsert_false_positive,
+)
 
 FP_TYPES = ("extraction", "enrichment")
 
 
-def load(data_dir: Path) -> list[dict]:
-    fp_file = data_dir / "false_positives.json"
-    if not fp_file.exists():
-        return []
-    try:
-        return json.loads(fp_file.read_text(encoding="utf-8"))
-    except Exception:
-        return []
+def load(db_path: Path) -> list[dict]:
+    return get_false_positives(db_path)
 
 
-def _save_all(data_dir: Path, fps: list[dict]) -> None:
-    (data_dir / "false_positives.json").write_text(
-        json.dumps(fps, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
-
-
-def add(data_dir: Path, name: str, city: str, topic: str, reason: str,
+def add(db_path: Path, name: str, city: str, topic: str, reason: str,
         source_url: str, fp_type: str = "extraction") -> None:
-    fps = load(data_dir)
-    fps = [fp for fp in fps if not (
-        fp["name"] == name and fp["city"] == city
-        and fp["topic"] == topic and fp.get("fp_type", "extraction") == fp_type
-    )]
-    fps.append({
-        "name": name,
-        "city": city,
-        "topic": topic,
-        "reason": reason,
-        "source_url": source_url,
-        "fp_type": fp_type,
-        "marked_at": datetime.now(timezone.utc).isoformat(),
-    })
-    _save_all(data_dir, fps)
-    _record_history(data_dir, fps, fp_type)
+    upsert_false_positive(db_path, name, city, topic, reason, source_url, fp_type)
+    _record_history(db_path, fp_type)
 
 
-def remove(data_dir: Path, name: str, city: str, topic: str,
+def remove(db_path: Path, name: str, city: str, topic: str,
            fp_type: str = "extraction") -> None:
-    fps = load(data_dir)
-    fps = [fp for fp in fps if not (
-        fp["name"] == name and fp["city"] == city
-        and fp["topic"] == topic and fp.get("fp_type", "extraction") == fp_type
-    )]
-    _save_all(data_dir, fps)
-    _record_history(data_dir, fps, fp_type)
+    delete_false_positive(db_path, name, city, topic, fp_type)
+    _record_history(db_path, fp_type)
 
 
 def build_prompt_section(fps: list[dict], city: str = "", topic: str = "",
@@ -79,39 +55,28 @@ def _base_prompt(fp_type: str) -> str:
     return SYSTEM_PROMPT if fp_type == "extraction" else ENRICH_SYSTEM_PROMPT
 
 
-def _record_history(data_dir: Path, fps: list[dict], fp_type: str) -> None:
-    hist_file = data_dir / f"prompt_history_{fp_type}.json"
-    history: list[dict] = []
-    if hist_file.exists():
-        try:
-            history = json.loads(hist_file.read_text(encoding="utf-8"))
-        except Exception:
-            history = []
-
+def _record_history(db_path: Path, fp_type: str) -> None:
+    fps = get_false_positives(db_path)
     type_fps = [fp for fp in fps if fp.get("fp_type", "extraction") == fp_type]
     effective = _base_prompt(fp_type) + build_prompt_section(fps, fp_type=fp_type)
+
+    history = get_prompt_history(db_path, fp_type)
     prev = history[-1]["content"] if history else ""
     if effective == prev:
         return
 
-    history.append({
-        "version": len(history) + 1,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "content": effective,
-        "fp_type": fp_type,
-        "fp_count": len(type_fps),
-    })
-    hist_file.write_text(json.dumps(history, indent=2, ensure_ascii=False), encoding="utf-8")
+    append_prompt_history(
+        db_path,
+        version=len(history) + 1,
+        timestamp=datetime.now(timezone.utc).isoformat(),
+        content=effective,
+        fp_type=fp_type,
+        fp_count=len(type_fps),
+    )
 
 
-def load_history(data_dir: Path, fp_type: str = "extraction") -> list[dict]:
-    hist_file = data_dir / f"prompt_history_{fp_type}.json"
-    if not hist_file.exists():
-        return []
-    try:
-        return json.loads(hist_file.read_text(encoding="utf-8"))
-    except Exception:
-        return []
+def load_history(db_path: Path, fp_type: str = "extraction") -> list[dict]:
+    return get_prompt_history(db_path, fp_type)
 
 
 def diff_html(old: str, new: str) -> str:

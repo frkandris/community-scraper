@@ -2,7 +2,6 @@ import argparse
 import asyncio
 import json
 import os
-import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -15,7 +14,6 @@ from apscheduler.triggers.cron import CronTrigger
 from .cache import CacheManager
 from .db import get_last_run, init_db, record_run
 from .pipeline import CityConfig, PipelineConfig, TopicConfig, run_pipeline
-from .vcs import ensure_repo
 from .web.app import app as web_app, templates
 from .web.log_stream import broadcaster
 from .web.state import app_state
@@ -49,7 +47,7 @@ def _build_version() -> str:
     return "v.unknown"
 
 
-def load_config() -> tuple[list[CityConfig], list[TopicConfig], PipelineConfig]:
+def load_config(db_path: Path) -> tuple[list[CityConfig], list[TopicConfig], PipelineConfig]:
     with open(CONFIG_DIR / "cities.yaml", encoding="utf-8") as f:
         cities_raw = yaml.safe_load(f)
     with open(CONFIG_DIR / "topics.yaml", encoding="utf-8") as f:
@@ -91,9 +89,7 @@ def load_config() -> tuple[list[CityConfig], list[TopicConfig], PipelineConfig]:
         fetch_min_text_length=settings["fetch"]["min_text_length"],
         fetch_max_concurrent=settings["fetch"]["max_concurrent"],
         fetch_blocked_domains=settings["fetch"].get("blocked_domains", []),
-        commit_after_run=settings["pipeline"]["commit_after_run"],
-        data_dir=DATA_DIR,
-        repo_dir=BASE_DIR,
+        db_path=db_path,
         cache_skip_scraped=cache_cfg.get("skip_scraped", True),
         cache_skip_extracted=cache_cfg.get("skip_extracted", True),
         enrich_communities=pipeline_settings.get("enrich_communities", True),
@@ -110,13 +106,12 @@ async def main() -> None:
     configure_logging()
     log = structlog.get_logger()
 
-    cities, topics, pipeline_cfg = load_config()
-    ensure_repo(pipeline_cfg.repo_dir)
-
-    cache = CacheManager(DATA_DIR / "cache")
-
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     db_path = DATA_DIR / "scraper.db"
     init_db(db_path)
+
+    cities, topics, pipeline_cfg = load_config(db_path)
+    cache = CacheManager(db_path)
 
     app_state.cities = cities
     app_state.topics = topics
@@ -126,7 +121,6 @@ async def main() -> None:
     app_state.version = _build_version()
     templates.env.globals["app_version"] = app_state.version
 
-    # Restore last_run_at from DB so it survives container restarts
     persisted = get_last_run(db_path)
     if persisted:
         app_state.last_run_at = persisted
