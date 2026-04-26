@@ -6,6 +6,11 @@ from .models import SearchResult
 
 log = structlog.get_logger()
 
+
+class SearchQuotaError(Exception):
+    """Raised when the search API returns a rate-limit or payment-required error."""
+
+
 LOCALE_TO_LANGUAGE = {
     "hu": "hu-HU",
     "en": "en-US",
@@ -69,11 +74,15 @@ class BraveSearchClient:
         try:
             async with httpx.AsyncClient(timeout=20.0) as client:
                 resp = await client.get(self._BASE, params=params, headers=headers)
+                if resp.status_code in (402, 429):
+                    raise SearchQuotaError(f"Brave HTTP {resp.status_code}")
                 if resp.status_code >= 400:
                     log.warning("brave_search_failed", query=query,
                                 status=resp.status_code, body=resp.text[:300])
                     return []
                 data = resp.json()
+        except SearchQuotaError:
+            raise
         except Exception as exc:
             log.warning("brave_search_failed", query=query, error=str(exc))
             return []
@@ -180,6 +189,35 @@ class SearXNGClient:
         if elapsed < self.rate_limit_seconds:
             await asyncio.sleep(self.rate_limit_seconds - elapsed)
         self._last_request_time = time.monotonic()
+
+
+class FallbackSearchClient:
+    """Tries primary (Brave); on quota exhaustion permanently switches to fallback (SearXNG)."""
+
+    def __init__(self, primary: BraveSearchClient, fallback: SearXNGClient):
+        self.primary = primary
+        self.fallback = fallback
+        self._exhausted = False
+
+    async def search(self, query: str, locale: str = "en",
+                     num_results: int = 10) -> list[SearchResult]:
+        if not self._exhausted:
+            try:
+                return await self.primary.search(query, locale=locale, num_results=num_results)
+            except SearchQuotaError as exc:
+                log.warning("brave_quota_exhausted_switching_to_searxng", reason=str(exc))
+                self._exhausted = True
+        return await self.fallback.search(query, locale=locale, num_results=num_results)
+
+    async def search_all(self, queries: list[str], locale: str = "en",
+                         num_results: int = 10) -> list[SearchResult]:
+        if not self._exhausted:
+            try:
+                return await self.primary.search_all(queries, locale=locale, num_results=num_results)
+            except SearchQuotaError as exc:
+                log.warning("brave_quota_exhausted_switching_to_searxng", reason=str(exc))
+                self._exhausted = True
+        return await self.fallback.search_all(queries, locale=locale, num_results=num_results)
 
 
 def build_queries(

@@ -2,15 +2,15 @@ import asyncio
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 import structlog
 
-from .extract import OllamaExtractor
+from .extract import FallbackExtractor, GroqExtractor, OllamaExtractor
 from .false_positives import build_prompt_section
 from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
-from .search import BraveSearchClient, SearXNGClient, build_queries
+from .search import BraveSearchClient, FallbackSearchClient, SearXNGClient, build_queries
 from .store import save_results, update_metadata
 
 if TYPE_CHECKING:
@@ -27,7 +27,7 @@ def _needs_enrichment(record: "CommunityRecord") -> bool:
 async def _enrich_record(
     record: "CommunityRecord",
     searxng: "SearXNGClient | BraveSearchClient",
-    extractor: "OllamaExtractor",
+    extractor: Any,
     config: "PipelineConfig",
     semaphore: asyncio.Semaphore,
     on_progress: "Callable[[str | None, str | None], None] | None" = None,
@@ -128,6 +128,11 @@ class PipelineConfig:
     fetch_blocked_domains: list[str]
     db_path: Path
     brave_api_key: str = ""
+    groq_api_key: str = ""
+    groq_model: str = "llama-3.3-70b-versatile"
+    groq_temperature: float = 0.1
+    groq_timeout: int = 60
+    groq_max_text_chars: int = 8000
     cache_skip_scraped: bool = True
     cache_skip_extracted: bool = True
     enrich_communities: bool = True
@@ -146,13 +151,26 @@ async def run_pipeline(
     _skip_scraped = skip_scraped if skip_scraped is not None else config.cache_skip_scraped
     _skip_extracted = skip_extracted if skip_extracted is not None else config.cache_skip_extracted
 
-    extractor = OllamaExtractor(
+    ollama = OllamaExtractor(
         base_url=config.ollama_url,
         model=config.ollama_model,
         temperature=config.ollama_temperature,
         timeout_seconds=config.ollama_timeout,
         max_text_chars=config.ollama_max_text_chars,
     )
+    if config.groq_api_key:
+        groq = GroqExtractor(
+            api_key=config.groq_api_key,
+            model=config.groq_model,
+            temperature=config.groq_temperature,
+            timeout_seconds=config.groq_timeout,
+            max_text_chars=config.groq_max_text_chars,
+        )
+        extractor: OllamaExtractor | FallbackExtractor = FallbackExtractor(primary=groq, fallback=ollama)
+        log.info("extractor", backend="groq", model=config.groq_model, fallback=config.ollama_model)
+    else:
+        extractor = ollama
+        log.info("extractor", backend="ollama", model=config.ollama_model)
 
     run_stats: dict[str, dict[str, int]] = {}
     total_new = 0
@@ -183,13 +201,15 @@ async def _run_full(
     run_stats: dict,
     on_progress: Callable[[str | None, str | None], None] | None,
 ) -> tuple[int, list[dict]]:
+    _searxng = SearXNGClient(config.searxng_url, rate_limit_seconds=config.search_rate_limit)
     if config.brave_api_key:
-        searxng: BraveSearchClient | SearXNGClient = BraveSearchClient(
-            config.brave_api_key, rate_limit_seconds=config.search_rate_limit
+        searxng: BraveSearchClient | FallbackSearchClient | SearXNGClient = FallbackSearchClient(
+            primary=BraveSearchClient(config.brave_api_key, rate_limit_seconds=config.search_rate_limit),
+            fallback=_searxng,
         )
-        log.info("search_client", backend="brave")
+        log.info("search_client", backend="brave", fallback="searxng")
     else:
-        searxng = SearXNGClient(config.searxng_url, rate_limit_seconds=config.search_rate_limit)
+        searxng = _searxng
         log.info("search_client", backend="searxng")
     semaphore = asyncio.Semaphore(config.fetch_max_concurrent)
     all_fps = load_false_positives(config.db_path)

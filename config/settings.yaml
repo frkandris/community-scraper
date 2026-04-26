@@ -1,8 +1,14 @@
 ollama:
-  model: qwen2.5:7b
+  model: gemma3:4b
   temperature: 0.1
   timeout_seconds: 180
   max_text_chars: 6000
+
+groq:
+  model: llama-3.3-70b-versatile
+  temperature: 0.1
+  timeout_seconds: 60
+  max_text_chars: 8000
 
 search:
   results_per_query: 10

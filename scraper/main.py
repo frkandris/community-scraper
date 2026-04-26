@@ -75,6 +75,7 @@ def load_config(db_path: Path) -> tuple[list[CityConfig], list[TopicConfig], Pip
         for t in topics_raw["topics"]
     ]
     cache_cfg = settings.get("cache", {})
+    groq_cfg = settings.get("groq", {})
     pipeline_cfg = PipelineConfig(
         searxng_url=os.environ.get("SEARXNG_URL", "http://localhost:8080"),
         ollama_url=os.environ.get("OLLAMA_URL", "http://localhost:11434"),
@@ -94,6 +95,11 @@ def load_config(db_path: Path) -> tuple[list[CityConfig], list[TopicConfig], Pip
         cache_skip_extracted=cache_cfg.get("skip_extracted", True),
         enrich_communities=pipeline_settings.get("enrich_communities", True),
         brave_api_key=os.environ.get("BRAVE_API_KEY", ""),
+        groq_api_key=os.environ.get("GROQ_API_KEY", ""),
+        groq_model=groq_cfg.get("model", "llama-3.3-70b-versatile"),
+        groq_temperature=groq_cfg.get("temperature", 0.1),
+        groq_timeout=groq_cfg.get("timeout_seconds", 60),
+        groq_max_text_chars=groq_cfg.get("max_text_chars", 8000),
     )
     return cities, topics, pipeline_cfg
 

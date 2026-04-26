@@ -8,6 +8,11 @@ from .models import CommunityRecord
 
 log = structlog.get_logger()
 
+
+class ExtractorQuotaError(Exception):
+    """Raised when the LLM API returns a rate-limit or payment-required error."""
+
+
 SYSTEM_PROMPT = """\
 You are a data extraction assistant. Identify community groups and clubs from web page text.
 
@@ -107,6 +112,79 @@ ENRICH_SCHEMA = {
 }
 
 
+def _apply_enrich(record: "CommunityRecord", enrichment: dict) -> "CommunityRecord":
+    updates: dict = {}
+    if not record.website and enrichment.get("website"):
+        updates["website"] = enrichment["website"]
+    if not record.contact and enrichment.get("contact"):
+        updates["contact"] = enrichment["contact"]
+    if not record.social_links and enrichment.get("social_links"):
+        updates["social_links"] = enrichment["social_links"]
+    if not record.email and enrichment.get("email"):
+        updates["email"] = enrichment["email"]
+    if not record.phone and enrichment.get("phone"):
+        updates["phone"] = enrichment["phone"]
+    if updates:
+        log.debug("enrich_merged", community=record.name, fields=list(updates))
+        return record.model_copy(update=updates)
+    return record
+
+
+def _parse_communities(
+    raw: str,
+    city: str,
+    topic: str,
+    locale: str,
+    source_url: str,
+) -> list[CommunityRecord]:
+    try:
+        items = json.loads(raw).get("communities", [])
+        if not isinstance(items, list):
+            return []
+    except json.JSONDecodeError as exc:
+        log.warning("llm_json_parse_failed", source_url=source_url,
+                    error=str(exc), raw=raw[:200])
+        return []
+
+    records = []
+    extracted_at = datetime.now(timezone.utc).isoformat()
+    for item in items:
+        if not isinstance(item, dict) or not item.get("name"):
+            continue
+        try:
+            record = CommunityRecord(
+                name=item["name"],
+                topic=topic,
+                city=city,
+                locale=locale,
+                description=item.get("description") or None,
+                meeting_schedule=item.get("meeting_schedule") or None,
+                location=item.get("location") or None,
+                contact=item.get("contact") or None,
+                website=item.get("website") or None,
+                social_links=item.get("social_links") or [],
+                source_url=source_url,
+                extracted_at=extracted_at,
+                confidence=item.get("confidence"),
+                joinable=item.get("joinable", True),
+                founding_year=item.get("founding_year") or None,
+                member_count=item.get("member_count") or None,
+                fee=item.get("fee") or None,
+                age_range=item.get("age_range") or None,
+                skill_level=item.get("skill_level") or None,
+                join_process=item.get("join_process") or None,
+                leader=item.get("leader") or None,
+                email=item.get("email") or None,
+                phone=item.get("phone") or None,
+                tags=item.get("tags") or [],
+                language=item.get("language") or None,
+            )
+            records.append(record)
+        except Exception as exc:
+            log.warning("record_validation_failed", item=item, error=str(exc))
+    return records
+
+
 class OllamaExtractor:
     def __init__(
         self,
@@ -159,7 +237,7 @@ class OllamaExtractor:
             return []
 
         raw = data.get("message", {}).get("content", "")
-        return self._parse(raw, city, topic, locale, source_url)
+        return _parse_communities(raw, city, topic, locale, source_url)
 
     async def enrich(self, record: CommunityRecord, page_text: str,
                      false_positive_examples: str = "") -> CommunityRecord:
@@ -185,77 +263,152 @@ class OllamaExtractor:
                 data = resp.json()
             raw = data.get("message", {}).get("content", "")
             enrichment = json.loads(raw)
-
-            updates: dict = {}
-            if not record.website and enrichment.get("website"):
-                updates["website"] = enrichment["website"]
-            if not record.contact and enrichment.get("contact"):
-                updates["contact"] = enrichment["contact"]
-            if not record.social_links and enrichment.get("social_links"):
-                updates["social_links"] = enrichment["social_links"]
-            if not record.email and enrichment.get("email"):
-                updates["email"] = enrichment["email"]
-            if not record.phone and enrichment.get("phone"):
-                updates["phone"] = enrichment["phone"]
-
-            if updates:
-                log.debug("enrich_merged", community=record.name, fields=list(updates))
-                return record.model_copy(update=updates)
+            return _apply_enrich(record, enrichment)
         except Exception as exc:
             log.debug("enrich_failed", community=record.name, error=str(exc))
         return record
 
-    def _parse(
+
+_GROQ_EXTRACT_SUFFIX = (
+    "\n\nRespond ONLY with a valid JSON object: "
+    "{\"communities\": [{\"name\": \"...\", \"confidence\": 0.9, \"joinable\": true, ...}]}"
+)
+_GROQ_ENRICH_SUFFIX = (
+    "\n\nRespond ONLY with a valid JSON object with exactly these keys: "
+    "website, contact, social_links, email, phone."
+)
+
+
+class GroqExtractor:
+    _BASE_URL = "https://api.groq.com/openai/v1"
+
+    def __init__(
         self,
-        raw: str,
+        api_key: str,
+        model: str = "llama-3.3-70b-versatile",
+        temperature: float = 0.1,
+        timeout_seconds: int = 60,
+        max_text_chars: int = 8000,
+    ):
+        self.api_key = api_key
+        self.model = model
+        self.temperature = temperature
+        self.timeout_seconds = timeout_seconds
+        self.max_text_chars = max_text_chars
+
+    def _headers(self) -> dict:
+        return {"Authorization": f"Bearer {self.api_key}"}
+
+    async def extract(
+        self,
+        text: str,
         city: str,
         topic: str,
         locale: str,
         source_url: str,
+        false_positive_examples: str = "",
     ) -> list[CommunityRecord]:
+        truncated = text[: self.max_text_chars]
+        user_message = USER_PROMPT_TEMPLATE.format(
+            topic=topic,
+            city=city,
+            source_url=source_url,
+            page_text=truncated,
+        )
+        system = SYSTEM_PROMPT + false_positive_examples + _GROQ_EXTRACT_SUFFIX
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user_message},
+            ],
+            "temperature": self.temperature,
+            "response_format": {"type": "json_object"},
+        }
         try:
-            items = json.loads(raw).get("communities", [])
-            if not isinstance(items, list):
-                return []
-        except json.JSONDecodeError as exc:
-            log.warning("ollama_json_parse_failed", source_url=source_url,
-                        error=str(exc), raw=raw[:200])
+            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                resp = await client.post(
+                    f"{self._BASE_URL}/chat/completions",
+                    json=payload,
+                    headers=self._headers(),
+                )
+                if resp.status_code in (402, 429):
+                    raise ExtractorQuotaError(f"Groq HTTP {resp.status_code}")
+                resp.raise_for_status()
+                data = resp.json()
+        except ExtractorQuotaError:
+            raise
+        except Exception as exc:
+            log.warning("groq_request_failed", url=source_url, error=str(exc))
             return []
 
-        records = []
-        extracted_at = datetime.now(timezone.utc).isoformat()
-        for item in items:
-            if not isinstance(item, dict) or not item.get("name"):
-                continue
-            try:
-                record = CommunityRecord(
-                    name=item["name"],
-                    topic=topic,
-                    city=city,
-                    locale=locale,
-                    description=item.get("description") or None,
-                    meeting_schedule=item.get("meeting_schedule") or None,
-                    location=item.get("location") or None,
-                    contact=item.get("contact") or None,
-                    website=item.get("website") or None,
-                    social_links=item.get("social_links") or [],
-                    source_url=source_url,
-                    extracted_at=extracted_at,
-                    confidence=item.get("confidence"),
-                    joinable=item.get("joinable", True),
-                    founding_year=item.get("founding_year") or None,
-                    member_count=item.get("member_count") or None,
-                    fee=item.get("fee") or None,
-                    age_range=item.get("age_range") or None,
-                    skill_level=item.get("skill_level") or None,
-                    join_process=item.get("join_process") or None,
-                    leader=item.get("leader") or None,
-                    email=item.get("email") or None,
-                    phone=item.get("phone") or None,
-                    tags=item.get("tags") or [],
-                    language=item.get("language") or None,
+        raw = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        return _parse_communities(raw, city, topic, locale, source_url)
+
+    async def enrich(self, record: CommunityRecord, page_text: str,
+                     false_positive_examples: str = "") -> CommunityRecord:
+        user_message = (
+            f"Community group: '{record.name}' in {record.city}\n\n"
+            f"--- PAGE TEXT ---\n{page_text[:self.max_text_chars]}"
+        )
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": ENRICH_SYSTEM_PROMPT + false_positive_examples + _GROQ_ENRICH_SUFFIX},
+                {"role": "user", "content": user_message},
+            ],
+            "temperature": 0.0,
+            "response_format": {"type": "json_object"},
+        }
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                resp = await client.post(
+                    f"{self._BASE_URL}/chat/completions",
+                    json=payload,
+                    headers=self._headers(),
                 )
-                records.append(record)
-            except Exception as exc:
-                log.warning("record_validation_failed", item=item, error=str(exc))
-        return records
+                if resp.status_code in (402, 429):
+                    raise ExtractorQuotaError(f"Groq HTTP {resp.status_code}")
+                resp.raise_for_status()
+                data = resp.json()
+            raw = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            enrichment = json.loads(raw)
+            return _apply_enrich(record, enrichment)
+        except ExtractorQuotaError:
+            raise
+        except Exception as exc:
+            log.debug("groq_enrich_failed", community=record.name, error=str(exc))
+        return record
+
+
+class FallbackExtractor:
+    """Tries primary extractor; on quota exhaustion permanently switches to fallback."""
+
+    def __init__(self, primary: GroqExtractor, fallback: OllamaExtractor):
+        self.primary = primary
+        self.fallback = fallback
+        self._exhausted = False
+
+    async def extract(self, text: str, city: str, topic: str, locale: str,
+                      source_url: str, false_positive_examples: str = "") -> list[CommunityRecord]:
+        if not self._exhausted:
+            try:
+                return await self.primary.extract(
+                    text, city, topic, locale, source_url, false_positive_examples
+                )
+            except ExtractorQuotaError as exc:
+                log.warning("groq_quota_exhausted_switching_to_ollama", reason=str(exc))
+                self._exhausted = True
+        return await self.fallback.extract(
+            text, city, topic, locale, source_url, false_positive_examples
+        )
+
+    async def enrich(self, record: CommunityRecord, page_text: str,
+                     false_positive_examples: str = "") -> CommunityRecord:
+        if not self._exhausted:
+            try:
+                return await self.primary.enrich(record, page_text, false_positive_examples)
+            except ExtractorQuotaError as exc:
+                log.warning("groq_quota_exhausted_switching_to_ollama", reason=str(exc))
+                self._exhausted = True
+        return await self.fallback.enrich(record, page_text, false_positive_examples)
