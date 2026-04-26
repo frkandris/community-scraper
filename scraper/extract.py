@@ -1,4 +1,6 @@
+import asyncio
 import json
+import time
 from datetime import datetime, timezone
 
 import httpx
@@ -278,6 +280,9 @@ _GROQ_ENRICH_SUFFIX = (
     "website, contact, social_links, email, phone."
 )
 
+_GROQ_MAX_RETRIES = 3
+_GROQ_RETRY_DEFAULT_WAIT = 60  # seconds if no Retry-After header
+
 
 class GroqExtractor:
     _BASE_URL = "https://api.groq.com/openai/v1"
@@ -288,16 +293,63 @@ class GroqExtractor:
         model: str = "llama-3.3-70b-versatile",
         temperature: float = 0.1,
         timeout_seconds: int = 60,
-        max_text_chars: int = 8000,
+        max_text_chars: int = 4000,
+        rate_limit_seconds: float = 4.0,
     ):
         self.api_key = api_key
         self.model = model
         self.temperature = temperature
         self.timeout_seconds = timeout_seconds
         self.max_text_chars = max_text_chars
+        self.rate_limit_seconds = rate_limit_seconds
+        self._last_request_time: float = 0.0
 
     def _headers(self) -> dict:
         return {"Authorization": f"Bearer {self.api_key}"}
+
+    async def _rate_limit(self) -> None:
+        elapsed = time.monotonic() - self._last_request_time
+        if elapsed < self.rate_limit_seconds:
+            await asyncio.sleep(self.rate_limit_seconds - elapsed)
+        self._last_request_time = time.monotonic()
+
+    async def _post(self, payload: dict, label: str) -> dict:
+        for attempt in range(_GROQ_MAX_RETRIES):
+            await self._rate_limit()
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                    resp = await client.post(
+                        f"{self._BASE_URL}/chat/completions",
+                        json=payload,
+                        headers=self._headers(),
+                    )
+            except Exception as exc:
+                log.warning("groq_request_failed", label=label, error=str(exc))
+                return {}
+
+            if resp.status_code == 402:
+                raise ExtractorQuotaError("Groq billing limit reached (HTTP 402)")
+
+            if resp.status_code == 429:
+                retry_after = float(resp.headers.get("retry-after", _GROQ_RETRY_DEFAULT_WAIT))
+                if attempt < _GROQ_MAX_RETRIES - 1:
+                    log.warning("groq_rate_limited_retrying",
+                                label=label, attempt=attempt + 1,
+                                wait_s=retry_after)
+                    await asyncio.sleep(retry_after)
+                    continue
+                raise ExtractorQuotaError(
+                    f"Groq rate limit persists after {_GROQ_MAX_RETRIES} retries"
+                )
+
+            if resp.status_code >= 400:
+                log.warning("groq_request_failed", label=label,
+                            status=resp.status_code, body=resp.text[:200])
+                return {}
+
+            return resp.json()
+
+        return {}
 
     async def extract(
         self,
@@ -325,23 +377,7 @@ class GroqExtractor:
             "temperature": self.temperature,
             "response_format": {"type": "json_object"},
         }
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-                resp = await client.post(
-                    f"{self._BASE_URL}/chat/completions",
-                    json=payload,
-                    headers=self._headers(),
-                )
-                if resp.status_code in (402, 429):
-                    raise ExtractorQuotaError(f"Groq HTTP {resp.status_code}")
-                resp.raise_for_status()
-                data = resp.json()
-        except ExtractorQuotaError:
-            raise
-        except Exception as exc:
-            log.warning("groq_request_failed", url=source_url, error=str(exc))
-            return []
-
+        data = await self._post(payload, label=source_url)
         raw = data.get("choices", [{}])[0].get("message", {}).get("content", "")
         return _parse_communities(raw, city, topic, locale, source_url)
 
@@ -361,16 +397,7 @@ class GroqExtractor:
             "response_format": {"type": "json_object"},
         }
         try:
-            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-                resp = await client.post(
-                    f"{self._BASE_URL}/chat/completions",
-                    json=payload,
-                    headers=self._headers(),
-                )
-                if resp.status_code in (402, 429):
-                    raise ExtractorQuotaError(f"Groq HTTP {resp.status_code}")
-                resp.raise_for_status()
-                data = resp.json()
+            data = await self._post(payload, label=record.name)
             raw = data.get("choices", [{}])[0].get("message", {}).get("content", "")
             enrichment = json.loads(raw)
             return _apply_enrich(record, enrichment)

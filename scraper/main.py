@@ -99,7 +99,8 @@ def load_config(db_path: Path) -> tuple[list[CityConfig], list[TopicConfig], Pip
         groq_model=groq_cfg.get("model", "llama-3.3-70b-versatile"),
         groq_temperature=groq_cfg.get("temperature", 0.1),
         groq_timeout=groq_cfg.get("timeout_seconds", 60),
-        groq_max_text_chars=groq_cfg.get("max_text_chars", 8000),
+        groq_max_text_chars=groq_cfg.get("max_text_chars", 4000),
+        groq_rate_limit_seconds=groq_cfg.get("rate_limit_seconds", 4.0),
     )
     return cities, topics, pipeline_cfg
 

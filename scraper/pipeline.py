@@ -132,7 +132,8 @@ class PipelineConfig:
     groq_model: str = "llama-3.3-70b-versatile"
     groq_temperature: float = 0.1
     groq_timeout: int = 60
-    groq_max_text_chars: int = 8000
+    groq_max_text_chars: int = 4000
+    groq_rate_limit_seconds: float = 4.0
     cache_skip_scraped: bool = True
     cache_skip_extracted: bool = True
     enrich_communities: bool = True
@@ -165,6 +166,7 @@ async def run_pipeline(
             temperature=config.groq_temperature,
             timeout_seconds=config.groq_timeout,
             max_text_chars=config.groq_max_text_chars,
+            rate_limit_seconds=config.groq_rate_limit_seconds,
         )
         extractor: OllamaExtractor | FallbackExtractor = FallbackExtractor(primary=groq, fallback=ollama)
         log.info("extractor", backend="groq", model=config.groq_model, fallback=config.ollama_model)
