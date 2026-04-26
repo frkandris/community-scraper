@@ -427,6 +427,7 @@ def get_cache_index(db_path: Path) -> list[dict]:
                 "record_count":              len(entry.get("records") or []),
                 "has_text":                  bool(entry.get("raw_text")),
                 "extract_fingerprint":       entry.get("extract_fingerprint"),
+                "extract_model":             entry.get("extract_model"),
             })
         except Exception:
             continue

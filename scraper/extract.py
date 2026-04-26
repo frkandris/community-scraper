@@ -433,6 +433,10 @@ class FallbackExtractor:
     def model_fingerprint(self) -> str:
         return self.fallback.model_fingerprint if self._exhausted else self.primary.model_fingerprint
 
+    @property
+    def model(self) -> str:
+        return self.fallback.model if self._exhausted else self.primary.model
+
     async def extract(self, text: str, city: str, topic: str, locale: str,
                       source_url: str, false_positive_examples: str = "") -> list[CommunityRecord]:
         if not self._exhausted:

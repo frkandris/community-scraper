@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Cache – Community Scraper{% endblock %}
 
-{%- macro phase_cell(phase, done_at, dur_s, url_hash, run_url, can_run) -%}
+{%- macro phase_cell(phase, done_at, dur_s, url_hash, run_url, can_run, extra_tip='') -%}
 {%- set label = {'scrape': 'ph-arrow-circle-down', 'extract': 'ph-brain', 'enrich_scrape': 'ph-arrow-circle-down', 'enrich_extract': 'ph-brain'}[phase] -%}
 <td class="px-2 py-3 text-center" data-phase="{{ phase }}" data-hash="{{ url_hash }}">
   <div class="phase-normal flex items-center justify-center">
     {%- if done_at -%}
-      {%- set tip -%}{{ done_at[:16].replace('T',' ') }}{% if dur_s %} · {{ dur_s | fmt_dur }}{% endif %}{%- endset -%}
+      {%- set tip -%}{{ done_at[:16].replace('T',' ') }}{% if dur_s %} · {{ dur_s | fmt_dur }}{% endif %}{% if extra_tip %} · {{ extra_tip }}{% endif %}{%- endset -%}
       <form method="POST" action="{{ run_url }}" onsubmit="return confirm('Re-run this phase?')">
         <button type="submit" title="{{ tip }}"
           class="w-8 h-8 rounded-full bg-green-100 border border-green-300 text-green-700
@@ -151,7 +151,8 @@
              title="{{ e.url }}">{{ e.domain }}</a>
         </td>
         {{ phase_cell("scrape",         e.scraped_at,           e.scrape_duration_s,        e.url_hash, "/admin/cache/"+e.url_hash+"/run-scrape",   true) }}
-        {{ phase_cell("extract",        e.extracted_at,         e.extract_duration_s,       e.url_hash, "/admin/cache/"+e.url_hash+"/run-extract",  e.has_text) }}
+        {{ phase_cell("extract",        e.extracted_at,         e.extract_duration_s,       e.url_hash, "/admin/cache/"+e.url_hash+"/run-extract",  e.has_text,
+            extra_tip=((e.extract_model or '?') ~ ' · ' ~ e.extract_fingerprint) if e.extract_fingerprint else '') }}
         {{ phase_cell("enrich_scrape",  e.enrich_scraped_at,    e.enrich_scrape_duration_s, e.url_hash, "/admin/cache/"+e.url_hash+"/run-enrich",   e.extracted_at) }}
         {{ phase_cell("enrich_extract", e.enrich_extracted_at,  e.enrich_extract_duration_s,e.url_hash, "/admin/cache/"+e.url_hash+"/run-enrich",   e.extracted_at) }}
         <td class="px-4 py-3 text-right text-xs font-medium text-gray-700">
@@ -236,14 +237,14 @@ function fmtDur(s) {
   return Math.floor(s / 60) + 'm ' + (s % 60 | 0) + 's';
 }
 
-function phaseCell(phase, doneAt, durS, hash, runUrl, canRun) {
+function phaseCell(phase, doneAt, durS, hash, runUrl, canRun, extraTip) {
   const icons = { scrape: 'ph-arrow-circle-down', extract: 'ph-brain', enrich_scrape: 'ph-arrow-circle-down', enrich_extract: 'ph-brain' };
   const icon = icons[phase] || 'ph-circle';
   let normalHtml;
   if (doneAt) {
     const ts = doneAt.slice(0, 16).replace('T', ' ');
     const dur = fmtDur(durS);
-    const tip = ts + (dur ? ' · ' + dur : '');
+    const tip = ts + (dur ? ' · ' + dur : '') + (extraTip ? ' · ' + extraTip : '');
     normalHtml = `<form method="POST" action="${runUrl}" onsubmit="return confirm('Re-run this phase?')">
       <button type="submit" title="${tip}" class="w-8 h-8 rounded-full bg-green-100 border border-green-300 text-green-700 hover:bg-green-200 text-sm font-bold flex items-center justify-center">✓</button></form>`;
   } else if (canRun) {
@@ -271,7 +272,7 @@ function rowHtml(e) {
       <a href="${e.url}" target="_blank" class="text-xs font-medium text-gray-800 hover:text-blue-600 truncate block min-w-0" title="${e.url}">${e.domain || e.url}</a>
     </td>
     ${phaseCell('scrape',         e.scraped_at,          e.scrape_duration_s,         h, '/admin/cache/'+h+'/run-scrape',  true)}
-    ${phaseCell('extract',        e.extracted_at,        e.extract_duration_s,        h, '/admin/cache/'+h+'/run-extract', e.has_text)}
+    ${phaseCell('extract',        e.extracted_at,        e.extract_duration_s,        h, '/admin/cache/'+h+'/run-extract', e.has_text, e.extract_fingerprint ? (e.extract_model||'?')+' · '+e.extract_fingerprint : undefined)}
     ${phaseCell('enrich_scrape',  e.enrich_scraped_at,   e.enrich_scrape_duration_s,  h, '/admin/cache/'+h+'/run-enrich',  !!e.extracted_at)}
     ${phaseCell('enrich_extract', e.enrich_extracted_at, e.enrich_extract_duration_s, h, '/admin/cache/'+h+'/run-enrich',  !!e.extracted_at)}
     <td class="px-4 py-3 text-right text-xs font-medium text-gray-700">${records}</td>

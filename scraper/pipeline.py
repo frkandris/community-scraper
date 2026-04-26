@@ -333,7 +333,8 @@ async def _run_full(
 
                 if cache:
                     cache.save_extracted(url, final_records, duration_s=extract_dur,
-                                         fingerprint=extractor.model_fingerprint)
+                                         fingerprint=extractor.model_fingerprint,
+                                         model=extractor.model)
                     if enrich_timing["needed"]:
                         cache.mark_enrich_scraped(url, enrich_timing["scrape"])
                         cache.mark_enrich_extracted(url, enrich_timing["count"], enrich_timing["extract"])
@@ -423,7 +424,8 @@ async def _run_ai_only(
                     if on_progress:
                         on_progress(None, None)
 
-                cache.save_extracted(url, extracted, fingerprint=extractor.model_fingerprint)
+                cache.save_extracted(url, extracted, fingerprint=extractor.model_fingerprint,
+                                     model=extractor.model)
 
                 if extracted:
                     save_results(city.name, topic.name, extracted, config.db_path)

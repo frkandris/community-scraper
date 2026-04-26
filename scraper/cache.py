@@ -78,12 +78,14 @@ class CacheManager:
 
     def save_extracted(self, url: str, records: list[CommunityRecord],
                        duration_s: float | None = None,
-                       fingerprint: str | None = None) -> None:
+                       fingerprint: str | None = None,
+                       model: str | None = None) -> None:
         h = _url_hash(url)
         entry = load_cache_page(self.db_path, h) or {"url": url, "url_hash": h, "domain": _domain(url)}
         entry.update({
             "extracted_at": datetime.now(timezone.utc).isoformat(),
             "extract_fingerprint": fingerprint,
+            "extract_model": model,
             "records": [r.model_dump() for r in records],
             "enrich_scraped_at": None,
             "enrich_scrape_duration_s": None,
@@ -95,7 +97,8 @@ class CacheManager:
         if duration_s is not None:
             entry["extract_duration_s"] = round(duration_s, 2)
         save_cache_page(self.db_path, entry)
-        log.debug("cache_saved_extract", url=url, records=len(records), fingerprint=fingerprint)
+        log.debug("cache_saved_extract", url=url, records=len(records),
+                  fingerprint=fingerprint, model=model)
 
     def save_enriched_records(self, url: str, records: list[CommunityRecord]) -> None:
         h = _url_hash(url)
