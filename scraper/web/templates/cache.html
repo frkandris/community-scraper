@@ -35,7 +35,7 @@
   <h1 class="text-2xl font-bold text-gray-900">Page Cache</h1>
   <div class="flex items-center gap-3">
     <div id="phase-badge" class="hidden items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border"></div>
-    <span class="text-sm text-gray-500"><span id="entry-count">{{ entries|length }}</span> entries</span>
+    <span class="text-sm text-gray-500"><span id="entry-count">{{ entries|length }}</span> entries<span id="filter-count" class="hidden"> · <span id="filter-count-n"></span> shown</span></span>
     <button onclick="document.getElementById('clear-cache-modal').classList.remove('hidden')"
       class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors">
       <i class="ph ph-trash" style="font-size:14px"></i> Clear all
@@ -82,39 +82,13 @@
 
 <div id="cache-table-wrap">
 {% if entries %}
-
-<!-- Filters -->
 {% set cities = entries | map(attribute='city') | select | unique | sort | list %}
 {% set topics = entries | map(attribute='topic') | select | unique | sort | list %}
-<div class="flex items-center gap-3 mb-4 flex-wrap">
-  <select id="f-city" onchange="applyFilters()"
-    class="text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:border-indigo-400">
-    <option value="">All cities</option>
-    {% for c in cities %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
-  </select>
-  <select id="f-topic" onchange="applyFilters()"
-    class="text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:border-indigo-400">
-    <option value="">All topics</option>
-    {% for t in topics %}<option value="{{ t }}">{{ t.replace('_',' ') }}</option>{% endfor %}
-  </select>
-  <select id="f-stage" onchange="applyFilters()"
-    class="text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:border-indigo-400">
-    <option value="">All stages</option>
-    <option value="incomplete">Incomplete (no extract)</option>
-    <option value="complete">Complete (extracted)</option>
-    <option value="enriched">Enriched</option>
-  </select>
-  <button onclick="clearFilters()"
-    class="text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors">
-    Clear
-  </button>
-  <span id="filter-count" class="text-xs text-gray-400 hidden"></span>
-</div>
 
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
   <table class="w-full text-sm" id="cache-table">
-    <thead class="bg-gray-50 border-b border-gray-200">
-      <tr>
+    <thead class="bg-gray-50">
+      <tr class="border-b border-gray-200">
         <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">City / Topic</th>
         <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">URL</th>
         <th class="text-center px-2 py-3 text-xs font-semibold text-blue-400 uppercase tracking-wide w-16" title="Fetch raw page">
@@ -135,20 +109,67 @@
         </th>
         <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-20">Del</th>
       </tr>
+      <tr class="border-b border-gray-200">
+        <th class="px-3 py-2">
+          <div class="flex gap-1">
+            <select id="f-city" onchange="applyFilters()"
+              class="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer">
+              <option value="">All cities</option>
+              {% for c in cities %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+            </select>
+            <select id="f-topic" onchange="applyFilters()"
+              class="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer">
+              <option value="">All topics</option>
+              {% for t in topics %}<option value="{{ t }}">{{ t.replace('_',' ') }}</option>{% endfor %}
+            </select>
+          </div>
+        </th>
+        <th class="px-3 py-2">
+          <select id="f-stage" onchange="applyFilters()"
+            class="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer">
+            <option value="">All stages</option>
+            <option value="incomplete">Incomplete</option>
+            <option value="complete">Extracted</option>
+            <option value="enriched">Enriched</option>
+          </select>
+        </th>
+        <th></th>
+        <th class="px-3 py-2">
+          <select id="f-model" onchange="applyFilters()"
+            class="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer">
+            <option value="">All AI</option>
+            <option value="groq">Groq</option>
+            <option value="ollama">Ollama</option>
+          </select>
+        </th>
+        <th colspan="4"></th>
+        <th class="px-3 py-2 text-right">
+          <button onclick="clearFilters()" class="text-xs text-gray-400 hover:text-blue-600 transition-colors whitespace-nowrap">Clear</button>
+        </th>
+      </tr>
     </thead>
     <tbody class="divide-y divide-gray-100" id="cache-tbody">
       {% for e in entries %}
+      {%- set model_provider = 'groq' if e.extract_model and ':' not in e.extract_model else ('ollama' if e.extract_model else '') -%}
       <tr class="hover:bg-gray-50 transition-colors" data-hash="{{ e.url_hash }}"
           data-city="{{ e.city }}" data-topic="{{ e.topic }}"
-          data-stage="{{ 'enriched' if e.enrich_extracted_at else ('complete' if e.extracted_at else 'incomplete') }}">
+          data-stage="{{ 'enriched' if e.enrich_extracted_at else ('complete' if e.extracted_at else 'incomplete') }}"
+          data-model="{{ model_provider }}">
         <td class="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
           {% if e.city %}<span class="font-medium">{{ e.city }}</span>{% if e.topic %}<span class="text-gray-400"> / {{ e.topic.replace('_',' ') }}</span>{% endif %}
           {% else %}<span class="text-gray-400">—</span>{% endif %}
         </td>
         <td class="px-4 py-3 max-w-xs">
-          <a href="{{ e.url }}" target="_blank"
-             class="text-xs font-medium text-gray-800 hover:text-blue-600 truncate block min-w-0"
-             title="{{ e.url }}">{{ e.domain }}</a>
+          <div class="flex items-center gap-1.5 min-w-0">
+            <a href="{{ e.url }}" target="_blank"
+               class="text-xs font-medium text-gray-800 hover:text-blue-600 truncate min-w-0"
+               title="{{ e.url }}">{{ e.domain }}</a>
+            {% if model_provider == 'groq' %}
+            <span class="shrink-0 inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">Groq</span>
+            {% elif model_provider == 'ollama' %}
+            <span class="shrink-0 inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">Ollama</span>
+            {% endif %}
+          </div>
         </td>
         {{ phase_cell("scrape",         e.scraped_at,           e.scrape_duration_s,        e.url_hash, "/admin/cache/"+e.url_hash+"/run-scrape",   true) }}
         {{ phase_cell("extract",        e.extracted_at,         e.extract_duration_s,       e.url_hash, "/admin/cache/"+e.url_hash+"/run-extract",  e.has_text,
@@ -259,6 +280,17 @@ function phaseCell(phase, doneAt, durS, hash, runUrl, canRun, extraTip) {
   </td>`;
 }
 
+function modelProvider(m) {
+  if (!m) return '';
+  return m.includes(':') ? 'ollama' : 'groq';
+}
+function modelBadge(m) {
+  const p = modelProvider(m);
+  if (p === 'groq')   return '<span class="shrink-0 inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">Groq</span>';
+  if (p === 'ollama') return '<span class="shrink-0 inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">Ollama</span>';
+  return '';
+}
+
 function rowHtml(e) {
   const city = e.city
     ? `<span class="font-medium">${e.city}</span>${e.topic ? ' <span class="text-gray-400">/ ' + e.topic.replace(/_/g,' ') + '</span>' : ''}`
@@ -266,10 +298,14 @@ function rowHtml(e) {
   const records = e.extracted_at ? e.record_count : '<span class="text-gray-300">—</span>';
   const h = e.url_hash;
   const stage = e.enrich_extracted_at ? 'enriched' : (e.extracted_at ? 'complete' : 'incomplete');
-  return `<tr class="hover:bg-gray-50 transition-colors" data-hash="${h}" data-city="${e.city||''}" data-topic="${e.topic||''}" data-stage="${stage}">
+  const mp = modelProvider(e.extract_model);
+  return `<tr class="hover:bg-gray-50 transition-colors" data-hash="${h}" data-city="${e.city||''}" data-topic="${e.topic||''}" data-stage="${stage}" data-model="${mp}">
     <td class="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">${city}</td>
     <td class="px-4 py-3 max-w-xs">
-      <a href="${e.url}" target="_blank" class="text-xs font-medium text-gray-800 hover:text-blue-600 truncate block min-w-0" title="${e.url}">${e.domain || e.url}</a>
+      <div class="flex items-center gap-1.5 min-w-0">
+        <a href="${e.url}" target="_blank" class="text-xs font-medium text-gray-800 hover:text-blue-600 truncate min-w-0" title="${e.url}">${e.domain || e.url}</a>
+        ${modelBadge(e.extract_model)}
+      </div>
     </td>
     ${phaseCell('scrape',         e.scraped_at,          e.scrape_duration_s,         h, '/admin/cache/'+h+'/run-scrape',  true)}
     ${phaseCell('extract',        e.extracted_at,        e.extract_duration_s,        h, '/admin/cache/'+h+'/run-extract', e.has_text, e.extract_fingerprint ? (e.extract_model||'?')+' · '+e.extract_fingerprint : undefined)}
@@ -332,17 +368,21 @@ function applyFilters() {
   const city  = document.getElementById('f-city').value;
   const topic = document.getElementById('f-topic').value;
   const stage = document.getElementById('f-stage').value;
-  let visible = 0;
+  const model = document.getElementById('f-model').value;
+  let visible = 0, total = 0;
   document.querySelectorAll('#cache-tbody tr').forEach(row => {
+    total++;
     const ok = (!city  || row.dataset.city  === city)
             && (!topic || row.dataset.topic === topic)
-            && (!stage || row.dataset.stage === stage);
+            && (!stage || row.dataset.stage === stage)
+            && (!model || row.dataset.model === model);
     row.style.display = ok ? '' : 'none';
     if (ok) visible++;
   });
-  const fc = document.getElementById('filter-count');
-  if (city || topic || stage) {
-    fc.textContent = visible + ' shown';
+  const fc   = document.getElementById('filter-count');
+  const fcn  = document.getElementById('filter-count-n');
+  if (city || topic || stage || model) {
+    fcn.textContent = visible;
     fc.classList.remove('hidden');
   } else {
     fc.classList.add('hidden');
@@ -350,7 +390,7 @@ function applyFilters() {
 }
 
 function clearFilters() {
-  ['f-city','f-topic','f-stage'].forEach(id => document.getElementById(id).value = '');
+  ['f-city','f-topic','f-stage','f-model'].forEach(id => document.getElementById(id).value = '');
   applyFilters();
 }
 </script>
