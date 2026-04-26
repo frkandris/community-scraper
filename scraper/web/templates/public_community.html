@@ -93,15 +93,16 @@
     </div>
 
     <!-- Links -->
-    {% if r.website or r.social_links %}
+    {% set website_url = r.website if r.website and r.website.startswith('http') else ('https://' ~ r.website if r.website else '') %}
+    {% if website_url or r.social_links %}
     <div class="mt-6 pt-5 border-t border-gray-100 flex flex-wrap gap-3">
-      {% if r.website %}
-      <a href="{{ r.website }}" target="_blank" rel="noopener"
+      {% if website_url %}
+      <a href="{{ website_url }}" target="_blank" rel="noopener"
          class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm">
         <i class="ph ph-globe"></i> {{ t('community_visit_website') }}
       </a>
       {% endif %}
-      {% for link in r.social_links %}
+      {% for link in r.social_links if link.startswith('http') %}
       <a href="{{ link }}" target="_blank" rel="noopener"
          class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors">
         <i class="ph ph-link"></i>

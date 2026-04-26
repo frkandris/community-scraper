@@ -225,19 +225,22 @@
         {% endif %}
       </div>
 
-      {% if r.website or r.social_links %}
+      {% set website_url = r.website if r.website and r.website.startswith('http') else ('https://' ~ r.website if r.website else '') %}
+      {% if website_url or r.social_links %}
       <div class="relative z-10 flex flex-wrap gap-2 pt-1 border-t border-gray-50">
-        {% if r.website %}
-        <a href="{{ r.website }}" target="_blank" rel="noopener"
+        {% if website_url %}
+        <a href="{{ website_url }}" target="_blank" rel="noopener"
            class="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-lg font-medium transition-colors">
           <i class="ph ph-link"></i> Website
         </a>
         {% endif %}
-        {% for link in r.social_links[:2] %}
+        {% for link in r.social_links if link.startswith('http') %}
+        {% if loop.index <= 2 %}
         <a href="{{ link }}" target="_blank" rel="noopener"
            class="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 bg-gray-50 px-2.5 py-1 rounded-lg transition-colors">
           {{ link | replace('https://','') | replace('http://','') | truncate(28, True, '…') }}
         </a>
+        {% endif %}
         {% endfor %}
       </div>
       {% endif %}

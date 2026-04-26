@@ -27,7 +27,20 @@ class CommunityRecord(BaseModel):
     community_id: str = ""
 
     @model_validator(mode="after")
-    def _generate_id(self) -> "CommunityRecord":
+    def _clean_and_generate_id(self) -> "CommunityRecord":
+        # Normalize website: add https:// if no scheme present
+        if self.website:
+            w = self.website.strip()
+            if w and not w.startswith(("http://", "https://")):
+                w = "https://" + w
+            self.website = w or None
+
+        # Keep only actual URLs in social_links
+        self.social_links = [
+            lnk for lnk in self.social_links
+            if isinstance(lnk, str) and lnk.strip().startswith(("http://", "https://"))
+        ]
+
         if not self.community_id:
             key = f"{self.name.lower()}|{self.city.lower()}"
             self.community_id = hashlib.sha256(key.encode()).hexdigest()[:12]
