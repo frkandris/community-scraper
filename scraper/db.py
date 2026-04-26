@@ -67,16 +67,21 @@ def init_db(db_path: Path) -> None:
         # Cache pages — full JSON entry per scraped URL
         conn.execute("""
             CREATE TABLE IF NOT EXISTS cache_pages (
-                url_hash     TEXT PRIMARY KEY,
-                url          TEXT NOT NULL,
-                city         TEXT NOT NULL DEFAULT '',
-                topic        TEXT NOT NULL DEFAULT '',
-                domain       TEXT NOT NULL DEFAULT '',
-                scraped_at   TEXT,
-                extracted_at TEXT,
-                data         TEXT NOT NULL
+                url_hash            TEXT PRIMARY KEY,
+                url                 TEXT NOT NULL,
+                city                TEXT NOT NULL DEFAULT '',
+                topic               TEXT NOT NULL DEFAULT '',
+                domain              TEXT NOT NULL DEFAULT '',
+                scraped_at          TEXT,
+                extracted_at        TEXT,
+                extract_fingerprint TEXT,
+                data                TEXT NOT NULL
             )
         """)
+        try:
+            conn.execute("ALTER TABLE cache_pages ADD COLUMN extract_fingerprint TEXT")
+        except sqlite3.OperationalError:
+            pass
 
         # False positives
         conn.execute("""
@@ -344,14 +349,16 @@ def delete_all_communities(db_path: Path) -> int:
 def save_cache_page(db_path: Path, entry: dict) -> None:
     with sqlite3.connect(db_path) as conn:
         conn.execute("""
-            INSERT INTO cache_pages (url_hash, url, city, topic, domain, scraped_at, extracted_at, data)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO cache_pages
+                (url_hash, url, city, topic, domain, scraped_at, extracted_at, extract_fingerprint, data)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(url_hash) DO UPDATE SET
                 city=excluded.city,
                 topic=excluded.topic,
                 domain=excluded.domain,
                 scraped_at=excluded.scraped_at,
                 extracted_at=excluded.extracted_at,
+                extract_fingerprint=excluded.extract_fingerprint,
                 data=excluded.data
         """, (
             entry["url_hash"],
@@ -361,6 +368,7 @@ def save_cache_page(db_path: Path, entry: dict) -> None:
             entry.get("domain", ""),
             entry.get("scraped_at"),
             entry.get("extracted_at"),
+            entry.get("extract_fingerprint"),
             json.dumps(entry, ensure_ascii=False),
         ))
         conn.commit()
@@ -418,6 +426,7 @@ def get_cache_index(db_path: Path) -> list[dict]:
                 "enrich_count":              entry.get("enrich_count"),
                 "record_count":              len(entry.get("records") or []),
                 "has_text":                  bool(entry.get("raw_text")),
+                "extract_fingerprint":       entry.get("extract_fingerprint"),
             })
         except Exception:
             continue

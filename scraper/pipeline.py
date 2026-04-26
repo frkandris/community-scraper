@@ -281,7 +281,7 @@ async def _run_full(
             records = []
             for url, text in fetched:
                 if cache and skip_extracted:
-                    cached_records = cache.get_extracted(url)
+                    cached_records = cache.get_extracted(url, fingerprint=extractor.model_fingerprint)
                     if cached_records is not None:
                         log.debug("cache_hit_extract", url=url)
                         records.extend(cached_records)
@@ -332,7 +332,8 @@ async def _run_full(
                     final_records.append(record)
 
                 if cache:
-                    cache.save_extracted(url, final_records, duration_s=extract_dur)
+                    cache.save_extracted(url, final_records, duration_s=extract_dur,
+                                         fingerprint=extractor.model_fingerprint)
                     if enrich_timing["needed"]:
                         cache.mark_enrich_scraped(url, enrich_timing["scrape"])
                         cache.mark_enrich_extracted(url, enrich_timing["count"], enrich_timing["extract"])
@@ -403,7 +404,7 @@ async def _run_ai_only(
             records = []
             for url, text in pages:
                 if skip_extracted:
-                    cached = cache.get_extracted(url)
+                    cached = cache.get_extracted(url, fingerprint=extractor.model_fingerprint)
                     if cached is not None:
                         log.debug("cache_hit_extract", url=url)
                         records.extend(cached)
@@ -422,7 +423,7 @@ async def _run_ai_only(
                     if on_progress:
                         on_progress(None, None)
 
-                cache.save_extracted(url, extracted)
+                cache.save_extracted(url, extracted, fingerprint=extractor.model_fingerprint)
 
                 if extracted:
                     save_results(city.name, topic.name, extracted, config.db_path)

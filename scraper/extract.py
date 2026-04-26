@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import time
 from datetime import datetime, timezone
@@ -9,6 +10,10 @@ import structlog
 from .models import CommunityRecord
 
 log = structlog.get_logger()
+
+
+def _prompt_hash(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()[:12]
 
 
 class ExtractorQuotaError(Exception):
@@ -202,6 +207,10 @@ class OllamaExtractor:
         self.timeout_seconds = timeout_seconds
         self.max_text_chars = max_text_chars
 
+    @property
+    def model_fingerprint(self) -> str:
+        return _prompt_hash(SYSTEM_PROMPT + self.model)
+
     async def extract(
         self,
         text: str,
@@ -303,6 +312,10 @@ class GroqExtractor:
         self.max_text_chars = max_text_chars
         self.rate_limit_seconds = rate_limit_seconds
         self._last_request_time: float = 0.0
+
+    @property
+    def model_fingerprint(self) -> str:
+        return _prompt_hash(SYSTEM_PROMPT + self.model)
 
     def _headers(self) -> dict:
         return {"Authorization": f"Bearer {self.api_key}"}
@@ -415,6 +428,10 @@ class FallbackExtractor:
         self.primary = primary
         self.fallback = fallback
         self._exhausted = False
+
+    @property
+    def model_fingerprint(self) -> str:
+        return self.fallback.model_fingerprint if self._exhausted else self.primary.model_fingerprint
 
     async def extract(self, text: str, city: str, topic: str, locale: str,
                       source_url: str, false_positive_examples: str = "") -> list[CommunityRecord]:
