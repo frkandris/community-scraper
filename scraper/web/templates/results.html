@@ -5,23 +5,77 @@
 <h1 class="text-2xl font-bold text-gray-900 mb-6">Results</h1>
 
 {% if rows %}
+
+{% set cities   = rows | map(attribute='city')    | unique | sort | list %}
+{% set countries = rows | map(attribute='country') | select | unique | sort | list %}
+{% set topics   = rows | map(attribute='topic')   | unique | sort | list %}
+
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-  <table class="w-full text-sm">
-    <thead class="bg-gray-50 border-b border-gray-200">
-      <tr>
+  <table class="w-full text-sm" id="results-table">
+    <thead class="bg-gray-50">
+      <!-- Column labels -->
+      <tr class="border-b border-gray-200">
         <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">City</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Country</th>
         <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Topic</th>
         <th class="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Records</th>
         <th class="px-5 py-3"></th>
       </tr>
+      <!-- Filter row -->
+      <tr class="border-b border-gray-200">
+        <th class="px-3 py-2">
+          <select id="f-city" onchange="applyFilters()"
+            class="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer">
+            <option value="">All cities</option>
+            {% for c in cities %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+          </select>
+        </th>
+        <th class="px-3 py-2">
+          <select id="f-country" onchange="applyFilters()"
+            class="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer">
+            <option value="">All countries</option>
+            {% for c in countries %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+          </select>
+        </th>
+        <th class="px-3 py-2">
+          <select id="f-topic" onchange="applyFilters()"
+            class="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer">
+            <option value="">All topics</option>
+            {% for t in topics %}<option value="{{ t }}">{{ t.replace('_',' ') }}</option>{% endfor %}
+          </select>
+        </th>
+        <th class="px-3 py-2">
+          <select id="f-records" onchange="applyFilters()"
+            class="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer">
+            <option value="">All</option>
+            <option value="0">= 0</option>
+            <option value="1">= 1</option>
+            <option value="2+">≥ 2</option>
+          </select>
+        </th>
+        <th class="px-3 py-2 text-right">
+          <button onclick="clearFilters()"
+            class="text-xs text-gray-400 hover:text-blue-600 transition-colors whitespace-nowrap">
+            Clear
+          </button>
+        </th>
+      </tr>
     </thead>
-    <tbody class="divide-y divide-gray-100">
+    <tbody class="divide-y divide-gray-100" id="results-tbody">
       {% for row in rows %}
-      <tr class="hover:bg-gray-50 transition-colors">
+      <tr class="hover:bg-gray-50 transition-colors"
+          data-city="{{ row.city }}"
+          data-country="{{ row.country }}"
+          data-topic="{{ row.topic }}"
+          data-count="{{ row.count }}">
         <td class="px-5 py-3 font-medium text-gray-900">{{ row.city }}</td>
+        <td class="px-5 py-3 text-gray-500 text-xs">{{ row.country }}</td>
         <td class="px-5 py-3 text-gray-600">{{ row.topic.replace('_',' ') }}</td>
         <td class="px-5 py-3 text-right">
-          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
+            {% if row.count == 0 %}bg-red-100 text-red-700
+            {% elif row.count == 1 %}bg-amber-100 text-amber-700
+            {% else %}bg-blue-100 text-blue-800{% endif %}">
             {{ row.count }}
           </span>
         </td>
@@ -34,6 +88,40 @@
     </tbody>
   </table>
 </div>
+
+<p class="mt-3 text-xs text-gray-400" id="visible-count">{{ rows|length }} rows</p>
+
+<script>
+function applyFilters() {
+  const city    = document.getElementById('f-city').value;
+  const country = document.getElementById('f-country').value;
+  const topic   = document.getElementById('f-topic').value;
+  const records = document.getElementById('f-records').value;
+  let visible = 0;
+  document.querySelectorAll('#results-tbody tr').forEach(function(row) {
+    const cnt = parseInt(row.dataset.count, 10);
+    const match =
+      (!city    || row.dataset.city    === city) &&
+      (!country || row.dataset.country === country) &&
+      (!topic   || row.dataset.topic   === topic) &&
+      (!records ||
+        (records === '0'  && cnt === 0) ||
+        (records === '1'  && cnt === 1) ||
+        (records === '2+' && cnt >= 2));
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  document.getElementById('visible-count').textContent = visible + ' rows';
+}
+
+function clearFilters() {
+  ['f-city', 'f-country', 'f-topic', 'f-records'].forEach(function(id) {
+    document.getElementById(id).value = '';
+  });
+  applyFilters();
+}
+</script>
+
 {% else %}
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
   <p class="text-gray-400">No results yet. Run the scraper from the Dashboard.</p>

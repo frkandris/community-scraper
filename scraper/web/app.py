@@ -789,10 +789,12 @@ async def results(request: Request):
     if meta_file.exists():
         metadata = json.loads(meta_file.read_text(encoding="utf-8"))
 
+    cities_map = {c.name: c.country for c in (app_state.cities or [])}
     rows = []
     for city, topics in metadata.get("records_by_city_topic", {}).items():
+        country = cities_map.get(city, "")
         for topic, count in topics.items():
-            rows.append({"city": city, "topic": topic, "count": count})
+            rows.append({"city": city, "country": country, "topic": topic, "count": count})
 
     return templates.TemplateResponse(request, "results.html", {"rows": rows})
 
