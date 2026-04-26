@@ -95,7 +95,7 @@
       <div id="cache-options">
         <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Cache behaviour</div>
         <div class="space-y-1">
-          <label class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+          <label id="row-skip-scraped" class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
             <input type="checkbox" name="skip_scraped" value="on"
               {% if cache_defaults.get('skip_scraped') %}checked{% endif %}
               class="accent-blue-600 w-3.5 h-3.5">
@@ -259,26 +259,17 @@ function updateModeUI() {
   const full = document.querySelector('input[value="full"]').checked;
   const lFull = document.getElementById('mode-full-label');
   const lAi   = document.getElementById('mode-ai-label');
-  const sSearch  = document.getElementById('step-search');
-  const sFetch   = document.getElementById('step-fetch');
-  const cacheOpts = document.getElementById('cache-options');
-  if (full) {
-    lFull.classList.replace('border-gray-200', 'border-blue-500');
-    lFull.classList.replace('bg-white', 'bg-blue-50');
-    lAi.classList.replace('border-blue-500', 'border-gray-200');
-    lAi.classList.replace('bg-blue-50', 'bg-white');
-    sSearch.classList.remove('opacity-30');
-    sFetch.classList.remove('opacity-30');
-    cacheOpts.classList.remove('hidden');
-  } else {
-    lAi.classList.replace('border-gray-200', 'border-blue-500');
-    lAi.classList.replace('bg-white', 'bg-blue-50');
-    lFull.classList.replace('border-blue-500', 'border-gray-200');
-    lFull.classList.replace('bg-blue-50', 'bg-white');
-    sSearch.classList.add('opacity-30');
-    sFetch.classList.add('opacity-30');
-    cacheOpts.classList.add('hidden');
-  }
+  lFull.classList.toggle('border-blue-500', full);
+  lFull.classList.toggle('bg-blue-50', full);
+  lFull.classList.toggle('border-gray-200', !full);
+  lFull.classList.toggle('bg-white', !full);
+  lAi.classList.toggle('border-blue-500', !full);
+  lAi.classList.toggle('bg-blue-50', !full);
+  lAi.classList.toggle('border-gray-200', full);
+  lAi.classList.toggle('bg-white', full);
+  document.getElementById('step-search').classList.toggle('opacity-30', !full);
+  document.getElementById('step-fetch').classList.toggle('opacity-30', !full);
+  document.getElementById('row-skip-scraped').classList.toggle('hidden', !full);
 }
 </script>
 {% endblock %}
