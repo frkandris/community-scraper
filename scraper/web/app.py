@@ -478,6 +478,18 @@ async def _render_explore(
             if count > 0:
                 available_topics[t.name] = count
 
+    # City page with no topic filter: show all communities (small chips will filter client-side)
+    if city and not topic and available_topics:
+        for t_name, count in available_topics.items():
+            records = _load_communities(city, t_name)
+            total += len(records)
+            sections.append({
+                "topic": t_name,
+                "label": _topic_labels.get(t_name, t_name.replace("_", " ").title()),
+                "icon": TOPIC_ICONS.get(t_name, "circle"),
+                "records": records,
+            })
+
     cross_city_sections: list[dict] = []
     if not city and topic:
         for t in topic:

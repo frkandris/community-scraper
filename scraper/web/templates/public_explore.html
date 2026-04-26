@@ -47,45 +47,8 @@
   </div>
   {% endif %}
 
-  <!-- If city given but no topics selected: show topic picker -->
-  {% if city and not selected_topics %}
-
-  <div class="text-center mb-8">
-    <h1 class="text-2xl font-bold text-gray-900 mb-2">What are you looking for in {{ city }}?</h1>
-    <p class="text-gray-500">{{ t('explore_pick_interests') }}</p>
-  </div>
-
-  <form action="/explore" method="GET">
-    <input type="hidden" name="city" value="{{ city }}">
-    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-8">
-      {% for topic in topics %}
-      <label class="cursor-pointer select-none group">
-        <input type="checkbox" name="topic" value="{{ topic.name }}" class="sr-only peer">
-        <div class="relative flex flex-col items-center justify-center gap-1.5 h-[5.5rem] px-2 rounded-xl border-2 border-gray-200 bg-white
-          peer-checked:border-indigo-500 peer-checked:bg-indigo-50
-          group-hover:border-gray-300 group-hover:bg-gray-50 transition-all text-center cursor-pointer">
-          <i class="ph ph-{{ topic_icons.get(topic.name, 'circle') }} text-2xl text-gray-500 leading-none shrink-0"></i>
-          <span class="text-xs font-medium text-gray-700 leading-tight w-full text-center">
-            {{ topic_labels.get(topic.name, topic.name.replace('_',' ').title()) }}
-          </span>
-          {% if available_topics.get(topic.name, 0) > 0 %}
-          <span class="absolute top-1.5 right-1.5 text-[10px] font-bold text-indigo-600 leading-none">
-            {{ available_topics[topic.name] }}
-          </span>
-          {% endif %}
-        </div>
-      </label>
-      {% endfor %}
-    </div>
-    <div class="text-center">
-      <button type="submit" class="px-8 py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-md">
-        {{ t('explore_explore_btn') }}
-      </button>
-    </div>
-  </form>
-
   <!-- No city, topics selected: cross-city aggregated results -->
-  {% elif not city and cross_city_sections %}
+  {% if not city and cross_city_sections %}
 
   <div class="mb-8">
     <h1 class="text-2xl font-bold text-gray-900 mb-1">
@@ -154,12 +117,12 @@
     </a>
   </div>
 
-  <!-- Results -->
+  <!-- Results (city + optional topic filter) -->
   {% else %}
 
-  <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+  <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
     <div>
-      <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
+      <h1 class="text-2xl font-bold text-gray-900">
         {% if selected_topics | length == 1 %}
           <i class="ph ph-{{ topic_icons.get(selected_topics[0], 'circle') }} text-indigo-600"></i>
           {{ topic_labels.get(selected_topics[0], selected_topics[0].replace('_',' ').title()) }} in {{ city }}
@@ -168,14 +131,16 @@
         {% endif %}
       </h1>
       {% if total > 0 %}
-      <p class="text-sm text-gray-500 mt-0.5">{{ total }} {{ 'community' if total == 1 else 'communities' }} found</p>
+      <p class="text-sm text-gray-500 mt-0.5" id="visible-count">{{ total }} {{ 'community' if total == 1 else 'communities' }}</p>
       {% endif %}
     </div>
 
-    <!-- Add/remove topics -->
+    <!-- Topic chips: JS filtering when no URL topic, URL-nav when topic active -->
+    {% if selected_topics %}
     <form action="/explore" method="GET" class="flex items-center gap-2 flex-wrap">
       <input type="hidden" name="city" value="{{ city }}">
       {% for t in topics %}
+      {% if available_topics.get(t.name, 0) > 0 %}
       <label class="cursor-pointer">
         <input type="checkbox" name="topic" value="{{ t.name }}" class="sr-only peer"
           {% if t.name in selected_topics %}checked{% endif %}
@@ -185,13 +150,28 @@
           border-gray-200 bg-white text-gray-500 hover:border-gray-300">
           <i class="ph ph-{{ topic_icons.get(t.name, 'circle') }}"></i>
           {{ topic_labels.get(t.name, t.name.replace('_',' ').title()) }}
-          {%- if available_topics.get(t.name, 0) > 0 -%}
           <span class="ml-0.5 font-bold text-indigo-500">{{ available_topics[t.name] }}</span>
-          {%- endif -%}
         </span>
       </label>
+      {% endif %}
       {% endfor %}
     </form>
+    {% else %}
+    <div class="flex items-center gap-1.5 flex-wrap" id="topic-chips">
+      {% for t in topics %}
+      {% if available_topics.get(t.name, 0) > 0 %}
+      <button type="button" onclick="filterTopic('{{ t.name }}')"
+        data-topic="{{ t.name }}"
+        class="topic-chip inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all
+          bg-white border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-700">
+        <i class="ph ph-{{ topic_icons.get(t.name, 'circle') }}"></i>
+        {{ topic_labels.get(t.name, t.name.replace('_',' ').title()) }}
+        <span class="font-bold text-indigo-400">{{ available_topics[t.name] }}</span>
+      </button>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
   </div>
 
   {% if total == 0 %}
@@ -204,6 +184,7 @@
 
   {% for section in sections %}
   {% if section.records %}
+  <div id="section-{{ section.topic }}" data-topic="{{ section.topic }}">
   {% if sections | length > 1 %}
   <h2 class="text-base font-semibold text-gray-700 mb-3 mt-6 flex items-center gap-2">
     <i class="ph ph-{{ section.icon }} text-indigo-500"></i>
@@ -264,6 +245,7 @@
     </div>
     {% endfor %}
   </div>
+  </div>
   {% endif %}
   {% endfor %}
 
@@ -309,4 +291,31 @@
   {% endif %}
 
 </div>
+<script>
+(function() {
+  var active = new Set();
+  window.filterTopic = function(topic) {
+    if (active.has(topic)) { active.delete(topic); } else { active.add(topic); }
+    var chips = document.querySelectorAll('.topic-chip');
+    chips.forEach(function(c) {
+      var on = active.size === 0 || active.has(c.dataset.topic);
+      c.classList.toggle('bg-indigo-100', active.has(c.dataset.topic));
+      c.classList.toggle('border-indigo-400', active.has(c.dataset.topic));
+      c.classList.toggle('text-indigo-800', active.has(c.dataset.topic));
+      c.classList.toggle('bg-white', !active.has(c.dataset.topic));
+      c.classList.toggle('border-gray-200', !active.has(c.dataset.topic));
+      c.classList.toggle('text-gray-500', !active.has(c.dataset.topic));
+    });
+    var sections = document.querySelectorAll('[data-topic]');
+    var visible = 0;
+    sections.forEach(function(s) {
+      var show = active.size === 0 || active.has(s.dataset.topic);
+      s.style.display = show ? '' : 'none';
+      if (show) visible += parseInt(s.querySelectorAll('.grid > div').length);
+    });
+    var cnt = document.getElementById('visible-count');
+    if (cnt) cnt.textContent = visible + (visible === 1 ? ' community' : ' communities');
+  };
+})();
+</script>
 {% endblock %}
