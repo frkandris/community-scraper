@@ -792,15 +792,23 @@ async def results(request: Request):
 
 @admin.get("/results/{city}/{topic}", response_class=HTMLResponse)
 async def result_detail(request: Request, city: str, topic: str):
+    import hashlib
     file = DATA_DIR / _normalize(city) / _normalize(topic) / "communities.json"
     records = []
     if file.exists():
         records = [CommunityRecord.model_validate(r) for r in json.loads(file.read_text(encoding="utf-8"))]
 
+    # Build url→hash map so template can link to cache detail
+    url_hashes = {
+        r.source_url: hashlib.sha256(r.source_url.encode()).hexdigest()[:16]
+        for r in records if r.source_url
+    }
+
     return templates.TemplateResponse(request, "result_detail.html", {
         "city": city,
         "topic": topic,
         "records": records,
+        "url_hashes": url_hashes,
     })
 
 
