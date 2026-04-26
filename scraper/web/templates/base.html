@@ -13,17 +13,25 @@
 <body class="bg-gray-100 min-h-screen font-sans antialiased">
 
 <nav class="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
-  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-6">
-    <a href="/admin" class="font-bold text-gray-900 text-sm">🕷 Admin</a>
-    <a href="/admin" class="text-sm text-gray-600 hover:text-gray-900">Dashboard</a>
-    <a href="/admin/results" class="text-sm text-gray-600 hover:text-gray-900">Results</a>
-    <a href="/admin/cache" class="text-sm text-gray-600 hover:text-gray-900">Cache</a>
-    <a href="/admin/config" class="text-sm text-gray-600 hover:text-gray-900">Config</a>
-    <a href="/admin/logs" class="text-sm text-gray-600 hover:text-gray-900">Logs</a>
-    <a href="/admin/history" class="text-sm text-gray-600 hover:text-gray-900">History</a>
-    <a href="/admin/prompts" class="text-sm text-gray-600 hover:text-gray-900">Prompts</a>
-    <a href="/admin/subscriptions" class="text-sm text-gray-600 hover:text-gray-900">Subscribers</a>
-    <a href="/" class="text-sm text-indigo-500 hover:text-indigo-700 ml-2">← Public site</a>
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-1">
+    <a href="/admin" class="font-bold text-gray-900 text-sm mr-4 shrink-0">🕷 Admin</a>
+    {% set _p = request.url.path %}
+    {% macro navlink(href, label, active) %}
+    <a href="{{ href }}" class="px-2.5 py-1 rounded-lg text-sm transition-colors
+      {% if active %}bg-gray-100 text-gray-900 font-semibold{% else %}text-gray-600 hover:text-gray-900 hover:bg-gray-50{% endif %}">
+      {{ label }}
+    </a>
+    {% endmacro %}
+    {{ navlink('/admin',               'Dashboard',   _p == '/admin') }}
+    {{ navlink('/admin/results',       'Results',     _p.startswith('/admin/results')) }}
+    {{ navlink('/admin/cache',         'Cache',       _p.startswith('/admin/cache')) }}
+    {{ navlink('/admin/config',        'Config',      _p.startswith('/admin/config')) }}
+    {{ navlink('/admin/logs',          'Logs',        _p == '/admin/logs') }}
+    {{ navlink('/admin/history',       'History',     _p.startswith('/admin/history')) }}
+    {{ navlink('/admin/prompts',       'Prompts',     _p == '/admin/prompts') }}
+    {{ navlink('/admin/subscriptions', 'Subscribers', _p.startswith('/admin/subscriptions')) }}
+    <span class="w-px h-4 bg-gray-200 mx-2 shrink-0"></span>
+    <a href="/" class="text-sm text-indigo-500 hover:text-indigo-700 transition-colors">← Public</a>
     <div class="ml-auto flex items-center gap-3">
       <span class="text-xs text-gray-400 font-mono">{{ app_version }}</span>
       <form id="nav-run-form" method="POST" action="/admin/api/run" class="flex">

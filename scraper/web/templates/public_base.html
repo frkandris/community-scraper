@@ -18,10 +18,17 @@
     <a href="/" class="flex items-center gap-2 font-bold text-indigo-600 text-xl tracking-tight">
       🌐 CommUnity
     </a>
+    {% set _p = request.url.path %}
     <nav class="flex items-center gap-1">
-      <a href="/" class="px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">{{ t('nav_discover') }}</a>
-      <a href="/map" class="px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">{{ t('nav_map') }}</a>
-      <a href="/about" class="px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">{{ t('nav_about') }}</a>
+      <a href="/" class="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors
+        {% if _p == '/' or _p.startswith('/explore') %}text-gray-900 bg-gray-100{% else %}text-gray-500 hover:text-gray-900 hover:bg-gray-100{% endif %}">
+        {{ t('nav_discover') }}</a>
+      <a href="/map" class="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors
+        {% if _p.startswith('/map') %}text-gray-900 bg-gray-100{% else %}text-gray-500 hover:text-gray-900 hover:bg-gray-100{% endif %}">
+        {{ t('nav_map') }}</a>
+      <a href="/about" class="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors
+        {% if _p.startswith('/about') %}text-gray-900 bg-gray-100{% else %}text-gray-500 hover:text-gray-900 hover:bg-gray-100{% endif %}">
+        {{ t('nav_about') }}</a>
 
       <!-- Language switcher -->
       <details class="relative ml-1">
