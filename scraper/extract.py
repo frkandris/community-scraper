@@ -26,6 +26,21 @@ For 'joinable': set true only if ALL of these apply:
 Set joinable to false for: professional/competitive ensembles, paid instruction courses where you \
 are a student not a member, venues or sports facilities, one-time or annual events.
 
+Extract these additional fields when clearly stated on the page (leave null/empty if not found):
+- 'founding_year': integer year founded (e.g. 1987). Only if explicitly stated.
+- 'member_count': member count as string (e.g. "80", "200+", "~50 fő"). Only if stated.
+- 'fee': cost in original currency (e.g. "Ingyenes", "3000 Ft/év", "€10/hó"). Use the page's \
+  language. Set to "Ingyenes"/"Free"/etc. only if page explicitly says it is free.
+- 'age_range': age requirements if stated (e.g. "18+", "Mindenki", "55+").
+- 'skill_level': skill/experience level (e.g. "Minden szint", "Kezdőknek is", "Haladó szint").
+- 'join_process': how to join (e.g. "Nyílt csatlakozás", "Email szükséges", "Meghallgatón").
+- 'leader': name and/or role of the organizer/leader (e.g. "Kovács János, karmester").
+- 'email': primary contact email address (must contain @).
+- 'phone': primary phone number.
+- 'tags': 1–5 specific subtopic keywords in the page language \
+  (e.g. for running: ["trail", "maraton", "terepfutás"]).
+- 'language': primary language(s) of the group (e.g. "Magyar", "English", "Deutsch/Magyar").
+
 If nothing on the page is a real community group, return an empty communities array.
 """
 
@@ -55,6 +70,17 @@ EXTRACTION_SCHEMA = {
                     "social_links":     {"type": "array", "items": {"type": "string"}},
                     "confidence":       {"type": "number"},
                     "joinable":         {"type": "boolean"},
+                    "founding_year":    {"type": "integer"},
+                    "member_count":     {"type": "string"},
+                    "fee":              {"type": "string"},
+                    "age_range":        {"type": "string"},
+                    "skill_level":      {"type": "string"},
+                    "join_process":     {"type": "string"},
+                    "leader":           {"type": "string"},
+                    "email":            {"type": "string"},
+                    "phone":            {"type": "string"},
+                    "tags":             {"type": "array", "items": {"type": "string"}},
+                    "language":         {"type": "string"},
                 },
                 "required": ["name", "confidence", "joinable"],
             },
@@ -74,8 +100,10 @@ ENRICH_SCHEMA = {
         "website":      {"type": "string"},
         "contact":      {"type": "string"},
         "social_links": {"type": "array", "items": {"type": "string"}},
+        "email":        {"type": "string"},
+        "phone":        {"type": "string"},
     },
-    "required": ["website", "contact", "social_links"],
+    "required": ["website", "contact", "social_links", "email", "phone"],
 }
 
 
@@ -135,7 +163,7 @@ class OllamaExtractor:
 
     async def enrich(self, record: CommunityRecord, page_text: str,
                      false_positive_examples: str = "") -> CommunityRecord:
-        """Try to fill in missing website/contact/social_links from an additional page."""
+        """Try to fill in missing contact fields from an additional page."""
         user_message = (
             f"Community group: '{record.name}' in {record.city}\n\n"
             f"--- PAGE TEXT ---\n{page_text[:self.max_text_chars]}"
@@ -165,6 +193,10 @@ class OllamaExtractor:
                 updates["contact"] = enrichment["contact"]
             if not record.social_links and enrichment.get("social_links"):
                 updates["social_links"] = enrichment["social_links"]
+            if not record.email and enrichment.get("email"):
+                updates["email"] = enrichment["email"]
+            if not record.phone and enrichment.get("phone"):
+                updates["phone"] = enrichment["phone"]
 
             if updates:
                 log.debug("enrich_merged", community=record.name, fields=list(updates))
@@ -211,6 +243,17 @@ class OllamaExtractor:
                     extracted_at=extracted_at,
                     confidence=item.get("confidence"),
                     joinable=item.get("joinable", True),
+                    founding_year=item.get("founding_year") or None,
+                    member_count=item.get("member_count") or None,
+                    fee=item.get("fee") or None,
+                    age_range=item.get("age_range") or None,
+                    skill_level=item.get("skill_level") or None,
+                    join_process=item.get("join_process") or None,
+                    leader=item.get("leader") or None,
+                    email=item.get("email") or None,
+                    phone=item.get("phone") or None,
+                    tags=item.get("tags") or [],
+                    language=item.get("language") or None,
                 )
                 records.append(record)
             except Exception as exc:

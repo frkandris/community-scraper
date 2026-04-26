@@ -201,7 +201,7 @@
       <h3 class="font-semibold text-gray-900 text-base leading-snug">{{ r.name }}</h3>
 
       {% if r.description %}
-      <p class="text-sm text-gray-600 leading-relaxed">{{ r.description }}</p>
+      <p class="text-sm text-gray-600 leading-relaxed line-clamp-2">{{ r.description }}</p>
       {% endif %}
 
       <div class="grid grid-cols-1 gap-1 text-sm">
@@ -217,13 +217,34 @@
           <span>{{ r.meeting_schedule }}</span>
         </div>
         {% endif %}
-        {% if r.contact %}
+        {% if r.contact or r.email %}
         <div class="flex items-start gap-2 text-gray-600">
           <i class="ph ph-envelope text-base leading-5 shrink-0 text-gray-400"></i>
-          <span>{{ r.contact }}</span>
+          <span>{{ r.email or r.contact }}</span>
         </div>
         {% endif %}
       </div>
+
+      {# Meta chips: fee, member_count, founding_year, skill_level #}
+      {% set chips = [] %}
+      {% if r.fee %}{% set _ = chips.append({'icon': 'currency-circle-dollar', 'text': r.fee, 'color': 'green' if r.fee | lower in ('ingyenes','free','gratis','kostenlos','gratuit') else 'amber'}) %}{% endif %}
+      {% if r.member_count %}{% set _ = chips.append({'icon': 'users-three', 'text': r.member_count, 'color': 'blue'}) %}{% endif %}
+      {% if r.skill_level %}{% set _ = chips.append({'icon': 'star', 'text': r.skill_level, 'color': 'purple'}) %}{% endif %}
+      {% if r.founding_year %}{% set _ = chips.append({'icon': 'flag', 'text': r.founding_year | string, 'color': 'gray'}) %}{% endif %}
+      {% if chips %}
+      <div class="flex flex-wrap gap-1.5">
+        {% for chip in chips %}
+        <span class="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full
+          {% if chip.color == 'green' %}bg-green-50 text-green-700 border border-green-100
+          {% elif chip.color == 'amber' %}bg-amber-50 text-amber-700 border border-amber-100
+          {% elif chip.color == 'blue' %}bg-blue-50 text-blue-700 border border-blue-100
+          {% elif chip.color == 'purple' %}bg-purple-50 text-purple-700 border border-purple-100
+          {% else %}bg-gray-50 text-gray-600 border border-gray-200{% endif %}">
+          <i class="ph ph-{{ chip.icon }}"></i>{{ chip.text }}
+        </span>
+        {% endfor %}
+      </div>
+      {% endif %}
 
       {% set website_url = r.website if r.website and r.website.startswith('http') else ('https://' ~ r.website if r.website else '') %}
       {% if website_url or r.social_links %}

@@ -13,50 +13,94 @@
 <div class="space-y-4">
   {% for r in records %}
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-    <div class="flex items-start justify-between gap-4">
-      <div>
+
+    <div class="flex items-start justify-between gap-4 mb-3">
+      <div class="min-w-0">
         <h2 class="text-base font-semibold text-gray-900">{{ r.name }}</h2>
         {% if r.description %}
         <p class="text-sm text-gray-600 mt-1">{{ r.description }}</p>
         {% endif %}
       </div>
-      {% if r.confidence %}
-      <span class="shrink-0 text-xs font-medium px-2 py-0.5 rounded-full
-        {% if r.confidence >= 0.8 %}bg-green-100 text-green-700
-        {% elif r.confidence >= 0.5 %}bg-yellow-100 text-yellow-700
-        {% else %}bg-red-100 text-red-700{% endif %}">
-        {{ (r.confidence * 100)|int }}%
-      </span>
-      {% endif %}
+      <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+        {% if r.founding_year %}
+        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{{ r.founding_year }}</span>
+        {% endif %}
+        {% if r.fee %}
+        <span class="text-xs bg-green-50 text-green-700 border border-green-100 px-2 py-0.5 rounded-full">{{ r.fee }}</span>
+        {% endif %}
+        {% if r.confidence %}
+        <span class="text-xs font-medium px-2 py-0.5 rounded-full
+          {% if r.confidence >= 0.8 %}bg-green-100 text-green-700
+          {% elif r.confidence >= 0.5 %}bg-yellow-100 text-yellow-700
+          {% else %}bg-red-100 text-red-700{% endif %}">
+          {{ (r.confidence * 100)|int }}%
+        </span>
+        {% endif %}
+      </div>
     </div>
 
-    <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-sm">
       {% if r.location %}
-      <div><span class="text-gray-400">📍</span> {{ r.location }}</div>
+      <div class="flex items-start gap-1.5 text-gray-600"><span class="text-gray-400 shrink-0">📍</span> {{ r.location }}</div>
       {% endif %}
       {% if r.meeting_schedule %}
-      <div><span class="text-gray-400">🗓</span> {{ r.meeting_schedule }}</div>
+      <div class="flex items-start gap-1.5 text-gray-600"><span class="text-gray-400 shrink-0">🗓</span> {{ r.meeting_schedule }}</div>
       {% endif %}
-      {% if r.contact %}
-      <div><span class="text-gray-400">✉️</span> {{ r.contact }}</div>
+      {% if r.leader %}
+      <div class="flex items-start gap-1.5 text-gray-600"><span class="text-gray-400 shrink-0">👤</span> {{ r.leader }}</div>
+      {% endif %}
+      {% if r.member_count %}
+      <div class="flex items-start gap-1.5 text-gray-600"><span class="text-gray-400 shrink-0">👥</span> {{ r.member_count }}</div>
+      {% endif %}
+      {% if r.skill_level %}
+      <div class="flex items-start gap-1.5 text-gray-600"><span class="text-gray-400 shrink-0">⭐</span> {{ r.skill_level }}</div>
+      {% endif %}
+      {% if r.age_range %}
+      <div class="flex items-start gap-1.5 text-gray-600"><span class="text-gray-400 shrink-0">🎂</span> {{ r.age_range }}</div>
+      {% endif %}
+      {% if r.join_process %}
+      <div class="flex items-start gap-1.5 text-gray-600"><span class="text-gray-400 shrink-0">🚪</span> {{ r.join_process }}</div>
+      {% endif %}
+      {% if r.language %}
+      <div class="flex items-start gap-1.5 text-gray-600"><span class="text-gray-400 shrink-0">🌐</span> {{ r.language }}</div>
+      {% endif %}
+      {% if r.email %}
+      <div class="flex items-start gap-1.5 text-gray-600"><span class="text-gray-400 shrink-0">✉️</span>
+        <a href="mailto:{{ r.email }}" class="text-blue-600 hover:underline">{{ r.email }}</a>
+      </div>
+      {% elif r.contact %}
+      <div class="flex items-start gap-1.5 text-gray-600"><span class="text-gray-400 shrink-0">✉️</span> {{ r.contact }}</div>
+      {% endif %}
+      {% if r.phone %}
+      <div class="flex items-start gap-1.5 text-gray-600"><span class="text-gray-400 shrink-0">📞</span> {{ r.phone }}</div>
       {% endif %}
       {% if r.website %}
-      <div><span class="text-gray-400">🔗</span>
+      <div class="flex items-start gap-1.5"><span class="text-gray-400 shrink-0">🔗</span>
         <a href="{{ r.website }}" target="_blank" class="text-blue-600 hover:underline truncate">{{ r.website }}</a>
       </div>
       {% endif %}
     </div>
 
-    {% if r.social_links %}
-    <div class="mt-2 flex flex-wrap gap-2">
-      {% for link in r.social_links %}
-      <a href="{{ link }}" target="_blank"
-        class="text-xs text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-0.5 rounded">{{ link }}</a>
+    {% if r.tags %}
+    <div class="mt-2 flex flex-wrap gap-1.5">
+      {% for tag in r.tags %}
+      <span class="text-xs bg-indigo-50 text-indigo-600 border border-indigo-100 px-2 py-0.5 rounded-full">{{ tag }}</span>
       {% endfor %}
     </div>
     {% endif %}
 
-    <div class="mt-3 text-xs text-gray-400 flex items-center gap-4 flex-wrap">
+    {% if r.social_links %}
+    <div class="mt-2 flex flex-wrap gap-2">
+      {% for link in r.social_links if link.startswith('http') %}
+      <a href="{{ link }}" target="_blank"
+        class="text-xs text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-0.5 rounded">
+        {{ link | replace('https://','') | replace('http://','') | truncate(40) }}
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="mt-3 pt-3 border-t border-gray-50 text-xs text-gray-400 flex items-center gap-4 flex-wrap">
       <span>Forrás: <a href="{{ r.source_url }}" target="_blank" class="hover:underline truncate">{{ r.source_url }}</a></span>
       <span>{{ r.extracted_at[:10] }}</span>
       {% if url_hashes.get(r.source_url) %}
@@ -66,6 +110,7 @@
       </a>
       {% endif %}
     </div>
+
   </div>
   {% endfor %}
 </div>

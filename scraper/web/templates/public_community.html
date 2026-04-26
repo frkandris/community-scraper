@@ -55,41 +55,79 @@
 
     <!-- Details grid -->
     <div class="space-y-3">
-      {% if r.location %}
+
+      {% macro detail_row(icon, label, value) %}
+      {% if value %}
       <div class="flex items-start gap-3 text-sm">
         <div class="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0 mt-0.5">
-          <i class="ph ph-map-pin text-gray-500"></i>
+          <i class="ph ph-{{ icon }} text-gray-500"></i>
         </div>
         <div>
-          <div class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">{{ t('community_location') }}</div>
-          <div class="text-gray-700">{{ r.location }}</div>
+          <div class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">{{ label }}</div>
+          <div class="text-gray-700">{{ value }}</div>
         </div>
       </div>
       {% endif %}
+      {% endmacro %}
 
-      {% if r.meeting_schedule %}
-      <div class="flex items-start gap-3 text-sm">
-        <div class="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0 mt-0.5">
-          <i class="ph ph-calendar text-gray-500"></i>
-        </div>
-        <div>
-          <div class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">{{ t('community_schedule') }}</div>
-          <div class="text-gray-700">{{ r.meeting_schedule }}</div>
-        </div>
-      </div>
-      {% endif %}
+      {{ detail_row('map-pin',       t('community_location'),  r.location) }}
+      {{ detail_row('calendar',      t('community_schedule'),  r.meeting_schedule) }}
+      {{ detail_row('person-simple', 'Vezető',                 r.leader) }}
+      {{ detail_row('users-three',   'Tagok',                  r.member_count) }}
+      {{ detail_row('currency-circle-dollar', 'Részvételi díj', r.fee) }}
+      {{ detail_row('star',          'Szint',                  r.skill_level) }}
+      {{ detail_row('trend-up',      'Csatlakozás',            r.join_process) }}
+      {{ detail_row('translate',     'Nyelv',                  r.language) }}
+      {{ detail_row('baby',          'Korosztály',             r.age_range) }}
 
-      {% if r.contact %}
+      {% if r.email or r.phone or r.contact %}
       <div class="flex items-start gap-3 text-sm">
         <div class="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0 mt-0.5">
           <i class="ph ph-envelope text-gray-500"></i>
         </div>
         <div>
           <div class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">{{ t('community_contact') }}</div>
+          {% if r.email %}
+          <div class="text-gray-700"><a href="mailto:{{ r.email }}" class="text-indigo-600 hover:underline">{{ r.email }}</a></div>
+          {% endif %}
+          {% if r.phone %}
+          <div class="text-gray-700"><a href="tel:{{ r.phone }}" class="hover:text-indigo-600">{{ r.phone }}</a></div>
+          {% endif %}
+          {% if r.contact and not r.email and not r.phone %}
           <div class="text-gray-700">{{ r.contact }}</div>
+          {% endif %}
         </div>
       </div>
       {% endif %}
+
+      {% if r.founding_year %}
+      <div class="flex items-start gap-3 text-sm">
+        <div class="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0 mt-0.5">
+          <i class="ph ph-flag text-gray-500"></i>
+        </div>
+        <div>
+          <div class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">Alapítva</div>
+          <div class="text-gray-700">{{ r.founding_year }}</div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if r.tags %}
+      <div class="flex items-start gap-3 text-sm">
+        <div class="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0 mt-0.5">
+          <i class="ph ph-tag text-gray-500"></i>
+        </div>
+        <div>
+          <div class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-1.5">Témák</div>
+          <div class="flex flex-wrap gap-1.5">
+            {% for tag in r.tags %}
+            <span class="text-xs bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-full">{{ tag }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
     </div>
 
     <!-- Links -->

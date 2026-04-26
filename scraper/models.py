@@ -25,6 +25,18 @@ class CommunityRecord(BaseModel):
     confidence: float | None = None
     joinable: bool = True  # open, recurring group a person can join
     community_id: str = ""
+    # Extended profile fields
+    founding_year: int | None = None
+    member_count: str | None = None
+    fee: str | None = None
+    age_range: str | None = None
+    skill_level: str | None = None
+    join_process: str | None = None
+    leader: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    language: str | None = None
 
     @model_validator(mode="after")
     def _clean_and_generate_id(self) -> "CommunityRecord":
@@ -40,6 +52,14 @@ class CommunityRecord(BaseModel):
             lnk for lnk in self.social_links
             if isinstance(lnk, str) and lnk.strip().startswith(("http://", "https://"))
         ]
+
+        # Email must contain @
+        if self.email and "@" not in self.email:
+            self.email = None
+
+        # Tags: strip, deduplicate, cap at 8
+        if self.tags:
+            self.tags = list(dict.fromkeys(t.strip() for t in self.tags if t.strip()))[:8]
 
         if not self.community_id:
             key = f"{self.name.lower()}|{self.city.lower()}"
