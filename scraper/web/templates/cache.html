@@ -84,6 +84,7 @@
 {% if entries %}
 {% set cities = entries | map(attribute='city') | select | unique | sort | list %}
 {% set topics = entries | map(attribute='topic') | select | unique | sort | list %}
+{% set models = entries | map(attribute='extract_model') | select | unique | sort | list %}
 
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
   <table class="w-full text-sm" id="cache-table">
@@ -137,9 +138,8 @@
         <th class="px-3 py-2">
           <select id="f-model" onchange="applyFilters()"
             class="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer">
-            <option value="">All AI</option>
-            <option value="groq">Groq</option>
-            <option value="ollama">Ollama</option>
+            <option value="">All models</option>
+            {% for m in models %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
           </select>
         </th>
         <th colspan="4"></th>
@@ -154,7 +154,7 @@
       <tr class="hover:bg-gray-50 transition-colors" data-hash="{{ e.url_hash }}"
           data-city="{{ e.city }}" data-topic="{{ e.topic }}"
           data-stage="{{ 'enriched' if e.enrich_extracted_at else ('complete' if e.extracted_at else 'incomplete') }}"
-          data-model="{{ model_provider }}">
+          data-model="{{ e.extract_model or '' }}">
         <td class="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
           {% if e.city %}<span class="font-medium">{{ e.city }}</span>{% if e.topic %}<span class="text-gray-400"> / {{ e.topic.replace('_',' ') }}</span>{% endif %}
           {% else %}<span class="text-gray-400">—</span>{% endif %}
@@ -164,10 +164,13 @@
             <a href="{{ e.url }}" target="_blank"
                class="text-xs font-medium text-gray-800 hover:text-blue-600 truncate min-w-0"
                title="{{ e.url }}">{{ e.domain }}</a>
-            {% if model_provider == 'groq' %}
-            <span class="shrink-0 inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">Groq</span>
-            {% elif model_provider == 'ollama' %}
-            <span class="shrink-0 inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">Ollama</span>
+            {% if e.extract_model %}
+            {%- set short_model = e.extract_model | replace('-versatile','') | replace('-instant','') | replace('-preview','') | replace(':latest','') -%}
+            <span title="{{ e.extract_model }}"
+              class="shrink-0 inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full
+              {{ 'bg-purple-100 text-purple-700' if model_provider == 'groq' else 'bg-green-100 text-green-700' }}">
+              {{ short_model | truncate(18, true, '…', 0) }}
+            </span>
             {% endif %}
           </div>
         </td>
@@ -284,11 +287,19 @@ function modelProvider(m) {
   if (!m) return '';
   return m.includes(':') ? 'ollama' : 'groq';
 }
+function shortModel(m) {
+  if (!m) return '';
+  return m.replace(/-versatile|-instant|-preview/g, '').replace(/:latest$/, '');
+}
 function modelBadge(m) {
+  if (!m) return '';
   const p = modelProvider(m);
-  if (p === 'groq')   return '<span class="shrink-0 inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">Groq</span>';
-  if (p === 'ollama') return '<span class="shrink-0 inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">Ollama</span>';
-  return '';
+  const s = shortModel(m);
+  const short = s.length > 18 ? s.slice(0, 17) + '…' : s;
+  const cls = p === 'groq'
+    ? 'bg-purple-100 text-purple-700'
+    : 'bg-green-100 text-green-700';
+  return `<span title="${m}" class="shrink-0 inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${cls}">${short}</span>`;
 }
 
 function rowHtml(e) {
@@ -298,8 +309,7 @@ function rowHtml(e) {
   const records = e.extracted_at ? e.record_count : '<span class="text-gray-300">—</span>';
   const h = e.url_hash;
   const stage = e.enrich_extracted_at ? 'enriched' : (e.extracted_at ? 'complete' : 'incomplete');
-  const mp = modelProvider(e.extract_model);
-  return `<tr class="hover:bg-gray-50 transition-colors" data-hash="${h}" data-city="${e.city||''}" data-topic="${e.topic||''}" data-stage="${stage}" data-model="${mp}">
+  return `<tr class="hover:bg-gray-50 transition-colors" data-hash="${h}" data-city="${e.city||''}" data-topic="${e.topic||''}" data-stage="${stage}" data-model="${e.extract_model||''}">
     <td class="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">${city}</td>
     <td class="px-4 py-3 max-w-xs">
       <div class="flex items-center gap-1.5 min-w-0">
