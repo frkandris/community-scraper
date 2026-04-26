@@ -55,51 +55,75 @@
 <!-- Pipeline audit trail -->
 <div class="space-y-1">
 
+{# helper macro for collapsible stage card #}
+{% macro stage_header(num, title, active, color, meta='', clear_action='', clear_label='') %}
+<div class="flex items-center gap-3 px-5 py-3 {% if active %}bg-{{ color }}-50 border-b border-{{ color }}-100{% endif %} cursor-pointer select-none" onclick="this.closest('details').open = !this.closest('details').open">
+  <span class="w-6 h-6 rounded-full {% if active %}bg-{{ color }}-500 text-white{% else %}bg-gray-200 text-gray-400{% endif %} text-xs font-bold flex items-center justify-center shrink-0">{{ num }}</span>
+  <h2 class="text-sm font-semibold {% if active %}text-{{ color }}-800{% else %}text-gray-400{% endif %}">{{ title }}</h2>
+  {% if meta %}<span class="text-xs {% if active %}text-{{ color }}-500{% else %}text-gray-400{% endif %}">{{ meta }}</span>{% endif %}
+  {% if clear_action and active %}
+  <form method="POST" action="{{ clear_action }}" onsubmit="event.stopPropagation(); return confirm('{{ clear_label }}?')" class="ml-auto">
+    <button class="text-xs text-gray-400 hover:text-red-500 transition-colors" onclick="event.stopPropagation()">✕ clear</button>
+  </form>
+  {% endif %}
+  <span class="ml-auto text-gray-300 text-xs {% if clear_action and active %}hidden{% endif %}">▾</span>
+</div>
+{% endmacro %}
+
 {# ── Stage 1: Search Queries ─────────────────────────────────────────────────── #}
-{% if entry.source_queries %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-  <div class="flex items-center gap-3 px-5 py-3 bg-blue-50 border-b border-blue-100">
-    <span class="w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center shrink-0">1</span>
-    <h2 class="text-sm font-semibold text-blue-800">Search Queries</h2>
-    <span class="text-xs text-blue-500 ml-1">{{ entry.source_queries|length }} queries → this URL</span>
-  </div>
-  <div class="px-5 py-4 space-y-1">
-    {% for q in entry.source_queries %}
-    <div class="flex items-center gap-2 text-xs text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
-      <span class="text-gray-400 font-mono shrink-0">q{{ loop.index }}</span>
-      <span class="font-mono">{{ q }}</span>
+<details {% if entry.source_queries %}open{% endif %} class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+  <summary class="list-none">
+    {{ stage_header('1', 'Search Queries',
+        entry.source_queries,
+        'blue',
+        (entry.source_queries|length ~ ' queries → this URL') if entry.source_queries else '— not recorded') }}
+  </summary>
+  {% if entry.source_queries %}
+  <div class="px-5 py-4 space-y-3">
+    <div class="space-y-1">
+      {% for q in entry.source_queries %}
+      <div class="flex items-center gap-2 text-xs text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
+        <span class="text-gray-400 font-mono shrink-0">q{{ loop.index }}</span>
+        <span class="font-mono">{{ q }}</span>
+      </div>
+      {% endfor %}
     </div>
-    {% endfor %}
-  </div>
-</div>
-{% else %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-  <div class="flex items-center gap-3 px-5 py-3">
-    <span class="w-6 h-6 rounded-full bg-gray-200 text-gray-500 text-xs font-bold flex items-center justify-center shrink-0">1</span>
-    <h2 class="text-sm font-semibold text-gray-400">Search Queries</h2>
-    <span class="text-xs text-gray-400">— not recorded for this entry</span>
-  </div>
-</div>
-{% endif %}
-
-<div class="flex justify-center py-0.5 text-gray-300">↓</div>
-
-{# ── Stage 2: Fetch ──────────────────────────────────────────────────────────── #}
-<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-  <div class="flex items-center gap-3 px-5 py-3 {% if entry.scraped_at %}bg-blue-50 border-b border-blue-100{% endif %}">
-    <span class="w-6 h-6 rounded-full {% if entry.scraped_at %}bg-blue-500 text-white{% else %}bg-gray-200 text-gray-400{% endif %} text-xs font-bold flex items-center justify-center shrink-0">2</span>
-    <h2 class="text-sm font-semibold {% if entry.scraped_at %}text-blue-800{% else %}text-gray-400{% endif %}">↓ Fetch</h2>
-    {% if entry.scraped_at %}
-    <span class="text-xs text-blue-600 font-mono">{{ entry.scraped_at[:16].replace('T',' ') }}</span>
-    {% if entry.scrape_duration_s %}<span class="text-xs text-blue-400">· {{ entry.scrape_duration_s | fmt_dur }}</span>{% endif %}
-    <form method="POST" action="/admin/cache/{{ entry.url_hash }}/delete-scraped"
-          onsubmit="return confirm('Delete scraped text?')" class="ml-auto">
-      <button class="text-xs text-gray-400 hover:text-red-500 transition-colors">✕ clear</button>
-    </form>
-    {% else %}
-    <span class="text-xs text-gray-400">— not done</span>
+    {% if related_entries %}
+    <details>
+      <summary class="text-xs font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none list-none flex items-center gap-1.5">
+        <span class="text-gray-300">▶</span> Other pages from same {{ entry.city }} / {{ entry.topic.replace('_',' ') }} search
+        <span class="text-gray-400 font-normal">({{ related_entries|length }})</span>
+      </summary>
+      <div class="mt-2 space-y-1">
+        {% for e in related_entries %}
+        <div class="flex items-center gap-2 text-xs">
+          <span class="w-1.5 h-1.5 rounded-full shrink-0
+            {% if e.enrich_extracted_at %}bg-amber-400
+            {% elif e.extracted_at %}bg-purple-400
+            {% elif e.scraped_at %}bg-blue-400
+            {% else %}bg-gray-300{% endif %}"></span>
+          <a href="/admin/cache/{{ e.url_hash }}" class="text-blue-600 hover:underline truncate">{{ e.url }}</a>
+        </div>
+        {% endfor %}
+      </div>
+    </details>
     {% endif %}
   </div>
+  {% endif %}
+</details>
+
+<div class="flex justify-center py-0.5 text-gray-300 text-xs">↓</div>
+
+{# ── Stage 2: Fetch ──────────────────────────────────────────────────────────── #}
+<details {% if entry.scraped_at %}open{% endif %} class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+  <summary class="list-none">
+    {{ stage_header('2', '↓ Fetch',
+        entry.scraped_at,
+        'blue',
+        ((entry.scraped_at[:16].replace('T',' ') ~ ' · ' ~ (entry.scrape_duration_s|fmt_dur)) if entry.scraped_at else '— not done'),
+        '/admin/cache/' ~ entry.url_hash ~ '/delete-scraped',
+        'Delete scraped text') }}
+  </summary>
   {% if entry.raw_text %}
   <div class="px-5 py-4">
     <details>
@@ -110,34 +134,26 @@
     </details>
   </div>
   {% endif %}
-</div>
+</details>
 
-<div class="flex justify-center py-0.5 text-gray-300">↓</div>
+<div class="flex justify-center py-0.5 text-gray-300 text-xs">↓</div>
 
 {# ── Stage 3: AI Extraction ──────────────────────────────────────────────────── #}
-<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-  <div class="flex items-center gap-3 px-5 py-3 {% if entry.extracted_at %}bg-purple-50 border-b border-purple-100{% endif %}">
-    <span class="w-6 h-6 rounded-full {% if entry.extracted_at %}bg-purple-500 text-white{% else %}bg-gray-200 text-gray-400{% endif %} text-xs font-bold flex items-center justify-center shrink-0">3</span>
-    <h2 class="text-sm font-semibold {% if entry.extracted_at %}text-purple-800{% else %}text-gray-400{% endif %}">⟳ AI Extraction</h2>
-    {% if entry.extracted_at %}
-    <span class="text-xs text-purple-600 font-mono">{{ entry.extracted_at[:16].replace('T',' ') }}</span>
-    {% if entry.extract_duration_s %}<span class="text-xs text-purple-400">· {{ entry.extract_duration_s | fmt_dur }}</span>{% endif %}
-    <span class="text-xs bg-purple-100 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full font-mono">{{ ollama_model }}</span>
-    <span class="text-xs text-purple-500">{{ entry.records|length if entry.records else 0 }} records</span>
-    <form method="POST" action="/admin/cache/{{ entry.url_hash }}/delete-extracted"
-          onsubmit="return confirm('Delete AI extraction?')" class="ml-auto">
-      <button class="text-xs text-gray-400 hover:text-red-500 transition-colors">✕ clear</button>
-    </form>
-    {% else %}
-    <span class="text-xs text-gray-400">— not done</span>
-    {% endif %}
-  </div>
+<details {% if entry.extracted_at %}open{% endif %} class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+  <summary class="list-none">
+    {{ stage_header('3', '🧠 AI Extraction',
+        entry.extracted_at,
+        'purple',
+        ((entry.extracted_at[:16].replace('T',' ') ~ ' · ' ~ (entry.extract_duration_s|fmt_dur) ~ ' · ' ~ (entry.records|length if entry.records else 0) ~ ' records') if entry.extracted_at else '— not done'),
+        '/admin/cache/' ~ entry.url_hash ~ '/delete-extracted',
+        'Delete AI extraction') }}
+  </summary>
   {% if entry.extracted_at %}
   <div class="px-5 py-4 space-y-3">
 
     <details>
       <summary class="text-xs font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none list-none flex items-center gap-1.5">
-        <span class="text-gray-300">▶</span> System prompt <span class="text-gray-400 font-normal">(current version)</span>
+        <span class="text-gray-300">▶</span> System prompt <span class="text-gray-400 font-normal">(current)</span>
       </summary>
       <pre class="mt-2 text-xs text-gray-600 bg-gray-50 rounded-lg p-3 overflow-auto max-h-64 whitespace-pre-wrap leading-relaxed">{{ extract_system_prompt }}</pre>
     </details>
@@ -145,7 +161,7 @@
     {% if extract_user_prompt %}
     <details>
       <summary class="text-xs font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none list-none flex items-center gap-1.5">
-        <span class="text-gray-300">▶</span> User prompt <span class="text-gray-400 font-normal">(reconstructed from stored content)</span>
+        <span class="text-gray-300">▶</span> User prompt <span class="text-gray-400 font-normal">(reconstructed)</span>
       </summary>
       <pre class="mt-2 text-xs text-gray-600 bg-gray-50 rounded-lg p-3 overflow-auto max-h-64 whitespace-pre-wrap leading-relaxed">{{ extract_user_prompt }}</pre>
     </details>
@@ -194,30 +210,25 @@
 
   </div>
   {% endif %}
-</div>
+</details>
 
-<div class="flex justify-center py-0.5 text-gray-300">↓</div>
+<div class="flex justify-center py-0.5 text-gray-300 text-xs">↓</div>
 
 {# ── Stage 4: Enrichment Research ────────────────────────────────────────────── #}
 {% set has_enrich = entry.enrich_extracted_at or entry.enrich_log %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-  <div class="flex items-center gap-3 px-5 py-3 {% if has_enrich %}bg-amber-50 border-b border-amber-100{% endif %}">
-    <span class="w-6 h-6 rounded-full {% if has_enrich %}bg-amber-500 text-white{% else %}bg-gray-200 text-gray-400{% endif %} text-xs font-bold flex items-center justify-center shrink-0">4</span>
-    <h2 class="text-sm font-semibold {% if has_enrich %}text-amber-800{% else %}text-gray-400{% endif %}">↓ Enrichment Research</h2>
-    {% if entry.enrich_extracted_at %}
-    <span class="text-xs text-amber-600 font-mono">{{ entry.enrich_extracted_at[:16].replace('T',' ') }}</span>
-    {% if entry.enrich_extract_duration_s %}<span class="text-xs text-amber-400">· {{ entry.enrich_extract_duration_s | fmt_dur }}</span>{% endif %}
-    {% if entry.enrich_count %}<span class="text-xs text-amber-600 font-medium">{{ entry.enrich_count }} enriched</span>{% endif %}
-    {% else %}
-    <span class="text-xs text-gray-400">— not done</span>
-    {% endif %}
-  </div>
+<details {% if has_enrich %}open{% endif %} class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+  <summary class="list-none">
+    {{ stage_header('4', '↓ Enrichment Research',
+        has_enrich,
+        'amber',
+        ((entry.enrich_extracted_at[:16].replace('T',' ') ~ ' · ' ~ (entry.enrich_extract_duration_s|fmt_dur) ~ ' · ' ~ entry.enrich_count ~ ' enriched') if entry.enrich_extracted_at else '— not done')) }}
+  </summary>
   {% if entry.enrich_log %}
   <div class="px-5 py-4 space-y-4">
 
     <details>
       <summary class="text-xs font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none list-none flex items-center gap-1.5">
-        <span class="text-gray-300">▶</span> Enrich prompts <span class="text-gray-400 font-normal">(current version)</span>
+        <span class="text-gray-300">▶</span> Enrich prompts <span class="text-gray-400 font-normal">(current)</span>
       </summary>
       <div class="mt-3 space-y-3">
         <div>
@@ -232,8 +243,8 @@
     </details>
 
     {% for log_entry in entry.enrich_log %}
-    <div class="border border-gray-100 rounded-xl overflow-hidden">
-      <div class="flex items-center gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+    <details class="border border-gray-100 rounded-xl overflow-hidden">
+      <summary class="list-none flex items-center gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-100 cursor-pointer hover:bg-gray-100 select-none">
         <span class="font-semibold text-xs text-gray-800">{{ log_entry.community_name }}</span>
         {% if log_entry.enriched %}
         <span class="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">
@@ -244,7 +255,8 @@
         {% else %}
         <span class="text-[10px] text-gray-400">enrichment not needed</span>
         {% endif %}
-      </div>
+        <span class="ml-auto text-gray-300 text-xs">▾</span>
+      </summary>
       {% if log_entry.search_query %}
       <div class="px-4 py-3 space-y-2 text-xs">
         <div class="flex items-start gap-2">
@@ -257,15 +269,10 @@
           <div class="space-y-1 min-w-0">
             {% for u in log_entry.research_urls %}
             <div class="flex items-center gap-1.5">
-              {% if u.success %}
-              <span class="text-green-600 font-bold shrink-0">✓</span>
-              {% elif u.fetched %}
-              <span class="text-yellow-500 shrink-0">~</span>
-              {% else %}
-              <span class="text-red-400 shrink-0">✕</span>
-              {% endif %}
-              <a href="{{ u.url }}" target="_blank"
-                 class="text-blue-600 hover:underline truncate min-w-0">{{ u.url }}</a>
+              {% if u.success %}<span class="text-green-600 font-bold shrink-0">✓</span>
+              {% elif u.fetched %}<span class="text-yellow-500 shrink-0">~</span>
+              {% else %}<span class="text-red-400 shrink-0">✕</span>{% endif %}
+              <a href="{{ u.url }}" target="_blank" class="text-blue-600 hover:underline truncate min-w-0">{{ u.url }}</a>
             </div>
             {% endfor %}
           </div>
@@ -273,28 +280,23 @@
         {% endif %}
       </div>
       {% endif %}
-    </div>
+    </details>
     {% endfor %}
 
   </div>
   {% endif %}
-</div>
+</details>
 
-<div class="flex justify-center py-0.5 text-gray-300">↓</div>
+<div class="flex justify-center py-0.5 text-gray-300 text-xs">↓</div>
 
 {# ── Stage 5: Community Store ─────────────────────────────────────────────────── #}
-<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-  <div class="flex items-center gap-3 px-5 py-3 {% if store_records %}bg-green-50 border-b border-green-100{% endif %}">
-    <span class="w-6 h-6 rounded-full {% if store_records %}bg-green-500 text-white{% else %}bg-gray-200 text-gray-400{% endif %} text-xs font-bold flex items-center justify-center shrink-0">5</span>
-    <h2 class="text-sm font-semibold {% if store_records %}text-green-800{% else %}text-gray-400{% endif %}">💾 Community Store</h2>
-    {% if store_records %}
-    <span class="text-xs text-green-600">{{ store_records|length }} records from this URL</span>
-    {% elif entry.extracted_at %}
-    <span class="text-xs text-yellow-600">extraction done but nothing committed to store</span>
-    {% else %}
-    <span class="text-xs text-gray-400">— no records</span>
-    {% endif %}
-  </div>
+<details {% if store_records %}open{% endif %} class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+  <summary class="list-none">
+    {{ stage_header('5', '💾 Community Store',
+        store_records,
+        'green',
+        (store_records|length ~ ' records from this URL') if store_records else ('extraction done but nothing committed' if entry.extracted_at else '— no records')) }}
+  </summary>
   {% if store_records %}
   <div class="px-5 py-4 space-y-2">
     {% for r in store_records %}
@@ -303,8 +305,7 @@
         <div class="flex items-center gap-2 flex-wrap">
           <span class="font-semibold text-gray-800">{{ r.name }}</span>
           {% if r.community_id %}
-          <a href="{{ r.community_url }}" target="_blank"
-             class="text-indigo-500 hover:text-indigo-700 text-[10px] font-medium">↗ public page</a>
+          <a href="{{ r.community_url }}" target="_blank" class="text-indigo-500 hover:text-indigo-700 text-[10px] font-medium">↗ public page</a>
           {% endif %}
         </div>
         <span class="text-gray-400 font-mono shrink-0">{{ r.extracted_at[:10] if r.extracted_at else '' }}</span>
@@ -321,28 +322,22 @@
     {% endfor %}
   </div>
   {% endif %}
-</div>
+</details>
 
-<div class="flex justify-center py-0.5 text-gray-300">↓</div>
+<div class="flex justify-center py-0.5 text-gray-300 text-xs">↓</div>
 
 {# ── Stage 6: Schema.org ──────────────────────────────────────────────────────── #}
-<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-  <div class="flex items-center gap-3 px-5 py-3 {% if schema_json and schema_json != '{}' %}bg-indigo-50 border-b border-indigo-100{% endif %}">
-    <span class="w-6 h-6 rounded-full {% if schema_json and schema_json != '{}' %}bg-indigo-500 text-white{% else %}bg-gray-200 text-gray-400{% endif %} text-xs font-bold flex items-center justify-center shrink-0">6</span>
-    <h2 class="text-sm font-semibold {% if schema_json and schema_json != '{}' %}text-indigo-800{% else %}text-gray-400{% endif %}">🏷️ Schema.org JSON-LD</h2>
-    <span class="text-xs text-indigo-400">structured data for search engines</span>
-  </div>
+{% set has_schema = schema_json and schema_json != '{}' %}
+<details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+  <summary class="list-none">
+    {{ stage_header('6', '🏷️ Schema.org JSON-LD', has_schema, 'indigo', 'structured data for search engines') }}
+  </summary>
   {% if schema_json %}
   <div class="px-5 py-4">
-    <details open>
-      <summary class="text-xs font-medium text-gray-700 cursor-pointer hover:text-gray-900 select-none list-none flex items-center gap-1.5">
-        <span class="text-gray-400">▼</span> JSON-LD output
-      </summary>
-      <pre class="mt-3 text-xs text-gray-600 bg-gray-50 rounded-lg p-3 overflow-auto max-h-96 whitespace-pre-wrap leading-relaxed">{{ schema_json }}</pre>
-    </details>
+    <pre class="text-xs text-gray-600 bg-gray-50 rounded-lg p-3 overflow-auto max-h-96 whitespace-pre-wrap leading-relaxed">{{ schema_json }}</pre>
   </div>
   {% endif %}
-</div>
+</details>
 
 </div>{# end pipeline #}
 

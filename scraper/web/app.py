@@ -1059,6 +1059,14 @@ async def cache_detail(request: Request, url_hash: str):
             page_text=entry.get("raw_text", "")[:max_text_chars],
         )
 
+    # Other cache entries from the same city/topic pair
+    related_entries: list[dict] = []
+    if city and topic:
+        related_entries = [
+            e for e in app_state.cache_manager.get_index()
+            if e.get("city") == city and e.get("topic") == topic and e.get("url_hash") != url_hash
+        ]
+
     return templates.TemplateResponse(request, "cache_detail.html", {
         "entry": entry,
         "store_records": store_records,
@@ -1069,6 +1077,7 @@ async def cache_detail(request: Request, url_hash: str):
         "enrich_system_prompt": ENRICH_SYSTEM_PROMPT,
         "enrich_schema": json.dumps(ENRICH_SCHEMA, indent=2),
         "ollama_model": ollama_model,
+        "related_entries": related_entries,
     })
 
 
