@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Prompts – Community Scraper{% endblock %}
+{% block content %}
+
+<style>
+.diff-add { background: #dcfce7; color: #15803d; display: inline; }
+.diff-del { background: #fee2e2; color: #dc2626; display: inline; text-decoration: line-through; }
+</style>
+
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold text-gray-900">Prompt History</h1>
+  <a href="/admin/results" class="text-sm text-blue-600 hover:text-blue-800">← Results</a>
+</div>
+
+<!-- Current effective prompt -->
+<details open class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+  <summary class="list-none flex items-center gap-3 px-5 py-3 bg-blue-50 border-b border-blue-100 cursor-pointer hover:bg-blue-100 select-none">
+    <span class="text-sm font-semibold text-blue-800">Current extraction prompt</span>
+    <span class="text-xs text-blue-500 ml-1">{{ false_positives|length }} false positive example(s) applied</span>
+    <span class="ml-auto text-gray-400 text-xs">▾</span>
+  </summary>
+  <div class="px-5 py-4">
+    <pre class="text-xs text-gray-700 bg-gray-50 rounded-lg p-3 overflow-auto max-h-80 whitespace-pre-wrap leading-relaxed">{{ current_prompt }}</pre>
+  </div>
+</details>
+
+<!-- False positives list -->
+{% if false_positives %}
+<details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+  <summary class="list-none flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 select-none">
+    <span class="text-sm font-semibold text-gray-700">False positives</span>
+    <span class="text-xs text-red-500 font-medium">{{ false_positives|length }}</span>
+    <span class="ml-auto text-gray-400 text-xs">▾</span>
+  </summary>
+  <div class="px-5 py-4">
+    <div class="space-y-2">
+      {% for fp in false_positives %}
+      <div class="flex items-start gap-3 text-xs border-l-2 border-red-300 pl-3 py-1">
+        <div class="min-w-0">
+          <span class="font-semibold text-gray-800">{{ fp.name }}</span>
+          <span class="text-gray-400 mx-1">·</span>
+          <span class="text-gray-500">{{ fp.city }} / {{ fp.topic.replace('_',' ') }}</span>
+          <div class="text-gray-500 mt-0.5 italic">{{ fp.reason }}</div>
+        </div>
+        <form method="POST" action="/admin/false-positive/remove" class="shrink-0">
+          <input type="hidden" name="name" value="{{ fp.name }}">
+          <input type="hidden" name="city" value="{{ fp.city }}">
+          <input type="hidden" name="topic" value="{{ fp.topic }}">
+          <button type="submit" class="text-gray-300 hover:text-red-500 transition-colors" title="Remove">✕</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</details>
+{% endif %}
+
+<!-- Version history -->
+<h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Version history</h2>
+
+{% if history %}
+<div class="space-y-2">
+  {% for v in history %}
+  <details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <summary class="list-none flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 select-none">
+      <span class="text-xs font-mono text-gray-400 shrink-0">v{{ v.version }}</span>
+      <span class="text-sm font-medium text-gray-700">{{ v.timestamp[:16].replace('T',' ') }} UTC</span>
+      <span class="text-xs text-gray-400">{{ v.fp_count }} FP example(s)</span>
+      <span class="ml-auto text-gray-400 text-xs">▾</span>
+    </summary>
+    <div class="px-5 py-4">
+      <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">Diff from previous version</div>
+      <pre class="text-xs bg-gray-50 rounded-lg p-3 overflow-auto max-h-64 whitespace-pre-wrap leading-relaxed font-mono">{{ v.diff_html | safe }}</pre>
+    </div>
+  </details>
+  {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center text-sm text-gray-400">
+  No prompt history yet — mark a false positive to create the first version.
+</div>
+{% endif %}
+
+{% endblock %}

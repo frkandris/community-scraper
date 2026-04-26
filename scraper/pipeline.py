@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Callable
 import structlog
 
 from .extract import OllamaExtractor
+from .false_positives import build_prompt_section
+from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
 from .search import BraveSearchClient, SearXNGClient, build_queries
 from .store import save_results, update_metadata
@@ -199,6 +201,7 @@ async def _run_full(
         searxng = SearXNGClient(config.searxng_url, rate_limit_seconds=config.search_rate_limit)
         log.info("search_client", backend="searxng")
     semaphore = asyncio.Semaphore(config.fetch_max_concurrent)
+    all_fps = load_false_positives(config.data_dir)
     total_new = 0
     pair_logs: list[dict] = []
 
@@ -279,6 +282,9 @@ async def _run_full(
                     extracted = await extractor.extract(
                         text=text, city=city.name, topic=topic.name,
                         locale=city.locale, source_url=url,
+                        false_positive_examples=build_prompt_section(
+                            all_fps, city=city.name, topic=topic.name
+                        ),
                     )
                 finally:
                     extract_dur = time.monotonic() - t0

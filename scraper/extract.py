@@ -101,6 +101,7 @@ class OllamaExtractor:
         topic: str,
         locale: str,
         source_url: str,
+        false_positive_examples: str = "",
     ) -> list[CommunityRecord]:
         truncated = text[: self.max_text_chars]
         user_message = USER_PROMPT_TEMPLATE.format(
@@ -109,10 +110,11 @@ class OllamaExtractor:
             source_url=source_url,
             page_text=truncated,
         )
+        system = SYSTEM_PROMPT + false_positive_examples
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": system},
                 {"role": "user", "content": user_message},
             ],
             "stream": False,

@@ -21,6 +21,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from ..false_positives import (add as fp_add, diff_html as fp_diff_html,
+                               load as fp_load, load_history as fp_load_history,
+                               remove as fp_remove, build_prompt_section)
 from ..extract import (ENRICH_SCHEMA, ENRICH_SYSTEM_PROMPT, EXTRACTION_SCHEMA,
                        SYSTEM_PROMPT, USER_PROMPT_TEMPLATE, OllamaExtractor)
 from ..fetch import fetch_and_clean
@@ -804,11 +807,58 @@ async def result_detail(request: Request, city: str, topic: str):
         for r in records if r.source_url
     }
 
+    false_positives = fp_load(DATA_DIR) if DATA_DIR.exists() else []
+    fp_set = {(fp["name"], fp["city"], fp["topic"]) for fp in false_positives}
+
     return templates.TemplateResponse(request, "result_detail.html", {
         "city": city,
         "topic": topic,
         "records": records,
         "url_hashes": url_hashes,
+        "fp_set": fp_set,
+    })
+
+
+@admin.post("/false-positive/add")
+async def fp_add_route(
+    name: str = Form(...),
+    city: str = Form(...),
+    topic: str = Form(...),
+    reason: str = Form(...),
+    source_url: str = Form(""),
+):
+    fp_add(DATA_DIR, name, city, topic, reason, source_url)
+    return RedirectResponse(f"/admin/results/{city}/{topic}", status_code=302)
+
+
+@admin.post("/false-positive/remove")
+async def fp_remove_route(
+    name: str = Form(...),
+    city: str = Form(...),
+    topic: str = Form(...),
+):
+    fp_remove(DATA_DIR, name, city, topic)
+    return RedirectResponse(f"/admin/results/{city}/{topic}", status_code=302)
+
+
+@admin.get("/prompts", response_class=HTMLResponse)
+async def prompts_page(request: Request):
+    history = fp_load_history(DATA_DIR) if DATA_DIR.exists() else []
+    fps = fp_load(DATA_DIR) if DATA_DIR.exists() else []
+    current_prompt = SYSTEM_PROMPT + build_prompt_section(fps)
+
+    versioned: list[dict] = []
+    for i, v in enumerate(reversed(history)):
+        prev_content = history[-(i + 2)]["content"] if i + 1 < len(history) else SYSTEM_PROMPT
+        versioned.append({
+            **v,
+            "diff_html": fp_diff_html(prev_content, v["content"]),
+        })
+
+    return templates.TemplateResponse(request, "prompts.html", {
+        "history": versioned,
+        "current_prompt": current_prompt,
+        "false_positives": fps,
     })
 
 
