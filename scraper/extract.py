@@ -60,6 +60,10 @@ USER_PROMPT_TEMPLATE = """\
 Extract all {topic} community groups located in or near {city} from the following web page text.
 The page was found at: {source_url}
 
+IMPORTANT: Only include communities that are actually based in {city} or its immediate surroundings. \
+If the page is a national/regional directory listing clubs from many different cities, \
+skip communities that are clearly located elsewhere. When in doubt, set confidence below 0.5.
+
 --- PAGE TEXT START ---
 {page_text}
 --- PAGE TEXT END ---
