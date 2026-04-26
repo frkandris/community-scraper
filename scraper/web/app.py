@@ -596,19 +596,23 @@ async def public_feedback(
     topic: str = Form(""),
     page_url: str = Form(""),
     message: str = Form(""),
+    user_email: str = Form(""),
 ):
     if _FEEDBACK_EMAIL and message and _RESEND_API_KEY:
         try:
             import resend
             resend.api_key = _RESEND_API_KEY
+            reply_line = f"<b>Reply-to:</b> {user_email}<br>" if user_email else ""
             resend.Emails.send({
                 "from": _RESEND_FROM,
                 "to": _FEEDBACK_EMAIL,
+                "reply_to": user_email or None,
                 "subject": f"[CommUnity feedback] {community_name} – {city}",
                 "html": (
                     f"<p><b>Community:</b> {community_name}<br>"
                     f"<b>City:</b> {city}<br>"
                     f"<b>Topic:</b> {topic}<br>"
+                    f"{reply_line}"
                     f"<b>Page:</b> <a href='{page_url}'>{page_url}</a></p>"
                     f"<hr><p>{message.replace(chr(10), '<br>')}</p>"
                 ),
