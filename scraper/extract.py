@@ -133,7 +133,8 @@ class OllamaExtractor:
         raw = data.get("message", {}).get("content", "")
         return self._parse(raw, city, topic, locale, source_url)
 
-    async def enrich(self, record: CommunityRecord, page_text: str) -> CommunityRecord:
+    async def enrich(self, record: CommunityRecord, page_text: str,
+                     false_positive_examples: str = "") -> CommunityRecord:
         """Try to fill in missing website/contact/social_links from an additional page."""
         user_message = (
             f"Community group: '{record.name}' in {record.city}\n\n"
@@ -142,7 +143,7 @@ class OllamaExtractor:
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": ENRICH_SYSTEM_PROMPT},
+                {"role": "system", "content": ENRICH_SYSTEM_PROMPT + false_positive_examples},
                 {"role": "user", "content": user_message},
             ],
             "stream": False,

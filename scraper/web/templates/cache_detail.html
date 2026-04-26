@@ -200,6 +200,38 @@
             {% if rec.website %}<div><span class="font-medium text-gray-600">Website:</span> <a href="{{ rec.website }}" target="_blank" class="text-blue-600 hover:underline">{{ rec.website }}</a></div>{% endif %}
             {% if rec.social_links %}<div><span class="font-medium text-gray-600">Social:</span> {{ rec.social_links | join(' · ') }}</div>{% endif %}
           </div>
+          {# False positive toggle for extraction #}
+          {% set is_fp = (rec.name, entry.city, entry.topic) in fp_extraction %}
+          {% set fp_idx = 'ex-' ~ loop.index %}
+          <div class="mt-2 pt-2 border-t border-gray-100 flex items-center gap-2">
+            {% if is_fp %}
+            <form method="POST" action="/admin/false-positive/remove">
+              <input type="hidden" name="name" value="{{ rec.name }}">
+              <input type="hidden" name="city" value="{{ entry.city }}">
+              <input type="hidden" name="topic" value="{{ entry.topic }}">
+              <input type="hidden" name="fp_type" value="extraction">
+              <input type="hidden" name="redirect_to" value="/admin/cache/{{ current_url_hash }}">
+              <button class="text-xs text-red-500 hover:text-red-700 font-medium">✕ False positive (remove)</button>
+            </form>
+            {% else %}
+            <button type="button" onclick="showFp('{{ fp_idx }}')"
+              class="text-xs text-gray-400 hover:text-red-500 transition-colors">⚑ Mark false positive</button>
+            {% endif %}
+          </div>
+          <div id="fp-{{ fp_idx }}" class="hidden mt-2">
+            <form method="POST" action="/admin/false-positive/add" class="flex gap-2 items-start">
+              <input type="hidden" name="name" value="{{ rec.name }}">
+              <input type="hidden" name="city" value="{{ entry.city }}">
+              <input type="hidden" name="topic" value="{{ entry.topic }}">
+              <input type="hidden" name="source_url" value="{{ entry.url }}">
+              <input type="hidden" name="fp_type" value="extraction">
+              <input type="hidden" name="redirect_to" value="/admin/cache/{{ current_url_hash }}">
+              <input type="text" name="reason" required placeholder="Miért nem közösség?"
+                class="flex-1 text-xs border border-red-200 rounded-lg px-2 py-1 bg-red-50 focus:outline-none focus:ring-1 focus:ring-red-300">
+              <button type="submit" class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium whitespace-nowrap">Jelölés</button>
+              <button type="button" onclick="hideFp('{{ fp_idx }}')" class="text-xs text-gray-400 hover:text-gray-600">✕</button>
+            </form>
+          </div>
         </div>
         {% endfor %}
       </div>
@@ -243,6 +275,8 @@
     </details>
 
     {% for log_entry in entry.enrich_log %}
+    {% set enrich_fp_idx = 'en-' ~ loop.index %}
+    {% set is_enrich_fp = (log_entry.community_name, entry.city, entry.topic) in fp_enrichment %}
     <details class="border border-gray-100 rounded-xl overflow-hidden">
       <summary class="list-none flex items-center gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-100 cursor-pointer hover:bg-gray-100 select-none">
         <span class="font-semibold text-xs text-gray-800">{{ log_entry.community_name }}</span>
@@ -255,10 +289,13 @@
         {% else %}
         <span class="text-[10px] text-gray-400">enrichment not needed</span>
         {% endif %}
+        {% if is_enrich_fp %}
+        <span class="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-600 font-medium ml-1">FP</span>
+        {% endif %}
         <span class="ml-auto text-gray-300 text-xs">▾</span>
       </summary>
-      {% if log_entry.search_query %}
       <div class="px-4 py-3 space-y-2 text-xs">
+        {% if log_entry.search_query %}
         <div class="flex items-start gap-2">
           <span class="text-gray-400 shrink-0 w-12">Query</span>
           <span class="font-mono text-gray-700 bg-gray-50 rounded px-2 py-1 break-all">{{ log_entry.search_query }}</span>
@@ -278,8 +315,38 @@
           </div>
         </div>
         {% endif %}
+        {% endif %}
+        {# False positive for enrichment #}
+        <div class="pt-1 border-t border-gray-100 flex items-center gap-2">
+          {% if is_enrich_fp %}
+          <form method="POST" action="/admin/false-positive/remove">
+            <input type="hidden" name="name" value="{{ log_entry.community_name }}">
+            <input type="hidden" name="city" value="{{ entry.city }}">
+            <input type="hidden" name="topic" value="{{ entry.topic }}">
+            <input type="hidden" name="fp_type" value="enrichment">
+            <input type="hidden" name="redirect_to" value="/admin/cache/{{ current_url_hash }}">
+            <button class="text-xs text-red-500 hover:text-red-700 font-medium">✕ FP enrichment (remove)</button>
+          </form>
+          {% else %}
+          <button type="button" onclick="showFp('{{ enrich_fp_idx }}')"
+            class="text-xs text-gray-400 hover:text-red-500 transition-colors">⚑ Mark enrichment as false positive</button>
+          {% endif %}
+        </div>
+        <div id="fp-{{ enrich_fp_idx }}" class="hidden">
+          <form method="POST" action="/admin/false-positive/add" class="flex gap-2 items-start mt-1">
+            <input type="hidden" name="name" value="{{ log_entry.community_name }}">
+            <input type="hidden" name="city" value="{{ entry.city }}">
+            <input type="hidden" name="topic" value="{{ entry.topic }}">
+            <input type="hidden" name="source_url" value="{{ entry.url }}">
+            <input type="hidden" name="fp_type" value="enrichment">
+            <input type="hidden" name="redirect_to" value="/admin/cache/{{ current_url_hash }}">
+            <input type="text" name="reason" required placeholder="Mi volt helytelen az enrichment eredményében?"
+              class="flex-1 text-xs border border-red-200 rounded-lg px-2 py-1 bg-red-50 focus:outline-none focus:ring-1 focus:ring-red-300">
+            <button type="submit" class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium whitespace-nowrap">Jelölés</button>
+            <button type="button" onclick="hideFp('{{ enrich_fp_idx }}')" class="text-xs text-gray-400 hover:text-gray-600">✕</button>
+          </form>
+        </div>
       </div>
-      {% endif %}
     </details>
     {% endfor %}
 
@@ -341,4 +408,8 @@
 
 </div>{# end pipeline #}
 
+<script>
+function showFp(id) { document.getElementById('fp-' + id).classList.remove('hidden'); }
+function hideFp(id) { document.getElementById('fp-' + id).classList.add('hidden'); }
+</script>
 {% endblock %}

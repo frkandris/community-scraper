@@ -61,44 +61,10 @@
       <span>{{ r.extracted_at[:10] }}</span>
       {% if url_hashes.get(r.source_url) %}
       <a href="/admin/cache/{{ url_hashes[r.source_url] }}"
-         class="text-blue-500 hover:text-blue-700 font-medium whitespace-nowrap">
+         class="ml-auto text-blue-500 hover:text-blue-700 font-medium whitespace-nowrap">
         Pipeline →
       </a>
       {% endif %}
-
-      {% set is_fp = (r.name, city, topic) in fp_set %}
-      {% if is_fp %}
-      <form method="POST" action="/admin/false-positive/remove" class="ml-auto">
-        <input type="hidden" name="name" value="{{ r.name }}">
-        <input type="hidden" name="city" value="{{ city }}">
-        <input type="hidden" name="topic" value="{{ topic }}">
-        <button type="submit" class="text-red-500 hover:text-red-700 font-medium whitespace-nowrap">
-          ✕ False positive
-        </button>
-      </form>
-      {% else %}
-      <button type="button" onclick="openFpForm({{ loop.index }})"
-        class="ml-auto text-gray-400 hover:text-red-500 transition-colors whitespace-nowrap">
-        ⚑ Mark false positive
-      </button>
-      {% endif %}
-    </div>
-
-    <div id="fp-form-{{ loop.index }}" class="hidden mt-3 border-t border-red-100 pt-3">
-      <form method="POST" action="/admin/false-positive/add" class="flex gap-2 items-start">
-        <input type="hidden" name="name" value="{{ r.name }}">
-        <input type="hidden" name="city" value="{{ city }}">
-        <input type="hidden" name="topic" value="{{ topic }}">
-        <input type="hidden" name="source_url" value="{{ r.source_url }}">
-        <input type="text" name="reason" required placeholder="Miért false positive? (pl. nem közösség, hanem esemény)"
-          class="flex-1 text-xs border border-red-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-red-400 bg-red-50">
-        <button type="submit"
-          class="text-xs px-3 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 whitespace-nowrap font-medium">
-          Jelölés
-        </button>
-        <button type="button" onclick="closeFpForm('{{ loop.index }}')"
-          class="text-xs px-2 py-1.5 text-gray-400 hover:text-gray-600">✕</button>
-      </form>
     </div>
   </div>
   {% endfor %}
@@ -108,13 +74,5 @@
   <p class="text-gray-400">No records found for this combination.</p>
 </div>
 {% endif %}
-
-<script>
-function openFpForm(idx) {
-  document.getElementById('fp-form-' + idx).classList.remove('hidden');
-}
-function closeFpForm(idx) {
-  document.getElementById('fp-form-' + idx).classList.add('hidden');
-}
 </script>
 {% endblock %}

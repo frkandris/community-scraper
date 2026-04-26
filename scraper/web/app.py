@@ -807,15 +807,11 @@ async def result_detail(request: Request, city: str, topic: str):
         for r in records if r.source_url
     }
 
-    false_positives = fp_load(DATA_DIR) if DATA_DIR.exists() else []
-    fp_set = {(fp["name"], fp["city"], fp["topic"]) for fp in false_positives}
-
     return templates.TemplateResponse(request, "result_detail.html", {
         "city": city,
         "topic": topic,
         "records": records,
         "url_hashes": url_hashes,
-        "fp_set": fp_set,
     })
 
 
@@ -826,9 +822,11 @@ async def fp_add_route(
     topic: str = Form(...),
     reason: str = Form(...),
     source_url: str = Form(""),
+    fp_type: str = Form("extraction"),
+    redirect_to: str = Form(""),
 ):
-    fp_add(DATA_DIR, name, city, topic, reason, source_url)
-    return RedirectResponse(f"/admin/results/{city}/{topic}", status_code=302)
+    fp_add(DATA_DIR, name, city, topic, reason, source_url, fp_type=fp_type)
+    return RedirectResponse(redirect_to or f"/admin/cache", status_code=302)
 
 
 @admin.post("/false-positive/remove")
@@ -836,28 +834,30 @@ async def fp_remove_route(
     name: str = Form(...),
     city: str = Form(...),
     topic: str = Form(...),
+    fp_type: str = Form("extraction"),
+    redirect_to: str = Form(""),
 ):
-    fp_remove(DATA_DIR, name, city, topic)
-    return RedirectResponse(f"/admin/results/{city}/{topic}", status_code=302)
+    fp_remove(DATA_DIR, name, city, topic, fp_type=fp_type)
+    return RedirectResponse(redirect_to or f"/admin/cache", status_code=302)
 
 
 @admin.get("/prompts", response_class=HTMLResponse)
 async def prompts_page(request: Request):
-    history = fp_load_history(DATA_DIR) if DATA_DIR.exists() else []
     fps = fp_load(DATA_DIR) if DATA_DIR.exists() else []
-    current_prompt = SYSTEM_PROMPT + build_prompt_section(fps)
 
-    versioned: list[dict] = []
-    for i, v in enumerate(reversed(history)):
-        prev_content = history[-(i + 2)]["content"] if i + 1 < len(history) else SYSTEM_PROMPT
-        versioned.append({
-            **v,
-            "diff_html": fp_diff_html(prev_content, v["content"]),
-        })
+    def _versioned(fp_type: str, base: str) -> list[dict]:
+        history = fp_load_history(DATA_DIR, fp_type) if DATA_DIR.exists() else []
+        out = []
+        for i, v in enumerate(reversed(history)):
+            prev = history[-(i + 2)]["content"] if i + 1 < len(history) else base
+            out.append({**v, "diff_html": fp_diff_html(prev, v["content"])})
+        return out
 
     return templates.TemplateResponse(request, "prompts.html", {
-        "history": versioned,
-        "current_prompt": current_prompt,
+        "extraction_history": _versioned("extraction", SYSTEM_PROMPT),
+        "enrichment_history": _versioned("enrichment", ENRICH_SYSTEM_PROMPT),
+        "extraction_prompt": SYSTEM_PROMPT + build_prompt_section(fps, fp_type="extraction"),
+        "enrichment_prompt": ENRICH_SYSTEM_PROMPT + build_prompt_section(fps, fp_type="enrichment"),
         "false_positives": fps,
     })
 
@@ -1117,6 +1117,13 @@ async def cache_detail(request: Request, url_hash: str):
             page_text=entry.get("raw_text", "")[:max_text_chars],
         )
 
+    # False positive sets for both prompt types
+    fps = fp_load(DATA_DIR) if DATA_DIR.exists() else []
+    fp_extraction = {(fp["name"], fp["city"], fp["topic"])
+                     for fp in fps if fp.get("fp_type", "extraction") == "extraction"}
+    fp_enrichment = {(fp["name"], fp["city"], fp["topic"])
+                     for fp in fps if fp.get("fp_type") == "enrichment"}
+
     # Other cache entries from the same city/topic pair
     related_entries: list[dict] = []
     if city and topic:
@@ -1136,6 +1143,9 @@ async def cache_detail(request: Request, url_hash: str):
         "enrich_schema": json.dumps(ENRICH_SCHEMA, indent=2),
         "ollama_model": ollama_model,
         "related_entries": related_entries,
+        "fp_extraction": fp_extraction,
+        "fp_enrichment": fp_enrichment,
+        "current_url_hash": url_hash,
     })
 
 

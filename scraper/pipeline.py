@@ -35,6 +35,7 @@ async def _enrich_record(
     on_progress: "Callable[[str | None, str | None], None] | None" = None,
     timing: "dict | None" = None,
     enrich_log_entry: "dict | None" = None,
+    enrich_fp_examples: str = "",
 ) -> "CommunityRecord":
     """timing dict accumulates {"scrape": s, "extract": s, "count": n} across calls."""
     query = f'"{record.name}" {record.city}'
@@ -71,7 +72,7 @@ async def _enrich_record(
             on_progress("enrich_extract", record.source_url)
         t0 = time.monotonic()
         try:
-            enriched = await extractor.enrich(record, text)
+            enriched = await extractor.enrich(record, text, false_positive_examples=enrich_fp_examples)
         finally:
             if timing is not None:
                 timing["extract"] += time.monotonic() - t0
@@ -202,6 +203,7 @@ async def _run_full(
         log.info("search_client", backend="searxng")
     semaphore = asyncio.Semaphore(config.fetch_max_concurrent)
     all_fps = load_false_positives(config.data_dir)
+    enrich_fp_section = build_prompt_section(all_fps, fp_type="enrichment")
     total_new = 0
     pair_logs: list[dict] = []
 
@@ -314,6 +316,7 @@ async def _run_full(
                         record = await _enrich_record(
                             record, searxng, extractor, config, semaphore,
                             on_progress, enrich_timing, log_entry,
+                            enrich_fp_examples=enrich_fp_section,
                         )
                     enrich_logs.append(log_entry)
                     final_records.append(record)

@@ -3,6 +3,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+FP_TYPES = ("extraction", "enrichment")
+
 
 def load(data_dir: Path) -> list[dict]:
     fp_file = data_dir / "false_positives.json"
@@ -20,37 +22,51 @@ def _save_all(data_dir: Path, fps: list[dict]) -> None:
     )
 
 
-def add(data_dir: Path, name: str, city: str, topic: str, reason: str, source_url: str) -> None:
+def add(data_dir: Path, name: str, city: str, topic: str, reason: str,
+        source_url: str, fp_type: str = "extraction") -> None:
     fps = load(data_dir)
-    # Overwrite if same name+city+topic already marked
-    fps = [fp for fp in fps if not (fp["name"] == name and fp["city"] == city and fp["topic"] == topic)]
+    fps = [fp for fp in fps if not (
+        fp["name"] == name and fp["city"] == city
+        and fp["topic"] == topic and fp.get("fp_type", "extraction") == fp_type
+    )]
     fps.append({
         "name": name,
         "city": city,
         "topic": topic,
         "reason": reason,
         "source_url": source_url,
+        "fp_type": fp_type,
         "marked_at": datetime.now(timezone.utc).isoformat(),
     })
     _save_all(data_dir, fps)
-    _record_history(data_dir, fps)
+    _record_history(data_dir, fps, fp_type)
 
 
-def remove(data_dir: Path, name: str, city: str, topic: str) -> None:
+def remove(data_dir: Path, name: str, city: str, topic: str,
+           fp_type: str = "extraction") -> None:
     fps = load(data_dir)
-    fps = [fp for fp in fps if not (fp["name"] == name and fp["city"] == city and fp["topic"] == topic)]
+    fps = [fp for fp in fps if not (
+        fp["name"] == name and fp["city"] == city
+        and fp["topic"] == topic and fp.get("fp_type", "extraction") == fp_type
+    )]
     _save_all(data_dir, fps)
-    _record_history(data_dir, fps)
+    _record_history(data_dir, fps, fp_type)
 
 
-def build_prompt_section(fps: list[dict], city: str = "", topic: str = "") -> str:
+def build_prompt_section(fps: list[dict], city: str = "", topic: str = "",
+                         fp_type: str = "extraction") -> str:
     relevant = [
         fp for fp in fps
-        if (not city or fp.get("city") == city) and (not topic or fp.get("topic") == topic)
+        if fp.get("fp_type", "extraction") == fp_type
+        and (not city or fp.get("city") == city)
+        and (not topic or fp.get("topic") == topic)
     ]
     if not relevant:
         return ""
-    lines = ["\n\nNEGATIVE EXAMPLES — these are NOT valid community groups, do NOT extract them:"]
+    if fp_type == "extraction":
+        lines = ["\n\nNEGATIVE EXAMPLES — these are NOT valid community groups, do NOT extract them:"]
+    else:
+        lines = ["\n\nNEGATIVE EXAMPLES — previously flagged incorrect enrichment results:"]
     for fp in relevant:
         lines.append(f'- "{fp["name"]}": {fp["reason"]}')
     return "\n".join(lines)
@@ -58,13 +74,13 @@ def build_prompt_section(fps: list[dict], city: str = "", topic: str = "") -> st
 
 # ── Prompt version history ────────────────────────────────────────────────────
 
-def _effective_prompt(base_prompt: str, fps: list[dict]) -> str:
-    return base_prompt + build_prompt_section(fps)
+def _base_prompt(fp_type: str) -> str:
+    from .extract import ENRICH_SYSTEM_PROMPT, SYSTEM_PROMPT
+    return SYSTEM_PROMPT if fp_type == "extraction" else ENRICH_SYSTEM_PROMPT
 
 
-def _record_history(data_dir: Path, fps: list[dict]) -> None:
-    from .extract import SYSTEM_PROMPT
-    hist_file = data_dir / "prompt_history.json"
+def _record_history(data_dir: Path, fps: list[dict], fp_type: str) -> None:
+    hist_file = data_dir / f"prompt_history_{fp_type}.json"
     history: list[dict] = []
     if hist_file.exists():
         try:
@@ -72,7 +88,8 @@ def _record_history(data_dir: Path, fps: list[dict]) -> None:
         except Exception:
             history = []
 
-    effective = _effective_prompt(SYSTEM_PROMPT, fps)
+    type_fps = [fp for fp in fps if fp.get("fp_type", "extraction") == fp_type]
+    effective = _base_prompt(fp_type) + build_prompt_section(fps, fp_type=fp_type)
     prev = history[-1]["content"] if history else ""
     if effective == prev:
         return
@@ -81,13 +98,14 @@ def _record_history(data_dir: Path, fps: list[dict]) -> None:
         "version": len(history) + 1,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "content": effective,
-        "fp_count": len(fps),
+        "fp_type": fp_type,
+        "fp_count": len(type_fps),
     })
     hist_file.write_text(json.dumps(history, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-def load_history(data_dir: Path) -> list[dict]:
-    hist_file = data_dir / "prompt_history.json"
+def load_history(data_dir: Path, fp_type: str = "extraction") -> list[dict]:
+    hist_file = data_dir / f"prompt_history_{fp_type}.json"
     if not hist_file.exists():
         return []
     try:
@@ -107,7 +125,6 @@ def diff_html(old: str, new: str) -> str:
             result.append(f'<span class="diff-del">{_esc(line[2:])}</span>')
         elif line.startswith("  "):
             result.append(_esc(line[2:]))
-        # skip "? " hint lines
     return "".join(result)
 
 
