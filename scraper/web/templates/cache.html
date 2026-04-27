@@ -84,11 +84,17 @@
 <div id="queue-panel" class="hidden mb-4 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
   <div class="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-gray-50">
     <span class="text-xs font-semibold text-gray-600 uppercase tracking-wide flex items-center gap-1.5">
-      <i class="ph ph-queue" style="font-size:14px"></i> Task Queue
+      <i class="ph ph-list-numbers" style="font-size:14px"></i> Queue
     </span>
     <span id="queue-summary" class="text-xs text-gray-400"></span>
   </div>
-  <ul id="queue-list" class="divide-y divide-gray-50 max-h-48 overflow-y-auto"></ul>
+  <!-- Currently running -->
+  <div id="queue-running" class="hidden border-b border-blue-100 bg-blue-50 px-4 py-2.5">
+    <div class="text-[10px] font-semibold text-blue-400 uppercase tracking-wide mb-1">Running</div>
+    <div id="queue-running-content" class="flex items-center gap-2 text-sm"></div>
+  </div>
+  <!-- Pending list -->
+  <ul id="queue-list" class="divide-y divide-gray-50"></ul>
 </div>
 
 <div id="cache-table-wrap">
@@ -383,55 +389,79 @@ async function refreshTable() {
 }
 
 const OP_CFG = {
-  scrape:  { label: 'Fetch',   icon: 'ph-arrow-circle-down', cls: 'text-blue-600'   },
-  extract: { label: 'AI',      icon: 'ph-brain',             cls: 'text-purple-600' },
-  enrich:  { label: 'Enrich',  icon: 'ph-sparkle',           cls: 'text-amber-600'  },
-};
-const STATUS_CFG = {
-  pending: { cls: 'text-gray-400',  icon: 'ph-clock'         },
-  running: { cls: 'text-blue-600',  icon: 'ph-spinner'       },
-  done:    { cls: 'text-green-600', icon: 'ph-check-circle'  },
-  error:   { cls: 'text-red-600',   icon: 'ph-x-circle'      },
+  scrape:  { label: 'Fetch',   icon: 'ph-arrow-circle-down', cls: 'text-blue-600',   badgeCls: 'bg-blue-100 text-blue-700'   },
+  extract: { label: 'AI',      icon: 'ph-brain',             cls: 'text-purple-600', badgeCls: 'bg-purple-100 text-purple-700' },
+  enrich:  { label: 'Enrich',  icon: 'ph-sparkle',           cls: 'text-amber-600',  badgeCls: 'bg-amber-100 text-amber-700'  },
 };
 
-function queueItemHtml(item) {
-  const op  = OP_CFG[item.op]     || { label: item.op,     icon: 'ph-circle',       cls: 'text-gray-500' };
-  const st  = STATUS_CFG[item.status] || { cls: 'text-gray-400', icon: 'ph-circle' };
-  const spin = item.status === 'running' ? ' animate-spin' : '';
-  const domain = item.url.replace(/^https?:\/\//, '').split('/')[0];
-  const label = item.city ? `${item.city} / ${(item.topic||'').replace(/_/g,' ')}` : '';
-  const errTip = item.error ? ` title="${item.error.replace(/"/g,'&quot;')}"` : '';
-  return `<li class="flex items-center gap-3 px-4 py-2 text-xs"${errTip}>
-    <i class="ph ${op.icon} ${op.cls}" style="font-size:14px"></i>
-    <span class="font-medium text-gray-700 truncate min-w-0 flex-1">${domain}</span>
-    ${label ? `<span class="text-gray-400 shrink-0">${label}</span>` : ''}
-    <i class="ph ${st.icon} ${st.cls}${spin} shrink-0" style="font-size:14px"></i>
-  </li>`;
+function queueDomain(url) {
+  return url.replace(/^https?:\/\//, '').split('/')[0];
+}
+
+function queueOpBadge(op) {
+  const cfg = OP_CFG[op] || { label: op, icon: 'ph-circle', badgeCls: 'bg-gray-100 text-gray-600' };
+  return `<span class="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${cfg.badgeCls}"><i class="ph ${cfg.icon}"></i>${cfg.label}</span>`;
+}
+
+function queueCityLabel(item) {
+  if (!item.city) return '';
+  const topic = (item.topic || '').replace(/_/g, ' ');
+  return `<span class="text-gray-400 text-xs shrink-0">${item.city}${topic ? ' / ' + topic : ''}</span>`;
 }
 
 async function pollQueue() {
   try {
     const resp = await fetch('/admin/api/queue');
     const items = await resp.json();
-    const panel  = document.getElementById('queue-panel');
-    const list   = document.getElementById('queue-list');
+    const panel   = document.getElementById('queue-panel');
+    const runBox  = document.getElementById('queue-running');
+    const runBody = document.getElementById('queue-running-content');
+    const list    = document.getElementById('queue-list');
     const summary = document.getElementById('queue-summary');
-    if (!items.length) {
+
+    const running = items.find(i => i.status === 'running');
+    const pending = items.filter(i => i.status === 'pending');
+    const active  = running || pending.length;
+
+    if (!active) {
       panel.classList.add('hidden');
-    } else {
-      panel.classList.remove('hidden');
-      list.innerHTML = items.map(queueItemHtml).join('');
-      const running = items.filter(i => i.status === 'running').length;
-      const pending = items.filter(i => i.status === 'pending').length;
-      const done    = items.filter(i => i.status === 'done').length;
-      const error   = items.filter(i => i.status === 'error').length;
-      const parts = [];
-      if (running) parts.push(`${running} running`);
-      if (pending) parts.push(`${pending} pending`);
-      if (done)    parts.push(`${done} done`);
-      if (error)   parts.push(`${error} error`);
-      summary.textContent = parts.join(' · ');
+      setTimeout(pollQueue, 1000);
+      return;
     }
+    panel.classList.remove('hidden');
+
+    // Running row
+    if (running) {
+      runBox.classList.remove('hidden');
+      runBody.innerHTML = `
+        <i class="ph ph-spinner animate-spin text-blue-500 shrink-0" style="font-size:16px"></i>
+        ${queueOpBadge(running.op)}
+        <span class="font-medium text-blue-800 truncate min-w-0 flex-1 text-xs">${queueDomain(running.url)}</span>
+        ${queueCityLabel(running)}`;
+    } else {
+      runBox.classList.add('hidden');
+    }
+
+    // Pending list — next 10
+    const shown = pending.slice(0, 10);
+    if (shown.length) {
+      list.innerHTML = shown.map((item, idx) => `
+        <li class="flex items-center gap-2 px-4 py-2 text-xs">
+          <span class="text-[10px] font-bold text-gray-300 w-4 text-right shrink-0">${idx + 1}</span>
+          ${queueOpBadge(item.op)}
+          <span class="font-medium text-gray-700 truncate min-w-0 flex-1">${queueDomain(item.url)}</span>
+          ${queueCityLabel(item)}
+        </li>`).join('');
+    } else {
+      list.innerHTML = '';
+    }
+
+    // Summary
+    const parts = [];
+    if (running) parts.push('1 running');
+    if (pending.length) parts.push(`${pending.length} pending`);
+    summary.textContent = parts.join(' · ');
+
   } catch (e) {}
   setTimeout(pollQueue, 1000);
 }
