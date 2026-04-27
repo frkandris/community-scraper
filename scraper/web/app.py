@@ -1008,6 +1008,54 @@ async def test_searxng(q: str = "running club Budapest"):
         return JSONResponse({"error": str(exc), "url": app_state.pipeline_cfg.searxng_url}, status_code=500)
 
 
+async def _queue_worker() -> None:
+    while True:
+        fn, item = await app_state.get_queue().get()
+        item["status"] = "running"
+        item["started_at"] = datetime.utcnow().isoformat()
+        try:
+            await fn()
+            item["status"] = "done"
+        except Exception as exc:
+            item["status"] = "error"
+            item["error"] = str(exc)
+        finally:
+            item["done_at"] = datetime.utcnow().isoformat()
+            app_state.get_queue().task_done()
+        # Keep at most 30 completed items
+        done = [i for i in app_state.queue_items if i["status"] in ("done", "error")]
+        if len(done) > 30:
+            to_remove = set(id(i) for i in done[:-30])
+            app_state.queue_items = [i for i in app_state.queue_items if id(i) not in to_remove]
+
+
+def _enqueue(op: str, url_hash: str, url: str, city: str, topic: str, fn) -> dict:
+    import uuid
+    item: dict = {
+        "id": uuid.uuid4().hex[:8],
+        "op": op,
+        "url_hash": url_hash,
+        "url": url,
+        "city": city,
+        "topic": topic,
+        "status": "pending",
+        "added_at": datetime.utcnow().isoformat(),
+        "started_at": None,
+        "done_at": None,
+        "error": None,
+    }
+    app_state.queue_items.append(item)
+    app_state.get_queue().put_nowait((fn, item))
+    if not app_state._queue_worker_task or app_state._queue_worker_task.done():
+        app_state._queue_worker_task = asyncio.create_task(_queue_worker())
+    return item
+
+
+@admin.get("/api/queue")
+async def api_queue():
+    return JSONResponse(app_state.queue_items[-50:])
+
+
 @admin.get("/api/progress")
 async def api_progress():
     """Return the current pipeline phase and active URL hash for live cache indicators."""
@@ -1160,11 +1208,12 @@ async def cache_run_scrape(url_hash: str):
                 )
         except Exception as exc:
             log.error("manual_scrape_failed", url=url, error=str(exc))
+            raise
         finally:
             app_state.current_phase = None
             app_state.current_url = None
 
-    asyncio.create_task(_do())
+    _enqueue("scrape", url_hash, url, city, topic, _do)
     return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
 
 
@@ -1202,11 +1251,12 @@ async def cache_run_extract(url_hash: str):
                 save_results(city, topic, joinable, _db())
         except Exception as exc:
             log.error("manual_extract_failed", url=url, error=str(exc))
+            raise
         finally:
             app_state.current_phase = None
             app_state.current_url = None
 
-    asyncio.create_task(_do())
+    _enqueue("extract", url_hash, url, city, topic, _do)
     return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
 
 
@@ -1259,11 +1309,12 @@ async def cache_run_enrich(url_hash: str):
                 save_results(city, topic, enriched, _db())
         except Exception as exc:
             log.error("manual_enrich_failed", url=url, error=str(exc))
+            raise
         finally:
             app_state.current_phase = None
             app_state.current_url = None
 
-    asyncio.create_task(_do())
+    _enqueue("enrich", url_hash, url, city, topic, _do)
     return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
 
 
