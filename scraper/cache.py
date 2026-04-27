@@ -127,7 +127,8 @@ class CacheManager:
         entry["enrich_log"] = enrich_log
         save_cache_page(self.db_path, entry)
 
-    def mark_enrich_extracted(self, url: str, count: int, duration_s: float) -> None:
+    def mark_enrich_extracted(self, url: str, count: int, duration_s: float,
+                              model: str | None = None) -> None:
         h = _url_hash(url)
         entry = load_cache_page(self.db_path, h)
         if not entry:
@@ -135,6 +136,8 @@ class CacheManager:
         entry["enrich_extracted_at"] = datetime.now(timezone.utc).isoformat()
         entry["enrich_extract_duration_s"] = round(duration_s, 2)
         entry["enrich_count"] = count
+        if model is not None:
+            entry["enrich_model"] = model
         save_cache_page(self.db_path, entry)
 
     # ── Bulk read ────────────────────────────────────────────────────────────

@@ -337,7 +337,7 @@ async def _run_full(
                                          model=extractor.model)
                     if enrich_timing["needed"]:
                         cache.mark_enrich_scraped(url, enrich_timing["scrape"])
-                        cache.mark_enrich_extracted(url, enrich_timing["count"], enrich_timing["extract"])
+                        cache.mark_enrich_extracted(url, enrich_timing["count"], enrich_timing["extract"], model=extractor.model)
                         cache.save_enrich_log(url, enrich_logs)
 
                 if final_records:

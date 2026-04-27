@@ -1304,7 +1304,7 @@ async def cache_run_enrich(url_hash: str):
             app_state.cache_manager.save_enriched_records(url, enriched)
             if timing["needed"]:
                 app_state.cache_manager.mark_enrich_scraped(url, timing["scrape"])
-                app_state.cache_manager.mark_enrich_extracted(url, timing["count"], timing["extract"])
+                app_state.cache_manager.mark_enrich_extracted(url, timing["count"], timing["extract"], model=cfg.ollama_model)
             if enriched:
                 save_results(city, topic, enriched, _db())
         except Exception as exc:
