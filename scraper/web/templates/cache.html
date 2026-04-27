@@ -81,7 +81,7 @@
 </div>
 
 <!-- Task queue panel -->
-<div id="queue-panel" class="hidden mb-4 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+<div id="queue-panel" class="mb-4 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
   <div class="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-gray-50">
     <span class="text-xs font-semibold text-gray-600 uppercase tracking-wide flex items-center gap-1.5">
       <i class="ph ph-list-numbers" style="font-size:14px"></i> Queue
@@ -93,8 +93,10 @@
     <div class="text-[10px] font-semibold text-blue-400 uppercase tracking-wide mb-1">Running</div>
     <div id="queue-running-content" class="flex items-center gap-2 text-sm"></div>
   </div>
-  <!-- Pending list -->
+  <!-- Pending + recent done list -->
   <ul id="queue-list" class="divide-y divide-gray-50"></ul>
+  <!-- Empty state -->
+  <div id="queue-empty" class="hidden px-4 py-3 text-xs text-gray-300 text-center">No tasks queued</div>
 </div>
 
 <div id="cache-table-wrap">
@@ -413,22 +415,16 @@ async function pollQueue() {
   try {
     const resp = await fetch('/admin/api/queue');
     const items = await resp.json();
-    const panel   = document.getElementById('queue-panel');
-    const runBox  = document.getElementById('queue-running');
-    const runBody = document.getElementById('queue-running-content');
-    const list    = document.getElementById('queue-list');
-    const summary = document.getElementById('queue-summary');
+    const runBox   = document.getElementById('queue-running');
+    const runBody  = document.getElementById('queue-running-content');
+    const list     = document.getElementById('queue-list');
+    const emptyEl  = document.getElementById('queue-empty');
+    const summary  = document.getElementById('queue-summary');
 
-    const running = items.find(i => i.status === 'running');
-    const pending = items.filter(i => i.status === 'pending');
-    const active  = running || pending.length;
-
-    if (!active) {
-      panel.classList.add('hidden');
-      setTimeout(pollQueue, 1000);
-      return;
-    }
-    panel.classList.remove('hidden');
+    const running  = items.find(i => i.status === 'running');
+    const pending  = items.filter(i => i.status === 'pending');
+    const recent   = items.filter(i => i.status === 'done' || i.status === 'error').slice(-5).reverse();
+    const hasAnything = running || pending.length || recent.length;
 
     // Running row
     if (running) {
@@ -442,24 +438,41 @@ async function pollQueue() {
       runBox.classList.add('hidden');
     }
 
-    // Pending list — next 10
-    const shown = pending.slice(0, 10);
-    if (shown.length) {
-      list.innerHTML = shown.map((item, idx) => `
-        <li class="flex items-center gap-2 px-4 py-2 text-xs">
-          <span class="text-[10px] font-bold text-gray-300 w-4 text-right shrink-0">${idx + 1}</span>
-          ${queueOpBadge(item.op)}
-          <span class="font-medium text-gray-700 truncate min-w-0 flex-1">${queueDomain(item.url)}</span>
-          ${queueCityLabel(item)}
-        </li>`).join('');
+    // Pending (next 10) + recent done (last 5, muted)
+    const pendingRows = pending.slice(0, 10).map((item, idx) => `
+      <li class="flex items-center gap-2 px-4 py-2 text-xs">
+        <span class="text-[10px] font-bold text-gray-300 w-4 text-right shrink-0">${idx + 1}</span>
+        ${queueOpBadge(item.op)}
+        <span class="font-medium text-gray-700 truncate min-w-0 flex-1">${queueDomain(item.url)}</span>
+        ${queueCityLabel(item)}
+      </li>`);
+
+    const doneRows = recent.map(item => {
+      const ok = item.status === 'done';
+      const ic = ok ? 'ph-check-circle text-green-500' : 'ph-x-circle text-red-400';
+      const tip = item.error ? ` title="${item.error.replace(/"/g,'&quot;')}"` : '';
+      return `<li class="flex items-center gap-2 px-4 py-2 text-xs opacity-50"${tip}>
+        <span class="text-[10px] font-bold text-gray-300 w-4 shrink-0"></span>
+        ${queueOpBadge(item.op)}
+        <span class="text-gray-500 truncate min-w-0 flex-1">${queueDomain(item.url)}</span>
+        ${queueCityLabel(item)}
+        <i class="ph ${ic} shrink-0" style="font-size:13px"></i>
+      </li>`;
+    });
+
+    if (hasAnything) {
+      list.innerHTML = [...pendingRows, ...doneRows].join('');
+      emptyEl.classList.add('hidden');
     } else {
       list.innerHTML = '';
+      emptyEl.classList.remove('hidden');
     }
 
     // Summary
     const parts = [];
-    if (running) parts.push('1 running');
+    if (running)       parts.push('1 running');
     if (pending.length) parts.push(`${pending.length} pending`);
+    if (recent.length && !running && !pending.length) parts.push(`${recent.length} recent`);
     summary.textContent = parts.join(' · ');
 
   } catch (e) {}
