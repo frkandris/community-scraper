@@ -46,6 +46,13 @@
   <div class="flex items-center gap-3">
     <div id="phase-badge" class="hidden items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border"></div>
     <span class="text-sm text-gray-500"><span id="entry-count">{{ entries|length }}</span> entries<span id="filter-count" class="hidden"> · <span id="filter-count-n"></span> shown</span></span>
+    <form method="POST" action="/admin/cache/queue-extract-all"
+          onsubmit="return confirm('Queue AI extraction for all unprocessed entries?')">
+      <button type="submit"
+        class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors">
+        <i class="ph ph-brain" style="font-size:14px"></i> AI all
+      </button>
+    </form>
     <button onclick="document.getElementById('clear-cache-modal').classList.remove('hidden')"
       class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors">
       <i class="ph ph-trash" style="font-size:14px"></i> Clear all
