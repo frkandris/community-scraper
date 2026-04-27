@@ -431,8 +431,7 @@ async function pollQueue() {
 
     const running = items.find(i => i.status === 'running');
     const pending = items.filter(i => i.status === 'pending');
-    const recent  = items.filter(i => i.status === 'done' || i.status === 'error').slice(-5).reverse();
-    const hasAnything = running || pending.length || recent.length;
+    const hasAnything = running || pending.length;
 
     const rows = [];
 
@@ -454,19 +453,6 @@ async function pollQueue() {
       </li>`);
     });
 
-    recent.forEach(item => {
-      const ok  = item.status === 'done';
-      const ic  = ok ? 'ph-check-circle text-green-500' : 'ph-x-circle text-red-400';
-      const tip = item.error ? ` title="${item.error.replace(/"/g,'&quot;')}"` : '';
-      rows.push(`<li class="flex items-center gap-2 px-4 py-2 text-xs opacity-40"${tip}>
-        <span class="w-4 shrink-0"></span>
-        ${queueOpBadge(item.op)}
-        <span class="text-gray-500 truncate min-w-0 flex-1">${queueDomain(item.url)}</span>
-        ${queueCityLabel(item)}
-        <i class="ph ${ic} shrink-0" style="font-size:13px"></i>
-      </li>`);
-    });
-
     if (hasAnything) {
       list.innerHTML = rows.join('');
       emptyEl.classList.add('hidden');
@@ -478,7 +464,6 @@ async function pollQueue() {
     const parts = [];
     if (running)        parts.push('1 running');
     if (pending.length) parts.push(`${pending.length} pending`);
-    if (recent.length && !running && !pending.length) parts.push(`${recent.length} recent`);
     summary.textContent = parts.join(' · ');
 
   } catch (e) {}
