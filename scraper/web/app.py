@@ -1010,7 +1010,21 @@ async def test_searxng(q: str = "running club Budapest"):
 
 async def _queue_worker() -> None:
     while True:
-        fn, item = await app_state.get_queue().get()
+        # Wait until there is a pending item
+        while True:
+            pending = [i for i in app_state.queue_items if i["status"] == "pending"]
+            if pending:
+                break
+            app_state.get_queue_event().clear()
+            await app_state.get_queue_event().wait()
+
+        item = pending[0]
+        fn = app_state._queue_fns.pop(item["id"], None)
+        if fn is None:
+            item["status"] = "error"
+            item["error"] = "fn missing"
+            continue
+
         item["status"] = "running"
         item["started_at"] = datetime.utcnow().isoformat()
         try:
@@ -1021,15 +1035,16 @@ async def _queue_worker() -> None:
             item["error"] = str(exc)
         finally:
             item["done_at"] = datetime.utcnow().isoformat()
-            app_state.get_queue().task_done()
+
         # Keep at most 30 completed items
         done = [i for i in app_state.queue_items if i["status"] in ("done", "error")]
         if len(done) > 30:
-            to_remove = set(id(i) for i in done[:-30])
-            app_state.queue_items = [i for i in app_state.queue_items if id(i) not in to_remove]
+            remove_ids = {x["id"] for x in done[:-30]}
+            app_state.queue_items = [i for i in app_state.queue_items if i["id"] not in remove_ids]
 
 
-def _enqueue(op: str, url_hash: str, url: str, city: str, topic: str, fn) -> dict:
+def _enqueue(op: str, url_hash: str, url: str, city: str, topic: str, fn,
+             priority: bool = False) -> dict:
     import uuid
     item: dict = {
         "id": uuid.uuid4().hex[:8],
@@ -1044,8 +1059,17 @@ def _enqueue(op: str, url_hash: str, url: str, city: str, topic: str, fn) -> dic
         "done_at": None,
         "error": None,
     }
-    app_state.queue_items.append(item)
-    app_state.get_queue().put_nowait((fn, item))
+    app_state._queue_fns[item["id"]] = fn
+    if priority:
+        # Insert right after the currently running item (position 1), or at front if idle
+        insert_at = next(
+            (i + 1 for i, x in enumerate(app_state.queue_items) if x["status"] == "running"),
+            0,
+        )
+        app_state.queue_items.insert(insert_at, item)
+    else:
+        app_state.queue_items.append(item)
+    app_state.get_queue_event().set()
     if not app_state._queue_worker_task or app_state._queue_worker_task.done():
         app_state._queue_worker_task = asyncio.create_task(_queue_worker())
     return item
@@ -1053,7 +1077,8 @@ def _enqueue(op: str, url_hash: str, url: str, city: str, topic: str, fn) -> dic
 
 @admin.get("/api/queue")
 async def api_queue():
-    return JSONResponse(app_state.queue_items[-50:])
+    visible = [i for i in app_state.queue_items if i["status"] in ("running", "pending")]
+    return JSONResponse(visible)
 
 
 @admin.get("/api/progress")
@@ -1263,7 +1288,7 @@ async def cache_run_scrape(url_hash: str):
             app_state.current_phase = None
             app_state.current_url = None
 
-    _enqueue("scrape", url_hash, url, city, topic, _do)
+    _enqueue("scrape", url_hash, url, city, topic, _do, priority=True)
     return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
 
 
@@ -1306,7 +1331,7 @@ async def cache_run_extract(url_hash: str):
             app_state.current_phase = None
             app_state.current_url = None
 
-    _enqueue("extract", url_hash, url, city, topic, _do)
+    _enqueue("extract", url_hash, url, city, topic, _do, priority=True)
     return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
 
 
@@ -1364,7 +1389,7 @@ async def cache_run_enrich(url_hash: str):
             app_state.current_phase = None
             app_state.current_url = None
 
-    _enqueue("enrich", url_hash, url, city, topic, _do)
+    _enqueue("enrich", url_hash, url, city, topic, _do, priority=True)
     return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
 
 

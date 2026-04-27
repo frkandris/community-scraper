@@ -18,15 +18,17 @@ class AppState:
     current_phase: str | None = None  # "scrape" | "extract" | "enrich_scrape" | "enrich_extract"
     current_url: str | None = None    # source URL of the cache row being processed
     _run_task: Any = None
-    _task_queue: Any = None           # asyncio.Queue, created lazily
-    queue_items: list = field(default_factory=list)
+    # Task queue — queue_items is the authoritative ordered list
+    queue_items: list = field(default_factory=list)   # list of item dicts (pending/running/done)
+    _queue_fns: dict = field(default_factory=dict)    # item_id -> coroutine fn
+    _queue_event: Any = None                          # asyncio.Event, lazy
     _queue_worker_task: Any = None
 
-    def get_queue(self):
+    def get_queue_event(self):
         import asyncio
-        if self._task_queue is None:
-            self._task_queue = asyncio.Queue()
-        return self._task_queue
+        if self._queue_event is None:
+            self._queue_event = asyncio.Event()
+        return self._queue_event
 
 
 app_state = AppState()
