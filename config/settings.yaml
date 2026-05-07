@@ -4,6 +4,13 @@ ollama:
   timeout_seconds: 180
   max_text_chars: 6000
 
+deepseek:
+  model: deepseek-chat
+  temperature: 0.1
+  timeout_seconds: 60
+  max_text_chars: 8000
+  rate_limit_seconds: 1.0
+
 groq:
   model: llama-3.3-70b-versatile
   temperature: 0.1

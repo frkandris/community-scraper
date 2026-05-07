@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 import structlog
 
-from .extract import FallbackExtractor, GroqExtractor, OllamaExtractor
+from .extract import DeepSeekExtractor, FallbackExtractor, GroqExtractor, OllamaExtractor
 from .false_positives import build_prompt_section
 from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
@@ -128,6 +128,12 @@ class PipelineConfig:
     fetch_blocked_domains: list[str]
     db_path: Path
     brave_api_key: str = ""
+    deepseek_api_key: str = ""
+    deepseek_model: str = "deepseek-chat"
+    deepseek_temperature: float = 0.1
+    deepseek_timeout: int = 60
+    deepseek_max_text_chars: int = 8000
+    deepseek_rate_limit_seconds: float = 1.0
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"
     groq_temperature: float = 0.1
@@ -159,17 +165,28 @@ async def run_pipeline(
         timeout_seconds=config.ollama_timeout,
         max_text_chars=config.ollama_max_text_chars,
     )
+    primaries = []
+    if config.deepseek_api_key:
+        primaries.append(DeepSeekExtractor(
+            api_key=config.deepseek_api_key,
+            model=config.deepseek_model,
+            temperature=config.deepseek_temperature,
+            timeout_seconds=config.deepseek_timeout,
+            max_text_chars=config.deepseek_max_text_chars,
+            rate_limit_seconds=config.deepseek_rate_limit_seconds,
+        ))
     if config.groq_api_key:
-        groq = GroqExtractor(
+        primaries.append(GroqExtractor(
             api_key=config.groq_api_key,
             model=config.groq_model,
             temperature=config.groq_temperature,
             timeout_seconds=config.groq_timeout,
             max_text_chars=config.groq_max_text_chars,
             rate_limit_seconds=config.groq_rate_limit_seconds,
-        )
-        extractor: OllamaExtractor | FallbackExtractor = FallbackExtractor(primary=groq, fallback=ollama)
-        log.info("extractor", backend="groq", model=config.groq_model, fallback=config.ollama_model)
+        ))
+    if primaries:
+        extractor: OllamaExtractor | FallbackExtractor = FallbackExtractor(primaries=primaries, fallback=ollama)
+        log.info("extractor", primaries=[p.model for p in primaries], fallback=config.ollama_model)
     else:
         extractor = ollama
         log.info("extractor", backend="ollama", model=config.ollama_model)

@@ -291,29 +291,34 @@ class OllamaExtractor:
         return record
 
 
-_GROQ_EXTRACT_SUFFIX = (
+_API_EXTRACT_SUFFIX = (
     "\n\nRespond ONLY with a valid JSON object: "
     "{\"communities\": [{\"name\": \"...\", \"confidence\": 0.9, \"joinable\": true, ...}]}"
 )
-_GROQ_ENRICH_SUFFIX = (
+_API_ENRICH_SUFFIX = (
     "\n\nRespond ONLY with a valid JSON object with exactly these keys: "
     "website, contact, social_links, email, phone."
 )
+# Keep old names as aliases for backward compat
+_GROQ_EXTRACT_SUFFIX = _API_EXTRACT_SUFFIX
+_GROQ_ENRICH_SUFFIX  = _API_ENRICH_SUFFIX
 
-_GROQ_RETRY_DEFAULT_WAIT = 60  # seconds when Retry-After header is absent
+_API_RETRY_DEFAULT_WAIT = 60
 
 
-class GroqExtractor:
-    _BASE_URL = "https://api.groq.com/openai/v1"
+class _ApiExtractor:
+    """Base class for OpenAI-compatible API extractors (DeepSeek, Groq, …)."""
+
+    _BASE_URL: str = ""
 
     def __init__(
         self,
         api_key: str,
-        model: str = "llama-3.3-70b-versatile",
+        model: str,
         temperature: float = 0.1,
         timeout_seconds: int = 60,
-        max_text_chars: int = 4000,
-        rate_limit_seconds: float = 4.0,
+        max_text_chars: int = 6000,
+        rate_limit_seconds: float = 1.0,
     ):
         self.api_key = api_key
         self.model = model
@@ -346,21 +351,17 @@ class GroqExtractor:
                     headers=self._headers(),
                 )
         except Exception as exc:
-            log.warning("groq_request_failed", label=label, error=str(exc))
+            log.warning("api_request_failed", provider=self.__class__.__name__, label=label, error=str(exc))
             return {}
-
         if resp.status_code == 402:
-            raise ExtractorQuotaError("Groq billing limit reached (HTTP 402)")
-
+            raise ExtractorQuotaError(f"{self.__class__.__name__} billing limit (HTTP 402)")
         if resp.status_code == 429:
-            retry_after = float(resp.headers.get("retry-after", _GROQ_RETRY_DEFAULT_WAIT))
+            retry_after = float(resp.headers.get("retry-after", _API_RETRY_DEFAULT_WAIT))
             raise ExtractorRateLimitError(retry_after)
-
         if resp.status_code >= 400:
-            log.warning("groq_request_failed", label=label,
+            log.warning("api_request_failed", provider=self.__class__.__name__, label=label,
                         status=resp.status_code, body=resp.text[:200])
             return {}
-
         return resp.json()
 
     async def extract(
@@ -374,17 +375,13 @@ class GroqExtractor:
     ) -> list[CommunityRecord]:
         truncated = text[: self.max_text_chars]
         user_message = USER_PROMPT_TEMPLATE.format(
-            topic=topic,
-            city=city,
-            source_url=source_url,
-            page_text=truncated,
+            topic=topic, city=city, source_url=source_url, page_text=truncated,
         )
-        system = SYSTEM_PROMPT + false_positive_examples + _GROQ_EXTRACT_SUFFIX
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user_message},
+                {"role": "system", "content": SYSTEM_PROMPT + false_positive_examples + _API_EXTRACT_SUFFIX},
+                {"role": "user",   "content": user_message},
             ],
             "temperature": self.temperature,
             "response_format": {"type": "json_object"},
@@ -402,8 +399,8 @@ class GroqExtractor:
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": ENRICH_SYSTEM_PROMPT + false_positive_examples + _GROQ_ENRICH_SUFFIX},
-                {"role": "user", "content": user_message},
+                {"role": "system", "content": ENRICH_SYSTEM_PROMPT + false_positive_examples + _API_ENRICH_SUFFIX},
+                {"role": "user",   "content": user_message},
             ],
             "temperature": 0.0,
             "response_format": {"type": "json_object"},
@@ -411,67 +408,109 @@ class GroqExtractor:
         try:
             data = await self._post(payload, label=record.name)
             raw = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-            enrichment = json.loads(raw)
-            return _apply_enrich(record, enrichment)
+            return _apply_enrich(record, json.loads(raw))
         except ExtractorQuotaError:
             raise
         except Exception as exc:
-            log.debug("groq_enrich_failed", community=record.name, error=str(exc))
+            log.debug("api_enrich_failed", provider=self.__class__.__name__,
+                      community=record.name, error=str(exc))
         return record
 
 
-class FallbackExtractor:
-    """Primary (Groq) with automatic fallback to Ollama.
+class DeepSeekExtractor(_ApiExtractor):
+    _BASE_URL = "https://api.deepseek.com/v1"
 
-    - ExtractorQuotaError  → permanent switch (billing/daily cap exhausted)
-    - ExtractorRateLimitError → temporary switch; retries Groq after wait_seconds
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "deepseek-chat",
+        temperature: float = 0.1,
+        timeout_seconds: int = 60,
+        max_text_chars: int = 8000,
+        rate_limit_seconds: float = 1.0,
+    ):
+        super().__init__(api_key, model, temperature, timeout_seconds, max_text_chars, rate_limit_seconds)
+
+
+class GroqExtractor(_ApiExtractor):
+    _BASE_URL = "https://api.groq.com/openai/v1"
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "llama-3.3-70b-versatile",
+        temperature: float = 0.1,
+        timeout_seconds: int = 60,
+        max_text_chars: int = 4000,
+        rate_limit_seconds: float = 4.0,
+    ):
+        super().__init__(api_key, model, temperature, timeout_seconds, max_text_chars, rate_limit_seconds)
+
+
+_GROQ_RETRY_DEFAULT_WAIT = _API_RETRY_DEFAULT_WAIT
+
+
+class FallbackExtractor:
+    """Chain of API extractors with OllamaExtractor as final fallback.
+
+    Tries primaries left-to-right (e.g. DeepSeek → Groq) then Ollama.
+    - ExtractorQuotaError  → permanent skip for that provider
+    - ExtractorRateLimitError → temporary skip; retried after wait_seconds
     """
 
-    def __init__(self, primary: GroqExtractor, fallback: OllamaExtractor):
-        self.primary = primary
+    def __init__(self, primaries: list, fallback: OllamaExtractor):
+        self.primaries = primaries
         self.fallback = fallback
-        self._exhausted = False          # permanent quota exhaustion
-        self._blocked_until: float = 0.0  # monotonic timestamp; 0 = not blocked
+        self._exhausted = [False] * len(primaries)
+        self._blocked_until = [0.0] * len(primaries)
 
-    def _groq_available(self) -> bool:
-        return not self._exhausted and time.monotonic() >= self._blocked_until
+    def _available(self, idx: int) -> bool:
+        return not self._exhausted[idx] and time.monotonic() >= self._blocked_until[idx]
+
+    def _first_available(self) -> int | None:
+        for i in range(len(self.primaries)):
+            if self._available(i):
+                return i
+        return None
 
     @property
     def model_fingerprint(self) -> str:
-        return self.primary.model_fingerprint if self._groq_available() else self.fallback.model_fingerprint
+        idx = self._first_available()
+        return self.primaries[idx].model_fingerprint if idx is not None else self.fallback.model_fingerprint
 
     @property
     def model(self) -> str:
-        return self.primary.model if self._groq_available() else self.fallback.model
+        idx = self._first_available()
+        return self.primaries[idx].model if idx is not None else self.fallback.model
 
     async def extract(self, text: str, city: str, topic: str, locale: str,
                       source_url: str, false_positive_examples: str = "") -> list[CommunityRecord]:
-        if self._groq_available():
+        for i, primary in enumerate(self.primaries):
+            if not self._available(i):
+                continue
             try:
-                return await self.primary.extract(
-                    text, city, topic, locale, source_url, false_positive_examples
-                )
+                return await primary.extract(text, city, topic, locale, source_url, false_positive_examples)
             except ExtractorRateLimitError as exc:
-                self._blocked_until = time.monotonic() + exc.wait_seconds
-                log.warning("groq_rate_limited_using_ollama",
+                self._blocked_until[i] = time.monotonic() + exc.wait_seconds
+                log.warning("extractor_rate_limited", provider=primary.__class__.__name__,
                             label=source_url, wait_s=exc.wait_seconds)
             except ExtractorQuotaError as exc:
-                log.warning("groq_quota_exhausted_switching_to_ollama", reason=str(exc))
-                self._exhausted = True
-        return await self.fallback.extract(
-            text, city, topic, locale, source_url, false_positive_examples
-        )
+                log.warning("extractor_quota_exhausted", provider=primary.__class__.__name__, reason=str(exc))
+                self._exhausted[i] = True
+        return await self.fallback.extract(text, city, topic, locale, source_url, false_positive_examples)
 
     async def enrich(self, record: CommunityRecord, page_text: str,
                      false_positive_examples: str = "") -> CommunityRecord:
-        if self._groq_available():
+        for i, primary in enumerate(self.primaries):
+            if not self._available(i):
+                continue
             try:
-                return await self.primary.enrich(record, page_text, false_positive_examples)
+                return await primary.enrich(record, page_text, false_positive_examples)
             except ExtractorRateLimitError as exc:
-                self._blocked_until = time.monotonic() + exc.wait_seconds
-                log.warning("groq_rate_limited_using_ollama",
+                self._blocked_until[i] = time.monotonic() + exc.wait_seconds
+                log.warning("extractor_rate_limited", provider=primary.__class__.__name__,
                             label=record.name, wait_s=exc.wait_seconds)
             except ExtractorQuotaError as exc:
-                log.warning("groq_quota_exhausted_switching_to_ollama", reason=str(exc))
-                self._exhausted = True
+                log.warning("extractor_quota_exhausted", provider=primary.__class__.__name__, reason=str(exc))
+                self._exhausted[i] = True
         return await self.fallback.enrich(record, page_text, false_positive_examples)

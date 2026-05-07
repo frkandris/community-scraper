@@ -34,7 +34,8 @@ from ..false_positives import (add as fp_add, diff_html as fp_diff_html,
                                load as fp_load, load_history as fp_load_history,
                                remove as fp_remove, build_prompt_section)
 from ..extract import (ENRICH_SCHEMA, ENRICH_SYSTEM_PROMPT, EXTRACTION_SCHEMA,
-                       SYSTEM_PROMPT, USER_PROMPT_TEMPLATE, OllamaExtractor)
+                       SYSTEM_PROMPT, USER_PROMPT_TEMPLATE,
+                       DeepSeekExtractor, FallbackExtractor, GroqExtractor, OllamaExtractor)
 from ..fetch import fetch_and_clean
 from ..models import CommunityRecord
 from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline
@@ -1008,6 +1009,31 @@ async def test_searxng(q: str = "running club Budapest"):
         return JSONResponse({"error": str(exc), "url": app_state.pipeline_cfg.searxng_url}, status_code=500)
 
 
+def _build_extractor(cfg):
+    """Build the extractor chain (DeepSeek → Groq → Ollama) from PipelineConfig."""
+    ollama = OllamaExtractor(
+        base_url=cfg.ollama_url, model=cfg.ollama_model,
+        temperature=cfg.ollama_temperature, timeout_seconds=cfg.ollama_timeout,
+        max_text_chars=cfg.ollama_max_text_chars,
+    )
+    primaries = []
+    if cfg.deepseek_api_key:
+        primaries.append(DeepSeekExtractor(
+            api_key=cfg.deepseek_api_key, model=cfg.deepseek_model,
+            temperature=cfg.deepseek_temperature, timeout_seconds=cfg.deepseek_timeout,
+            max_text_chars=cfg.deepseek_max_text_chars,
+            rate_limit_seconds=cfg.deepseek_rate_limit_seconds,
+        ))
+    if cfg.groq_api_key:
+        primaries.append(GroqExtractor(
+            api_key=cfg.groq_api_key, model=cfg.groq_model,
+            temperature=cfg.groq_temperature, timeout_seconds=cfg.groq_timeout,
+            max_text_chars=cfg.groq_max_text_chars,
+            rate_limit_seconds=cfg.groq_rate_limit_seconds,
+        ))
+    return FallbackExtractor(primaries=primaries, fallback=ollama) if primaries else ollama
+
+
 async def _queue_worker() -> None:
     while True:
         # Wait until there is a pending item
@@ -1128,11 +1154,7 @@ async def cache_queue_extract_all():
             app_state.current_phase = "extract"
             app_state.current_url = url
             try:
-                extractor = OllamaExtractor(
-                    base_url=cfg.ollama_url, model=cfg.ollama_model,
-                    temperature=cfg.ollama_temperature, timeout_seconds=cfg.ollama_timeout,
-                    max_text_chars=cfg.ollama_max_text_chars,
-                )
+                extractor = _build_extractor(cfg)
                 t0 = _time.monotonic()
                 extracted = await extractor.extract(raw_text, city, topic, locale, url)
                 joinable = [r for r in extracted if r.joinable]
@@ -1312,16 +1334,12 @@ async def cache_run_extract(url_hash: str):
         app_state.current_phase = "extract"
         app_state.current_url = url
         try:
-            extractor = OllamaExtractor(
-                base_url=cfg.ollama_url, model=cfg.ollama_model,
-                temperature=cfg.ollama_temperature, timeout_seconds=cfg.ollama_timeout,
-                max_text_chars=cfg.ollama_max_text_chars,
-            )
+            extractor = _build_extractor(cfg)
             t0 = _time.monotonic()
             extracted = await extractor.extract(raw_text, city, topic, locale, url)
             extract_dur = _time.monotonic() - t0
             joinable = [r for r in extracted if r.joinable]
-            app_state.cache_manager.save_extracted(url, joinable, duration_s=extract_dur)
+            app_state.cache_manager.save_extracted(url, joinable, duration_s=extract_dur, model=extractor.model)
             if joinable:
                 save_results(city, topic, joinable, _db())
         except Exception as exc:
@@ -1355,11 +1373,7 @@ async def cache_run_enrich(url_hash: str):
 
     async def _do() -> None:
         try:
-            extractor = OllamaExtractor(
-                base_url=cfg.ollama_url, model=cfg.ollama_model,
-                temperature=cfg.ollama_temperature, timeout_seconds=cfg.ollama_timeout,
-                max_text_chars=cfg.ollama_max_text_chars,
-            )
+            extractor = _build_extractor(cfg)
             if cfg.brave_api_key:
                 searxng: BraveSearchClient | SearXNGClient = BraveSearchClient(
                     cfg.brave_api_key, rate_limit_seconds=cfg.search_rate_limit
@@ -1379,7 +1393,7 @@ async def cache_run_enrich(url_hash: str):
             app_state.cache_manager.save_enriched_records(url, enriched)
             if timing["needed"]:
                 app_state.cache_manager.mark_enrich_scraped(url, timing["scrape"])
-                app_state.cache_manager.mark_enrich_extracted(url, timing["count"], timing["extract"], model=cfg.ollama_model)
+                app_state.cache_manager.mark_enrich_extracted(url, timing["count"], timing["extract"], model=extractor.model)
             if enriched:
                 save_results(city, topic, enriched, _db())
         except Exception as exc:

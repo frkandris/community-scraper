@@ -75,6 +75,7 @@ def load_config(db_path: Path) -> tuple[list[CityConfig], list[TopicConfig], Pip
         for t in topics_raw["topics"]
     ]
     cache_cfg = settings.get("cache", {})
+    deepseek_cfg = settings.get("deepseek", {})
     groq_cfg = settings.get("groq", {})
     pipeline_cfg = PipelineConfig(
         searxng_url=os.environ.get("SEARXNG_URL", "http://localhost:8080"),
@@ -95,6 +96,12 @@ def load_config(db_path: Path) -> tuple[list[CityConfig], list[TopicConfig], Pip
         cache_skip_extracted=cache_cfg.get("skip_extracted", True),
         enrich_communities=pipeline_settings.get("enrich_communities", True),
         brave_api_key=os.environ.get("BRAVE_API_KEY", ""),
+        deepseek_api_key=os.environ.get("DEEPSEEK_API_KEY", ""),
+        deepseek_model=deepseek_cfg.get("model", "deepseek-chat"),
+        deepseek_temperature=deepseek_cfg.get("temperature", 0.1),
+        deepseek_timeout=deepseek_cfg.get("timeout_seconds", 60),
+        deepseek_max_text_chars=deepseek_cfg.get("max_text_chars", 8000),
+        deepseek_rate_limit_seconds=deepseek_cfg.get("rate_limit_seconds", 1.0),
         groq_api_key=os.environ.get("GROQ_API_KEY", ""),
         groq_model=groq_cfg.get("model", "llama-3.3-70b-versatile"),
         groq_temperature=groq_cfg.get("temperature", 0.1),
