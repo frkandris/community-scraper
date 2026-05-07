@@ -19,6 +19,26 @@ LOCALE_TO_LANGUAGE = {
     "es": "es-ES",
 }
 
+LOCALE_TO_SERPER = {
+    "hu": ("hu", "hu"),
+    "en": ("us", "en"),
+    "de": ("de", "de"),
+    "fr": ("fr", "fr"),
+    "es": ("es", "es"),
+    "it": ("it", "it"),
+    "pt": ("br", "pt"),
+    "nl": ("nl", "nl"),
+    "pl": ("pl", "pl"),
+    "sv": ("se", "sv"),
+    "da": ("dk", "da"),
+    "fi": ("fi", "fi"),
+    "no": ("no", "no"),
+    "tr": ("tr", "tr"),
+    "ja": ("jp", "ja"),
+    "ko": ("kr", "ko"),
+    "zh": ("cn", "zh"),
+}
+
 # Brave Search only accepts a fixed list of country codes; unmapped locales fall back to US.
 LOCALE_TO_BRAVE_COUNTRY = {
     "en": "US",
@@ -191,10 +211,82 @@ class SearXNGClient:
         self._last_request_time = time.monotonic()
 
 
-class FallbackSearchClient:
-    """Tries primary (Brave); on quota exhaustion permanently switches to fallback (SearXNG)."""
+class SerperSearchClient:
+    """Serper.dev Google Search API — reliable from datacenter IPs."""
 
-    def __init__(self, primary: BraveSearchClient, fallback: SearXNGClient):
+    _BASE = "https://google.serper.dev/search"
+
+    def __init__(self, api_key: str, rate_limit_seconds: float = 1.0):
+        self.api_key = api_key
+        self.rate_limit_seconds = rate_limit_seconds
+        self._last_request_time: float = 0.0
+
+    async def search(
+        self,
+        query: str,
+        locale: str = "en",
+        num_results: int = 10,
+    ) -> list[SearchResult]:
+        await self._rate_limit()
+        gl, hl = LOCALE_TO_SERPER.get(locale, ("us", "en"))
+        payload = {"q": query, "num": min(num_results, 10), "gl": gl, "hl": hl}
+        headers = {"X-API-KEY": self.api_key, "Content-Type": "application/json"}
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                resp = await client.post(self._BASE, json=payload, headers=headers)
+                if resp.status_code in (402, 429):
+                    raise SearchQuotaError(f"Serper HTTP {resp.status_code}")
+                if resp.status_code >= 400:
+                    log.warning("serper_search_failed", query=query,
+                                status=resp.status_code, body=resp.text[:300])
+                    return []
+                data = resp.json()
+        except SearchQuotaError:
+            raise
+        except Exception as exc:
+            log.warning("serper_search_failed", query=query, error=str(exc))
+            return []
+
+        items = data.get("organic", [])
+        log.debug("serper_results", query=query, raw=len(items))
+        return [
+            SearchResult(
+                url=item.get("link", ""),
+                title=item.get("title", ""),
+                snippet=item.get("snippet", ""),
+            )
+            for item in items[:num_results]
+            if item.get("link")
+        ]
+
+    async def search_all(
+        self,
+        queries: list[str],
+        locale: str = "en",
+        num_results: int = 10,
+    ) -> list[SearchResult]:
+        seen_urls: set[str] = set()
+        combined: list[SearchResult] = []
+        for query in queries:
+            for r in await self.search(query, locale=locale, num_results=num_results):
+                if r.url not in seen_urls:
+                    seen_urls.add(r.url)
+                    combined.append(r)
+        return combined
+
+    async def _rate_limit(self) -> None:
+        import time
+        now = time.monotonic()
+        elapsed = now - self._last_request_time
+        if elapsed < self.rate_limit_seconds:
+            await asyncio.sleep(self.rate_limit_seconds - elapsed)
+        self._last_request_time = time.monotonic()
+
+
+class FallbackSearchClient:
+    """Tries primary API; on quota exhaustion permanently switches to SearXNG fallback."""
+
+    def __init__(self, primary, fallback: SearXNGClient):
         self.primary = primary
         self.fallback = fallback
         self._exhausted = False
@@ -205,7 +297,8 @@ class FallbackSearchClient:
             try:
                 return await self.primary.search(query, locale=locale, num_results=num_results)
             except SearchQuotaError as exc:
-                log.warning("brave_quota_exhausted_switching_to_searxng", reason=str(exc))
+                log.warning("search_primary_quota_exhausted", provider=type(self.primary).__name__,
+                            reason=str(exc))
                 self._exhausted = True
         return await self.fallback.search(query, locale=locale, num_results=num_results)
 
@@ -215,7 +308,8 @@ class FallbackSearchClient:
             try:
                 return await self.primary.search_all(queries, locale=locale, num_results=num_results)
             except SearchQuotaError as exc:
-                log.warning("brave_quota_exhausted_switching_to_searxng", reason=str(exc))
+                log.warning("search_primary_quota_exhausted", provider=type(self.primary).__name__,
+                            reason=str(exc))
                 self._exhausted = True
         return await self.fallback.search_all(queries, locale=locale, num_results=num_results)
 

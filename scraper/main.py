@@ -96,6 +96,7 @@ def load_config(db_path: Path) -> tuple[list[CityConfig], list[TopicConfig], Pip
         cache_skip_extracted=cache_cfg.get("skip_extracted", True),
         enrich_communities=pipeline_settings.get("enrich_communities", True),
         brave_api_key=os.environ.get("BRAVE_API_KEY", ""),
+        serper_api_key=os.environ.get("SERPER_DEV_API_KEY", ""),
         deepseek_api_key=os.environ.get("DEEPSEEK_API_KEY", ""),
         deepseek_model=deepseek_cfg.get("model", "deepseek-chat"),
         deepseek_temperature=deepseek_cfg.get("temperature", 0.1),

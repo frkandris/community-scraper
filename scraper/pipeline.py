@@ -10,7 +10,7 @@ from .extract import DeepSeekExtractor, FallbackExtractor, GroqExtractor, Ollama
 from .false_positives import build_prompt_section
 from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
-from .search import BraveSearchClient, FallbackSearchClient, SearXNGClient, build_queries
+from .search import BraveSearchClient, FallbackSearchClient, SearXNGClient, SerperSearchClient, build_queries
 from .store import save_results, update_metadata
 
 if TYPE_CHECKING:
@@ -128,6 +128,7 @@ class PipelineConfig:
     fetch_blocked_domains: list[str]
     db_path: Path
     brave_api_key: str = ""
+    serper_api_key: str = ""
     deepseek_api_key: str = ""
     deepseek_model: str = "deepseek-chat"
     deepseek_temperature: float = 0.1
@@ -221,8 +222,14 @@ async def _run_full(
     on_progress: Callable[[str | None, str | None], None] | None,
 ) -> tuple[int, list[dict]]:
     _searxng = SearXNGClient(config.searxng_url, rate_limit_seconds=config.search_rate_limit)
-    if config.brave_api_key:
-        searxng: BraveSearchClient | FallbackSearchClient | SearXNGClient = FallbackSearchClient(
+    if config.serper_api_key:
+        searxng: FallbackSearchClient | SearXNGClient = FallbackSearchClient(
+            primary=SerperSearchClient(config.serper_api_key, rate_limit_seconds=config.search_rate_limit),
+            fallback=_searxng,
+        )
+        log.info("search_client", backend="serper", fallback="searxng")
+    elif config.brave_api_key:
+        searxng = FallbackSearchClient(
             primary=BraveSearchClient(config.brave_api_key, rate_limit_seconds=config.search_rate_limit),
             fallback=_searxng,
         )
