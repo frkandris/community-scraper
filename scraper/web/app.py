@@ -729,6 +729,20 @@ async def dashboard(request: Request):
         test_mode = False
         test_cities = []
 
+    cfg = app_state.pipeline_cfg
+    active_providers = {
+        "search": (
+            (["Serper"] if cfg and cfg.serper_api_key else []) +
+            (["Brave"] if cfg and cfg.brave_api_key else []) +
+            ["SearXNG"]
+        ),
+        "ai": (
+            (["DeepSeek"] if cfg and cfg.deepseek_api_key else []) +
+            (["Groq"] if cfg and cfg.groq_api_key else []) +
+            ["Ollama"]
+        ),
+    }
+
     return templates.TemplateResponse(request, "dashboard.html", {
         "metadata": metadata,
         "is_running": app_state.is_running,
@@ -742,6 +756,7 @@ async def dashboard(request: Request):
         "run_history": run_history,
         "test_mode": test_mode,
         "test_cities": test_cities,
+        "active_providers": active_providers,
     })
 
 

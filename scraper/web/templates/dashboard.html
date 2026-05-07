@@ -53,66 +53,93 @@
 
   <!-- Run Now -->
   <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Run Now</h2>
-    <form method="POST" action="/admin/api/run" class="space-y-4">
+    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Run Now</h2>
 
-      <!-- Mode selector -->
-      <div class="grid grid-cols-2 gap-2">
-        <label id="mode-full-label"
-          class="relative flex flex-col gap-1 p-3 rounded-xl border-2 border-blue-500 bg-blue-50 cursor-pointer transition-all">
-          <input type="radio" name="run_mode" value="full" checked class="sr-only" onchange="updateModeUI()">
-          <span class="text-xs font-bold text-blue-700">Full pipeline</span>
-          <span class="text-[10px] text-blue-500 leading-tight">Search → Fetch → AI → Enrich</span>
-        </label>
-        <label id="mode-ai-label"
-          class="relative flex flex-col gap-1 p-3 rounded-xl border-2 border-gray-200 bg-white cursor-pointer transition-all">
-          <input type="radio" name="run_mode" value="ai_only" class="sr-only" onchange="updateModeUI()">
-          <span class="text-xs font-bold text-gray-600">AI only</span>
-          <span class="text-[10px] text-gray-400 leading-tight">AI Extract → Enrich (from cache)</span>
-        </label>
+    <!-- Active provider strip -->
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-3 py-2 mb-4 bg-gray-50 rounded-lg border border-gray-100 text-[10px]">
+      <div class="flex items-center gap-1.5">
+        <i class="ph ph-magnifying-glass text-gray-400" style="font-size:11px"></i>
+        <span class="text-gray-400 font-semibold uppercase tracking-wide">Search</span>
+        {% for p in active_providers.search %}
+        <span class="px-1.5 py-0.5 rounded font-semibold
+          {% if loop.first %}bg-blue-100 text-blue-700{% else %}bg-gray-200 text-gray-500{% endif %}">
+          {{ p }}{% if not loop.last %} <span class="font-normal opacity-60">→</span>{% endif %}
+        </span>
+        {% endfor %}
       </div>
-
-      <!-- Pipeline steps visualisation -->
-      <div class="flex items-center gap-1 text-[10px] font-medium select-none" id="pipeline-steps">
-        <span id="step-search" class="flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-100 text-blue-700">
-          <i class="ph ph-magnifying-glass" style="font-size:11px"></i> Search
+      <div class="w-px h-3 bg-gray-200 hidden sm:block"></div>
+      <div class="flex items-center gap-1.5">
+        <i class="ph ph-brain text-gray-400" style="font-size:11px"></i>
+        <span class="text-gray-400 font-semibold uppercase tracking-wide">AI</span>
+        {% for p in active_providers.ai %}
+        <span class="px-1.5 py-0.5 rounded font-semibold
+          {% if loop.first %}bg-purple-100 text-purple-700{% else %}bg-gray-200 text-gray-500{% endif %}">
+          {{ p }}{% if not loop.last %} <span class="font-normal opacity-60">→</span>{% endif %}
         </span>
-        <span class="text-gray-300">→</span>
-        <span id="step-fetch" class="flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-100 text-blue-700">
-          <i class="ph ph-arrow-circle-down" style="font-size:11px"></i> Fetch
-        </span>
-        <span class="text-gray-300">→</span>
-        <span id="step-extract" class="flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-100 text-purple-700">
-          <i class="ph ph-brain" style="font-size:11px"></i> AI Extract
-        </span>
-        <span class="text-gray-300">→</span>
-        <span id="step-enrich" class="flex items-center gap-1 px-2 py-1 rounded-lg bg-green-100 text-green-700">
-          <i class="ph ph-sparkle" style="font-size:11px"></i> Enrich
-        </span>
+        {% endfor %}
       </div>
+    </div>
 
-      <!-- Cache skip options (only meaningful for full run) -->
-      <div id="cache-options">
-        <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Cache behaviour</div>
-        <div class="space-y-1">
-          <label id="row-skip-scraped" class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
-            <input type="checkbox" name="skip_scraped" value="on"
-              {% if cache_defaults.get('skip_scraped') %}checked{% endif %}
-              class="accent-blue-600 w-3.5 h-3.5">
-            Re-use cached fetches <span class="text-gray-400">(skip re-scraping)</span>
-          </label>
-          <label class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
-            <input type="checkbox" name="skip_extracted" value="on"
-              {% if cache_defaults.get('skip_extracted') %}checked{% endif %}
-              class="accent-blue-600 w-3.5 h-3.5">
-            Re-use cached extractions <span class="text-gray-400">(skip re-running AI)</span>
-          </label>
-        </div>
+    <form method="POST" action="/admin/api/run" id="run-form">
+      <!-- Hidden actual fields set by JS -->
+      <input type="hidden" name="run_mode"       id="f-run-mode"       value="full">
+      <input type="hidden" name="skip_scraped"   id="f-skip-scraped"   value="on">
+      <input type="hidden" name="skip_extracted" id="f-skip-extracted" value="on">
+
+      <!-- Preset cards -->
+      <div class="grid grid-cols-3 gap-2 mb-4" id="preset-grid">
+
+        <button type="button" data-preset="smart"
+          class="preset-card text-left p-3 rounded-xl border-2 border-blue-500 bg-blue-50 transition-all cursor-pointer">
+          <div class="flex items-center gap-1.5 mb-1.5">
+            <i class="ph ph-rocket-launch text-blue-600" style="font-size:14px"></i>
+            <span class="text-xs font-bold text-blue-800">Smart</span>
+          </div>
+          <p class="text-[10px] text-blue-600 leading-snug mb-2">Search new pages, skip what's already processed</p>
+          <div class="space-y-0.5 text-[9px] font-medium">
+            <div class="text-blue-500"><i class="ph ph-check"></i> Search</div>
+            <div class="text-blue-500"><i class="ph ph-check"></i> Fetch <span class="opacity-60">(new only)</span></div>
+            <div class="text-blue-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(new only)</span></div>
+            <div class="text-blue-500"><i class="ph ph-check"></i> Enrich</div>
+          </div>
+        </button>
+
+        <button type="button" data-preset="refresh"
+          class="preset-card text-left p-3 rounded-xl border-2 border-gray-200 bg-white transition-all cursor-pointer hover:border-orange-300 hover:bg-orange-50">
+          <div class="flex items-center gap-1.5 mb-1.5">
+            <i class="ph ph-arrows-clockwise text-gray-500" style="font-size:14px"></i>
+            <span class="text-xs font-bold text-gray-700">Full Refresh</span>
+          </div>
+          <p class="text-[10px] text-gray-500 leading-snug mb-2">Re-fetch and re-AI every page from scratch</p>
+          <div class="space-y-0.5 text-[9px] font-medium">
+            <div class="text-gray-500"><i class="ph ph-check"></i> Search</div>
+            <div class="text-gray-500"><i class="ph ph-check"></i> Fetch <span class="opacity-60">(all)</span></div>
+            <div class="text-gray-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(all)</span></div>
+            <div class="text-gray-500"><i class="ph ph-check"></i> Enrich</div>
+          </div>
+        </button>
+
+        <button type="button" data-preset="reai"
+          class="preset-card text-left p-3 rounded-xl border-2 border-gray-200 bg-white transition-all cursor-pointer hover:border-purple-300 hover:bg-purple-50">
+          <div class="flex items-center gap-1.5 mb-1.5">
+            <i class="ph ph-brain text-gray-500" style="font-size:14px"></i>
+            <span class="text-xs font-bold text-gray-700">Re-AI</span>
+          </div>
+          <p class="text-[10px] text-gray-500 leading-snug mb-2">Re-run AI on all cached pages (after model/prompt change)</p>
+          <div class="space-y-0.5 text-[9px] font-medium">
+            <div class="text-gray-300"><i class="ph ph-minus"></i> Search</div>
+            <div class="text-gray-300"><i class="ph ph-minus"></i> Fetch</div>
+            <div class="text-gray-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(all cached)</span></div>
+            <div class="text-gray-500"><i class="ph ph-check"></i> Enrich</div>
+          </div>
+        </button>
+
       </div>
 
       <button id="run-btn" type="submit" {% if is_running %}disabled{% endif %}
         class="w-full px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2">
-        <i class="ph ph-play" style="font-size:15px"></i> Run Now
+        <i class="ph ph-play" style="font-size:15px"></i>
+        <span id="run-btn-label">Run Smart</span>
       </button>
     </form>
 
@@ -201,7 +228,7 @@
         <span class="px-1.5 py-0.5 rounded text-xs
           {% if r.run_mode == 'ai_only' %}bg-purple-50 text-purple-700
           {% else %}bg-blue-50 text-blue-700{% endif %}">
-          {{ r.run_mode }}
+          {% if r.run_mode == 'ai_only' %}Re-AI{% else %}Full{% endif %}
         </span>
         <span class="{% if r.success %}text-green-600{% else %}text-red-500{% endif %}">
           {% if r.success %}✓{% else %}✗{% endif %}
@@ -237,39 +264,58 @@
 </div>
 
 <script>
-(function() {
-  const runBtn  = document.getElementById('run-btn');
+(function () {
+  // Status polling
+  const runBtn   = document.getElementById('run-btn');
   const stopForm = document.getElementById('stop-form');
   setInterval(async () => {
     try {
-      const r = await fetch('/admin/api/status');
-      const d = await r.json();
-      if (d.is_running) {
-        runBtn.disabled = true;
-        stopForm.classList.remove('hidden');
-      } else {
-        runBtn.disabled = false;
-        stopForm.classList.add('hidden');
-      }
+      const d = await fetch('/admin/api/status').then(r => r.json());
+      runBtn.disabled = d.is_running;
+      stopForm.classList.toggle('hidden', !d.is_running);
     } catch (_) {}
   }, 2000);
-})();
 
-function updateModeUI() {
-  const full = document.querySelector('input[value="full"]').checked;
-  const lFull = document.getElementById('mode-full-label');
-  const lAi   = document.getElementById('mode-ai-label');
-  lFull.classList.toggle('border-blue-500', full);
-  lFull.classList.toggle('bg-blue-50', full);
-  lFull.classList.toggle('border-gray-200', !full);
-  lFull.classList.toggle('bg-white', !full);
-  lAi.classList.toggle('border-blue-500', !full);
-  lAi.classList.toggle('bg-blue-50', !full);
-  lAi.classList.toggle('border-gray-200', full);
-  lAi.classList.toggle('bg-white', full);
-  document.getElementById('step-search').classList.toggle('opacity-30', !full);
-  document.getElementById('step-fetch').classList.toggle('opacity-30', !full);
-  document.getElementById('row-skip-scraped').classList.toggle('hidden', !full);
-}
+  // Preset config
+  const PRESETS = {
+    smart:   { mode: 'full',    skipScraped: 'on',  skipExtracted: 'on',  label: 'Run Smart',
+               activeColor: 'border-blue-500 bg-blue-50',   hoverColor: 'hover:border-blue-300 hover:bg-blue-50' },
+    refresh: { mode: 'full',    skipScraped: '',    skipExtracted: '',    label: 'Full Refresh',
+               activeColor: 'border-orange-400 bg-orange-50', hoverColor: 'hover:border-orange-300 hover:bg-orange-50' },
+    reai:    { mode: 'ai_only', skipScraped: '',    skipExtracted: '',    label: 'Run Re-AI',
+               activeColor: 'border-purple-400 bg-purple-50', hoverColor: 'hover:border-purple-300 hover:bg-purple-50' },
+  };
+
+  let selected = 'smart';
+
+  function selectPreset(key) {
+    selected = key;
+    const p = PRESETS[key];
+    document.getElementById('f-run-mode').value       = p.mode;
+    document.getElementById('f-skip-scraped').value   = p.skipScraped;
+    document.getElementById('f-skip-extracted').value = p.skipExtracted;
+    document.getElementById('run-btn-label').textContent = p.label;
+
+    document.querySelectorAll('.preset-card').forEach(card => {
+      const isSelected = card.dataset.preset === key;
+      const cp = PRESETS[card.dataset.preset];
+      // Reset all
+      card.className = card.className
+        .replace(/border-\S+/g, '').replace(/bg-\S+/g, '').trim();
+      if (isSelected) {
+        card.classList.add(...cp.activeColor.split(' '), 'border-2', 'rounded-xl', 'text-left', 'p-3', 'transition-all', 'cursor-pointer');
+      } else {
+        card.classList.add('border-2', 'border-gray-200', 'bg-white', 'rounded-xl', 'text-left', 'p-3', 'transition-all', 'cursor-pointer', ...cp.hoverColor.split(' '));
+      }
+    });
+  }
+
+  document.querySelectorAll('.preset-card').forEach(card => {
+    card.addEventListener('click', () => selectPreset(card.dataset.preset));
+  });
+
+  // Init
+  selectPreset('smart');
+})();
 </script>
 {% endblock %}
