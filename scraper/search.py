@@ -284,33 +284,35 @@ class SerperSearchClient:
 
 
 class FallbackSearchClient:
-    """Tries primary API; on quota exhaustion permanently switches to SearXNG fallback."""
+    """Tries primaries left-to-right; on quota exhaustion falls back to SearXNG."""
 
-    def __init__(self, primary, fallback: SearXNGClient):
-        self.primary = primary
+    def __init__(self, primaries: list, fallback: SearXNGClient):
+        self.primaries = primaries
         self.fallback = fallback
-        self._exhausted = False
+        self._exhausted = [False] * len(primaries)
 
     async def search(self, query: str, locale: str = "en",
                      num_results: int = 10) -> list[SearchResult]:
-        if not self._exhausted:
+        for i, primary in enumerate(self.primaries):
+            if self._exhausted[i]:
+                continue
             try:
-                return await self.primary.search(query, locale=locale, num_results=num_results)
+                return await primary.search(query, locale=locale, num_results=num_results)
             except SearchQuotaError as exc:
-                log.warning("search_primary_quota_exhausted", provider=type(self.primary).__name__,
-                            reason=str(exc))
-                self._exhausted = True
+                log.warning("search_quota_exhausted", provider=type(primary).__name__, reason=str(exc))
+                self._exhausted[i] = True
         return await self.fallback.search(query, locale=locale, num_results=num_results)
 
     async def search_all(self, queries: list[str], locale: str = "en",
                          num_results: int = 10) -> list[SearchResult]:
-        if not self._exhausted:
+        for i, primary in enumerate(self.primaries):
+            if self._exhausted[i]:
+                continue
             try:
-                return await self.primary.search_all(queries, locale=locale, num_results=num_results)
+                return await primary.search_all(queries, locale=locale, num_results=num_results)
             except SearchQuotaError as exc:
-                log.warning("search_primary_quota_exhausted", provider=type(self.primary).__name__,
-                            reason=str(exc))
-                self._exhausted = True
+                log.warning("search_quota_exhausted", provider=type(primary).__name__, reason=str(exc))
+                self._exhausted[i] = True
         return await self.fallback.search_all(queries, locale=locale, num_results=num_results)
 
 

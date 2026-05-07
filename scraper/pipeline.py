@@ -222,18 +222,16 @@ async def _run_full(
     on_progress: Callable[[str | None, str | None], None] | None,
 ) -> tuple[int, list[dict]]:
     _searxng = SearXNGClient(config.searxng_url, rate_limit_seconds=config.search_rate_limit)
+    search_primaries = []
     if config.serper_api_key:
+        search_primaries.append(SerperSearchClient(config.serper_api_key, rate_limit_seconds=config.search_rate_limit))
+    if config.brave_api_key:
+        search_primaries.append(BraveSearchClient(config.brave_api_key, rate_limit_seconds=config.search_rate_limit))
+    if search_primaries:
         searxng: FallbackSearchClient | SearXNGClient = FallbackSearchClient(
-            primary=SerperSearchClient(config.serper_api_key, rate_limit_seconds=config.search_rate_limit),
-            fallback=_searxng,
+            primaries=search_primaries, fallback=_searxng,
         )
-        log.info("search_client", backend="serper", fallback="searxng")
-    elif config.brave_api_key:
-        searxng = FallbackSearchClient(
-            primary=BraveSearchClient(config.brave_api_key, rate_limit_seconds=config.search_rate_limit),
-            fallback=_searxng,
-        )
-        log.info("search_client", backend="brave", fallback="searxng")
+        log.info("search_client", primaries=[type(p).__name__ for p in search_primaries], fallback="searxng")
     else:
         searxng = _searxng
         log.info("search_client", backend="searxng")
