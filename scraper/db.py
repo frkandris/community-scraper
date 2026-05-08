@@ -113,6 +113,18 @@ def init_db(db_path: Path) -> None:
             )
         """)
 
+        # Search result cache — URL lists per city+topic
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS search_cache (
+                city       TEXT NOT NULL,
+                topic      TEXT NOT NULL,
+                urls       TEXT NOT NULL,
+                queries    TEXT NOT NULL,
+                cached_at  TEXT NOT NULL,
+                PRIMARY KEY (city, topic)
+            )
+        """)
+
         conn.commit()
 
 
@@ -544,3 +556,32 @@ def append_prompt_history(db_path: Path, version: int, timestamp: str,
             VALUES (?, ?, ?, ?, ?)
         """, (version, timestamp, content, fp_type, fp_count))
         conn.commit()
+
+
+# ── Search cache ───────────────────────────────────────────────────────────────
+
+def save_search_cache(db_path: Path, city: str, topic: str,
+                      urls: list[str], queries: list[str]) -> None:
+    import json
+    now = datetime.now(timezone.utc).isoformat()
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("""
+            INSERT INTO search_cache (city, topic, urls, queries, cached_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(city, topic) DO UPDATE SET
+                urls=excluded.urls, queries=excluded.queries, cached_at=excluded.cached_at
+        """, (city, topic, json.dumps(urls), json.dumps(queries), now))
+        conn.commit()
+
+
+def get_search_cache(db_path: Path, city: str, topic: str,
+                     ttl_days: int) -> list[str] | None:
+    import json
+    from datetime import timedelta
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=ttl_days)).isoformat()
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT urls FROM search_cache WHERE city=? AND topic=? AND cached_at>=?",
+            (city, topic, cutoff)
+        ).fetchone()
+    return json.loads(row[0]) if row else None

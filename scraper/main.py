@@ -94,6 +94,7 @@ def load_config(db_path: Path) -> tuple[list[CityConfig], list[TopicConfig], Pip
         db_path=db_path,
         cache_skip_scraped=cache_cfg.get("skip_scraped", True),
         cache_skip_extracted=cache_cfg.get("skip_extracted", True),
+        search_cache_ttl_days=cache_cfg.get("search_ttl_days", 7),
         enrich_communities=pipeline_settings.get("enrich_communities", True),
         brave_api_key=os.environ.get("BRAVE_API_KEY", ""),
         serper_api_key=os.environ.get("SERPER_DEV_API_KEY", ""),

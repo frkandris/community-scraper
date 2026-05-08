@@ -11,6 +11,7 @@ from .false_positives import build_prompt_section
 from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
 from .search import BraveSearchClient, FallbackSearchClient, SearXNGClient, SerperSearchClient, build_queries
+from .db import get_search_cache, save_search_cache
 from .store import save_results, update_metadata
 
 if TYPE_CHECKING:
@@ -143,6 +144,7 @@ class PipelineConfig:
     groq_rate_limit_seconds: float = 4.0
     cache_skip_scraped: bool = True
     cache_skip_extracted: bool = True
+    search_cache_ttl_days: int = 7
     enrich_communities: bool = True
 
 
@@ -249,17 +251,29 @@ async def _run_full(
             terms = topic.search_terms.get(city.locale) or topic.search_terms.get("en", [])
             queries = build_queries(city.name, city.search_variants, terms)
 
-            search_results = await searxng.search_all(
-                queries, locale=city.locale, num_results=config.search_results_per_query,
-            )
-            log.info("search_done", city=city.name, topic=topic.name, urls=len(search_results))
+            use_search_cache = skip_scraped and config.search_cache_ttl_days > 0
+            search_cache_hit = False
+            cached_urls = get_search_cache(config.db_path, city.name, topic.name,
+                                           config.search_cache_ttl_days) if use_search_cache else None
+            if cached_urls is not None:
+                urls = cached_urls[:config.search_max_pages]
+                search_cache_hit = True
+                log.info("search_cache_hit", city=city.name, topic=topic.name, urls=len(urls))
+            else:
+                search_results = await searxng.search_all(
+                    queries, locale=city.locale, num_results=config.search_results_per_query,
+                )
+                log.info("search_done", city=city.name, topic=topic.name, urls=len(search_results))
+                urls = [r.url for r in search_results][:config.search_max_pages]
+                if use_search_cache and urls:
+                    save_search_cache(config.db_path, city.name, topic.name, urls, queries)
 
-            urls = [r.url for r in search_results][:config.search_max_pages]
             fetched: list[tuple[str, str]] = []
             pair_log: dict = {
                 "city": city.name,
                 "topic": topic.name,
                 "queries": queries,
+                "search_cache_hit": search_cache_hit,
                 "urls_found": len(search_results),
                 "fetched_urls": [],
                 "fetch_failed": 0,
