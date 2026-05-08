@@ -133,22 +133,29 @@
     <!-- Links -->
     {% set website_url = r.website if r.website and r.website.startswith('http') else ('https://' ~ r.website if r.website else '') %}
     {% if (website_url and website_url | valid_url) or r.social_links %}
-    <div class="mt-6 pt-5 border-t border-gray-100 flex flex-wrap gap-2">
-      {% if website_url and website_url | valid_url %}
-      {% set wm = website_url | link_meta %}
-      <a href="{{ website_url }}" target="_blank" rel="noopener"
-         class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-colors {{ wm.color }}">
-        <i class="ph {{ wm.icon }}"></i> {{ wm.label }}
+    <div class="mt-6 pt-5 border-t border-gray-100 space-y-1.5">
+      {% macro link_row(href, meta) %}
+      <a href="{{ href }}" target="_blank" rel="noopener"
+         class="flex items-center gap-3 group rounded-xl px-3 py-2 hover:bg-gray-50 transition-colors -mx-3">
+        <span class="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 {{ meta.color }}">
+          <i class="ph {{ meta.icon }}" style="font-size:16px"></i>
+        </span>
+        <span class="flex flex-col min-w-0">
+          <span class="text-sm font-semibold text-gray-800">{{ meta.label }}</span>
+          <span class="text-xs text-gray-400 truncate group-hover:text-indigo-500 transition-colors">
+            {{ href | replace('https://','') | replace('http://','') | truncate(55, True, '…') }}
+          </span>
+        </span>
+        <i class="ph ph-arrow-square-out text-gray-300 group-hover:text-indigo-400 ml-auto shrink-0 transition-colors" style="font-size:14px"></i>
       </a>
+      {% endmacro %}
+      {% if website_url and website_url | valid_url %}
+        {{ link_row(website_url, website_url | link_meta) }}
       {% endif %}
       {% for link in r.social_links %}
-      {% if link | valid_url %}
-      {% set lm = link | link_meta %}
-      <a href="{{ link }}" target="_blank" rel="noopener"
-         class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-colors {{ lm.color }}">
-        <i class="ph {{ lm.icon }}"></i> {{ lm.label }}
-      </a>
-      {% endif %}
+        {% if link | valid_url %}
+          {{ link_row(link, link | link_meta) }}
+        {% endif %}
       {% endfor %}
     </div>
     {% endif %}
