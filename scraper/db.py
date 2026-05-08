@@ -260,33 +260,49 @@ def get_subscriptions(db_path: Path) -> list[dict]:
 
 # ── Communities ───────────────────────────────────────────────────────────────
 
-def bulk_upsert_communities(db_path: Path, records: list[dict]) -> None:
+def _bulk_upsert_communities(conn: sqlite3.Connection, records: list[dict]) -> None:
     now = datetime.now(timezone.utc).isoformat()
+    for record in records:
+        key = _community_record_key(record["name"], record["city"], record["topic"])
+        existing = conn.execute(
+            "SELECT data FROM communities WHERE record_key=?", (key,)
+        ).fetchone()
+        if existing:
+            existing_data = json.loads(existing[0])
+            prev_urls: list[str] = existing_data.get("source_urls") or []
+            if existing_data.get("source_url") and existing_data["source_url"] not in prev_urls:
+                prev_urls = [existing_data["source_url"]] + prev_urls
+            new_urls: list[str] = record.get("source_urls") or []
+            if record.get("source_url") and record["source_url"] not in new_urls:
+                new_urls = [record["source_url"]] + new_urls
+            merged = list(dict.fromkeys(new_urls + prev_urls))
+            record = {**record, "source_urls": merged}
+        conn.execute("""
+            INSERT INTO communities (record_key, community_id, city, topic, data, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(record_key) DO UPDATE SET
+                data=excluded.data,
+                community_id=excluded.community_id,
+                updated_at=excluded.updated_at
+        """, (key, record.get("community_id", ""), record["city"], record["topic"],
+              json.dumps(record, ensure_ascii=False), now))
+
+
+def bulk_upsert_communities(db_path: Path, records: list[dict]) -> None:
     with _connect(db_path) as conn:
-        for record in records:
-            key = _community_record_key(record["name"], record["city"], record["topic"])
-            existing = conn.execute(
-                "SELECT data FROM communities WHERE record_key=?", (key,)
-            ).fetchone()
-            if existing:
-                existing_data = json.loads(existing[0])
-                prev_urls: list[str] = existing_data.get("source_urls") or []
-                if existing_data.get("source_url") and existing_data["source_url"] not in prev_urls:
-                    prev_urls = [existing_data["source_url"]] + prev_urls
-                new_urls: list[str] = record.get("source_urls") or []
-                if record.get("source_url") and record["source_url"] not in new_urls:
-                    new_urls = [record["source_url"]] + new_urls
-                merged = list(dict.fromkeys(new_urls + prev_urls))
-                record = {**record, "source_urls": merged}
-            conn.execute("""
-                INSERT INTO communities (record_key, community_id, city, topic, data, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON CONFLICT(record_key) DO UPDATE SET
-                    data=excluded.data,
-                    community_id=excluded.community_id,
-                    updated_at=excluded.updated_at
-            """, (key, record.get("community_id", ""), record["city"], record["topic"],
-                  json.dumps(record, ensure_ascii=False), now))
+        _bulk_upsert_communities(conn, records)
+        conn.commit()
+
+
+def replace_communities_for_topic(
+    db_path: Path,
+    city: str,
+    topic: str,
+    records: list[dict],
+) -> None:
+    with _connect(db_path) as conn:
+        conn.execute("DELETE FROM communities WHERE city=? AND topic=?", (city, topic))
+        _bulk_upsert_communities(conn, records)
         conn.commit()
 
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import structlog
 
-from .db import bulk_upsert_communities, delete_communities_for_topic, get_communities
+from .db import get_communities, replace_communities_for_topic
 from .models import CommunityRecord
 
 log = structlog.get_logger()
@@ -70,9 +70,7 @@ def save_results(
 
     deduped = _dedup(sorted(merged.values(), key=lambda r: r.name))
 
-    # Replace all records for this city/topic atomically
-    delete_communities_for_topic(db_path, city, topic)
-    bulk_upsert_communities(db_path, [r.model_dump() for r in deduped])
+    replace_communities_for_topic(db_path, city, topic, [r.model_dump() for r in deduped])
 
     before = len(merged)
     log.info("saved_results", city=city, topic=topic, total=len(deduped),
