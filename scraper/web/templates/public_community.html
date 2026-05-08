@@ -132,21 +132,23 @@
 
     <!-- Links -->
     {% set website_url = r.website if r.website and r.website.startswith('http') else ('https://' ~ r.website if r.website else '') %}
-    {% if website_url or r.social_links %}
+    {% if (website_url and website_url | valid_url) or r.social_links %}
     <div class="mt-6 pt-5 border-t border-gray-100 flex flex-wrap gap-2">
-      {% if website_url %}
+      {% if website_url and website_url | valid_url %}
       {% set wm = website_url | link_meta %}
       <a href="{{ website_url }}" target="_blank" rel="noopener"
          class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-colors {{ wm.color }}">
         <i class="ph {{ wm.icon }}"></i> {{ wm.label }}
       </a>
       {% endif %}
-      {% for link in r.social_links if link.startswith('http') %}
+      {% for link in r.social_links %}
+      {% if link | valid_url %}
       {% set lm = link | link_meta %}
       <a href="{{ link }}" target="_blank" rel="noopener"
          class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-colors {{ lm.color }}">
         <i class="ph {{ lm.icon }}"></i> {{ lm.label }}
       </a>
+      {% endif %}
       {% endfor %}
     </div>
     {% endif %}

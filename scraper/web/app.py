@@ -190,6 +190,22 @@ _LINK_PLATFORMS = [
 ]
 
 
+def _valid_url(url: str) -> bool:
+    from urllib.parse import urlparse
+    try:
+        p = urlparse(url)
+        host = p.netloc.lower()
+        return (
+            p.scheme in ("http", "https")
+            and bool(host)
+            and "." in host
+            and " " not in host
+            and "%20" not in host
+        )
+    except Exception:
+        return False
+
+
 def _link_meta(url: str) -> dict:
     from urllib.parse import urlparse
     try:
@@ -203,6 +219,7 @@ def _link_meta(url: str) -> dict:
     return {"label": domain, "icon": "ph-globe", "color": "text-indigo-600 bg-indigo-50 hover:bg-indigo-100"}
 
 
+templates.env.filters["valid_url"] = _valid_url
 templates.env.filters["link_meta"] = _link_meta
 
 
