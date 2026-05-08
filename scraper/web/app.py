@@ -22,6 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from ..config import load_config
 from ..db import (
     delete_all_communities,
     find_community_by_id,
@@ -282,6 +283,15 @@ def _validate_config_yaml(raw: str, key: str) -> None:
     parsed = yaml.safe_load(raw)
     if not isinstance(parsed, dict) or key not in parsed:
         raise ValueError(f"Missing '{key}' key")
+
+
+def _reload_runtime_config() -> None:
+    if not app_state.db_path:
+        return
+    cities, topics, pipeline_cfg = load_config(app_state.db_path)
+    app_state.cities = cities
+    app_state.topics = topics
+    app_state.pipeline_cfg = pipeline_cfg
 
 _static_dir = Path(__file__).parent / "static"
 _static_dir.mkdir(exist_ok=True)
@@ -982,6 +992,7 @@ async def save_cities(request: Request, cities_yaml: str = Form(...)):
     try:
         _validate_config_yaml(cities_yaml, "cities")
         (CONFIG_DIR / "cities.yaml").write_text(cities_yaml, encoding="utf-8")
+        _reload_runtime_config()
         return RedirectResponse("/admin/config?saved=cities", status_code=302)
     except Exception as exc:
         return _config_error_redirect(exc)
@@ -992,6 +1003,7 @@ async def save_topics(request: Request, topics_yaml: str = Form(...)):
     try:
         _validate_config_yaml(topics_yaml, "topics")
         (CONFIG_DIR / "topics.yaml").write_text(topics_yaml, encoding="utf-8")
+        _reload_runtime_config()
         return RedirectResponse("/admin/config?saved=topics", status_code=302)
     except Exception as exc:
         return _config_error_redirect(exc)
@@ -1004,6 +1016,7 @@ async def save_settings(request: Request, settings_yaml: str = Form(...)):
         if not isinstance(parsed, dict):
             raise ValueError("Settings must be a YAML mapping")
         (CONFIG_DIR / "settings.yaml").write_text(settings_yaml, encoding="utf-8")
+        _reload_runtime_config()
         return RedirectResponse("/admin/config?saved=settings", status_code=302)
     except Exception as exc:
         return _config_error_redirect(exc)

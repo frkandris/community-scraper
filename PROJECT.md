@@ -824,7 +824,8 @@ URLs in the attribution section.
 because it's derived only from `name.lower() + city.lower()`. URL structure (`/{city}/{community_slug}`) is stable for the same reason.
 
 **Test mode**: set `pipeline.test_mode: true` and `pipeline.test_cities: [Budapest]`
-to run quickly on a single city. The admin config page can edit this live.
+to run quickly on a single city. The admin config page reloads runtime scraper config
+after saving city/topic/settings YAML.
 
 ---
 

@@ -1,7 +1,9 @@
 from fastapi.testclient import TestClient
 
-from scraper.web.app import _BasicAuth, _safe_redirect_target, app
+from scraper.web import app as web_app
+from scraper.web.app import _BasicAuth, _safe_redirect_target
 from scraper.web.schema import records_to_jsonld
+from scraper.web.state import app_state
 
 
 def test_safe_redirect_target_allows_only_local_paths():
@@ -41,7 +43,30 @@ def test_jsonld_escapes_script_end_tags():
 
 
 def test_healthz_is_public_and_reports_status():
-    response = TestClient(app).get("/healthz")
+    response = TestClient(web_app.app).get("/healthz")
 
     assert response.status_code == 200
     assert response.json()["ok"] is True
+
+
+def test_reload_runtime_config_updates_app_state(monkeypatch, tmp_path):
+    old_db_path = app_state.db_path
+    old_cities = app_state.cities
+    old_topics = app_state.topics
+    old_pipeline_cfg = app_state.pipeline_cfg
+
+    try:
+        app_state.db_path = tmp_path / "scraper.db"
+        expected = (["city"], ["topic"], object())
+        monkeypatch.setattr(web_app, "load_config", lambda db_path: expected)
+
+        web_app._reload_runtime_config()
+
+        assert app_state.cities == ["city"]
+        assert app_state.topics == ["topic"]
+        assert app_state.pipeline_cfg is expected[2]
+    finally:
+        app_state.db_path = old_db_path
+        app_state.cities = old_cities
+        app_state.topics = old_topics
+        app_state.pipeline_cfg = old_pipeline_cfg
