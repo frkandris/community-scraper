@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import httpx
 import structlog
 
-from .models import CommunityRecord
+from .models import CommunityRecord, PersonRecord, VenueRecord
 
 log = structlog.get_logger()
 
@@ -119,6 +119,111 @@ EXTRACTION_SCHEMA = {
     "required": ["communities"],
 }
 
+VENUE_SYSTEM_PROMPT = """\
+You are a data extraction assistant. Extract physical venues from web page text.
+
+A venue is a real physical location (café, bar, park, community center, library, \
+church hall, sports hall, studio, etc.) that explicitly hosts or welcomes community groups.
+
+Only extract venues if the page clearly mentions that community groups meet there \
+or that the place welcomes groups. Do NOT extract generic addresses or event listings.
+
+For 'venue_type' use one of: café | bar | park | cultural_center | library | \
+church | sports_hall | studio | coworking | restaurant | other
+
+For 'welcomed_topics': list only topics clearly mentioned \
+(e.g. ["running", "yoga", "board_games"] — use the English slug form).
+
+Output field values in the original language of the page.
+If no venues found, return an empty venues array.
+"""
+
+VENUE_USER_PROMPT_TEMPLATE = """\
+Extract physical venues that host community groups in {city} from the following page.
+Source URL: {source_url}
+
+--- PAGE TEXT ---
+{page_text}
+--- END ---
+"""
+
+VENUE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "venues": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name":              {"type": "string"},
+                    "address":           {"type": "string"},
+                    "venue_type":        {"type": "string"},
+                    "welcomed_topics":   {"type": "array", "items": {"type": "string"}},
+                    "description":       {"type": "string"},
+                    "website":           {"type": "string"},
+                    "social_links":      {"type": "array", "items": {"type": "string"}},
+                    "email":             {"type": "string"},
+                    "phone":             {"type": "string"},
+                },
+                "required": ["name"],
+            },
+        }
+    },
+    "required": ["venues"],
+}
+
+
+PERSON_SYSTEM_PROMPT = """\
+You are a data extraction assistant. Extract named people from web page text \
+who are clearly associated with a community group as a leader, instructor, or speaker.
+
+Roles:
+- 'leader': founder, coordinator, organizer of the group
+- 'instructor': coach, teacher, conductor, trainer who regularly leads sessions
+- 'speaker': guest presenter or one-time speaker at a community event
+
+Only extract people who are named (not anonymous). Do NOT invent names.
+Output field values in the original language of the page.
+If no relevant people are found, return an empty persons array.
+"""
+
+PERSON_USER_PROMPT_TEMPLATE = """\
+Extract people (leaders, instructors, speakers) associated with {topic} community groups \
+in {city} from the following page.
+Source URL: {source_url}
+
+Known communities on this page (for reference):
+{community_names}
+
+--- PAGE TEXT ---
+{page_text}
+--- END ---
+"""
+
+PERSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "persons": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name":           {"type": "string"},
+                    "role":           {"type": "string"},   # leader | instructor | speaker
+                    "community_name": {"type": "string"},
+                    "bio":            {"type": "string"},
+                    "email":          {"type": "string"},
+                    "website":        {"type": "string"},
+                    "social_links":   {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["name", "role", "community_name"],
+            },
+        }
+    },
+    "required": ["persons"],
+}
+
+
 ENRICH_SYSTEM_PROMPT = """\
 Extract contact information for a specific named community group from a web page.
 Return only fields where the page has clear evidence. Leave others as empty string or empty array.
@@ -153,6 +258,72 @@ def _apply_enrich(record: "CommunityRecord", enrichment: dict) -> "CommunityReco
         log.debug("enrich_merged", community=record.name, fields=list(updates))
         return record.model_copy(update=updates)
     return record
+
+
+def _parse_venues(raw: str, city: str, locale: str, source_url: str) -> list[VenueRecord]:
+    try:
+        items = json.loads(raw).get("venues", [])
+        if not isinstance(items, list):
+            return []
+    except json.JSONDecodeError:
+        return []
+    records = []
+    extracted_at = datetime.now(timezone.utc).isoformat()
+    for item in items:
+        if not isinstance(item, dict) or not item.get("name"):
+            continue
+        try:
+            records.append(VenueRecord(
+                name=item["name"],
+                city=city,
+                locale=locale,
+                address=item.get("address") or None,
+                venue_type=item.get("venue_type") or None,
+                welcomed_topics=item.get("welcomed_topics") or [],
+                description=item.get("description") or None,
+                website=item.get("website") or None,
+                social_links=item.get("social_links") or [],
+                email=item.get("email") or None,
+                phone=item.get("phone") or None,
+                source_url=source_url,
+                extracted_at=extracted_at,
+            ))
+        except Exception as exc:
+            log.warning("venue_validation_failed", item=item, error=str(exc))
+    return records
+
+
+def _parse_persons(
+    raw: str, city: str, topic: str, locale: str, source_url: str,
+) -> list[PersonRecord]:
+    try:
+        items = json.loads(raw).get("persons", [])
+        if not isinstance(items, list):
+            return []
+    except json.JSONDecodeError:
+        return []
+    records = []
+    extracted_at = datetime.now(timezone.utc).isoformat()
+    for item in items:
+        if not isinstance(item, dict) or not item.get("name") or not item.get("community_name"):
+            continue
+        try:
+            records.append(PersonRecord(
+                name=item["name"],
+                role=item.get("role") or "leader",
+                city=city,
+                topic=topic,
+                community_name=item["community_name"],
+                bio=item.get("bio") or None,
+                email=item.get("email") or None,
+                website=item.get("website") or None,
+                social_links=item.get("social_links") or [],
+                source_url=source_url,
+                extracted_at=extracted_at,
+            ))
+        except Exception as exc:
+            log.warning("person_validation_failed", item=item, error=str(exc))
+    return records
 
 
 def _parse_communities(
@@ -269,6 +440,64 @@ class OllamaExtractor:
 
         raw = data.get("message", {}).get("content", "")
         return _parse_communities(raw, city, topic, locale, source_url)
+
+    async def extract_venues(
+        self, text: str, city: str, locale: str, source_url: str,
+    ) -> list[VenueRecord]:
+        user_message = VENUE_USER_PROMPT_TEMPLATE.format(
+            city=city, source_url=source_url, page_text=text[:self.max_text_chars],
+        )
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": VENUE_SYSTEM_PROMPT},
+                {"role": "user", "content": user_message},
+            ],
+            "stream": False,
+            "format": VENUE_SCHEMA,
+            "options": {"temperature": 0.0},
+        }
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                resp = await client.post(f"{self.base_url}/api/chat", json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+            raw = data.get("message", {}).get("content", "")
+            return _parse_venues(raw, city, locale, source_url)
+        except Exception as exc:
+            log.debug("extract_venues_failed", url=source_url, error=str(exc))
+        return []
+
+    async def extract_persons(
+        self, text: str, city: str, topic: str, locale: str, source_url: str,
+        community_names: list[str] | None = None,
+    ) -> list[PersonRecord]:
+        names_str = "\n".join(f"- {n}" for n in (community_names or [])) or "(none known)"
+        user_message = PERSON_USER_PROMPT_TEMPLATE.format(
+            city=city, topic=topic, source_url=source_url,
+            community_names=names_str,
+            page_text=text[:self.max_text_chars],
+        )
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": PERSON_SYSTEM_PROMPT},
+                {"role": "user", "content": user_message},
+            ],
+            "stream": False,
+            "format": PERSON_SCHEMA,
+            "options": {"temperature": 0.0},
+        }
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                resp = await client.post(f"{self.base_url}/api/chat", json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+            raw = data.get("message", {}).get("content", "")
+            return _parse_persons(raw, city, topic, locale, source_url)
+        except Exception as exc:
+            log.debug("extract_persons_failed", url=source_url, error=str(exc))
+        return []
 
     async def enrich(self, record: CommunityRecord, page_text: str,
                      false_positive_examples: str = "") -> CommunityRecord:
@@ -399,6 +628,62 @@ class _ApiExtractor:
         raw = data.get("choices", [{}])[0].get("message", {}).get("content", "")
         return _parse_communities(raw, city, topic, locale, source_url)
 
+    async def extract_venues(
+        self, text: str, city: str, locale: str, source_url: str,
+    ) -> list[VenueRecord]:
+        user_message = VENUE_USER_PROMPT_TEMPLATE.format(
+            city=city, source_url=source_url, page_text=text[:self.max_text_chars],
+        )
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": VENUE_SYSTEM_PROMPT + "\n\nRespond ONLY with valid JSON: {\"venues\": [...]}"},
+                {"role": "user",   "content": user_message},
+            ],
+            "temperature": 0.0,
+            "response_format": {"type": "json_object"},
+        }
+        try:
+            data = await self._post(payload, label=source_url)
+            raw = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            return _parse_venues(raw, city, locale, source_url)
+        except ExtractorQuotaError:
+            raise
+        except Exception as exc:
+            log.debug("api_extract_venues_failed", provider=self.__class__.__name__,
+                      url=source_url, error=str(exc))
+        return []
+
+    async def extract_persons(
+        self, text: str, city: str, topic: str, locale: str, source_url: str,
+        community_names: list[str] | None = None,
+    ) -> list[PersonRecord]:
+        names_str = "\n".join(f"- {n}" for n in (community_names or [])) or "(none known)"
+        user_message = PERSON_USER_PROMPT_TEMPLATE.format(
+            city=city, topic=topic, source_url=source_url,
+            community_names=names_str,
+            page_text=text[:self.max_text_chars],
+        )
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": PERSON_SYSTEM_PROMPT + "\n\nRespond ONLY with valid JSON: {\"persons\": [...]}"},
+                {"role": "user",   "content": user_message},
+            ],
+            "temperature": 0.0,
+            "response_format": {"type": "json_object"},
+        }
+        try:
+            data = await self._post(payload, label=source_url)
+            raw = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            return _parse_persons(raw, city, topic, locale, source_url)
+        except ExtractorQuotaError:
+            raise
+        except Exception as exc:
+            log.debug("api_extract_persons_failed", provider=self.__class__.__name__,
+                      url=source_url, error=str(exc))
+        return []
+
     async def enrich(self, record: CommunityRecord, page_text: str,
                      false_positive_examples: str = "") -> CommunityRecord:
         user_message = (
@@ -523,3 +808,36 @@ class FallbackExtractor:
                 log.warning("extractor_quota_exhausted", provider=primary.__class__.__name__, reason=str(exc))
                 self._exhausted[i] = True
         return await self.fallback.enrich(record, page_text, false_positive_examples)
+
+    async def extract_venues(self, text: str, city: str, locale: str,
+                             source_url: str) -> list[VenueRecord]:
+        for i, primary in enumerate(self.primaries):
+            if not self._available(i):
+                continue
+            try:
+                return await primary.extract_venues(text, city, locale, source_url)
+            except ExtractorRateLimitError as exc:
+                self._blocked_until[i] = time.monotonic() + exc.wait_seconds
+                log.warning("extractor_rate_limited", provider=primary.__class__.__name__,
+                            label=source_url, wait_s=exc.wait_seconds)
+            except ExtractorQuotaError as exc:
+                log.warning("extractor_quota_exhausted", provider=primary.__class__.__name__, reason=str(exc))
+                self._exhausted[i] = True
+        return await self.fallback.extract_venues(text, city, locale, source_url)
+
+    async def extract_persons(self, text: str, city: str, topic: str, locale: str,
+                              source_url: str,
+                              community_names: list[str] | None = None) -> list[PersonRecord]:
+        for i, primary in enumerate(self.primaries):
+            if not self._available(i):
+                continue
+            try:
+                return await primary.extract_persons(text, city, topic, locale, source_url, community_names)
+            except ExtractorRateLimitError as exc:
+                self._blocked_until[i] = time.monotonic() + exc.wait_seconds
+                log.warning("extractor_rate_limited", provider=primary.__class__.__name__,
+                            label=source_url, wait_s=exc.wait_seconds)
+            except ExtractorQuotaError as exc:
+                log.warning("extractor_quota_exhausted", provider=primary.__class__.__name__, reason=str(exc))
+                self._exhausted[i] = True
+        return await self.fallback.extract_persons(text, city, topic, locale, source_url, community_names)

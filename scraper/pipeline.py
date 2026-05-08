@@ -11,7 +11,7 @@ from .false_positives import build_prompt_section
 from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
 from .search import BraveSearchClient, FallbackSearchClient, SearXNGClient, SerperSearchClient, build_queries
-from .db import get_search_cache, save_search_cache
+from .db import get_search_cache, save_search_cache, upsert_venues, upsert_persons
 from .store import save_results
 
 if TYPE_CHECKING:
@@ -385,6 +385,24 @@ async def _run_full(
                 pair_log["records_extracted"] += len(final_records)
                 log.info("extracted", url=url, found=len(extracted), kept=len(final_records))
 
+                community_names = [r.name for r in final_records]
+                try:
+                    venues = await extractor.extract_venues(text, city.name, city.locale, url)
+                    if venues:
+                        upsert_venues(config.db_path, [v.model_dump() for v in venues])
+                        log.info("venues_extracted", url=url, found=len(venues))
+                except Exception as exc:
+                    log.warning("venues_extract_error", url=url, error=str(exc))
+                try:
+                    persons = await extractor.extract_persons(
+                        text, city.name, topic.name, city.locale, url, community_names,
+                    )
+                    if persons:
+                        upsert_persons(config.db_path, [p.model_dump() for p in persons])
+                        log.info("persons_extracted", url=url, found=len(persons))
+                except Exception as exc:
+                    log.warning("persons_extract_error", url=url, error=str(exc))
+
             count = save_results(city.name, topic.name, records, config.db_path)
             run_stats[city.name][topic.name] = count
             pair_logs.append(pair_log)
@@ -475,6 +493,24 @@ async def _run_ai_only(
                 total_new += len(joinable)
                 pair_log["records_extracted"] += len(joinable)
                 log.info("extracted", url=url, found=len(extracted), kept=len(joinable))
+
+                community_names = [r.name for r in joinable]
+                try:
+                    venues = await extractor.extract_venues(text, city.name, city.locale, url)
+                    if venues:
+                        upsert_venues(config.db_path, [v.model_dump() for v in venues])
+                        log.info("venues_extracted", url=url, found=len(venues))
+                except Exception as exc:
+                    log.warning("venues_extract_error", url=url, error=str(exc))
+                try:
+                    persons = await extractor.extract_persons(
+                        text, city.name, topic.name, city.locale, url, community_names,
+                    )
+                    if persons:
+                        upsert_persons(config.db_path, [p.model_dump() for p in persons])
+                        log.info("persons_extracted", url=url, found=len(persons))
+                except Exception as exc:
+                    log.warning("persons_extract_error", url=url, error=str(exc))
 
             count = save_results(city.name, topic.name, records, config.db_path)
             run_stats[city.name][topic.name] = count
