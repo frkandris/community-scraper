@@ -538,6 +538,8 @@ async def public_home(request: Request, city: str = ""):
     cities = app_state.cities or []
     topics = app_state.topics or []
     topic_counts = _global_topic_counts()
+    venue_counts = get_venue_counts(_db()) if app_state.db_path else {}
+    person_counts = get_person_counts(_db()) if app_state.db_path else {}
     return templates.TemplateResponse(request, "public_home.html", {
         "cities": cities,
         "topics": topics,
@@ -546,6 +548,8 @@ async def public_home(request: Request, city: str = ""):
         "selected_city": city,
         "topic_counts": topic_counts,
         "total_records": sum(topic_counts.values()),
+        "total_venues": sum(venue_counts.values()),
+        "total_persons": sum(person_counts.values()),
         "featured_cities": _top_cities(8),
         **lang_context(request),
     })
@@ -830,6 +834,8 @@ async def public_about(request: Request):
 async def dashboard(request: Request):
     city_topic_counts = get_city_topic_counts(_db())
     total_records = get_total_community_count(_db())
+    venue_counts = get_venue_counts(_db())
+    person_counts = get_person_counts(_db())
     metadata = {
         "total_records": total_records,
         "records_by_city_topic": city_topic_counts,
@@ -903,6 +909,8 @@ async def dashboard(request: Request):
         "test_mode": test_mode,
         "test_cities": test_cities,
         "active_providers": active_providers,
+        "total_venues": sum(venue_counts.values()),
+        "total_persons": sum(person_counts.values()),
     })
 
 

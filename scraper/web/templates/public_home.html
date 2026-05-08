@@ -15,18 +15,26 @@
         </p>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div class="bg-white border border-slate-200 rounded-md p-4">
-          <div class="text-2xl font-extrabold text-slate-950">{{ cities|length }}</div>
-          <div class="text-xs font-medium text-slate-500 mt-1">{{ t('about_cities') }}</div>
-        </div>
-        <div class="bg-white border border-slate-200 rounded-md p-4">
-          <div class="text-2xl font-extrabold text-slate-950">{{ topics|length }}</div>
-          <div class="text-xs font-medium text-slate-500 mt-1">{{ t('about_topics') }}</div>
-        </div>
+      <div class="grid grid-cols-3 sm:grid-cols-5 gap-3">
         <div class="bg-white border border-slate-200 rounded-md p-4">
           <div class="text-2xl font-extrabold text-slate-950">{{ total_records }}</div>
           <div class="text-xs font-medium text-slate-500 mt-1">{{ t('about_communities') }}</div>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-md p-4">
+          <div class="text-2xl font-extrabold text-slate-950">{{ total_venues }}</div>
+          <div class="text-xs font-medium text-slate-500 mt-1">{{ t('about_venues') }}</div>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-md p-4">
+          <div class="text-2xl font-extrabold text-slate-950">{{ total_persons }}</div>
+          <div class="text-xs font-medium text-slate-500 mt-1">{{ t('about_people') }}</div>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-md p-4 hidden sm:block">
+          <div class="text-2xl font-extrabold text-slate-950">{{ cities|length }}</div>
+          <div class="text-xs font-medium text-slate-500 mt-1">{{ t('about_cities') }}</div>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-md p-4 hidden sm:block">
+          <div class="text-2xl font-extrabold text-slate-950">{{ topics|length }}</div>
+          <div class="text-xs font-medium text-slate-500 mt-1">{{ t('about_topics') }}</div>
         </div>
       </div>
 
