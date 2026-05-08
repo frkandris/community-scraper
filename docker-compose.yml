@@ -9,6 +9,7 @@ services:
     environment:
       - SEARXNG_URL=http://searxng:8080
       - OLLAMA_URL=http://ollama:11434
+      - HOST=0.0.0.0
       - ADMIN_USER=${ADMIN_USER:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:?Set ADMIN_PASSWORD before starting the scraper}
       - GIT_USER_NAME=community-scraper-bot

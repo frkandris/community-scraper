@@ -52,6 +52,7 @@ Per-run overrides for both cache layers are available in the Dashboard.
 |----------|---------|-------------|
 | `SEARXNG_URL` | `http://localhost:8080` | SearXNG base URL |
 | `OLLAMA_URL` | `http://localhost:11434` | Ollama base URL |
+| `HOST` | `127.0.0.1` | Uvicorn bind host (`0.0.0.0` in Docker) |
 | `ADMIN_USER` | `admin` | Admin basic-auth user |
 | `ADMIN_PASSWORD` | – | Required admin basic-auth password |
 | `SCHEDULE_CRON` | `0 3 * * *` | Run schedule (cron expression) |

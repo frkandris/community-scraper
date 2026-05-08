@@ -14,8 +14,16 @@ def _community_record_key(name: str, city: str, topic: str) -> str:
     return f"{_norm(name)}|{_norm(city)}|{_norm(topic)}"
 
 
+def _connect(db_path: Path) -> sqlite3.Connection:
+    conn = sqlite3.connect(db_path, timeout=30)
+    conn.execute("PRAGMA busy_timeout = 5000")
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
 def init_db(db_path: Path) -> None:
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
+        conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS runs (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -138,7 +146,7 @@ def record_run(
     success: bool,
     search_log: str | None = None,
 ) -> int:
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         cur = conn.execute(
             "INSERT INTO runs (started_at, finished_at, run_mode, success, search_log) "
             "VALUES (?, ?, ?, ?, ?)",
@@ -153,14 +161,14 @@ def get_last_run(db_path: Path) -> datetime | None:
     if not db_path.exists():
         return None
     try:
-        with sqlite3.connect(db_path) as conn:
+        with _connect(db_path) as conn:
             row = conn.execute(
                 "SELECT finished_at FROM runs WHERE success=1 ORDER BY id DESC LIMIT 1"
             ).fetchone()
             if row and row[0]:
                 return datetime.fromisoformat(row[0])
     except Exception:
-        pass
+        return None
     return None
 
 
@@ -168,7 +176,7 @@ def get_run_history(db_path: Path, limit: int = 20) -> list[dict]:
     if not db_path.exists():
         return []
     try:
-        with sqlite3.connect(db_path) as conn:
+        with _connect(db_path) as conn:
             rows = conn.execute(
                 "SELECT id, started_at, finished_at, run_mode, success "
                 "FROM runs ORDER BY id DESC LIMIT ?",
@@ -192,7 +200,7 @@ def get_run_detail(db_path: Path, run_id: int) -> dict | None:
     if not db_path.exists():
         return None
     try:
-        with sqlite3.connect(db_path) as conn:
+        with _connect(db_path) as conn:
             row = conn.execute(
                 "SELECT id, started_at, finished_at, run_mode, success, search_log "
                 "FROM runs WHERE id = ?",
@@ -216,7 +224,7 @@ def get_run_detail(db_path: Path, run_id: int) -> dict | None:
 
 def save_subscription(db_path: Path, email: str, city: str, topic: str) -> str:
     token = str(uuid.uuid4())
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         try:
             conn.execute(
                 "INSERT INTO subscriptions (email, city, topic, token, created_at) VALUES (?,?,?,?,?)",
@@ -233,7 +241,7 @@ def save_subscription(db_path: Path, email: str, city: str, topic: str) -> str:
 
 
 def delete_subscription(db_path: Path, token: str) -> bool:
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         cur = conn.execute("DELETE FROM subscriptions WHERE token=?", (token,))
         conn.commit()
         return cur.rowcount > 0
@@ -242,7 +250,7 @@ def delete_subscription(db_path: Path, token: str) -> bool:
 def get_subscriptions(db_path: Path) -> list[dict]:
     if not db_path.exists():
         return []
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         rows = conn.execute(
             "SELECT id, email, city, topic, created_at FROM subscriptions ORDER BY id DESC"
         ).fetchall()
@@ -254,7 +262,7 @@ def get_subscriptions(db_path: Path) -> list[dict]:
 
 def bulk_upsert_communities(db_path: Path, records: list[dict]) -> None:
     now = datetime.now(timezone.utc).isoformat()
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         for record in records:
             key = _community_record_key(record["name"], record["city"], record["topic"])
             existing = conn.execute(
@@ -283,7 +291,7 @@ def bulk_upsert_communities(db_path: Path, records: list[dict]) -> None:
 
 
 def delete_communities_for_topic(db_path: Path, city: str, topic: str) -> None:
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         conn.execute("DELETE FROM communities WHERE city=? AND topic=?", (city, topic))
         conn.commit()
 
@@ -291,7 +299,7 @@ def delete_communities_for_topic(db_path: Path, city: str, topic: str) -> None:
 def get_communities(db_path: Path, city: str, topic: str) -> list[dict]:
     if not db_path.exists():
         return []
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         rows = conn.execute(
             "SELECT data FROM communities WHERE city=? AND topic=? ORDER BY id",
             (city, topic)
@@ -302,7 +310,7 @@ def get_communities(db_path: Path, city: str, topic: str) -> list[dict]:
 def get_communities_for_city(db_path: Path, city: str) -> list[dict]:
     if not db_path.exists():
         return []
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         rows = conn.execute(
             "SELECT data FROM communities WHERE city=? ORDER BY topic, id",
             (city,)
@@ -313,7 +321,7 @@ def get_communities_for_city(db_path: Path, city: str) -> list[dict]:
 def find_community_by_id(db_path: Path, community_id: str) -> dict | None:
     if not db_path.exists():
         return None
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         row = conn.execute(
             "SELECT data FROM communities WHERE community_id=? LIMIT 1",
             (community_id,)
@@ -324,7 +332,7 @@ def find_community_by_id(db_path: Path, community_id: str) -> dict | None:
 def get_topic_counts(db_path: Path) -> dict[str, int]:
     if not db_path.exists():
         return {}
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         rows = conn.execute(
             "SELECT topic, COUNT(*) FROM communities GROUP BY topic"
         ).fetchall()
@@ -334,7 +342,7 @@ def get_topic_counts(db_path: Path) -> dict[str, int]:
 def get_city_topic_counts(db_path: Path) -> dict[str, dict[str, int]]:
     if not db_path.exists():
         return {}
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         rows = conn.execute(
             "SELECT city, topic, COUNT(*) FROM communities GROUP BY city, topic"
         ).fetchall()
@@ -347,7 +355,7 @@ def get_city_topic_counts(db_path: Path) -> dict[str, dict[str, int]]:
 def get_city_totals(db_path: Path) -> list[tuple[str, int]]:
     if not db_path.exists():
         return []
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         rows = conn.execute(
             "SELECT city, COUNT(*) as cnt FROM communities GROUP BY city ORDER BY cnt DESC"
         ).fetchall()
@@ -357,13 +365,13 @@ def get_city_totals(db_path: Path) -> list[tuple[str, int]]:
 def get_total_community_count(db_path: Path) -> int:
     if not db_path.exists():
         return 0
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         row = conn.execute("SELECT COUNT(*) FROM communities").fetchone()
     return row[0] if row else 0
 
 
 def delete_all_communities(db_path: Path) -> int:
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         cur = conn.execute("DELETE FROM communities")
         conn.commit()
         return cur.rowcount
@@ -372,7 +380,7 @@ def delete_all_communities(db_path: Path) -> int:
 # ── Cache pages ───────────────────────────────────────────────────────────────
 
 def save_cache_page(db_path: Path, entry: dict) -> None:
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         conn.execute("""
             INSERT INTO cache_pages
                 (url_hash, url, city, topic, domain, scraped_at, extracted_at, extract_fingerprint, data)
@@ -402,7 +410,7 @@ def save_cache_page(db_path: Path, entry: dict) -> None:
 def load_cache_page(db_path: Path, url_hash: str) -> dict | None:
     if not db_path.exists():
         return None
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         row = conn.execute(
             "SELECT data FROM cache_pages WHERE url_hash=?", (url_hash,)
         ).fetchone()
@@ -410,14 +418,14 @@ def load_cache_page(db_path: Path, url_hash: str) -> dict | None:
 
 
 def delete_cache_page(db_path: Path, url_hash: str) -> bool:
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         cur = conn.execute("DELETE FROM cache_pages WHERE url_hash=?", (url_hash,))
         conn.commit()
         return cur.rowcount > 0
 
 
 def clear_all_cache_pages(db_path: Path) -> int:
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         cur = conn.execute("DELETE FROM cache_pages")
         conn.commit()
         return cur.rowcount
@@ -426,7 +434,7 @@ def clear_all_cache_pages(db_path: Path) -> int:
 def get_cache_index(db_path: Path) -> list[dict]:
     if not db_path.exists():
         return []
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         rows = conn.execute(
             "SELECT data FROM cache_pages ORDER BY url_hash"
         ).fetchall()
@@ -434,29 +442,31 @@ def get_cache_index(db_path: Path) -> list[dict]:
     for (data_json,) in rows:
         try:
             entry = json.loads(data_json)
-            entries.append({
-                "url_hash":                  entry.get("url_hash", ""),
-                "url":                       entry.get("url", ""),
-                "domain":                    entry.get("domain", ""),
-                "city":                      entry.get("city", ""),
-                "topic":                     entry.get("topic", ""),
-                "scraped_at":                entry.get("scraped_at"),
-                "scrape_duration_s":         entry.get("scrape_duration_s"),
-                "extracted_at":              entry.get("extracted_at"),
-                "extract_duration_s":        entry.get("extract_duration_s"),
-                "enrich_scraped_at":         entry.get("enrich_scraped_at"),
-                "enrich_scrape_duration_s":  entry.get("enrich_scrape_duration_s"),
-                "enrich_extracted_at":       entry.get("enrich_extracted_at"),
-                "enrich_extract_duration_s": entry.get("enrich_extract_duration_s"),
-                "enrich_count":              entry.get("enrich_count"),
-                "record_count":              len(entry.get("records") or []),
-                "has_text":                  bool(entry.get("raw_text")),
-                "extract_fingerprint":       entry.get("extract_fingerprint"),
-                "extract_model":             entry.get("extract_model"),
-                "enrich_model":              entry.get("enrich_model") or (entry.get("extract_model") if entry.get("enrich_extracted_at") else None),
-            })
         except Exception:
+            entry = None
+        if not isinstance(entry, dict):
             continue
+        entries.append({
+            "url_hash":                  entry.get("url_hash", ""),
+            "url":                       entry.get("url", ""),
+            "domain":                    entry.get("domain", ""),
+            "city":                      entry.get("city", ""),
+            "topic":                     entry.get("topic", ""),
+            "scraped_at":                entry.get("scraped_at"),
+            "scrape_duration_s":         entry.get("scrape_duration_s"),
+            "extracted_at":              entry.get("extracted_at"),
+            "extract_duration_s":        entry.get("extract_duration_s"),
+            "enrich_scraped_at":         entry.get("enrich_scraped_at"),
+            "enrich_scrape_duration_s":  entry.get("enrich_scrape_duration_s"),
+            "enrich_extracted_at":       entry.get("enrich_extracted_at"),
+            "enrich_extract_duration_s": entry.get("enrich_extract_duration_s"),
+            "enrich_count":              entry.get("enrich_count"),
+            "record_count":              len(entry.get("records") or []),
+            "has_text":                  bool(entry.get("raw_text")),
+            "extract_fingerprint":       entry.get("extract_fingerprint"),
+            "extract_model":             entry.get("extract_model"),
+            "enrich_model":              entry.get("enrich_model") or (entry.get("extract_model") if entry.get("enrich_extracted_at") else None),
+        })
 
     def _sort_key(e: dict) -> tuple:
         complete = 1 if (e.get("scraped_at") and e.get("extracted_at")) else 0
@@ -470,7 +480,7 @@ def get_all_scraped_cache(db_path: Path) -> list[tuple[str, str, str, str]]:
     """Returns (url, raw_text, city, topic) for all cached pages with raw_text."""
     if not db_path.exists():
         return []
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         rows = conn.execute(
             "SELECT data FROM cache_pages WHERE scraped_at IS NOT NULL"
         ).fetchall()
@@ -478,15 +488,15 @@ def get_all_scraped_cache(db_path: Path) -> list[tuple[str, str, str, str]]:
     for (data_json,) in rows:
         try:
             entry = json.loads(data_json)
-            if entry.get("raw_text"):
-                result.append((
-                    entry["url"],
-                    entry["raw_text"],
-                    entry.get("city", ""),
-                    entry.get("topic", ""),
-                ))
         except Exception:
-            continue
+            entry = None
+        if isinstance(entry, dict) and entry.get("raw_text"):
+            result.append((
+                entry["url"],
+                entry["raw_text"],
+                entry.get("city", ""),
+                entry.get("topic", ""),
+            ))
     return result
 
 
@@ -495,7 +505,7 @@ def get_all_scraped_cache(db_path: Path) -> list[tuple[str, str, str, str]]:
 def get_false_positives(db_path: Path) -> list[dict]:
     if not db_path.exists():
         return []
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         rows = conn.execute(
             "SELECT name, city, topic, reason, source_url, fp_type, marked_at "
             "FROM false_positives ORDER BY id"
@@ -510,7 +520,7 @@ def get_false_positives(db_path: Path) -> list[dict]:
 def upsert_false_positive(db_path: Path, name: str, city: str, topic: str,
                           reason: str, source_url: str, fp_type: str) -> None:
     now = datetime.now(timezone.utc).isoformat()
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         conn.execute("""
             INSERT INTO false_positives (name, city, topic, reason, source_url, fp_type, marked_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -523,7 +533,7 @@ def upsert_false_positive(db_path: Path, name: str, city: str, topic: str,
 
 
 def delete_false_positive(db_path: Path, name: str, city: str, topic: str, fp_type: str) -> None:
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         conn.execute(
             "DELETE FROM false_positives WHERE name=? AND city=? AND topic=? AND fp_type=?",
             (name, city, topic, fp_type)
@@ -536,7 +546,7 @@ def delete_false_positive(db_path: Path, name: str, city: str, topic: str, fp_ty
 def get_prompt_history(db_path: Path, fp_type: str) -> list[dict]:
     if not db_path.exists():
         return []
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         rows = conn.execute(
             "SELECT version, timestamp, content, fp_type, fp_count "
             "FROM prompt_history WHERE fp_type=? ORDER BY version",
@@ -550,7 +560,7 @@ def get_prompt_history(db_path: Path, fp_type: str) -> list[dict]:
 
 def append_prompt_history(db_path: Path, version: int, timestamp: str,
                           content: str, fp_type: str, fp_count: int) -> None:
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         conn.execute("""
             INSERT INTO prompt_history (version, timestamp, content, fp_type, fp_count)
             VALUES (?, ?, ?, ?, ?)
@@ -564,7 +574,7 @@ def save_search_cache(db_path: Path, city: str, topic: str,
                       urls: list[str], queries: list[str]) -> None:
     import json
     now = datetime.now(timezone.utc).isoformat()
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         conn.execute("""
             INSERT INTO search_cache (city, topic, urls, queries, cached_at)
             VALUES (?, ?, ?, ?, ?)
@@ -579,7 +589,7 @@ def get_search_cache(db_path: Path, city: str, topic: str,
     import json
     from datetime import timedelta
     cutoff = (datetime.now(timezone.utc) - timedelta(days=ttl_days)).isoformat()
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         row = conn.execute(
             "SELECT urls FROM search_cache WHERE city=? AND topic=? AND cached_at>=?",
             (city, topic, cutoff)

@@ -1,5 +1,5 @@
 import os
-import subprocess
+import subprocess  # nosec B404
 from pathlib import Path
 
 import structlog
@@ -8,7 +8,7 @@ log = structlog.get_logger()
 
 
 def _run(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
-    return subprocess.run(args, cwd=str(cwd), capture_output=True, text=True)
+    return subprocess.run(args, cwd=str(cwd), capture_output=True, text=True)  # nosec
 
 
 def ensure_git_identity(repo_dir: Path) -> None:

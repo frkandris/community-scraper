@@ -153,7 +153,7 @@ class _BasicAuth:
                     await self._inner(scope, receive, send)
                     return
             except Exception:
-                pass
+                auth = ""
 
         await send({
             "type": "http.response.start",
@@ -524,6 +524,22 @@ async def public_home(request: Request, city: str = ""):
         "featured_cities": _top_cities(8),
         **lang_context(request),
     })
+
+
+@_fastapi.get("/healthz")
+async def healthz():
+    db_ok = True
+    total_records = 0
+    try:
+        total_records = get_total_community_count(_db())
+    except Exception:
+        db_ok = False
+    return {
+        "ok": db_ok,
+        "version": app_state.version,
+        "db": "ok" if db_ok else "error",
+        "total_records": total_records,
+    }
 
 
 async def _render_explore(

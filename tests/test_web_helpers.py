@@ -1,4 +1,6 @@
-from scraper.web.app import _BasicAuth, _safe_redirect_target
+from fastapi.testclient import TestClient
+
+from scraper.web.app import _BasicAuth, _safe_redirect_target, app
 from scraper.web.schema import records_to_jsonld
 
 
@@ -36,3 +38,10 @@ def test_jsonld_escapes_script_end_tags():
 
     assert "</script>" not in raw
     assert "<\\/script>" in raw
+
+
+def test_healthz_is_public_and_reports_status():
+    response = TestClient(app).get("/healthz")
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is True

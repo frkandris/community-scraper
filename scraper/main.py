@@ -193,7 +193,7 @@ async def main() -> None:
 
     config = uvicorn.Config(
         web_app,
-        host="0.0.0.0",
+        host=os.environ.get("HOST", "127.0.0.1"),
         port=8000,
         log_level="warning",
         loop="asyncio",
