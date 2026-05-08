@@ -10,7 +10,7 @@ from .extract import DeepSeekExtractor, FallbackExtractor, GroqExtractor, Ollama
 from .false_positives import build_prompt_section
 from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
-from .search import BraveSearchClient, FallbackSearchClient, SearXNGClient, SerperSearchClient, build_queries
+from .search import BraveSearchClient, DuckDuckGoClient, FallbackSearchClient, SearXNGClient, SerperSearchClient, build_queries
 from .db import get_search_cache, save_search_cache, upsert_venues, upsert_persons
 from .store import save_results
 
@@ -223,19 +223,18 @@ async def _run_full(
     on_progress: Callable[[str | None, str | None], None] | None,
 ) -> tuple[int, list[dict]]:
     _searxng = SearXNGClient(config.searxng_url, rate_limit_seconds=config.search_rate_limit)
+    _ddg = DuckDuckGoClient(rate_limit_seconds=max(config.search_rate_limit, 2.0))
     search_primaries = []
     if config.serper_api_key:
         search_primaries.append(SerperSearchClient(config.serper_api_key, rate_limit_seconds=config.search_rate_limit))
     if config.brave_api_key:
         search_primaries.append(BraveSearchClient(config.brave_api_key, rate_limit_seconds=config.search_rate_limit))
-    if search_primaries:
-        searxng: FallbackSearchClient | SearXNGClient = FallbackSearchClient(
-            primaries=search_primaries, fallback=_searxng,
-        )
-        log.info("search_client", primaries=[type(p).__name__ for p in search_primaries], fallback="searxng")
-    else:
-        searxng = _searxng
-        log.info("search_client", backend="searxng")
+    # DDG scraping always added before SearXNG — free, works from VPS without API keys
+    search_primaries.append(_ddg)
+    searxng: FallbackSearchClient = FallbackSearchClient(
+        primaries=search_primaries, fallback=_searxng,
+    )
+    log.info("search_client", primaries=[type(p).__name__ for p in search_primaries], fallback="searxng")
     semaphore = asyncio.Semaphore(config.fetch_max_concurrent)
     all_fps = load_false_positives(config.db_path)
     enrich_fp_section = build_prompt_section(all_fps, fp_type="enrichment")

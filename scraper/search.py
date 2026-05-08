@@ -1,6 +1,8 @@
 import asyncio
+import re
 import structlog
 import httpx
+from urllib.parse import parse_qs, urlparse, unquote
 
 from .models import SearchResult
 
@@ -186,6 +188,134 @@ class SearXNGClient:
             )
             for item in data.get("results", [])[:num_results]
         ]
+
+    async def search_all(
+        self,
+        queries: list[str],
+        locale: str = "en",
+        num_results: int = 10,
+    ) -> list[SearchResult]:
+        seen_urls: set[str] = set()
+        combined: list[SearchResult] = []
+        for query in queries:
+            for r in await self.search(query, locale=locale, num_results=num_results):
+                if r.url not in seen_urls:
+                    seen_urls.add(r.url)
+                    combined.append(r)
+        return combined
+
+    async def _rate_limit(self) -> None:
+        import time
+        now = time.monotonic()
+        elapsed = now - self._last_request_time
+        if elapsed < self.rate_limit_seconds:
+            await asyncio.sleep(self.rate_limit_seconds - elapsed)
+        self._last_request_time = time.monotonic()
+
+
+class DuckDuckGoClient:
+    """DuckDuckGo HTML scraping — free, no API key, works from datacenter IPs.
+
+    Uses html.duckduckgo.com/html/ which is a plain HTML endpoint without
+    JS challenges or CAPTCHA. Raises SearchQuotaError after repeated blocks
+    so FallbackSearchClient can move on to SearXNG.
+    """
+
+    _BASE = "https://html.duckduckgo.com/html/"
+
+    # DDG kl= locale codes
+    _LOCALE_KL: dict[str, str] = {
+        "hu": "hu-hu", "en": "en-us", "de": "de-de", "fr": "fr-fr",
+        "es": "es-es", "it": "it-it", "pt": "pt-br", "nl": "nl-nl",
+        "pl": "pl-pl", "sv": "sv-se", "da": "da-dk", "fi": "fi-fi",
+        "no": "no-no", "cs": "cs-cz", "ro": "ro-ro", "tr": "tr-tr",
+        "ru": "ru-ru", "uk": "uk-ua", "zh": "zh-cn", "ja": "ja-jp",
+        "ko": "ko-kr", "ar": "ar-xa", "id": "id-id", "vi": "vi-vn",
+    }
+
+    # Regex against DDG HTML result blocks
+    _TITLE_RE = re.compile(
+        r'class="result__a"[^>]+href="([^"]*)"[^>]*>(.*?)</a>',
+        re.DOTALL | re.IGNORECASE,
+    )
+    _SNIPPET_RE = re.compile(
+        r'class="result__snippet"[^>]*>(.*?)</(?:a|div|span)>',
+        re.DOTALL | re.IGNORECASE,
+    )
+
+    def __init__(self, rate_limit_seconds: float = 2.0):
+        self.rate_limit_seconds = rate_limit_seconds
+        self._last_request_time: float = 0.0
+        self._consecutive_empty: int = 0
+        self._MAX_EMPTY = 5  # treat as blocked after this many empty runs
+
+    async def search(
+        self,
+        query: str,
+        locale: str = "en",
+        num_results: int = 10,
+    ) -> list[SearchResult]:
+        if self._consecutive_empty >= self._MAX_EMPTY:
+            raise SearchQuotaError("DuckDuckGo: too many empty responses, assuming blocked")
+
+        await self._rate_limit()
+        kl = self._LOCALE_KL.get(locale, "en-us")
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+            ),
+            "Accept-Language": f"{locale},{locale}-*;q=0.9,en;q=0.5",
+            "Accept": "text/html,application/xhtml+xml",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+                resp = await client.post(
+                    self._BASE,
+                    data={"q": query, "kl": kl, "b": "", "df": ""},
+                    headers=headers,
+                )
+                if resp.status_code >= 400:
+                    self._consecutive_empty += 1
+                    log.warning("ddg_search_failed", query=query, status=resp.status_code)
+                    return []
+                results = self._parse(resp.text, num_results)
+        except SearchQuotaError:
+            raise
+        except Exception as exc:
+            self._consecutive_empty += 1
+            log.warning("ddg_search_failed", query=query, error=str(exc))
+            return []
+
+        if results:
+            self._consecutive_empty = 0
+            log.debug("ddg_results", query=query, found=len(results))
+        else:
+            self._consecutive_empty += 1
+            log.debug("ddg_empty", query=query, consecutive=self._consecutive_empty)
+        return results
+
+    def _parse(self, html: str, limit: int) -> list[SearchResult]:
+        title_matches = self._TITLE_RE.findall(html)
+        snippet_matches = self._SNIPPET_RE.findall(html)
+        results: list[SearchResult] = []
+        for i, (href, raw_title) in enumerate(title_matches):
+            # DDG wraps URLs as https://duckduckgo.com/l/?uddg=ENCODED_URL
+            try:
+                qs = parse_qs(urlparse(href).query)
+                url = unquote(qs.get("uddg", [""])[0]) or href
+            except Exception:
+                url = href
+            if not url.startswith("http"):
+                continue
+            title = re.sub(r"<[^>]+>", "", raw_title).strip()
+            snippet = ""
+            if i < len(snippet_matches):
+                snippet = re.sub(r"<[^>]+>", "", snippet_matches[i]).strip()
+            results.append(SearchResult(url=url, title=title, snippet=snippet))
+            if len(results) >= limit:
+                break
+        return results
 
     async def search_all(
         self,

@@ -997,7 +997,7 @@ async def dashboard(request: Request):
         "search": (
             (["Serper"] if cfg and cfg.serper_api_key else []) +
             (["Brave"] if cfg and cfg.brave_api_key else []) +
-            ["SearXNG"]
+            ["DDG", "SearXNG"]
         ),
         "ai": (
             (["DeepSeek"] if cfg and cfg.deepseek_api_key else []) +
