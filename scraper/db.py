@@ -133,6 +133,36 @@ def init_db(db_path: Path) -> None:
             )
         """)
 
+        # Venues — physical locations that host communities
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS venues (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                record_key TEXT NOT NULL UNIQUE,
+                venue_id   TEXT NOT NULL,
+                city       TEXT NOT NULL,
+                data       TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_venues_city ON venues(city)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_venues_venue_id ON venues(venue_id)")
+
+        # Persons — leaders, instructors, speakers linked to communities
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS persons (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                record_key  TEXT NOT NULL UNIQUE,
+                person_id   TEXT NOT NULL,
+                city        TEXT NOT NULL,
+                topic       TEXT NOT NULL,
+                role        TEXT NOT NULL,
+                data        TEXT NOT NULL,
+                updated_at  TEXT NOT NULL
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_persons_city_topic ON persons(city, topic)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_persons_person_id ON persons(person_id)")
+
         conn.commit()
 
 
@@ -611,3 +641,148 @@ def get_search_cache(db_path: Path, city: str, topic: str,
             (city, topic, cutoff)
         ).fetchone()
     return json.loads(row[0]) if row else None
+
+
+# ── Venues ────────────────────────────────────────────────────────────────────
+
+def _venue_record_key(name: str, city: str) -> str:
+    return f"{_norm(name)}|{_norm(city)}"
+
+
+def upsert_venues(db_path: Path, records: list[dict]) -> int:
+    if not records:
+        return 0
+    now = datetime.now(timezone.utc).isoformat()
+    count = 0
+    with _connect(db_path) as conn:
+        for record in records:
+            key = _venue_record_key(record["name"], record["city"])
+            existing = conn.execute(
+                "SELECT data FROM venues WHERE record_key=?", (key,)
+            ).fetchone()
+            if existing:
+                ex = json.loads(existing[0])
+                prev_urls: list[str] = ex.get("source_urls") or []
+                new_urls: list[str] = record.get("source_urls") or []
+                merged = list(dict.fromkeys(new_urls + prev_urls))
+                record = {**record, "source_urls": merged}
+                # Merge community_ids
+                prev_cids = ex.get("community_ids") or []
+                new_cids = record.get("community_ids") or []
+                record["community_ids"] = list(dict.fromkeys(new_cids + prev_cids))
+            conn.execute("""
+                INSERT INTO venues (record_key, venue_id, city, data, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(record_key) DO UPDATE SET
+                    data=excluded.data, venue_id=excluded.venue_id, updated_at=excluded.updated_at
+            """, (key, record.get("venue_id", ""), record["city"],
+                  json.dumps(record, ensure_ascii=False), now))
+            count += 1
+        conn.commit()
+    return count
+
+
+def get_venues(db_path: Path, city: str) -> list[dict]:
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT data FROM venues WHERE city=? ORDER BY id", (city,)
+        ).fetchall()
+    return [json.loads(r[0]) for r in rows]
+
+
+def get_all_venues(db_path: Path) -> list[dict]:
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        rows = conn.execute("SELECT data FROM venues ORDER BY city, id").fetchall()
+    return [json.loads(r[0]) for r in rows]
+
+
+def get_venue_counts(db_path: Path) -> dict[str, int]:
+    if not db_path.exists():
+        return {}
+    with _connect(db_path) as conn:
+        rows = conn.execute("SELECT city, COUNT(*) FROM venues GROUP BY city").fetchall()
+    return {r[0]: r[1] for r in rows}
+
+
+# ── Persons ───────────────────────────────────────────────────────────────────
+
+def _person_record_key(name: str, city: str, role: str, community_name: str) -> str:
+    return f"{_norm(name)}|{_norm(city)}|{_norm(role)}|{_norm(community_name)}"
+
+
+def upsert_persons(db_path: Path, records: list[dict]) -> int:
+    if not records:
+        return 0
+    now = datetime.now(timezone.utc).isoformat()
+    count = 0
+    with _connect(db_path) as conn:
+        for record in records:
+            key = _person_record_key(
+                record["name"], record["city"],
+                record.get("role", "leader"), record.get("community_name", "")
+            )
+            existing = conn.execute(
+                "SELECT data FROM persons WHERE record_key=?", (key,)
+            ).fetchone()
+            if existing:
+                ex = json.loads(existing[0])
+                prev_urls = ex.get("source_urls") or []
+                new_urls = record.get("source_urls") or []
+                record = {**record, "source_urls": list(dict.fromkeys(new_urls + prev_urls))}
+            conn.execute("""
+                INSERT INTO persons (record_key, person_id, city, topic, role, data, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(record_key) DO UPDATE SET
+                    data=excluded.data, person_id=excluded.person_id, updated_at=excluded.updated_at
+            """, (key, record.get("person_id", ""), record["city"],
+                  record.get("topic", ""), record.get("role", "leader"),
+                  json.dumps(record, ensure_ascii=False), now))
+            count += 1
+        conn.commit()
+    return count
+
+
+def get_persons(db_path: Path, city: str, topic: str | None = None) -> list[dict]:
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        if topic:
+            rows = conn.execute(
+                "SELECT data FROM persons WHERE city=? AND topic=? ORDER BY role, id",
+                (city, topic)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT data FROM persons WHERE city=? ORDER BY topic, role, id", (city,)
+            ).fetchall()
+    return [json.loads(r[0]) for r in rows]
+
+
+def get_persons_for_community(db_path: Path, community_name: str, city: str) -> list[dict]:
+    if not db_path.exists():
+        return []
+    key_prefix = f"{_norm(community_name)}|{_norm(city)}|"
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT data FROM persons WHERE record_key LIKE ? ORDER BY role, id",
+            (f"%|{_norm(community_name)}|{_norm(city)}",)
+        ).fetchall()
+        if not rows:
+            # fallback: match by community_name in JSON
+            rows = conn.execute(
+                "SELECT data FROM persons WHERE city=? AND json_extract(data,'$.community_name')=?",
+                (city, community_name)
+            ).fetchall()
+    return [json.loads(r[0]) for r in rows]
+
+
+def get_person_counts(db_path: Path) -> dict[str, int]:
+    if not db_path.exists():
+        return {}
+    with _connect(db_path) as conn:
+        rows = conn.execute("SELECT city, COUNT(*) FROM persons GROUP BY city").fetchall()
+    return {r[0]: r[1] for r in rows}
