@@ -1,7 +1,19 @@
 import hashlib
+import json as _json
 import re
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+def _coerce_str(v):
+    """Convert LLM-produced dict/list values to strings before Pydantic validates them."""
+    if v is None:
+        return v
+    if isinstance(v, dict):
+        return _json.dumps(v, ensure_ascii=False)
+    if isinstance(v, list):
+        return ", ".join(str(x) for x in v)
+    return v
 
 
 class SearchResult(BaseModel):
@@ -49,7 +61,17 @@ class CommunityRecord(BaseModel):
     })
 
     # Matches leaked JSON tail: `", 0.9, true, ...` or `", 2025", 0.9, true, ...`
-    _LEAKED_JSON_RE = re.compile(r'["”]\s*,\s*(?:\d[\d.]*\s*[",]|true\b|false\b).*$', re.DOTALL)
+    _LEAKED_JSON_RE = re.compile(r'[""]\s*,\s*(?:\d[\d.]*\s*[",]|true\b|false\b).*$', re.DOTALL)
+
+    @field_validator(
+        "description", "meeting_schedule", "location", "contact", "website",
+        "member_count", "fee", "age_range", "skill_level", "join_process",
+        "leader", "email", "phone", "language", "history", "frequency",
+        mode="before",
+    )
+    @classmethod
+    def _coerce_str_fields(cls, v):
+        return _coerce_str(v)
 
     @model_validator(mode="after")
     def _clean_and_generate_id(self) -> "CommunityRecord":
@@ -126,6 +148,14 @@ class VenueRecord(BaseModel):
         "not provided", "not available", "-", "–", "na", "ismeretlen",
     })
 
+    @field_validator(
+        "address", "venue_type", "description", "website", "email", "phone", "contact",
+        mode="before",
+    )
+    @classmethod
+    def _coerce_str_fields(cls, v):
+        return _coerce_str(v)
+
     @model_validator(mode="after")
     def _clean_and_generate_id(self) -> "VenueRecord":
         for field in ("address", "venue_type", "description", "contact", "phone"):
@@ -178,6 +208,11 @@ class PersonRecord(BaseModel):
     source_urls: list[str] = Field(default_factory=list)
     extracted_at: str
     person_id: str = ""
+
+    @field_validator("bio", "email", "website", mode="before")
+    @classmethod
+    def _coerce_str_fields(cls, v):
+        return _coerce_str(v)
 
     @model_validator(mode="after")
     def _clean_and_generate_id(self) -> "PersonRecord":
