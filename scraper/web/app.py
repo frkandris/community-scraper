@@ -1084,6 +1084,8 @@ async def trigger_run(
     if app_state.is_running:
         return RedirectResponse("/admin/logs", status_code=302)
 
+    if run_mode not in ("full", "ai_only"):
+        run_mode = "full"
     app_state.is_running = True
     _skip_scraped = (skip_scraped == "on")
     _skip_extracted = (skip_extracted == "on")
@@ -1121,7 +1123,14 @@ async def trigger_run(
                            run_mode, success,
                            json.dumps(pair_logs) if pair_logs else None)
 
+    def _clear_cancelled_run(task: asyncio.Task) -> None:
+        if task.cancelled():
+            app_state.is_running = False
+            app_state.current_phase = None
+            app_state.current_url = None
+
     app_state._run_task = asyncio.create_task(_run())
+    app_state._run_task.add_done_callback(_clear_cancelled_run)
     return RedirectResponse("/admin/logs", status_code=302)
 
 
