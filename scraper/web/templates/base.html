@@ -28,6 +28,8 @@
     {{ navlink('/admin/config',        'Config',      _p.startswith('/admin/config')) }}
     {{ navlink('/admin/logs',          'Logs',        _p == '/admin/logs') }}
     {{ navlink('/admin/prompts',       'Prompts',     _p == '/admin/prompts') }}
+    {{ navlink('/admin/venues',        'Venues',      _p.startswith('/admin/venues')) }}
+    {{ navlink('/admin/persons',       'People',      _p.startswith('/admin/persons')) }}
     {{ navlink('/admin/subscriptions', 'Subscribers', _p.startswith('/admin/subscriptions')) }}
     <span class="w-px h-4 bg-gray-200 mx-2 shrink-0"></span>
     <a href="/" class="text-sm text-indigo-500 hover:text-indigo-700 transition-colors">← Public</a>

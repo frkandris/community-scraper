@@ -32,6 +32,10 @@ from ..db import (
     get_communities_for_city,
     get_topic_counts,
     get_total_community_count,
+    get_all_venues,
+    get_venue_counts,
+    get_persons,
+    get_person_counts,
 )
 from ..false_positives import (add as fp_add, diff_html as fp_diff_html,
                                load as fp_load, load_history as fp_load_history,
@@ -1597,6 +1601,43 @@ async def run_detail(request: Request, run_id: int):
     return templates.TemplateResponse(request, "run_detail.html", {
         "run": run,
         "pair_logs": pair_logs,
+    })
+
+
+@admin.get("/venues", response_class=HTMLResponse)
+async def admin_venues(request: Request, city: str = ""):
+    if not app_state.db_path:
+        return RedirectResponse("/admin", status_code=302)
+    counts = get_venue_counts(app_state.db_path)
+    venues = get_all_venues(app_state.db_path)
+    if city:
+        venues = [v for v in venues if v.get("city", "").lower() == city.lower()]
+    return templates.TemplateResponse(request, "venues.html", {
+        "venues": venues,
+        "counts": counts,
+        "selected_city": city,
+        "cities": sorted(counts.keys()),
+    })
+
+
+@admin.get("/persons", response_class=HTMLResponse)
+async def admin_persons(request: Request, city: str = "", topic: str = ""):
+    if not app_state.db_path:
+        return RedirectResponse("/admin", status_code=302)
+    counts = get_person_counts(app_state.db_path)
+    all_cities = sorted(counts.keys())
+    if city:
+        persons = get_persons(app_state.db_path, city, topic or None)
+    else:
+        persons = []
+        for c in all_cities:
+            persons.extend(get_persons(app_state.db_path, c, topic or None))
+    return templates.TemplateResponse(request, "persons.html", {
+        "persons": persons,
+        "counts": counts,
+        "selected_city": city,
+        "selected_topic": topic,
+        "cities": all_cities,
     })
 
 
