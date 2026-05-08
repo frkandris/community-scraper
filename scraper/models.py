@@ -101,6 +101,112 @@ class CommunityRecord(BaseModel):
         return self
 
 
+class VenueRecord(BaseModel):
+    """A physical location that hosts community activities."""
+    name: str
+    city: str
+    locale: str
+    address: str | None = None
+    venue_type: str | None = None        # café | park | cultural_center | library | church | sports_hall | studio | other
+    welcomed_topics: list[str] = Field(default_factory=list)   # topic name slugs
+    description: str | None = None
+    website: str | None = None
+    social_links: list[str] = Field(default_factory=list)
+    email: str | None = None
+    phone: str | None = None
+    contact: str | None = None
+    source_url: str
+    source_urls: list[str] = Field(default_factory=list)
+    extracted_at: str
+    venue_id: str = ""
+    community_ids: list[str] = Field(default_factory=list)     # communities meeting here
+
+    _NULL_STRINGS: frozenset = frozenset({
+        "nincs megadva", "n/a", "nem ismert", "unknown", "none",
+        "not provided", "not available", "-", "–", "na", "ismeretlen",
+    })
+
+    @model_validator(mode="after")
+    def _clean_and_generate_id(self) -> "VenueRecord":
+        for field in ("address", "venue_type", "description", "contact", "phone"):
+            v = getattr(self, field, None)
+            if isinstance(v, str) and v.strip().lower() in self._NULL_STRINGS:
+                setattr(self, field, None)
+
+        if self.website:
+            w = self.website.strip()
+            if w and not w.startswith(("http://", "https://")):
+                w = "https://" + w
+            self.website = w or None
+
+        self.social_links = [
+            lnk for lnk in self.social_links
+            if isinstance(lnk, str) and lnk.strip().startswith(("http://", "https://"))
+        ]
+
+        if self.email and "@" not in self.email:
+            self.email = None
+
+        if self.phone and not any(c.isdigit() for c in self.phone):
+            self.phone = None
+
+        if self.source_url and self.source_url not in self.source_urls:
+            self.source_urls = [self.source_url] + self.source_urls
+
+        if not self.venue_id:
+            key = f"{self.name.lower()}|{self.city.lower()}"
+            self.venue_id = hashlib.sha256(key.encode()).hexdigest()[:12]
+        return self
+
+
+PERSON_ROLES = ("leader", "instructor", "speaker")
+
+
+class PersonRecord(BaseModel):
+    """A person associated with a community as leader, instructor, or speaker."""
+    name: str
+    role: str                            # leader | instructor | speaker
+    city: str
+    topic: str
+    community_name: str
+    community_id: str = ""
+    bio: str | None = None              # 1–2 sentence description
+    email: str | None = None
+    website: str | None = None
+    social_links: list[str] = Field(default_factory=list)
+    source_url: str
+    source_urls: list[str] = Field(default_factory=list)
+    extracted_at: str
+    person_id: str = ""
+
+    @model_validator(mode="after")
+    def _clean_and_generate_id(self) -> "PersonRecord":
+        if self.role not in PERSON_ROLES:
+            self.role = "leader"
+
+        if self.email and "@" not in self.email:
+            self.email = None
+
+        if self.website:
+            w = self.website.strip()
+            if w and not w.startswith(("http://", "https://")):
+                w = "https://" + w
+            self.website = w or None
+
+        self.social_links = [
+            lnk for lnk in self.social_links
+            if isinstance(lnk, str) and lnk.strip().startswith(("http://", "https://"))
+        ]
+
+        if self.source_url and self.source_url not in self.source_urls:
+            self.source_urls = [self.source_url] + self.source_urls
+
+        if not self.person_id:
+            key = f"{self.name.lower()}|{self.city.lower()}|{self.role}|{self.community_name.lower()}"
+            self.person_id = hashlib.sha256(key.encode()).hexdigest()[:12]
+        return self
+
+
 class RunMetadata(BaseModel):
     last_run: str
     records_by_city_topic: dict[str, dict[str, int]] = Field(default_factory=dict)
