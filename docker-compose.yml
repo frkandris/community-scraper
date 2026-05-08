@@ -4,10 +4,13 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - app-data:/app
+      - app-data:/app/data
+      - app-config:/app/config
     environment:
       - SEARXNG_URL=http://searxng:8080
       - OLLAMA_URL=http://ollama:11434
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?Set ADMIN_PASSWORD before starting the scraper}
       - GIT_USER_NAME=community-scraper-bot
       - GIT_USER_EMAIL=bot@localhost
       - SCHEDULE_CRON=0 3 * * *
@@ -40,5 +43,6 @@ services:
 
 volumes:
   app-data:
+  app-config:
   searxng-data:
   ollama-models:

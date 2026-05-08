@@ -7,12 +7,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml .
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir .
-
 COPY scraper/ ./scraper/
 COPY config/   ./config/
 COPY tailwind.config.js .
+
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir .
 
 # Build Tailwind CSS (pytailwindcss uses the standalone binary, no Node needed)
 RUN pip install --no-cache-dir pytailwindcss && \
@@ -24,7 +24,7 @@ RUN pip install --no-cache-dir pytailwindcss && \
 # Embed build timestamp so the version string works without git history
 RUN date -u '+%Y-%m-%d.%H:%M' > /app/VERSION
 
-# data/ is mounted as a persistent volume at /app/data
+# data/ and config/ can be mounted as persistent volumes.
 
 EXPOSE 8000
 

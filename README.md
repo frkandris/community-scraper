@@ -52,6 +52,8 @@ Per-run overrides for both cache layers are available in the Dashboard.
 |----------|---------|-------------|
 | `SEARXNG_URL` | `http://localhost:8080` | SearXNG base URL |
 | `OLLAMA_URL` | `http://localhost:11434` | Ollama base URL |
+| `ADMIN_USER` | `admin` | Admin basic-auth user |
+| `ADMIN_PASSWORD` | – | Required admin basic-auth password |
 | `SCHEDULE_CRON` | `0 3 * * *` | Run schedule (cron expression) |
 | `GIT_USER_NAME` | – | Git commit author name |
 | `GIT_USER_EMAIL` | – | Git commit author email |
@@ -59,4 +61,4 @@ Per-run overrides for both cache layers are available in the Dashboard.
 
 ## Data Storage
 
-Results are stored in `data/<city>/<topic>/communities.json`. Every run creates an auto-commit so the full history of community data is browsable via git.
+Results are stored in SQLite at `data/scraper.db`. Runtime data should be persisted by mounting `/app/data`; if you edit config through the admin UI, persist `/app/config` as well.

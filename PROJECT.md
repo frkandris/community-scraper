@@ -251,7 +251,7 @@ schedule:
 | `GROQ_API_KEY` | Groq API key (secondary extractor) | *(empty = disabled)* |
 | `SCHEDULE_CRON` | Cron expression for scheduled runs | from `settings.yaml` |
 | `ADMIN_USER` | Basic-auth username for `/admin/*` | `admin` |
-| `ADMIN_PASSWORD` | Basic-auth password for `/admin/*` | `almafa123` |
+| `ADMIN_PASSWORD` | Basic-auth password for `/admin/*` | Required |
 | `FEEDBACK_EMAIL` | Email address for feedback notifications | *(empty = disabled)* |
 | `RESEND_API_KEY` | Resend API key for feedback emails | *(empty = disabled)* |
 | `RESEND_FROM` | From address for Resend | `onboarding@resend.dev` |
@@ -600,7 +600,8 @@ Calls `db.bulk_upsert_communities()`. On conflict (`record_key` unique), merges
 `_BasicAuth` is a pure ASGI middleware (not a FastAPI dependency) that gates all
 `/admin/*` paths with HTTP Basic auth. It deliberately does NOT buffer SSE responses.
 
-Credentials: `ADMIN_USER` / `ADMIN_PASSWORD` env vars (defaults: `admin` / `almafa123`).
+Credentials: `ADMIN_USER` / `ADMIN_PASSWORD` env vars. `ADMIN_USER` defaults to
+`admin`; `ADMIN_PASSWORD` must be set before the admin UI can be used.
 
 ### Public Routes
 
@@ -861,9 +862,9 @@ FROM python:3.12-slim
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 COPY pyproject.toml .
-RUN pip install --no-cache-dir .
 COPY scraper/ ./scraper/
 COPY config/   ./config/
+RUN pip install --no-cache-dir .
 CMD ["python", "-m", "scraper.main"]
 ```
 
@@ -873,10 +874,12 @@ CMD ["python", "-m", "scraper.main"]
 - **ollama** (port 11434)
 
 ### Volume strategy
-The entire `/app` directory is a persistent Coolify volume. This preserves:
-- `data/scraper.db` (all communities + cache)
-- `.git/` (if git auto-commit is enabled)
-- Config edits made through the admin UI.
+Persist only the runtime directories, not the whole `/app` tree:
+- `/app/data` preserves `scraper.db` (all communities + cache).
+- `/app/config` preserves config edits made through the admin UI.
+
+Do not mount a volume over the entire `/app` directory, because that can hide updated
+application code from newer Docker images.
 
 ### Health check
 Coolify checks `GET /` (FastAPI serves the public home page).
