@@ -33,15 +33,15 @@ def _is_blocked(url: str, blocked_domains: list[str]) -> bool:
         return False
 
 
-def _extract_text(html: str) -> str | None:
+def _extract_text(html: str, min_text_length: int = 100) -> str | None:
     text = trafilatura.extract(html, include_comments=False, include_tables=False)
-    if text and len(text) >= 100:
+    if text and len(text) >= min_text_length:
         return text
     converter = html2text.HTML2Text()
     converter.ignore_links = True
     converter.ignore_images = True
     fallback = converter.handle(html).strip()
-    return fallback if len(fallback) >= 100 else None
+    return fallback if len(fallback) >= min_text_length else None
 
 
 async def fetch_and_clean(
@@ -68,7 +68,7 @@ async def fetch_and_clean(
                     return None
                 if "text/html" not in resp.headers.get("content-type", ""):
                     return None
-                return _extract_text(resp.text)
+                return _extract_text(resp.text, min_text_length=min_text_length)
         except Exception as exc:
             log.debug("fetch_failed", url=url, error=str(exc))
             return None

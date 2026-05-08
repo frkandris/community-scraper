@@ -1,6 +1,6 @@
 import asyncio
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -257,6 +257,7 @@ async def _run_full(
                                            config.search_cache_ttl_days) if use_search_cache else None
             if cached_urls is not None:
                 urls = cached_urls[:config.search_max_pages]
+                urls_found = len(urls)
                 search_cache_hit = True
                 log.info("search_cache_hit", city=city.name, topic=topic.name, urls=len(urls))
             else:
@@ -265,6 +266,7 @@ async def _run_full(
                 )
                 log.info("search_done", city=city.name, topic=topic.name, urls=len(search_results))
                 urls = [r.url for r in search_results][:config.search_max_pages]
+                urls_found = len(search_results)
                 if use_search_cache and urls:
                     save_search_cache(config.db_path, city.name, topic.name, urls, queries)
 
@@ -274,7 +276,7 @@ async def _run_full(
                 "topic": topic.name,
                 "queries": queries,
                 "search_cache_hit": search_cache_hit,
-                "urls_found": len(search_results),
+                "urls_found": urls_found,
                 "fetched_urls": [],
                 "fetch_failed": 0,
                 "cache_hits_scrape": 0,
@@ -460,16 +462,21 @@ async def _run_ai_only(
                     if on_progress:
                         on_progress(None, None)
 
-                cache.save_extracted(url, extracted, fingerprint=extractor.model_fingerprint,
+                joinable = [r for r in extracted if r.joinable]
+                if len(joinable) < len(extracted):
+                    log.info("joinability_filtered", url=url,
+                             kept=len(joinable), removed=len(extracted) - len(joinable))
+
+                cache.save_extracted(url, joinable, fingerprint=extractor.model_fingerprint,
                                      model=extractor.model)
 
-                if extracted:
-                    save_results(city.name, topic.name, extracted, config.db_path)
+                if joinable:
+                    save_results(city.name, topic.name, joinable, config.db_path)
 
-                records.extend(extracted)
-                total_new += len(extracted)
-                pair_log["records_extracted"] += len(extracted)
-                log.info("extracted", url=url, found=len(extracted))
+                records.extend(joinable)
+                total_new += len(joinable)
+                pair_log["records_extracted"] += len(joinable)
+                log.info("extracted", url=url, found=len(extracted), kept=len(joinable))
 
             count = save_results(city.name, topic.name, records, config.db_path)
             run_stats[city.name][topic.name] = count

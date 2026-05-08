@@ -327,10 +327,14 @@ def build_queries(
     search_variants: list[str],
     topic_terms: list[str],
 ) -> list[str]:
+    if not city_name or not topic_terms:
+        return []
+
     queries = []
-    primary_variant = search_variants[0]
+    variants = search_variants or [city_name]
+    primary_variant = variants[0]
     for term in topic_terms[:2]:
         queries.append(f"{term} {primary_variant}")
-    if len(search_variants) > 1:
-        queries.append(f"{topic_terms[0]} {search_variants[1]}")
+    if len(variants) > 1:
+        queries.append(f"{topic_terms[0]} {variants[1]}")
     return queries

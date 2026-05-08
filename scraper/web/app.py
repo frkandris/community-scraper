@@ -40,7 +40,7 @@ from ..fetch import fetch_and_clean
 from ..models import CommunityRecord
 from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline
 from ..search import BraveSearchClient, SearXNGClient
-from ..store import _normalize, save_results
+from ..store import save_results
 from .i18n import get_topic_labels, lang_context
 from .log_stream import broadcaster
 from .schema import records_to_jsonld
@@ -568,7 +568,7 @@ async def public_explore(
 ):
     city_sl = _slugify(city) if city else ""
     if city_sl and len(topic) == 1:
-        qs = f"?subscribed=1" if subscribed == "1" else ""
+        qs = "?subscribed=1" if subscribed == "1" else ""
         return RedirectResponse(f"/{city_sl}/{topic[0]}{qs}", status_code=301)
     if city_sl and not topic:
         return RedirectResponse(f"/{city_sl}", status_code=301)
@@ -1054,7 +1054,6 @@ async def status():
 async def test_searxng(q: str = "running club Budapest"):
     if not app_state.pipeline_cfg:
         return JSONResponse({"error": "not configured"}, status_code=503)
-    client = SearXNGClient(app_state.pipeline_cfg.searxng_url)
     try:
         import httpx
         async with httpx.AsyncClient(timeout=10.0) as hc:
@@ -1222,7 +1221,13 @@ async def cache_queue_extract_all():
                 t0 = _time.monotonic()
                 extracted = await extractor.extract(raw_text, city, topic, locale, url)
                 joinable = [r for r in extracted if r.joinable]
-                app_state.cache_manager.save_extracted(url, joinable, duration_s=_time.monotonic() - t0, model=extractor.model)
+                app_state.cache_manager.save_extracted(
+                    url,
+                    joinable,
+                    duration_s=_time.monotonic() - t0,
+                    fingerprint=extractor.model_fingerprint,
+                    model=extractor.model,
+                )
                 if joinable:
                     save_results(city, topic, joinable, _db())
             except Exception as exc:
@@ -1403,7 +1408,13 @@ async def cache_run_extract(url_hash: str):
             extracted = await extractor.extract(raw_text, city, topic, locale, url)
             extract_dur = _time.monotonic() - t0
             joinable = [r for r in extracted if r.joinable]
-            app_state.cache_manager.save_extracted(url, joinable, duration_s=extract_dur, model=extractor.model)
+            app_state.cache_manager.save_extracted(
+                url,
+                joinable,
+                duration_s=extract_dur,
+                fingerprint=extractor.model_fingerprint,
+                model=extractor.model,
+            )
             if joinable:
                 save_results(city, topic, joinable, _db())
         except Exception as exc:

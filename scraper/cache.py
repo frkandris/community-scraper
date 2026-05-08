@@ -166,9 +166,10 @@ class CacheManager:
         if not entry:
             return False
         for key in ("records", "extracted_at", "extract_duration_s",
+                    "extract_fingerprint", "extract_model",
                     "enrich_scraped_at", "enrich_scrape_duration_s",
                     "enrich_extracted_at", "enrich_extract_duration_s", "enrich_count",
-                    "enrich_log"):
+                    "enrich_model", "enrich_log"):
             entry.pop(key, None)
         save_cache_page(self.db_path, entry)
         return True
