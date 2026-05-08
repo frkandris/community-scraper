@@ -32,9 +32,6 @@ DB_PATH  = DATA_DIR / "scraper.db"
 def migrate_communities() -> int:
     total = 0
     for json_file in sorted(DATA_DIR.glob("*/*/communities.json")):
-        parts = json_file.parts
-        city_norm  = parts[-3]
-        topic_norm = parts[-2]
         try:
             raw = json.loads(json_file.read_text(encoding="utf-8"))
         except Exception as exc:
