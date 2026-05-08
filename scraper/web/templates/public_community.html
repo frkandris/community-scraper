@@ -4,43 +4,43 @@
 
 {% block content %}
 
-<div class="max-w-2xl mx-auto px-6 py-10">
+<div class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
 
   <!-- Breadcrumb -->
-  <nav class="flex items-center gap-2 text-sm text-gray-400 mb-8">
-    <a href="/" class="hover:text-gray-700 transition-colors">CommUnity</a>
+  <nav class="flex items-center gap-2 text-sm text-slate-400 mb-6 overflow-hidden">
+    <a href="/" class="hover:text-slate-800 transition-colors shrink-0">CommUnity</a>
     <span>/</span>
     {% if city %}
-    <a href="/{{ city | slugify }}" class="hover:text-gray-700 transition-colors">{{ city }}</a>
+    <a href="/{{ city | slugify }}" class="hover:text-slate-800 transition-colors shrink-0">{{ city }}</a>
     <span>/</span>
     {% endif %}
     {% if topic %}
     <a href="/{{ city | slugify }}/{{ topic }}"
-       class="hover:text-gray-700 transition-colors">
+       class="hover:text-slate-800 transition-colors shrink-0">
       {{ topic_labels.get(topic, topic.replace('_',' ').title()) }}
     </a>
     <span>/</span>
     {% endif %}
-    <span class="text-gray-600 font-medium truncate">{{ r.name }}</span>
+    <span class="text-slate-700 font-medium truncate">{{ r.name }}</span>
   </nav>
 
   <!-- Header card -->
-  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 mb-6">
+  <div class="bg-white rounded-md border border-slate-200 p-6 sm:p-8 mb-6">
 
     <div class="flex items-start gap-4 mb-5">
-      <div class="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-        <i class="ph ph-{{ topic_icons.get(topic, 'users-three') }} text-indigo-600 text-2xl"></i>
+      <div class="w-12 h-12 rounded-md bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+        <i class="ph ph-{{ topic_icons.get(topic, 'users-three') }} text-emerald-700 text-2xl"></i>
       </div>
       <div class="min-w-0">
-        <h1 class="text-2xl font-bold text-gray-900 leading-tight">{{ r.name }}</h1>
+        <h1 class="text-2xl font-bold text-slate-950 leading-tight">{{ r.name }}</h1>
         <div class="flex flex-wrap items-center gap-2 mt-1.5">
           {% if city %}
-          <span class="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">
-            <i class="ph ph-map-pin text-gray-400"></i> {{ city }}
+          <span class="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md">
+            <i class="ph ph-map-pin text-slate-400"></i> {{ city }}
           </span>
           {% endif %}
           {% if topic %}
-          <span class="inline-flex items-center gap-1 text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
+          <span class="inline-flex items-center gap-1 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
             <i class="ph ph-{{ topic_icons.get(topic, 'circle') }}"></i>
             {{ topic_labels.get(topic, topic.replace('_',' ').title()) }}
           </span>
@@ -50,7 +50,7 @@
     </div>
 
     {% if r.description %}
-    <p class="text-gray-700 leading-relaxed mb-6">{{ r.description }}</p>
+    <p class="text-slate-700 leading-relaxed mb-6">{{ r.description }}</p>
     {% endif %}
 
     <!-- Details grid -->
@@ -59,12 +59,12 @@
       {% macro detail_row(icon, label, value) %}
       {% if value %}
       <div class="flex items-start gap-3 text-sm">
-        <div class="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0 mt-0.5">
-          <i class="ph ph-{{ icon }} text-gray-500"></i>
+        <div class="w-8 h-8 rounded-md bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+          <i class="ph ph-{{ icon }} text-slate-500"></i>
         </div>
         <div>
-          <div class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">{{ label }}</div>
-          <div class="text-gray-700">{{ value }}</div>
+          <div class="text-xs text-slate-400 font-medium uppercase tracking-wide mb-0.5">{{ label }}</div>
+          <div class="text-slate-700">{{ value }}</div>
         </div>
       </div>
       {% endif %}
@@ -83,19 +83,19 @@
 
       {% if r.email or r.phone or r.contact %}
       <div class="flex items-start gap-3 text-sm">
-        <div class="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0 mt-0.5">
-          <i class="ph ph-envelope text-gray-500"></i>
+        <div class="w-8 h-8 rounded-md bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+          <i class="ph ph-envelope text-slate-500"></i>
         </div>
         <div>
-          <div class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">{{ t('community_contact') }}</div>
+          <div class="text-xs text-slate-400 font-medium uppercase tracking-wide mb-0.5">{{ t('community_contact') }}</div>
           {% if r.email %}
-          <div class="text-gray-700"><a href="mailto:{{ r.email }}" class="text-indigo-600 hover:underline">{{ r.email }}</a></div>
+          <div class="text-slate-700"><a href="mailto:{{ r.email }}" class="text-emerald-700 hover:underline">{{ r.email }}</a></div>
           {% endif %}
           {% if r.phone %}
-          <div class="text-gray-700"><a href="tel:{{ r.phone }}" class="hover:text-indigo-600">{{ r.phone }}</a></div>
+          <div class="text-slate-700"><a href="tel:{{ r.phone }}" class="hover:text-emerald-700">{{ r.phone }}</a></div>
           {% endif %}
           {% if r.contact and not r.email and not r.phone %}
-          <div class="text-gray-700">{{ r.contact }}</div>
+          <div class="text-slate-700">{{ r.contact }}</div>
           {% endif %}
         </div>
       </div>
@@ -103,26 +103,26 @@
 
       {% if r.founding_year %}
       <div class="flex items-start gap-3 text-sm">
-        <div class="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0 mt-0.5">
-          <i class="ph ph-flag text-gray-500"></i>
+        <div class="w-8 h-8 rounded-md bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+          <i class="ph ph-flag text-slate-500"></i>
         </div>
         <div>
-          <div class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">Alapítva</div>
-          <div class="text-gray-700">{{ r.founding_year }}</div>
+          <div class="text-xs text-slate-400 font-medium uppercase tracking-wide mb-0.5">Alapítva</div>
+          <div class="text-slate-700">{{ r.founding_year }}</div>
         </div>
       </div>
       {% endif %}
 
       {% if r.tags %}
       <div class="flex items-start gap-3 text-sm">
-        <div class="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0 mt-0.5">
-          <i class="ph ph-tag text-gray-500"></i>
+        <div class="w-8 h-8 rounded-md bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+          <i class="ph ph-tag text-slate-500"></i>
         </div>
         <div>
-          <div class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-1.5">Témák</div>
+          <div class="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1.5">Témák</div>
           <div class="flex flex-wrap gap-1.5">
             {% for tag in r.tags %}
-            <span class="text-xs bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-full">{{ tag }}</span>
+            <span class="text-xs bg-emerald-50 text-emerald-800 border border-emerald-100 px-2 py-0.5 rounded-md">{{ tag }}</span>
             {% endfor %}
           </div>
         </div>
@@ -136,20 +136,20 @@
     <!-- Links -->
     {% set website_url = r.website if r.website and r.website.startswith('http') else ('https://' ~ r.website if r.website else '') %}
     {% if (website_url and website_url | valid_url) or r.social_links %}
-    <div class="mt-6 pt-5 border-t border-gray-100 space-y-1.5">
+    <div class="mt-6 pt-5 border-t border-slate-100 space-y-1.5">
       {% macro link_row(href, meta) %}
       <a href="{{ href }}" target="_blank" rel="noopener"
-         class="flex items-center gap-3 group rounded-xl px-3 py-2 hover:bg-gray-50 transition-colors -mx-3">
-        <span class="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 {{ meta.color }}">
+         class="flex items-center gap-3 group rounded-md px-3 py-2 hover:bg-slate-50 transition-colors -mx-3">
+        <span class="flex items-center justify-center w-8 h-8 rounded-md shrink-0 {{ meta.color }}">
           <i class="ph {{ meta.icon }}" style="font-size:16px"></i>
         </span>
         <span class="flex flex-col min-w-0">
-          <span class="text-sm font-semibold text-gray-800">{{ meta.label }}</span>
-          <span class="text-xs text-gray-400 truncate group-hover:text-indigo-500 transition-colors">
+          <span class="text-sm font-semibold text-slate-800">{{ meta.label }}</span>
+          <span class="text-xs text-slate-400 truncate group-hover:text-emerald-700 transition-colors">
             {{ href | replace('https://','') | replace('http://','') | truncate(55, True, '…') }}
           </span>
         </span>
-        <i class="ph ph-arrow-square-out text-gray-300 group-hover:text-indigo-400 ml-auto shrink-0 transition-colors" style="font-size:14px"></i>
+        <i class="ph ph-arrow-square-out text-slate-300 group-hover:text-emerald-600 ml-auto shrink-0 transition-colors" style="font-size:14px"></i>
       </a>
       {% endmacro %}
       {% if website_url and website_url | valid_url %}
@@ -166,16 +166,16 @@
   </div>
 
   <!-- Feedback -->
-  <div class="mt-8 bg-gray-50 border border-gray-100 rounded-2xl p-5" id="feedback-section">
+  <div class="mt-8 bg-white border border-slate-200 rounded-md p-5" id="feedback-section">
     <div id="feedback-prompt" class="flex items-center justify-between gap-4">
-      <p class="text-sm text-gray-500">{{ t('community_feedback_prompt') }}</p>
+      <p class="text-sm text-slate-500">{{ t('community_feedback_prompt') }}</p>
       <button onclick="document.getElementById('feedback-prompt').classList.add('hidden'); document.getElementById('feedback-form').classList.remove('hidden');"
-        class="shrink-0 text-xs px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:border-indigo-400 hover:text-indigo-700 transition-colors">
+        class="shrink-0 text-xs px-3 py-1.5 border border-slate-300 rounded-md text-slate-600 hover:border-emerald-500 hover:text-emerald-800 transition-colors">
         {{ t('community_report_issue') }}
       </button>
     </div>
     <div id="feedback-form" class="hidden">
-      <p class="text-sm font-medium text-gray-700 mb-3">Send feedback about <strong>{{ r.name }}</strong></p>
+      <p class="text-sm font-medium text-slate-700 mb-3">Send feedback about <strong>{{ r.name }}</strong></p>
       <form action="/feedback" method="POST" onsubmit="submitFeedback(event, this)">
         <input type="hidden" name="community_name" value="{{ r.name }}">
         <input type="hidden" name="city" value="{{ city }}">
@@ -183,18 +183,18 @@
         <input type="hidden" name="page_url" value="{{ request.url }}">
         <textarea name="message" rows="3" required
           placeholder="What's wrong or missing? (e.g. wrong schedule, closed group, duplicate…)"
-          class="w-full text-sm px-3 py-2 border border-gray-200 rounded-xl resize-none focus:outline-none focus:border-indigo-400 mb-3"></textarea>
+          class="w-full text-sm px-3 py-2 border border-slate-300 rounded-md resize-none focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 mb-3"></textarea>
         <input type="email" name="user_email"
           placeholder="Your email (optional — if you'd like a reply)"
-          class="w-full text-sm px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-400 mb-3">
+          class="w-full text-sm px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 mb-3">
         <div class="flex items-center gap-3">
           <button type="submit"
-            class="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors">
+            class="px-4 py-2 bg-emerald-700 text-white text-xs font-semibold rounded-md hover:bg-emerald-800 transition-colors">
             {{ t('community_feedback_send') }}
           </button>
           <button type="button"
             onclick="document.getElementById('feedback-form').classList.add('hidden'); document.getElementById('feedback-prompt').classList.remove('hidden');"
-            class="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+            class="text-xs text-slate-400 hover:text-slate-600 transition-colors">
             {{ t('community_feedback_cancel') }}
           </button>
         </div>
@@ -208,12 +208,12 @@
   <!-- Source attribution -->
   {% set all_sources = r.source_urls if r.get('source_urls') else ([r.source_url] if r.source_url else []) %}
   {% if all_sources %}
-  <div class="mt-6 border-t border-gray-100 pt-5">
-    <p class="text-xs font-medium uppercase tracking-wide text-gray-400 mb-2">{{ t('community_source_page') }}</p>
+  <div class="mt-6 border-t border-slate-200 pt-5">
+    <p class="text-xs font-medium uppercase tracking-wide text-slate-400 mb-2">{{ t('community_source_page') }}</p>
     <div class="flex flex-col gap-1.5">
       {% for url in all_sources %}
       <a href="{{ url }}" target="_blank" rel="noopener"
-         class="inline-flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-700 transition-colors group">
+         class="inline-flex items-center gap-1.5 text-xs text-emerald-700 hover:text-emerald-900 transition-colors group">
         <i class="ph ph-arrow-square-out shrink-0"></i>
         <span class="truncate group-hover:underline">{{ url | replace('https://','') | replace('http://','') }}</span>
       </a>
@@ -226,7 +226,7 @@
   {% if city and topic %}
   <div class="mt-6 text-center">
     <a href="/{{ city | slugify }}/{{ topic }}"
-       class="inline-flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 transition-colors font-medium">
+       class="inline-flex items-center gap-2 text-sm text-emerald-700 hover:text-emerald-900 transition-colors font-medium">
       <i class="ph ph-arrow-left"></i>
       {{ t('community_more_in').format(label=topic_labels.get(topic, topic.replace('_',' ').title()), city=city) }}
     </a>

@@ -533,13 +533,15 @@ def _top_cities(n: int = 8) -> list[tuple[str, str, int]]:
 async def public_home(request: Request, city: str = ""):
     cities = app_state.cities or []
     topics = app_state.topics or []
+    topic_counts = _global_topic_counts()
     return templates.TemplateResponse(request, "public_home.html", {
         "cities": cities,
         "topics": topics,
         "topic_icons": TOPIC_ICONS,
         "topic_labels": TOPIC_LABELS,
         "selected_city": city,
-        "topic_counts": _global_topic_counts(),
+        "topic_counts": topic_counts,
+        "total_records": sum(topic_counts.values()),
         "featured_cities": _top_cities(8),
         **lang_context(request),
     })

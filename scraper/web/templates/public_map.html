@@ -6,31 +6,34 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <style>
   #map { height: calc(100vh - 57px - 64px); min-height: 480px; }
-  .leaflet-popup-content-wrapper { border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+  .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
   .leaflet-popup-content { margin: 14px 16px; }
-  .city-popup-name { font-size: 15px; font-weight: 700; color: #111827; margin-bottom: 2px; }
-  .city-popup-country { font-size: 12px; color: #9ca3af; margin-bottom: 8px; }
-  .city-popup-count { font-size: 13px; font-weight: 600; color: #6366f1; margin-bottom: 10px; }
+  .city-popup-name { font-size: 15px; font-weight: 700; color: #020617; margin-bottom: 2px; }
+  .city-popup-country { font-size: 12px; color: #94a3b8; margin-bottom: 8px; }
+  .city-popup-count { font-size: 13px; font-weight: 600; color: #047857; margin-bottom: 10px; }
   .city-popup-btn {
-    display: inline-block; background: #6366f1; color: #fff;
+    display: inline-block; background: #047857; color: #fff;
     padding: 5px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
     text-decoration: none; transition: background 0.15s;
   }
-  .city-popup-btn:hover { background: #4f46e5; }
+  .city-popup-btn:hover { background: #065f46; }
 </style>
 {% endblock %}
 
 {% block content %}
 
 <!-- Stats bar -->
-<div class="bg-white border-b border-gray-100">
-  <div class="max-w-5xl mx-auto px-6 py-3 flex items-center gap-6 flex-wrap">
-    <h1 class="text-sm font-semibold text-gray-900">🗺 {{ t('map_title') }}</h1>
-    <div class="flex items-center gap-1.5 text-xs text-gray-500 ml-auto">
-      <span class="inline-block w-3 h-3 rounded-full bg-indigo-500 opacity-80 shrink-0"></span>
-      <strong class="text-gray-900">{{ total }}</strong> {{ t('map_n_communities') }}
+<div class="bg-white border-b border-slate-200">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-6 flex-wrap">
+    <h1 class="text-sm font-semibold text-slate-950 flex items-center gap-2">
+      <i class="ph ph-map-trifold text-emerald-700"></i>
+      {{ t('map_title') }}
+    </h1>
+    <div class="flex items-center gap-1.5 text-xs text-slate-500 ml-auto">
+      <span class="inline-block w-3 h-3 rounded-full bg-emerald-600 opacity-80 shrink-0"></span>
+      <strong class="text-slate-950">{{ total }}</strong> {{ t('map_n_communities') }}
       {% if t('map_n_in') %} {{ t('map_n_in') }} {% else %} {% endif %}
-      <strong class="text-gray-900">{{ cities_with_data }}</strong> {{ t('map_n_city') if cities_with_data == 1 else t('map_n_cities') }}
+      <strong class="text-slate-950">{{ cities_with_data }}</strong> {{ t('map_n_city') if cities_with_data == 1 else t('map_n_cities') }}
     </div>
   </div>
 </div>
@@ -57,9 +60,9 @@ cities.forEach(city => {
 
   const marker = L.circleMarker([city.lat, city.lng], {
     radius: radius,
-    fillColor: '#6366f1',
+    fillColor: '#059669',
     fillOpacity: 0.82,
-    color: '#4338ca',
+    color: '#047857',
     weight: 1.5,
   }).addTo(map);
 

@@ -2,31 +2,81 @@
 {% block title %}CommUnity – Find your community{% endblock %}
 {% block content %}
 
-<!-- Hero -->
-<div class="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 text-white pt-16 pb-20 px-6">
-  <div class="max-w-2xl mx-auto text-center">
-    <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4 leading-tight">
-      {{ t('home_title') }}
-    </h1>
-    <p class="text-indigo-200 text-lg">
-      {{ t('home_subtitle') }}
-    </p>
-  </div>
-</div>
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+  <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)] gap-6 items-start">
+    <section class="space-y-6">
+      <div class="border-b border-slate-200 pb-6">
+        <p class="text-xs font-semibold uppercase tracking-widest text-emerald-700 mb-3">Community index</p>
+        <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-950 leading-tight">
+          {{ t('home_title') }}
+        </h1>
+        <p class="mt-4 text-base text-slate-600 leading-relaxed max-w-2xl">
+          {{ t('home_subtitle') }}
+        </p>
+      </div>
 
-<!-- Search form card -->
-<div class="max-w-2xl mx-auto px-6 -mt-8 pb-16">
-  <div class="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sm:p-8">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="bg-white border border-slate-200 rounded-md p-4">
+          <div class="text-2xl font-extrabold text-slate-950">{{ cities|length }}</div>
+          <div class="text-xs font-medium text-slate-500 mt-1">{{ t('about_cities') }}</div>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-md p-4">
+          <div class="text-2xl font-extrabold text-slate-950">{{ topics|length }}</div>
+          <div class="text-xs font-medium text-slate-500 mt-1">{{ t('about_topics') }}</div>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-md p-4">
+          <div class="text-2xl font-extrabold text-slate-950">{{ total_records }}</div>
+          <div class="text-xs font-medium text-slate-500 mt-1">{{ t('about_communities') }}</div>
+        </div>
+      </div>
 
-    <form action="/explore" method="GET" id="main-form">
+      {% if featured_cities %}
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-slate-900">{{ t('home_popular_cities') }}</h2>
+          <a href="/map" class="text-xs font-medium text-emerald-700 hover:text-emerald-900 transition-colors">
+            {{ t('home_view_world_map') }}
+          </a>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {% for name, country, count in featured_cities %}
+          <a href="/{{ name | slugify }}"
+             class="flex items-center justify-between bg-white rounded-md border border-slate-200 px-3 py-2.5
+                    hover:border-emerald-400 hover:bg-emerald-50 transition-colors group">
+            <div class="min-w-0">
+              <div class="text-sm font-semibold text-slate-800 group-hover:text-emerald-900 truncate">{{ name }}</div>
+              <div class="text-xs text-slate-500">{{ country }}</div>
+            </div>
+            {% if count > 0 %}
+            <span class="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-2 py-0.5 shrink-0 ml-2">{{ count }}</span>
+            {% endif %}
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="bg-white rounded-md border border-slate-200 p-4 sm:p-5 lg:sticky lg:top-20">
+      <div class="flex items-start justify-between gap-4 mb-5">
+        <div>
+          <h2 class="text-base font-bold text-slate-950">{{ t('nav_discover') }}</h2>
+          <p class="text-xs text-slate-500 mt-1">{{ t('home_city_label') }} + {{ t('home_interests_label') }}</p>
+        </div>
+        <a href="/about" class="text-xs font-medium text-slate-500 hover:text-emerald-700 transition-colors">
+          {{ t('nav_about') }}
+        </a>
+      </div>
+
+      <form action="/explore" method="GET" id="main-form">
 
       <!-- City input -->
-      <div class="mb-7">
-        <label for="city-input" class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+      <div class="mb-5">
+        <label for="city-input" class="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">
           {{ t('home_city_label') }}
         </label>
         <div class="relative">
-          <i class="ph ph-city absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xl pointer-events-none"></i>
+          <i class="ph ph-city absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg pointer-events-none"></i>
           <input
             type="text"
             name="city"
@@ -35,9 +85,9 @@
             value="{{ selected_city }}"
             placeholder="{{ t('home_city_placeholder') }}"
             autocomplete="off"
-            class="w-full pl-11 pr-4 py-3.5 text-base border-2 border-gray-200 rounded-xl
-              focus:outline-none focus:border-indigo-500 transition-colors
-              bg-gray-50 focus:bg-white placeholder-gray-400"
+            class="w-full pl-10 pr-3 py-3 text-base border border-slate-300 rounded-md
+              focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 transition-colors
+              bg-white placeholder-slate-400"
           >
           <datalist id="cities-list">
             {% for city in cities %}
@@ -45,34 +95,34 @@
             {% endfor %}
           </datalist>
         </div>
-        <p id="city-hint" class="mt-2 text-xs text-gray-400 hidden">
+        <p id="city-hint" class="mt-2 text-xs text-slate-500 hidden">
           <span id="city-count-text"></span>
         </p>
       </div>
 
       <!-- Topic chips -->
-      <div class="mb-7">
+      <div class="mb-5">
         <div class="flex items-center justify-between mb-3">
-          <label class="text-xs font-semibold text-gray-500 uppercase tracking-widest">{{ t('home_interests_label') }}</label>
+          <label class="text-xs font-semibold text-slate-500 uppercase tracking-widest">{{ t('home_interests_label') }}</label>
           <button type="button" id="clear-topics"
-            class="text-xs text-indigo-500 hover:text-indigo-700 font-medium hidden">
+            class="text-xs text-emerald-700 hover:text-emerald-900 font-medium hidden">
             {{ t('home_clear_all') }}
           </button>
         </div>
 
-        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2" id="topics-grid">
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[430px] overflow-y-auto pr-1" id="topics-grid">
           {% for topic in topics %}
           <label class="cursor-pointer select-none" data-topic="{{ topic.name }}">
             <input type="checkbox" name="topic" value="{{ topic.name }}" class="sr-only peer">
-            <div class="relative flex flex-col items-center justify-center gap-1.5 h-[5.5rem] px-1
-              rounded-xl border-2 border-gray-200 bg-gray-50
-              peer-checked:border-indigo-500 peer-checked:bg-indigo-50 peer-checked:shadow-sm
-              hover:border-gray-300 hover:bg-white transition-all text-center cursor-pointer">
-              <i class="ph ph-{{ topic_icons.get(topic.name, 'circle') }} text-2xl text-gray-500 leading-none shrink-0"></i>
-              <span class="text-xs text-gray-600 leading-tight text-center w-full px-1">
+            <div class="relative flex items-center gap-2 min-h-12 px-2.5 py-2
+              rounded-md border border-slate-200 bg-white
+              peer-checked:border-emerald-600 peer-checked:bg-emerald-50 peer-checked:ring-1 peer-checked:ring-emerald-600
+              hover:border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer">
+              <i class="ph ph-{{ topic_icons.get(topic.name, 'circle') }} text-lg text-slate-500 leading-none shrink-0"></i>
+              <span class="text-xs font-medium text-slate-700 leading-tight min-w-0 pr-5">
                 {{ topic_labels.get(topic.name, topic.name.replace('_',' ').title()) }}
               </span>
-              <span class="count-badge absolute top-1.5 right-1.5 text-[10px] font-bold text-indigo-500 leading-none">
+              <span class="count-badge absolute top-2 right-2 text-[10px] font-bold text-emerald-700 leading-none">
                 {%- set cnt = topic_counts.get(topic.name, 0) -%}
                 {%- if cnt > 0 %}{{ cnt }}{% endif -%}
               </span>
@@ -84,45 +134,13 @@
 
       <!-- Explore button -->
       <button type="submit"
-        class="w-full py-3.5 bg-indigo-600 text-white font-semibold rounded-xl
-          hover:bg-indigo-700 active:bg-indigo-800 transition-colors shadow-md text-base">
+        class="w-full py-3 bg-emerald-700 text-white font-semibold rounded-md
+          hover:bg-emerald-800 active:bg-emerald-900 transition-colors text-base">
         {{ t('home_explore_btn') }}
       </button>
 
     </form>
-  </div>
-
-  {% if featured_cities %}
-  <!-- Featured cities -->
-  <div class="mt-6">
-    <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 text-center">{{ t('home_popular_cities') }}</p>
-    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-      {% for name, country, count in featured_cities %}
-      <a href="/{{ name | slugify }}"
-         class="flex items-center justify-between bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3
-                hover:border-indigo-300 hover:bg-indigo-50 transition-all group">
-        <div class="min-w-0">
-          <div class="text-sm font-semibold text-gray-800 group-hover:text-indigo-700 truncate">{{ name }}</div>
-          <div class="text-xs text-gray-400">{{ country }}</div>
-        </div>
-        {% if count > 0 %}
-        <span class="text-sm font-bold text-indigo-600 shrink-0 ml-2">{{ count }}</span>
-        {% endif %}
-      </a>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- Quick links -->
-  <div class="mt-5 flex items-center justify-center gap-4 text-sm text-gray-400">
-    <a href="/map" class="hover:text-indigo-600 transition-colors flex items-center gap-1">
-      <i class="ph ph-map-trifold"></i> {{ t('home_view_world_map') }}
-    </a>
-    <span>·</span>
-    <a href="/about" class="hover:text-indigo-600 transition-colors flex items-center gap-1">
-      <i class="ph ph-info"></i> {{ t('nav_about') }}
-    </a>
+    </section>
   </div>
 </div>
 

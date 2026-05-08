@@ -14,35 +14,35 @@
 {% block content %}
 
 <!-- Top bar -->
-<div class="bg-white border-b border-gray-100 sticky top-[57px] z-10 shadow-sm">
-  <div class="max-w-5xl mx-auto px-6 py-3 flex items-center gap-2 flex-wrap">
-    <a href="/" class="text-sm text-gray-400 hover:text-gray-700 transition-colors">CommUnity</a>
+<div class="bg-white/95 border-b border-slate-200 sticky top-[57px] z-10 backdrop-blur">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-2 flex-wrap">
+    <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition-colors">CommUnity</a>
     {% if city %}
-    <span class="text-gray-300">/</span>
-    <a href="/{{ city | slugify }}" class="text-sm {% if not selected_topics %}font-semibold text-gray-900{% else %}text-gray-500 hover:text-gray-800{% endif %}">{{ city }}</a>
+    <span class="text-slate-300">/</span>
+    <a href="/{{ city | slugify }}" class="text-sm {% if not selected_topics %}font-semibold text-slate-950{% else %}text-slate-500 hover:text-slate-900{% endif %}">{{ city }}</a>
     {% endif %}
     {% for t in selected_topics %}
-    <span class="text-gray-300">/</span>
-    <span class="text-sm font-semibold text-indigo-700">
+    <span class="text-slate-300">/</span>
+    <span class="text-sm font-semibold text-emerald-700">
       <i class="ph ph-{{ topic_icons.get(t, 'circle') }}"></i>
       {{ topic_labels.get(t, t.replace('_',' ').title()) }}
     </span>
     {% endfor %}
 
-    <a href="{% if city %}/{{ city | slugify }}{% else %}/{% endif %}" class="ml-auto text-xs text-indigo-500 hover:text-indigo-700 border border-indigo-200 rounded-lg px-3 py-1 transition-colors">
+    <a href="{% if city %}/{{ city | slugify }}{% else %}/{% endif %}" class="ml-auto text-xs font-medium text-emerald-700 hover:text-emerald-900 border border-emerald-200 rounded-md px-3 py-1 transition-colors">
       {{ t('explore_change_filters') }}
     </a>
   </div>
 </div>
 
-<div class="max-w-5xl mx-auto px-6 py-8">
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
 
   {% if subscribed %}
-  <div class="mb-6 bg-green-50 border border-green-200 rounded-xl px-5 py-4 flex items-center gap-3">
+  <div class="mb-6 bg-emerald-50 border border-emerald-200 rounded-md px-5 py-4 flex items-center gap-3">
     <i class="ph ph-check-circle text-green-600 text-xl"></i>
     <div>
-      <div class="text-sm font-semibold text-green-800">{{ t('explore_subscribed_title') }}</div>
-      <div class="text-xs text-green-600 mt-0.5">{{ t('explore_subscribed_desc', city=city) }}</div>
+      <div class="text-sm font-semibold text-emerald-900">{{ t('explore_subscribed_title') }}</div>
+      <div class="text-xs text-emerald-700 mt-0.5">{{ t('explore_subscribed_desc', city=city) }}</div>
     </div>
   </div>
   {% endif %}
@@ -50,53 +50,53 @@
   <!-- No city, topics selected: cross-city aggregated results -->
   {% if not city and cross_city_sections %}
 
-  <div class="mb-8">
-    <h1 class="text-2xl font-bold text-gray-900 mb-1">
+  <div class="mb-8 border-b border-slate-200 pb-5">
+    <h1 class="text-2xl font-bold text-slate-950 mb-1">
       {% if cross_city_sections | length == 1 %}
-        <i class="ph ph-{{ cross_city_sections[0].icon }} text-indigo-600"></i>
+        <i class="ph ph-{{ cross_city_sections[0].icon }} text-emerald-700"></i>
         {{ t('explore_topic_communities_worldwide', label=cross_city_sections[0].label) }}
       {% else %}
         {{ t('explore_communities_worldwide') }}
       {% endif %}
     </h1>
-    <p class="text-sm text-gray-500 mt-1">
-      {{ t('explore_showing_all_cities', link='<a href="/" class="text-indigo-600 hover:underline">' ~ t('explore_pick_city') ~ '</a>') | safe }}
+    <p class="text-sm text-slate-500 mt-1">
+      {{ t('explore_showing_all_cities', link='<a href="/" class="text-emerald-700 hover:underline">' ~ t('explore_pick_city') ~ '</a>') | safe }}
     </p>
   </div>
 
   {% for section in cross_city_sections %}
   {% if cross_city_sections | length > 1 %}
-  <h2 class="text-lg font-semibold text-gray-800 mb-4 mt-8 flex items-center gap-2">
-    <i class="ph ph-{{ section.icon }} text-indigo-600"></i>
+  <h2 class="text-lg font-semibold text-slate-900 mb-4 mt-8 flex items-center gap-2">
+    <i class="ph ph-{{ section.icon }} text-emerald-700"></i>
     {{ section.label }}
-    <span class="text-sm font-normal text-gray-400">{{ t('explore_n_communities', n=section.total) }}</span>
+    <span class="text-sm font-normal text-slate-400">{{ t('explore_n_communities', n=section.total) }}</span>
   </h2>
   {% endif %}
 
   {% for cr in section.city_results %}
   <div class="mb-6">
     <div class="flex items-center justify-between mb-3">
-      <h3 class="text-base font-semibold text-gray-700 flex items-center gap-2">
-        <i class="ph ph-map-pin text-indigo-400"></i>
+      <h3 class="text-base font-semibold text-slate-800 flex items-center gap-2">
+        <i class="ph ph-map-pin text-emerald-600"></i>
         <a href="/{{ cr.city | slugify }}/{{ section.topic }}"
-           class="hover:text-indigo-700 transition-colors">{{ cr.city }}</a>
-        <span class="text-xs font-normal text-gray-400">{{ cr.country }}</span>
+           class="hover:text-emerald-800 transition-colors">{{ cr.city }}</a>
+        <span class="text-xs font-normal text-slate-400">{{ cr.country }}</span>
       </h3>
       <a href="/{{ cr.city | slugify }}/{{ section.topic }}"
-         class="text-xs text-indigo-500 hover:text-indigo-700 transition-colors">
+         class="text-xs font-medium text-emerald-700 hover:text-emerald-900 transition-colors">
         {{ t('explore_see_all', n=cr.records|length) }}
       </a>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
       {% for r in cr.records[:4] %}
-      <a href="{{ r.community_url }}" class="block bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col gap-2 hover:border-indigo-200 hover:shadow-md transition-all">
-        <h4 class="font-semibold text-gray-900 text-sm leading-snug">{{ r.name }}</h4>
+      <a href="{{ r.community_url }}" class="block bg-white rounded-md border border-slate-200 p-4 flex flex-col gap-2 hover:border-emerald-300 hover:bg-emerald-50 transition-colors">
+        <h4 class="font-semibold text-slate-950 text-sm leading-snug">{{ r.name }}</h4>
         {% if r.description %}
-        <p class="text-xs text-gray-500 leading-relaxed line-clamp-2">{{ r.description }}</p>
+        <p class="text-xs text-slate-600 leading-relaxed line-clamp-2">{{ r.description }}</p>
         {% endif %}
         {% if r.location %}
-        <div class="flex items-center gap-1.5 text-xs text-gray-500">
-          <i class="ph ph-map-pin text-gray-400"></i>
+        <div class="flex items-center gap-1.5 text-xs text-slate-500">
+          <i class="ph ph-map-pin text-slate-400"></i>
           <span>{{ r.location }}</span>
         </div>
         {% endif %}
@@ -110,9 +110,9 @@
   <!-- No city, no topics or no data -->
   {% elif not city %}
   <div class="text-center py-20">
-    <i class="ph ph-buildings text-gray-300 text-6xl mb-4 block"></i>
-    <h2 class="text-xl font-semibold text-gray-700 mb-3">{{ t('explore_choose_city') }}</h2>
-    <a href="/" class="inline-block px-6 py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">
+    <i class="ph ph-buildings text-slate-300 text-6xl mb-4 block"></i>
+    <h2 class="text-xl font-semibold text-slate-800 mb-3">{{ t('explore_choose_city') }}</h2>
+    <a href="/" class="inline-block px-6 py-3 bg-emerald-700 text-white rounded-md font-medium hover:bg-emerald-800 transition-colors">
       {{ t('explore_back_search') }}
     </a>
   </div>
@@ -120,18 +120,18 @@
   <!-- Results (city + optional topic filter) -->
   {% else %}
 
-  <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
+  <div class="flex items-start justify-between mb-5 flex-wrap gap-4 border-b border-slate-200 pb-5">
     <div>
-      <h1 class="text-2xl font-bold text-gray-900">
+      <h1 class="text-2xl font-bold text-slate-950">
         {% if selected_topics | length == 1 %}
-          <i class="ph ph-{{ topic_icons.get(selected_topics[0], 'circle') }} text-indigo-600"></i>
+          <i class="ph ph-{{ topic_icons.get(selected_topics[0], 'circle') }} text-emerald-700"></i>
           {{ topic_labels.get(selected_topics[0], selected_topics[0].replace('_',' ').title()) }} in {{ city }}
         {% else %}
           Communities in {{ city }}
         {% endif %}
       </h1>
       {% if total > 0 %}
-      <p class="text-sm text-gray-500 mt-0.5" id="visible-count">{{ total }} {{ 'community' if total == 1 else 'communities' }}</p>
+      <p class="text-sm text-slate-500 mt-0.5" id="visible-count">{{ total }} {{ 'community' if total == 1 else 'communities' }}</p>
       {% endif %}
     </div>
 
@@ -145,12 +145,12 @@
         <input type="checkbox" name="topic" value="{{ t.name }}" class="sr-only peer"
           {% if t.name in selected_topics %}checked{% endif %}
           onchange="this.form.submit()">
-        <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all cursor-pointer
-          peer-checked:bg-indigo-100 peer-checked:border-indigo-400 peer-checked:text-indigo-800
-          border-gray-200 bg-white text-gray-500 hover:border-gray-300">
+        <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors cursor-pointer
+          peer-checked:bg-emerald-50 peer-checked:border-emerald-600 peer-checked:text-emerald-900
+          border-slate-200 bg-white text-slate-500 hover:border-slate-300">
           <i class="ph ph-{{ topic_icons.get(t.name, 'circle') }}"></i>
           {{ topic_labels.get(t.name, t.name.replace('_',' ').title()) }}
-          <span class="ml-0.5 font-bold text-indigo-500">{{ available_topics[t.name] }}</span>
+          <span class="ml-0.5 font-bold text-emerald-700">{{ available_topics[t.name] }}</span>
         </span>
       </label>
       {% endif %}
@@ -162,11 +162,11 @@
       {% if available_topics.get(t.name, 0) > 0 %}
       <button type="button" onclick="filterTopic('{{ t.name }}')"
         data-topic="{{ t.name }}"
-        class="topic-chip inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all
-          bg-white border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-700">
+        class="topic-chip inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors
+          bg-white border-slate-200 text-slate-500 hover:border-emerald-300 hover:text-emerald-800">
         <i class="ph ph-{{ topic_icons.get(t.name, 'circle') }}"></i>
         {{ topic_labels.get(t.name, t.name.replace('_',' ').title()) }}
-        <span class="font-bold text-indigo-400">{{ available_topics[t.name] }}</span>
+        <span class="font-bold text-emerald-700">{{ available_topics[t.name] }}</span>
       </button>
       {% endif %}
       {% endfor %}
@@ -175,10 +175,10 @@
   </div>
 
   {% if total == 0 %}
-  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center mb-8">
-    <i class="ph ph-magnifying-glass text-gray-300 text-5xl mb-4 block"></i>
-    <h3 class="text-lg font-semibold text-gray-700 mb-2">{{ t('explore_no_data_title') }}</h3>
-    <p class="text-sm text-gray-400 max-w-xs mx-auto">{{ t('explore_no_data_desc') }}</p>
+  <div class="bg-white rounded-md border border-slate-200 p-12 text-center mb-8">
+    <i class="ph ph-magnifying-glass text-slate-300 text-5xl mb-4 block"></i>
+    <h3 class="text-lg font-semibold text-slate-800 mb-2">{{ t('explore_no_data_title') }}</h3>
+    <p class="text-sm text-slate-500 max-w-xs mx-auto">{{ t('explore_no_data_desc') }}</p>
   </div>
   {% else %}
 
@@ -186,40 +186,40 @@
   {% if section.records %}
   <div id="section-{{ section.topic }}" data-topic="{{ section.topic }}">
   {% if sections | length > 1 %}
-  <h2 class="text-base font-semibold text-gray-700 mb-3 mt-6 flex items-center gap-2">
-    <i class="ph ph-{{ section.icon }} text-indigo-500"></i>
+  <h2 class="text-base font-semibold text-slate-800 mb-3 mt-6 flex items-center gap-2">
+    <i class="ph ph-{{ section.icon }} text-emerald-700"></i>
     {{ section.label }}
-    <span class="ml-1 text-xs text-gray-400 font-normal">{{ section.records | length }}</span>
+    <span class="ml-1 text-xs text-slate-400 font-normal">{{ section.records | length }}</span>
   </h2>
   {% endif %}
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
     {% for r in section.records %}
-    <div class="relative bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md hover:border-indigo-100 transition-all flex flex-col gap-3">
-      <a href="{{ r.community_url }}" class="absolute inset-0 rounded-2xl" aria-label="{{ r.name }}"></a>
+    <div class="relative bg-white rounded-md border border-slate-200 p-5 hover:border-emerald-300 hover:bg-emerald-50 transition-colors flex flex-col gap-3">
+      <a href="{{ r.community_url }}" class="absolute inset-0 rounded-md" aria-label="{{ r.name }}"></a>
 
-      <h3 class="font-semibold text-gray-900 text-base leading-snug">{{ r.name }}</h3>
+      <h3 class="font-semibold text-slate-950 text-base leading-snug">{{ r.name }}</h3>
 
       {% if r.description %}
-      <p class="text-sm text-gray-600 leading-relaxed line-clamp-2">{{ r.description }}</p>
+      <p class="text-sm text-slate-600 leading-relaxed line-clamp-2">{{ r.description }}</p>
       {% endif %}
 
       <div class="grid grid-cols-1 gap-1 text-sm">
         {% if r.location %}
-        <div class="flex items-start gap-2 text-gray-600">
-          <i class="ph ph-map-pin text-base leading-5 shrink-0 text-gray-400"></i>
+        <div class="flex items-start gap-2 text-slate-600">
+          <i class="ph ph-map-pin text-base leading-5 shrink-0 text-slate-400"></i>
           <span>{{ r.location }}</span>
         </div>
         {% endif %}
         {% if r.meeting_schedule %}
-        <div class="flex items-start gap-2 text-gray-600">
-          <i class="ph ph-calendar text-base leading-5 shrink-0 text-gray-400"></i>
+        <div class="flex items-start gap-2 text-slate-600">
+          <i class="ph ph-calendar text-base leading-5 shrink-0 text-slate-400"></i>
           <span>{{ r.meeting_schedule }}</span>
         </div>
         {% endif %}
         {% if r.contact or r.email %}
-        <div class="flex items-start gap-2 text-gray-600">
-          <i class="ph ph-envelope text-base leading-5 shrink-0 text-gray-400"></i>
+        <div class="flex items-start gap-2 text-slate-600">
+          <i class="ph ph-envelope text-base leading-5 shrink-0 text-slate-400"></i>
           <span>{{ r.email or r.contact }}</span>
         </div>
         {% endif %}
@@ -229,7 +229,7 @@
       {% set chips = [] %}
       {% if r.fee %}{% set _ = chips.append({'icon': 'currency-circle-dollar', 'text': r.fee, 'color': 'green' if r.fee | lower in ('ingyenes','free','gratis','kostenlos','gratuit') else 'amber'}) %}{% endif %}
       {% if r.member_count %}{% set _ = chips.append({'icon': 'users-three', 'text': r.member_count, 'color': 'blue'}) %}{% endif %}
-      {% if r.skill_level %}{% set _ = chips.append({'icon': 'star', 'text': r.skill_level, 'color': 'purple'}) %}{% endif %}
+      {% if r.skill_level %}{% set _ = chips.append({'icon': 'star', 'text': r.skill_level, 'color': 'fuchsia'}) %}{% endif %}
       {% if r.founding_year %}{% set _ = chips.append({'icon': 'flag', 'text': r.founding_year | string, 'color': 'gray'}) %}{% endif %}
       {% if chips %}
       <div class="flex flex-wrap gap-1.5">
@@ -238,8 +238,8 @@
           {% if chip.color == 'green' %}bg-green-50 text-green-700 border border-green-100
           {% elif chip.color == 'amber' %}bg-amber-50 text-amber-700 border border-amber-100
           {% elif chip.color == 'blue' %}bg-blue-50 text-blue-700 border border-blue-100
-          {% elif chip.color == 'purple' %}bg-purple-50 text-purple-700 border border-purple-100
-          {% else %}bg-gray-50 text-gray-600 border border-gray-200{% endif %}">
+          {% elif chip.color == 'fuchsia' %}bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-100
+          {% else %}bg-slate-50 text-slate-600 border border-slate-200{% endif %}">
           <i class="ph ph-{{ chip.icon }}"></i>{{ chip.text }}
         </span>
         {% endfor %}
@@ -249,7 +249,7 @@
       {% set website_url = r.website if r.website and r.website.startswith('http') else ('https://' ~ r.website if r.website else '') %}
       {% set valid_social = r.social_links | selectattr('__class__') | select('string') | list if r.social_links else [] %}
       {% if (website_url and website_url | valid_url) or r.social_links %}
-      <div class="relative z-10 flex flex-wrap gap-2 pt-1 border-t border-gray-50">
+      <div class="relative z-10 flex flex-wrap gap-2 pt-1 border-t border-slate-100">
         {% if website_url and website_url | valid_url %}
         {% set wm = website_url | link_meta %}
         <a href="{{ website_url }}" target="_blank" rel="noopener"
@@ -281,12 +281,12 @@
   {% endif %}
 
   <!-- Subscribe section -->
-  <div class="mt-8 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100 p-6 sm:p-8">
+  <div class="mt-8 bg-white rounded-md border border-slate-200 p-6 sm:p-8">
     <div class="max-w-lg">
-      <h3 class="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2">
-        <i class="ph ph-bell-ringing text-indigo-600"></i> {{ t('subscribe_title') }}
+      <h3 class="text-lg font-bold text-slate-950 mb-1 flex items-center gap-2">
+        <i class="ph ph-bell-ringing text-emerald-700"></i> {{ t('subscribe_title') }}
       </h3>
-      <p class="text-sm text-gray-500 mb-5">
+      <p class="text-sm text-slate-500 mb-5">
         We'll email you when new
         {% if selected_topics %}
           <strong>{{ selected_topics | map('replace', '_', ' ') | join(', ') }}</strong>
@@ -306,14 +306,14 @@
           name="email"
           required
           placeholder="your@email.com"
-          class="flex-1 px-4 py-2.5 border-2 border-indigo-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500 bg-white transition-colors"
+          class="flex-1 px-4 py-2.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 bg-white transition-colors"
         >
         <button type="submit"
-          class="px-6 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm whitespace-nowrap">
+          class="px-6 py-2.5 bg-emerald-700 text-white text-sm font-semibold rounded-md hover:bg-emerald-800 transition-colors whitespace-nowrap">
           {{ t('subscribe_btn') }}
         </button>
       </form>
-      <p class="mt-2 text-xs text-gray-400">{{ t('subscribe_no_spam') }}</p>
+      <p class="mt-2 text-xs text-slate-400">{{ t('subscribe_no_spam') }}</p>
     </div>
   </div>
 
@@ -328,14 +328,14 @@
     var chips = document.querySelectorAll('.topic-chip');
     chips.forEach(function(c) {
       var on = active.size === 0 || active.has(c.dataset.topic);
-      c.classList.toggle('bg-indigo-100', active.has(c.dataset.topic));
-      c.classList.toggle('border-indigo-400', active.has(c.dataset.topic));
-      c.classList.toggle('text-indigo-800', active.has(c.dataset.topic));
+      c.classList.toggle('bg-emerald-50', active.has(c.dataset.topic));
+      c.classList.toggle('border-emerald-600', active.has(c.dataset.topic));
+      c.classList.toggle('text-emerald-900', active.has(c.dataset.topic));
       c.classList.toggle('bg-white', !active.has(c.dataset.topic));
-      c.classList.toggle('border-gray-200', !active.has(c.dataset.topic));
-      c.classList.toggle('text-gray-500', !active.has(c.dataset.topic));
+      c.classList.toggle('border-slate-200', !active.has(c.dataset.topic));
+      c.classList.toggle('text-slate-500', !active.has(c.dataset.topic));
     });
-    var sections = document.querySelectorAll('[data-topic]');
+    var sections = document.querySelectorAll('div[id^="section-"][data-topic]');
     var visible = 0;
     sections.forEach(function(s) {
       var show = active.size === 0 || active.has(s.dataset.topic);
