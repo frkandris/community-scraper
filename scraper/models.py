@@ -1,4 +1,5 @@
 import hashlib
+import re
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -47,8 +48,16 @@ class CommunityRecord(BaseModel):
         "keine angabe", "unbekannt",
     })
 
+    # Matches leaked JSON tail: `", 0.9, true, ...` or `", 2025", 0.9, true, ...`
+    _LEAKED_JSON_RE = re.compile(r'["”]\s*,\s*(?:\d[\d.]*\s*[",]|true\b|false\b).*$', re.DOTALL)
+
     @model_validator(mode="after")
     def _clean_and_generate_id(self) -> "CommunityRecord":
+        # Strip JSON artifacts that bled into the name field (LLM formatting glitch)
+        cleaned = self._LEAKED_JSON_RE.sub('', self.name).strip(' ",')
+        if cleaned and cleaned != self.name:
+            self.name = cleaned
+
         # Null out placeholder strings in text fields
         for field in ("phone", "contact", "location", "meeting_schedule",
                       "description", "fee", "history", "frequency",
