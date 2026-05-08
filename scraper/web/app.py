@@ -29,6 +29,7 @@ from ..db import (
     get_city_topic_counts,
     get_city_totals,
     get_communities,
+    get_communities_by_ids,
     get_communities_for_city,
     get_topic_counts,
     get_total_community_count,
@@ -1731,11 +1732,27 @@ async def admin_venues(request: Request, city: str = ""):
     venues = get_all_venues(app_state.db_path)
     if city:
         venues = [v for v in venues if v.get("city", "").lower() == city.lower()]
+
+    # Collect all community_ids across shown venues, bulk-fetch in one query
+    all_cids: list[str] = []
+    for v in venues:
+        all_cids.extend(v.get("community_ids") or [])
+    community_map: dict[str, dict] = {}
+    if all_cids:
+        for c in get_communities_by_ids(app_state.db_path, list(dict.fromkeys(all_cids))):
+            community_map[c.get("community_id", "")] = c
+
+    # Resolve topic labels for display
+    _topic_labels = get_topic_labels("hu")
+
     return templates.TemplateResponse(request, "venues.html", {
         "venues": venues,
         "counts": counts,
         "selected_city": city,
         "cities": sorted(counts.keys()),
+        "community_map": community_map,
+        "topic_labels": _topic_labels,
+        "topic_icons": TOPIC_ICONS,
     })
 
 

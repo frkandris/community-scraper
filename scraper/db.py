@@ -375,6 +375,19 @@ def find_community_by_id(db_path: Path, community_id: str) -> dict | None:
     return json.loads(row[0]) if row else None
 
 
+def get_communities_by_ids(db_path: Path, community_ids: list[str]) -> list[dict]:
+    """Bulk fetch communities by a list of community_id values."""
+    if not db_path.exists() or not community_ids:
+        return []
+    placeholders = ",".join("?" * len(community_ids))
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            f"SELECT data FROM communities WHERE community_id IN ({placeholders})",
+            community_ids,
+        ).fetchall()
+    return [json.loads(r[0]) for r in rows]
+
+
 def get_topic_counts(db_path: Path) -> dict[str, int]:
     if not db_path.exists():
         return {}
