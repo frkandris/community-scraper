@@ -523,7 +523,7 @@ For every `(city, topic)`:
    d. Enrichment pass (if `enrich_communities=True`).
    e. `cache.save_extracted(url, records, …)`.
    f. `save_results(city, topic, records, db_path)`.
-6. `update_metadata(run_stats, db_path)`.
+6. Logs aggregate run completion metadata.
 
 **`run_mode="ai_only"` (`_run_ai_only`)**
 
@@ -588,8 +588,8 @@ enrich_communities
 Calls `db.bulk_upsert_communities()`. On conflict (`record_key` unique), merges
 `source_urls` lists (union of new + old, deduped) and updates the data JSON.
 
-`update_metadata(run_stats, db_path)` — writes `RunMetadata` (total counts) to
-`metadata.json` (legacy) and to `data/metadata.json` (still present for backward compat).
+Runtime totals are now read from SQLite directly by the dashboard instead of a legacy
+`metadata.json` file.
 
 ---
 

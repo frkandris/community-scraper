@@ -1064,6 +1064,7 @@ async def trigger_run(
     if app_state.is_running:
         return RedirectResponse("/admin/logs", status_code=302)
 
+    app_state.is_running = True
     _skip_scraped = (skip_scraped == "on")
     _skip_extracted = (skip_extracted == "on")
 
@@ -1072,7 +1073,6 @@ async def trigger_run(
         app_state.current_url = url
 
     async def _run() -> None:
-        app_state.is_running = True
         started = datetime.now(timezone.utc)
         success = False
         pair_logs: list = []

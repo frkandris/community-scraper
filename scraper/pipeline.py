@@ -12,7 +12,7 @@ from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
 from .search import BraveSearchClient, FallbackSearchClient, SearXNGClient, SerperSearchClient, build_queries
 from .db import get_search_cache, save_search_cache
-from .store import save_results, update_metadata
+from .store import save_results
 
 if TYPE_CHECKING:
     from .cache import CacheManager
@@ -207,7 +207,6 @@ async def run_pipeline(
             cities, topics, config, extractor, cache, _skip_scraped, _skip_extracted, run_stats, on_progress
         )
 
-    update_metadata(run_stats, config.db_path)
     log.info("pipeline_complete", run_mode=run_mode, total_new_records=total_new)
     return pair_logs
 
@@ -388,7 +387,6 @@ async def _run_full(
 
             count = save_results(city.name, topic.name, records, config.db_path)
             run_stats[city.name][topic.name] = count
-            update_metadata(run_stats, config.db_path)
             pair_logs.append(pair_log)
 
     return total_new, pair_logs
@@ -480,7 +478,6 @@ async def _run_ai_only(
 
             count = save_results(city.name, topic.name, records, config.db_path)
             run_stats[city.name][topic.name] = count
-            update_metadata(run_stats, config.db_path)
             pair_logs.append(pair_log)
 
     return total_new, pair_logs

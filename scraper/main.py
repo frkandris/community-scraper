@@ -21,6 +21,7 @@ from .web.state import app_state
 BASE_DIR = Path(__file__).parent.parent
 CONFIG_DIR = BASE_DIR / "config"
 DATA_DIR = BASE_DIR / "data"
+DEFAULT_SCHEDULE_CRON = "*/15 * * * *"
 
 
 def broadcast_processor(logger, method, event_dict):
@@ -45,6 +46,36 @@ def _build_version() -> str:
         if ts:
             return "v." + ts
     return "v.unknown"
+
+
+def _cron_fields(cron_expr: str, fallback: str = DEFAULT_SCHEDULE_CRON) -> tuple[str, str, str, str, str]:
+    fields = cron_expr.split()
+    if len(fields) == 5:
+        return fields[0], fields[1], fields[2], fields[3], fields[4]
+
+    log = structlog.get_logger()
+    log.warning("invalid_cron_expression", cron=cron_expr, fallback=fallback)
+    fallback_fields = fallback.split()
+    if len(fallback_fields) != 5:
+        raise ValueError(f"Fallback cron must have 5 fields: {fallback}")
+    return (
+        fallback_fields[0],
+        fallback_fields[1],
+        fallback_fields[2],
+        fallback_fields[3],
+        fallback_fields[4],
+    )
+
+
+def _settings_cron() -> str:
+    try:
+        settings = yaml.safe_load((CONFIG_DIR / "settings.yaml").read_text(encoding="utf-8")) or {}
+        schedule = settings.get("schedule", {})
+        if isinstance(schedule, dict):
+            return str(schedule.get("cron") or DEFAULT_SCHEDULE_CRON)
+    except Exception:
+        return DEFAULT_SCHEDULE_CRON
+    return DEFAULT_SCHEDULE_CRON
 
 
 def load_config(db_path: Path) -> tuple[list[CityConfig], list[TopicConfig], PipelineConfig]:
@@ -146,12 +177,8 @@ async def main() -> None:
         await run_pipeline(cities, topics, pipeline_cfg, cache=cache)
         return
 
-    try:
-        _settings_cron = yaml.safe_load((CONFIG_DIR / "settings.yaml").read_text()).get("schedule", {}).get("cron", "*/15 * * * *")
-    except Exception:
-        _settings_cron = "*/15 * * * *"
-    cron_expr = os.environ.get("SCHEDULE_CRON") or _settings_cron
-    minute, hour, day, month, day_of_week = cron_expr.split()
+    cron_expr = os.environ.get("SCHEDULE_CRON") or _settings_cron()
+    minute, hour, day, month, day_of_week = _cron_fields(cron_expr)
 
     def _on_progress(phase: str | None, url: str | None) -> None:
         app_state.current_phase = phase

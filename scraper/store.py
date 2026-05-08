@@ -78,7 +78,3 @@ def save_results(
     log.info("saved_results", city=city, topic=topic, total=len(deduped),
              new=len(records), deduped=before - len(deduped))
     return len(deduped)
-
-
-def update_metadata(run_stats: dict, db_path: Path) -> None:
-    pass
