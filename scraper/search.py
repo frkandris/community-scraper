@@ -19,6 +19,25 @@ LOCALE_TO_LANGUAGE = {
     "de": "de-DE",
     "fr": "fr-FR",
     "es": "es-ES",
+    "it": "it-IT",
+    "pt": "pt-BR",
+    "nl": "nl-NL",
+    "pl": "pl-PL",
+    "sv": "sv-SE",
+    "da": "da-DK",
+    "fi": "fi-FI",
+    "no": "nb-NO",
+    "cs": "cs-CZ",
+    "ro": "ro-RO",
+    "tr": "tr-TR",
+    "ru": "ru-RU",
+    "uk": "uk-UA",
+    "zh": "zh-CN",
+    "ja": "ja-JP",
+    "ko": "ko-KR",
+    "ar": "ar-SA",
+    "id": "id-ID",
+    "vi": "vi-VN",
 }
 
 LOCALE_TO_SERPER = {
@@ -247,7 +266,7 @@ class DuckDuckGoClient:
         self.rate_limit_seconds = rate_limit_seconds
         self._last_request_time: float = 0.0
         self._consecutive_empty: int = 0
-        self._MAX_EMPTY = 5  # treat as blocked after this many empty runs
+        self._MAX_EMPTY = 20  # treat as blocked after this many consecutive empty runs
 
     async def search(
         self,
