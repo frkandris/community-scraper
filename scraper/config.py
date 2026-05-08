@@ -9,13 +9,29 @@ BASE_DIR = Path(__file__).parent.parent
 CONFIG_DIR = BASE_DIR / "config"
 
 
-def load_config(db_path: Path) -> tuple[list[CityConfig], list[TopicConfig], PipelineConfig]:
-    with open(CONFIG_DIR / "cities.yaml", encoding="utf-8") as f:
-        cities_raw = yaml.safe_load(f)
-    with open(CONFIG_DIR / "topics.yaml", encoding="utf-8") as f:
-        topics_raw = yaml.safe_load(f)
-    with open(CONFIG_DIR / "settings.yaml", encoding="utf-8") as f:
-        settings = yaml.safe_load(f)
+def _mapping(value: object, label: str) -> dict:
+    if not isinstance(value, dict):
+        raise ValueError(f"{label} must be a mapping")
+    return value
+
+
+def _list(value: object, label: str) -> list:
+    if not isinstance(value, list):
+        raise ValueError(f"{label} must be a list")
+    return value
+
+
+def load_config_from_docs(
+    db_path: Path,
+    cities_raw: object,
+    topics_raw: object,
+    settings_raw: object,
+) -> tuple[list[CityConfig], list[TopicConfig], PipelineConfig]:
+    cities_doc = _mapping(cities_raw, "cities.yaml")
+    topics_doc = _mapping(topics_raw, "topics.yaml")
+    settings = _mapping(settings_raw, "settings.yaml")
+    cities_items = _list(cities_doc.get("cities"), "cities")
+    topic_items = _list(topics_doc.get("topics"), "topics")
 
     pipeline_settings = settings.get("pipeline", {})
     test_mode = pipeline_settings.get("test_mode", False)
@@ -28,13 +44,13 @@ def load_config(db_path: Path) -> tuple[list[CityConfig], list[TopicConfig], Pip
             locale=c["locale"],
             search_variants=c.get("search_variants", [c["name"]]),
         )
-        for c in cities_raw["cities"]
+        for c in cities_items
     ]
     cities = [c for c in all_cities if not test_mode or c.name in test_cities]
 
     topics = [
         TopicConfig(name=t["name"], search_terms=t["search_terms"])
-        for t in topics_raw["topics"]
+        for t in topic_items
     ]
     cache_cfg = settings.get("cache", {})
     deepseek_cfg = settings.get("deepseek", {})
@@ -74,3 +90,14 @@ def load_config(db_path: Path) -> tuple[list[CityConfig], list[TopicConfig], Pip
         groq_rate_limit_seconds=groq_cfg.get("rate_limit_seconds", 4.0),
     )
     return cities, topics, pipeline_cfg
+
+
+def load_config(db_path: Path) -> tuple[list[CityConfig], list[TopicConfig], PipelineConfig]:
+    with open(CONFIG_DIR / "cities.yaml", encoding="utf-8") as f:
+        cities_raw = yaml.safe_load(f)
+    with open(CONFIG_DIR / "topics.yaml", encoding="utf-8") as f:
+        topics_raw = yaml.safe_load(f)
+    with open(CONFIG_DIR / "settings.yaml", encoding="utf-8") as f:
+        settings = yaml.safe_load(f)
+
+    return load_config_from_docs(db_path, cities_raw, topics_raw, settings)

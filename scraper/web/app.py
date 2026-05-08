@@ -22,7 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from ..config import load_config
+from ..config import load_config, load_config_from_docs
 from ..db import (
     delete_all_communities,
     find_community_by_id,
@@ -279,10 +279,19 @@ def _config_error_redirect(exc: Exception) -> RedirectResponse:
     return RedirectResponse(f"/admin/config?error={_url_quote(str(exc), safe='')}", status_code=302)
 
 
-def _validate_config_yaml(raw: str, key: str) -> None:
-    parsed = yaml.safe_load(raw)
-    if not isinstance(parsed, dict) or key not in parsed:
-        raise ValueError(f"Missing '{key}' key")
+def _read_config_yaml(name: str) -> object:
+    return yaml.safe_load((CONFIG_DIR / name).read_text(encoding="utf-8"))
+
+
+def _validate_candidate_config(
+    cities_yaml: str | None = None,
+    topics_yaml: str | None = None,
+    settings_yaml: str | None = None,
+) -> None:
+    cities_raw = yaml.safe_load(cities_yaml) if cities_yaml is not None else _read_config_yaml("cities.yaml")
+    topics_raw = yaml.safe_load(topics_yaml) if topics_yaml is not None else _read_config_yaml("topics.yaml")
+    settings_raw = yaml.safe_load(settings_yaml) if settings_yaml is not None else _read_config_yaml("settings.yaml")
+    load_config_from_docs(_db(), cities_raw, topics_raw, settings_raw)
 
 
 def _reload_runtime_config() -> None:
@@ -990,7 +999,7 @@ async def config_page(request: Request, saved: Optional[str] = None, error: Opti
 @admin.post("/config/cities")
 async def save_cities(request: Request, cities_yaml: str = Form(...)):
     try:
-        _validate_config_yaml(cities_yaml, "cities")
+        _validate_candidate_config(cities_yaml=cities_yaml)
         (CONFIG_DIR / "cities.yaml").write_text(cities_yaml, encoding="utf-8")
         _reload_runtime_config()
         return RedirectResponse("/admin/config?saved=cities", status_code=302)
@@ -1001,7 +1010,7 @@ async def save_cities(request: Request, cities_yaml: str = Form(...)):
 @admin.post("/config/topics")
 async def save_topics(request: Request, topics_yaml: str = Form(...)):
     try:
-        _validate_config_yaml(topics_yaml, "topics")
+        _validate_candidate_config(topics_yaml=topics_yaml)
         (CONFIG_DIR / "topics.yaml").write_text(topics_yaml, encoding="utf-8")
         _reload_runtime_config()
         return RedirectResponse("/admin/config?saved=topics", status_code=302)
@@ -1012,9 +1021,7 @@ async def save_topics(request: Request, topics_yaml: str = Form(...)):
 @admin.post("/config/settings")
 async def save_settings(request: Request, settings_yaml: str = Form(...)):
     try:
-        parsed = yaml.safe_load(settings_yaml)
-        if not isinstance(parsed, dict):
-            raise ValueError("Settings must be a YAML mapping")
+        _validate_candidate_config(settings_yaml=settings_yaml)
         (CONFIG_DIR / "settings.yaml").write_text(settings_yaml, encoding="utf-8")
         _reload_runtime_config()
         return RedirectResponse("/admin/config?saved=settings", status_code=302)
