@@ -38,9 +38,25 @@ class CommunityRecord(BaseModel):
     phone: str | None = None
     tags: list[str] = Field(default_factory=list)
     language: str | None = None
+    history: str | None = None      # community background / founding story
+    frequency: str | None = None    # meeting regularity: Heti / Kéthetente / Havi / Alkalmi
+
+    _NULL_STRINGS: frozenset = frozenset({
+        "nincs megadva", "n/a", "nem ismert", "unknown", "none",
+        "not provided", "not available", "-", "–", "na", "ismeretlen",
+        "keine angabe", "unbekannt",
+    })
 
     @model_validator(mode="after")
     def _clean_and_generate_id(self) -> "CommunityRecord":
+        # Null out placeholder strings in text fields
+        for field in ("phone", "contact", "location", "meeting_schedule",
+                      "description", "fee", "history", "frequency",
+                      "leader", "join_process", "skill_level", "age_range", "language"):
+            v = getattr(self, field, None)
+            if isinstance(v, str) and v.strip().lower() in self._NULL_STRINGS:
+                setattr(self, field, None)
+
         # Normalize website: add https:// if no scheme present
         if self.website:
             w = self.website.strip()
@@ -57,6 +73,10 @@ class CommunityRecord(BaseModel):
         # Email must contain @
         if self.email and "@" not in self.email:
             self.email = None
+
+        # Phone must contain at least one digit
+        if self.phone and not any(c.isdigit() for c in self.phone):
+            self.phone = None
 
         # Tags: strip, deduplicate, cap at 8
         if self.tags:

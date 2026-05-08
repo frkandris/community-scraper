@@ -59,6 +59,11 @@ Extract these additional fields when clearly stated on the page (leave null/empt
 - 'tags': 1–5 specific subtopic keywords in the page language \
   (e.g. for running: ["trail", "maraton", "terepfutás"]).
 - 'language': primary language(s) of the group (e.g. "Magyar", "English", "Deutsch/Magyar").
+- 'history': 1–3 sentence background story or history of the group if the page describes it \
+  (e.g. "1998-ban alapították, azóta 200 tagot számlál"). Leave null if not mentioned.
+- 'frequency': how often the group meets as a short phrase in the page language \
+  (e.g. "Heti", "Kéthetente", "Havonta", "Hetente kétszer", "Weekly", "Monthly"). \
+  Leave null if not mentioned or unclear.
 
 If nothing on the page is a real community group, return an empty communities array.
 """
@@ -104,6 +109,8 @@ EXTRACTION_SCHEMA = {
                     "phone":            {"type": "string"},
                     "tags":             {"type": "array", "items": {"type": "string"}},
                     "language":         {"type": "string"},
+                    "history":          {"type": "string"},
+                    "frequency":        {"type": "string"},
                 },
                 "required": ["name", "confidence", "joinable"],
             },
@@ -196,6 +203,8 @@ def _parse_communities(
                 phone=item.get("phone") or None,
                 tags=item.get("tags") or [],
                 language=item.get("language") or None,
+                history=item.get("history") or None,
+                frequency=item.get("frequency") or None,
             )
             records.append(record)
         except Exception as exc:
