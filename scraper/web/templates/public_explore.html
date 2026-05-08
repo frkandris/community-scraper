@@ -250,16 +250,18 @@
       {% if website_url or r.social_links %}
       <div class="relative z-10 flex flex-wrap gap-2 pt-1 border-t border-gray-50">
         {% if website_url %}
+        {% set wm = website_url | link_meta %}
         <a href="{{ website_url }}" target="_blank" rel="noopener"
-           class="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-lg font-medium transition-colors">
-          <i class="ph ph-link"></i> Website
+           class="inline-flex items-center gap-1 text-xs {{ wm.color }} px-2.5 py-1 rounded-lg font-medium transition-colors">
+          <i class="ph {{ wm.icon }}"></i> {{ wm.label }}
         </a>
         {% endif %}
         {% for link in r.social_links if link.startswith('http') %}
-        {% if loop.index <= 2 %}
+        {% if loop.index <= 3 %}
+        {% set lm = link | link_meta %}
         <a href="{{ link }}" target="_blank" rel="noopener"
-           class="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 bg-gray-50 px-2.5 py-1 rounded-lg transition-colors">
-          {{ link | replace('https://','') | replace('http://','') | truncate(28, True, '…') }}
+           class="inline-flex items-center gap-1 text-xs {{ lm.color }} px-2.5 py-1 rounded-lg font-medium transition-colors">
+          <i class="ph {{ lm.icon }}"></i> {{ lm.label }}
         </a>
         {% endif %}
         {% endfor %}

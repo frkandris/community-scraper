@@ -174,6 +174,38 @@ def _fmt_dur(s: float | None) -> str:
 templates.env.filters["fmt_dur"] = _fmt_dur
 
 
+_LINK_PLATFORMS = [
+    (["facebook.com", "fb.com", "fb.me"],            "Facebook",  "ph-facebook-logo",  "text-blue-700 bg-blue-50 hover:bg-blue-100"),
+    (["instagram.com"],                               "Instagram", "ph-instagram-logo", "text-pink-600 bg-pink-50 hover:bg-pink-100"),
+    (["twitter.com", "x.com"],                        "X",         "ph-x-logo",         "text-gray-800 bg-gray-100 hover:bg-gray-200"),
+    (["youtube.com", "youtu.be"],                     "YouTube",   "ph-youtube-logo",   "text-red-600 bg-red-50 hover:bg-red-100"),
+    (["linkedin.com"],                                "LinkedIn",  "ph-linkedin-logo",  "text-blue-800 bg-blue-50 hover:bg-blue-100"),
+    (["meetup.com"],                                  "Meetup",    "ph-users-three",    "text-red-500 bg-red-50 hover:bg-red-100"),
+    (["t.me", "telegram.me", "telegram.org"],         "Telegram",  "ph-telegram-logo",  "text-sky-600 bg-sky-50 hover:bg-sky-100"),
+    (["discord.gg", "discord.com"],                   "Discord",   "ph-discord-logo",   "text-indigo-600 bg-indigo-50 hover:bg-indigo-100"),
+    (["whatsapp.com", "wa.me"],                       "WhatsApp",  "ph-whatsapp-logo",  "text-green-600 bg-green-50 hover:bg-green-100"),
+    (["tiktok.com"],                                  "TikTok",    "ph-music-note",     "text-gray-900 bg-gray-100 hover:bg-gray-200"),
+    (["github.com"],                                  "GitHub",    "ph-github-logo",    "text-gray-800 bg-gray-100 hover:bg-gray-200"),
+    (["linktr.ee", "linktree.com"],                   "Linktree",  "ph-tree-structure", "text-green-700 bg-green-50 hover:bg-green-100"),
+]
+
+
+def _link_meta(url: str) -> dict:
+    from urllib.parse import urlparse
+    try:
+        host = urlparse(url).netloc.lower().removeprefix("www.")
+        for domains, label, icon, color in _LINK_PLATFORMS:
+            if any(d in host for d in domains):
+                return {"label": label, "icon": icon, "color": color}
+        domain = host[:28] or url[:28]
+    except Exception:
+        domain = url[:28]
+    return {"label": domain, "icon": "ph-globe", "color": "text-indigo-600 bg-indigo-50 hover:bg-indigo-100"}
+
+
+templates.env.filters["link_meta"] = _link_meta
+
+
 def _slugify(text: str) -> str:
     text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
