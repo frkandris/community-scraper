@@ -48,7 +48,11 @@ es.onmessage = (e) => {
   const line = JSON.parse(e.data);
   const div = document.createElement('div');
   div.className = levelClass(line.level);
-  div.innerHTML = `<span class="text-gray-500">${line.ts}</span>  ${line.text}`;
+  const ts = document.createElement('span');
+  ts.className = 'text-gray-500';
+  ts.textContent = line.ts;
+  div.appendChild(ts);
+  div.appendChild(document.createTextNode('  ' + line.text));
   box.appendChild(div);
   scroll();
 };

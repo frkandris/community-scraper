@@ -68,4 +68,4 @@ def records_to_jsonld(records: list) -> str:
         "@context": "https://schema.org",
         "@graph": items,
     }
-    return json.dumps(ld, ensure_ascii=False, indent=2)
+    return json.dumps(ld, ensure_ascii=False, indent=2).replace("</", "<\\/")

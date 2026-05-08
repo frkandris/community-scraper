@@ -1,5 +1,7 @@
 import asyncio
 import base64
+import html
+import hmac
 import importlib.metadata
 import json
 import os
@@ -9,7 +11,7 @@ import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
-from urllib.parse import quote as _url_quote
+from urllib.parse import quote as _url_quote, urlsplit
 
 import httpx
 import structlog
@@ -53,7 +55,7 @@ CONFIG_DIR = BASE_DIR / "config"
 DATA_DIR = BASE_DIR / "data"
 
 _ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
-_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "almafa123")
+_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 
 TOPIC_ICONS: dict[str, str] = {
     "running": "person-simple-run",
@@ -132,6 +134,10 @@ class _BasicAuth:
             await self._inner(scope, receive, send)
             return
 
+        if not _ADMIN_PASSWORD:
+            await self._send_plain(send, 503, b"ADMIN_PASSWORD is not configured")
+            return
+
         headers = {k.lower(): v for k, v in scope.get("headers", [])}
         auth = headers.get(b"authorization", b"").decode("latin-1")
 
@@ -139,7 +145,11 @@ class _BasicAuth:
             try:
                 decoded = base64.b64decode(auth[6:]).decode("utf-8")
                 user, _, pwd = decoded.partition(":")
-                if user == _ADMIN_USER and pwd == _ADMIN_PASSWORD:
+                if (
+                    hmac.compare_digest(user, _ADMIN_USER)
+                    and hmac.compare_digest(pwd, _ADMIN_PASSWORD)
+                    and self._same_origin_admin_write(scope, headers)
+                ):
                     await self._inner(scope, receive, send)
                     return
             except Exception:
@@ -154,6 +164,35 @@ class _BasicAuth:
             ],
         })
         await send({"type": "http.response.body", "body": b""})
+
+    @staticmethod
+    async def _send_plain(send: Send, status: int, body: bytes) -> None:
+        await send({
+            "type": "http.response.start",
+            "status": status,
+            "headers": [
+                [b"content-type", b"text/plain; charset=utf-8"],
+                [b"content-length", str(len(body)).encode("ascii")],
+            ],
+        })
+        await send({"type": "http.response.body", "body": body})
+
+    @staticmethod
+    def _same_origin_admin_write(scope: Scope, headers: dict[bytes, bytes]) -> bool:
+        method = scope.get("method", "GET").upper()
+        if method in ("GET", "HEAD", "OPTIONS"):
+            return True
+
+        host = headers.get(b"host", b"").decode("latin-1")
+        origin = headers.get(b"origin", b"").decode("latin-1")
+        referer = headers.get(b"referer", b"").decode("latin-1")
+        candidate = origin or referer
+        if not candidate:
+            return False
+        try:
+            return urlsplit(candidate).netloc == host
+        except Exception:
+            return False
 
 
 _fastapi = FastAPI(title="Community Scraper")
@@ -229,6 +268,20 @@ def _slugify(text: str) -> str:
 
 
 templates.env.filters["slugify"] = _slugify
+
+
+def _safe_redirect_target(target: str, fallback: str) -> str:
+    return target if target.startswith("/") and not target.startswith("//") else fallback
+
+
+def _config_error_redirect(exc: Exception) -> RedirectResponse:
+    return RedirectResponse(f"/admin/config?error={_url_quote(str(exc), safe='')}", status_code=302)
+
+
+def _validate_config_yaml(raw: str, key: str) -> None:
+    parsed = yaml.safe_load(raw)
+    if not isinstance(parsed, dict) or key not in parsed:
+        raise ValueError(f"Missing '{key}' key")
 
 _static_dir = Path(__file__).parent / "static"
 _static_dir.mkdir(exist_ok=True)
@@ -626,19 +679,22 @@ async def public_feedback(
         try:
             import resend
             resend.api_key = _RESEND_API_KEY
-            reply_line = f"<b>Reply-to:</b> {user_email}<br>" if user_email else ""
+            safe_user_email = html.escape(user_email)
+            safe_page_url = html.escape(page_url, quote=True)
+            safe_message = html.escape(message).replace("\n", "<br>")
+            reply_line = f"<b>Reply-to:</b> {safe_user_email}<br>" if user_email else ""
             resend.Emails.send({
                 "from": _RESEND_FROM,
                 "to": _FEEDBACK_EMAIL,
                 "reply_to": user_email or None,
-                "subject": f"[CommUnity feedback] {community_name} – {city}",
+                "subject": f"[CommUnity feedback] {community_name} - {city}",
                 "html": (
-                    f"<p><b>Community:</b> {community_name}<br>"
-                    f"<b>City:</b> {city}<br>"
-                    f"<b>Topic:</b> {topic}<br>"
+                    f"<p><b>Community:</b> {html.escape(community_name)}<br>"
+                    f"<b>City:</b> {html.escape(city)}<br>"
+                    f"<b>Topic:</b> {html.escape(topic)}<br>"
                     f"{reply_line}"
-                    f"<b>Page:</b> <a href='{page_url}'>{page_url}</a></p>"
-                    f"<hr><p>{message.replace(chr(10), '<br>')}</p>"
+                    f"<b>Page:</b> <a href='{safe_page_url}'>{safe_page_url}</a></p>"
+                    f"<hr><p>{safe_message}</p>"
                 ),
             })
             log.info("feedback_email_sent", to=_FEEDBACK_EMAIL, community=community_name)
@@ -672,7 +728,7 @@ async def set_lang(lang: str = "en", next: str = "/"):
     from .i18n import LANGUAGES
     if lang not in LANGUAGES:
         lang = "en"
-    safe_next = next if next.startswith("/") else "/"
+    safe_next = _safe_redirect_target(next, "/")
     resp = RedirectResponse(safe_next, status_code=302)
     resp.set_cookie("lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
     return resp
@@ -849,7 +905,7 @@ async def fp_add_route(
     redirect_to: str = Form(""),
 ):
     fp_add(_db(), name, city, topic, reason, source_url, fp_type=fp_type)
-    return RedirectResponse(redirect_to or "/admin/cache", status_code=302)
+    return RedirectResponse(_safe_redirect_target(redirect_to, "/admin/cache"), status_code=302)
 
 
 @admin.post("/false-positive/remove")
@@ -861,7 +917,7 @@ async def fp_remove_route(
     redirect_to: str = Form(""),
 ):
     fp_remove(_db(), name, city, topic, fp_type=fp_type)
-    return RedirectResponse(redirect_to or "/admin/cache", status_code=302)
+    return RedirectResponse(_safe_redirect_target(redirect_to, "/admin/cache"), status_code=302)
 
 
 @admin.get("/prompts", response_class=HTMLResponse)
@@ -908,33 +964,33 @@ async def config_page(request: Request, saved: Optional[str] = None, error: Opti
 @admin.post("/config/cities")
 async def save_cities(request: Request, cities_yaml: str = Form(...)):
     try:
-        parsed = yaml.safe_load(cities_yaml)
-        assert isinstance(parsed, dict) and "cities" in parsed, "Missing 'cities' key"
+        _validate_config_yaml(cities_yaml, "cities")
         (CONFIG_DIR / "cities.yaml").write_text(cities_yaml, encoding="utf-8")
         return RedirectResponse("/admin/config?saved=cities", status_code=302)
     except Exception as exc:
-        return RedirectResponse(f"/admin/config?error={exc}", status_code=302)
+        return _config_error_redirect(exc)
 
 
 @admin.post("/config/topics")
 async def save_topics(request: Request, topics_yaml: str = Form(...)):
     try:
-        parsed = yaml.safe_load(topics_yaml)
-        assert isinstance(parsed, dict) and "topics" in parsed, "Missing 'topics' key"
+        _validate_config_yaml(topics_yaml, "topics")
         (CONFIG_DIR / "topics.yaml").write_text(topics_yaml, encoding="utf-8")
         return RedirectResponse("/admin/config?saved=topics", status_code=302)
     except Exception as exc:
-        return RedirectResponse(f"/admin/config?error={exc}", status_code=302)
+        return _config_error_redirect(exc)
 
 
 @admin.post("/config/settings")
 async def save_settings(request: Request, settings_yaml: str = Form(...)):
     try:
-        yaml.safe_load(settings_yaml)
+        parsed = yaml.safe_load(settings_yaml)
+        if not isinstance(parsed, dict):
+            raise ValueError("Settings must be a YAML mapping")
         (CONFIG_DIR / "settings.yaml").write_text(settings_yaml, encoding="utf-8")
         return RedirectResponse("/admin/config?saved=settings", status_code=302)
     except Exception as exc:
-        return RedirectResponse(f"/admin/config?error={exc}", status_code=302)
+        return _config_error_redirect(exc)
 
 
 @admin.get("/subscriptions", response_class=HTMLResponse)
