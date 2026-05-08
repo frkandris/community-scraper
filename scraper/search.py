@@ -236,6 +236,12 @@ class SerperSearchClient:
                 resp = await client.post(self._BASE, json=payload, headers=headers)
                 if resp.status_code in (402, 429):
                     raise SearchQuotaError(f"Serper HTTP {resp.status_code}")
+                if resp.status_code == 400:
+                    body = resp.text
+                    if "credit" in body.lower() or "quota" in body.lower():
+                        raise SearchQuotaError(f"Serper credits exhausted: {body[:100]}")
+                    log.warning("serper_search_failed", query=query, status=400, body=body[:300])
+                    return []
                 if resp.status_code >= 400:
                     log.warning("serper_search_failed", query=query,
                                 status=resp.status_code, body=resp.text[:300])
