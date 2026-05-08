@@ -79,6 +79,7 @@
       {{ detail_row('trend-up',      'Csatlakozás',            r.join_process) }}
       {{ detail_row('translate',     'Nyelv',                  r.language) }}
       {{ detail_row('baby',          'Korosztály',             r.age_range) }}
+      {{ detail_row('repeat',        'Rendszeresség',          r.frequency) }}
 
       {% if r.email or r.phone or r.contact %}
       <div class="flex items-start gap-3 text-sm">
@@ -127,6 +128,8 @@
         </div>
       </div>
       {% endif %}
+
+      {{ detail_row('book-open', 'Történet', r.history) }}
 
     </div>
 
