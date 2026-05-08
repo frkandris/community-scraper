@@ -38,29 +38,55 @@
         </div>
       </div>
 
-      {% if featured_cities %}
-      <div>
-        <div class="flex items-center justify-between mb-3">
+      {% set has_cities = city_groups.user_cities or city_groups.other_sections %}
+      {% if has_cities %}
+      <div class="space-y-6">
+        <div class="flex items-center justify-between">
           <h2 class="text-sm font-semibold text-slate-900">{{ t('home_popular_cities') }}</h2>
           <a href="/map" class="text-xs font-medium text-emerald-700 hover:text-emerald-900 transition-colors">
             {{ t('home_view_world_map') }}
           </a>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {% for name, country, count in featured_cities %}
-          <a href="/{{ name | slugify }}"
-             class="flex items-center justify-between bg-white rounded-md border border-slate-200 px-3 py-2.5
-                    hover:border-emerald-400 hover:bg-emerald-50 transition-colors group">
-            <div class="min-w-0">
-              <div class="text-sm font-semibold text-slate-800 group-hover:text-emerald-900 truncate">{{ name }}</div>
-              <div class="text-xs text-slate-500">{{ country }}</div>
-            </div>
-            {% if count > 0 %}
-            <span class="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-2 py-0.5 shrink-0 ml-2">{{ count }}</span>
-            {% endif %}
-          </a>
-          {% endfor %}
+
+        {# ── User's own country ── #}
+        {% if city_groups.user_cities %}
+        <div>
+          <div class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
+            {{ city_groups.user_country }}
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {% for name, country, count in city_groups.user_cities %}
+            <a href="/{{ name | slugify }}"
+               class="flex items-center justify-between bg-white rounded-md border border-slate-200 px-3 py-2.5
+                      hover:border-emerald-400 hover:bg-emerald-50 transition-colors group">
+              <span class="text-sm font-semibold text-slate-800 group-hover:text-emerald-900 truncate min-w-0">{{ name }}</span>
+              <span class="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-2 py-0.5 shrink-0 ml-2">{{ count }}</span>
+            </a>
+            {% endfor %}
+          </div>
         </div>
+        {% endif %}
+
+        {# ── Other top countries ── #}
+        {% for section in city_groups.other_sections %}
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-xs font-semibold text-slate-400 uppercase tracking-widest">{{ section.country }}</span>
+            <span class="text-xs text-slate-300">{{ section.total }} közösség</span>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {% for name, country, count in section.cities %}
+            <a href="/{{ name | slugify }}"
+               class="flex items-center justify-between bg-white rounded-md border border-slate-200 px-3 py-2.5
+                      hover:border-emerald-400 hover:bg-emerald-50 transition-colors group">
+              <span class="text-sm font-semibold text-slate-800 group-hover:text-emerald-900 truncate min-w-0">{{ name }}</span>
+              <span class="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-2 py-0.5 shrink-0 ml-2">{{ count }}</span>
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+
       </div>
       {% endif %}
     </section>

@@ -529,6 +529,115 @@ def _top_cities(n: int = 8) -> list[tuple[str, str, int]]:
             for name, count in city_totals[:n] if count > 0]
 
 
+# ISO-3166-1 alpha-2 → country name as used in cities.yaml
+_ISO2_COUNTRY: dict[str, str] = {
+    "AR": "Argentina", "AU": "Australia", "AT": "Austria", "BE": "Belgium",
+    "BR": "Brazil", "BG": "Bulgaria", "CA": "Canada", "CL": "Chile",
+    "CN": "China", "CO": "Colombia", "HR": "Croatia", "CZ": "Czech Republic",
+    "DK": "Denmark", "EC": "Ecuador", "EG": "Egypt", "EE": "Estonia",
+    "FI": "Finland", "FR": "France", "DE": "Germany", "GH": "Ghana",
+    "GR": "Greece", "HK": "Hong Kong", "HU": "Hungary", "IN": "India",
+    "ID": "Indonesia", "IE": "Ireland", "IL": "Israel", "IT": "Italy",
+    "JP": "Japan", "KE": "Kenya", "LV": "Latvia", "LB": "Lebanon",
+    "LT": "Lithuania", "MY": "Malaysia", "MX": "Mexico", "MA": "Morocco",
+    "NL": "Netherlands", "NZ": "New Zealand", "NG": "Nigeria", "NO": "Norway",
+    "PE": "Peru", "PH": "Philippines", "PL": "Poland", "PT": "Portugal",
+    "RO": "Romania", "RS": "Serbia", "SG": "Singapore", "SK": "Slovakia",
+    "SI": "Slovenia", "ZA": "South Africa", "KR": "South Korea", "ES": "Spain",
+    "SE": "Sweden", "CH": "Switzerland", "TW": "Taiwan", "TH": "Thailand",
+    "TR": "Turkey", "AE": "UAE", "UA": "Ukraine", "GB": "United Kingdom",
+    "US": "United States", "UY": "Uruguay", "VN": "Vietnam",
+}
+
+# language tag → likely ISO2 country code (Accept-Language fallback)
+_LANG_COUNTRY: dict[str, str] = {
+    "hu": "HU", "de": "DE", "fr": "FR", "es": "ES", "it": "IT",
+    "pt": "PT", "ru": "RU", "uk": "UA", "zh": "CN", "ja": "JP",
+    "ko": "KR", "ar": "EG", "fa": "IR", "he": "IL", "hi": "IN",
+    "tr": "TR", "id": "ID", "nl": "NL", "pl": "PL", "sv": "SE",
+    "cs": "CZ", "ro": "RO", "el": "GR", "vi": "VN", "th": "TH",
+    "da": "DK", "no": "NO", "fi": "FI", "sk": "SK", "hr": "HR",
+    "bg": "BG", "sr": "RS", "ms": "MY", "tl": "PH",
+}
+
+
+def _detect_country(request: Request) -> str | None:
+    """Return the full country name for the visitor, or None."""
+    # Cloudflare adds this header automatically
+    cf = request.headers.get("CF-IPCountry", "").strip().upper()
+    if cf and cf != "XX" and cf in _ISO2_COUNTRY:
+        return _ISO2_COUNTRY[cf]
+
+    # Generic reverse-proxy headers
+    for header in ("X-Country-Code", "X-GeoIP-Country", "X-Real-IP-Country"):
+        val = request.headers.get(header, "").strip().upper()
+        if val and val in _ISO2_COUNTRY:
+            return _ISO2_COUNTRY[val]
+
+    # Fall back to primary Accept-Language tag  (best-effort, not accurate)
+    al = request.headers.get("Accept-Language", "")
+    for part in re.split(r"[,;]", al):
+        tag = part.strip().split("-")
+        if len(tag) >= 2:
+            iso2 = tag[1].upper()
+            if iso2 in _ISO2_COUNTRY:
+                return _ISO2_COUNTRY[iso2]
+        if len(tag) == 1:
+            code = _LANG_COUNTRY.get(tag[0].lower())
+            if code and code in _ISO2_COUNTRY:
+                return _ISO2_COUNTRY[code]
+    return None
+
+
+def _cities_by_country(
+    user_country: str | None,
+    user_top: int = 20,
+    other_countries: int = 3,
+    other_top: int = 8,
+) -> dict:
+    """Return grouped city data for the home page city browser."""
+    city_totals = dict(get_city_totals(_db()))
+    cities_map = {c.name: c.country for c in (app_state.cities or [])}
+
+    # Group by country
+    country_cities: dict[str, list[tuple[str, int]]] = {}
+    for name, country in cities_map.items():
+        count = city_totals.get(name, 0)
+        if count > 0:
+            country_cities.setdefault(country, []).append((name, count))
+
+    for cities_list in country_cities.values():
+        cities_list.sort(key=lambda x: x[1], reverse=True)
+
+    user_cities: list[tuple[str, str, int]] = []
+    if user_country and user_country in country_cities:
+        user_cities = [
+            (name, user_country, count)
+            for name, count in country_cities[user_country][:user_top]
+        ]
+
+    # Top other countries by total community count
+    other_sorted = sorted(
+        [(c, cities) for c, cities in country_cities.items() if c != user_country],
+        key=lambda x: sum(cnt for _, cnt in x[1]),
+        reverse=True,
+    )
+    other_sections = [
+        {
+            "country": country,
+            "cities": [(name, country, count) for name, count in cities[:other_top]],
+            "total": sum(cnt for _, cnt in cities),
+        }
+        for country, cities in other_sorted[:other_countries]
+    ]
+
+    return {
+        "user_country": user_country,
+        "user_cities": user_cities,
+        "other_sections": other_sections,
+    }
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # PUBLIC ROUTES
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -540,6 +649,8 @@ async def public_home(request: Request, city: str = ""):
     topic_counts = _global_topic_counts()
     venue_counts = get_venue_counts(_db()) if app_state.db_path else {}
     person_counts = get_person_counts(_db()) if app_state.db_path else {}
+    user_country = _detect_country(request)
+    city_groups = _cities_by_country(user_country)
     return templates.TemplateResponse(request, "public_home.html", {
         "cities": cities,
         "topics": topics,
@@ -550,7 +661,7 @@ async def public_home(request: Request, city: str = ""):
         "total_records": sum(topic_counts.values()),
         "total_venues": sum(venue_counts.values()),
         "total_persons": sum(person_counts.values()),
-        "featured_cities": _top_cities(8),
+        "city_groups": city_groups,
         **lang_context(request),
     })
 
