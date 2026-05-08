@@ -225,7 +225,7 @@
     <a href="/{{ city | slugify }}/{{ topic }}"
        class="inline-flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 transition-colors font-medium">
       <i class="ph ph-arrow-left"></i>
-      More {{ topic_labels.get(topic, 'communities') }} in {{ city }}
+      {{ t('community_more_in').format(label=topic_labels.get(topic, topic.replace('_',' ').title()), city=city) }}
     </a>
   </div>
   {% endif %}
