@@ -1,6 +1,6 @@
 {% extends "public_base.html" %}
 {% block head %}{% if schema_json %}<script type="application/ld+json">{{ schema_json | safe }}</script>{% endif %}{% endblock %}
-{% block title %}{{ r.name }} – kozossegek.com{% endblock %}
+{% block title %}{{ r.name }} – közösségek.com{% endblock %}
 
 {% block content %}
 
@@ -8,7 +8,7 @@
 
   <!-- Breadcrumb -->
   <nav class="flex items-center gap-1.5 text-sm text-[#8C8478] mb-6 overflow-hidden flex-wrap">
-    <a href="/" class="hover:text-[#1C1917] transition-colors shrink-0">kozossegek.com</a>
+    <a href="/" class="hover:text-[#1C1917] transition-colors shrink-0">közösségek.com</a>
     {% if city %}
     <span class="text-[#D8D1C4]">/</span>
     <a href="/{{ city | slugify }}" class="hover:text-[#1C1917] transition-colors shrink-0">{{ city }}</a>

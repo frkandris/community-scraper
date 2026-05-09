@@ -400,25 +400,15 @@ topics:
       ko: ["수영 동호회", "수영 클럽"]
       zh: [游泳俱乐部, 游泳社, 游泳群]
 
-  - name: community_general
+  - name: hagyomanyorzes
     search_terms:
-      hu: ["közösség", "helyi klub", "civil szervezet", "közösségi csoport", "civil kör"]
-      en: ["community group", "local club", "community association", "local society", "neighbourhood group"]
-      de: [Verein, Gemeinschaft, "lokale Gruppe", Bürgerverein, Vereinsgruppe]
-      fr: ["association locale", "groupe communautaire", "club local", "société civile"]
-      es: ["asociación local", "grupo comunitario", "club local", "colectivo"]
-      pt: ["associação local", "grupo comunitário", "clube local"]
-      it: ["associazione locale", "gruppo comunitario", "circolo locale"]
-      nl: [vereniging, buurtgroep, "lokale club", gemeenschapsgroep]
-      pl: ["stowarzyszenie lokalne", "klub lokalny", "grupa społeczna"]
-      cs: [spolek, "místní klub", "společenská skupina"]
-      da: [forening, lokalgruppe, "lokalt fællesskab"]
-      sv: [förening, lokalgrupp, "lokalt sällskap"]
-      fi: [yhdistys, kerho, seura, "paikallinen ryhmä"]
-      tr: ["yerel dernek", "topluluk grubu", "yerel kulüp"]
-      ja: [サークル, 地域団体, 地域グループ, コミュニティ]
-      ko: ["지역 모임", "동호회", "커뮤니티", 동아리]
-      zh: [俱乐部, 社团, 社群, 民间组织]
+      hu: ["hagyományőrző", "néptánc", "népdal", "folkklub", "hagyomány csoport", "hagyományőrzés", "népi együttes", "népzenekör"]
+      en: ["folk traditions", "folk dance club", "heritage society", "folk music group", "cultural heritage group", "traditional arts"]
+      de: [Folkloregruppe, Trachtenverein, Volksmusikgruppe, Kulturerbe, Heimatverein]
+      fr: ["groupe folklorique", "traditions populaires", "association culturelle", "patrimoine local"]
+      es: ["grupo folclórico", "tradiciones locales", "asociación cultural", "patrimonio cultural"]
+      pl: ["grupa folklorystyczna", "tradycje ludowe", "zespół folklorystyczny"]
+      cs: ["folklorní skupina", "lidové tradice", "folklor"]
 
   - name: gardening
     search_terms:

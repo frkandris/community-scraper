@@ -2,13 +2,13 @@
 {% block head %}{% if schema_json %}<script type="application/ld+json">{{ schema_json | safe }}</script>{% endif %}{% endblock %}
 {% block title %}
   {% if city and selected_topics %}
-    {{ city }} · {{ selected_topics | map('replace', '_', ' ') | join(', ') | title }} – kozossegek.com
+    {{ city }} · {{ selected_topics | map('replace', '_', ' ') | join(', ') | title }} – közösségek.com
   {% elif city %}
-    {{ city }} – kozossegek.com
+    {{ city }} – közösségek.com
   {% elif selected_topics %}
-    {{ selected_topics | map('replace', '_', ' ') | join(', ') | title }} – kozossegek.com
+    {{ selected_topics | map('replace', '_', ' ') | join(', ') | title }} – közösségek.com
   {% else %}
-    Explore – kozossegek.com
+    Explore – közösségek.com
   {% endif %}
 {% endblock %}
 {% block content %}
@@ -16,7 +16,7 @@
 <!-- Sticky sub-bar -->
 <div class="bg-white/95 border-b border-[#EAE5DB] sticky top-[57px] z-10 backdrop-blur">
   <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-2 flex-wrap">
-    <a href="/" class="text-sm text-[#8C8478] hover:text-[#1C1917] transition-colors">kozossegek.com</a>
+    <a href="/" class="text-sm text-[#8C8478] hover:text-[#1C1917] transition-colors">közösségek.com</a>
     {% if city %}
     <span class="text-[#D8D1C4]">/</span>
     <a href="/{{ city | slugify }}" class="text-sm {% if not selected_topics %}font-semibold text-[#1C1917]{% else %}text-[#8C8478] hover:text-[#1C1917]{% endif %}">{{ city }}</a>
