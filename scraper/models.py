@@ -236,6 +236,9 @@ class PersonRecord(BaseModel):
         if self.source_url and self.source_url not in self.source_urls:
             self.source_urls = [self.source_url] + self.source_urls
 
+        if len(self.name.split()) < 2:
+            raise ValueError(f"Person name is a single word, skipping: {self.name!r}")
+
         if not self.person_id:
             key = f"{self.name.lower()}|{self.city.lower()}|{self.role}|{self.community_name.lower()}"
             self.person_id = hashlib.sha256(key.encode()).hexdigest()[:12]

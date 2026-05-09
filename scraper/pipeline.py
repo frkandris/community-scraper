@@ -103,17 +103,20 @@ def _persons_from_leaders(records: "list[CommunityRecord]", city_name: str, topi
             name = name.strip()
             if not name:
                 continue
-            persons.append(PersonRecord(
-                name=name,
-                role="leader",
-                bio=role_desc or None,
-                city=city_name,
-                topic=topic_name,
-                community_name=rec.name,
-                community_id=rec.community_id or "",
-                source_url=rec.source_url,
-                extracted_at=extracted_at,
-            ))
+            try:
+                persons.append(PersonRecord(
+                    name=name,
+                    role="leader",
+                    bio=role_desc or None,
+                    city=city_name,
+                    topic=topic_name,
+                    community_name=rec.name,
+                    community_id=rec.community_id or "",
+                    source_url=rec.source_url,
+                    extracted_at=extracted_at,
+                ))
+            except Exception:
+                pass
     return persons
 
 
