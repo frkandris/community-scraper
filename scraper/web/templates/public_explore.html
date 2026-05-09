@@ -38,7 +38,52 @@
   </div>
 </div>
 
-<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+<!-- Gradient strips — one per content state, full-bleed -->
+{% if tag %}
+<div class="brand-gradient relative overflow-hidden">
+  <div class="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white opacity-[0.07] pointer-events-none"></div>
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 relative">
+    <p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">
+      <i class="ph ph-tag"></i> Tag
+    </p>
+    <h1 class="text-xl sm:text-2xl font-black tracking-[-0.025em] text-white leading-tight">{{ tag }}</h1>
+    <p class="text-sm text-white/75 mt-1">{{ tag_records | length }} közösség{% if city %} – {{ city }}{% endif %}</p>
+  </div>
+</div>
+{% elif country_sections %}
+<div class="brand-gradient relative overflow-hidden">
+  <div class="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white opacity-[0.07] pointer-events-none"></div>
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 relative">
+    <p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">{{ t('nav_discover') }}</p>
+    <h1 class="text-xl sm:text-2xl font-black tracking-[-0.025em] text-white leading-tight">
+      {% if selected_topics | length == 1 %}
+        {{ topic_labels.get(selected_topics[0], selected_topics[0].replace('_',' ').title()) }}
+      {% else %}
+        {{ t('explore_communities_worldwide') }}
+      {% endif %}
+    </h1>
+  </div>
+</div>
+{% elif city %}
+<div class="brand-gradient relative overflow-hidden">
+  <div class="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white opacity-[0.07] pointer-events-none"></div>
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 relative">
+    <p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">{{ city }}</p>
+    <h1 class="text-xl sm:text-2xl font-black tracking-[-0.025em] text-white leading-tight">
+      {% if selected_topics | length == 1 %}
+        {{ t('explore_topic_in', label=topic_labels.get(selected_topics[0], selected_topics[0].replace('_',' ').title()), city=city) }}
+      {% else %}
+        {{ t('explore_communities_in', city=city) }}
+      {% endif %}
+    </h1>
+    {% if total > 0 %}
+    <p class="text-sm text-white/75 mt-1" id="visible-count" data-tpl="{{ t('explore_n_communities', n='COUNT') }}">{{ t('explore_n_communities', n=total) }}</p>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
 
   {% if subscribed %}
   <div class="mb-6 bg-[#FDF0EA] border border-[#FAD9C7] rounded-lg px-5 py-4 flex items-center gap-3">
@@ -52,12 +97,6 @@
 
   <!-- Tag search results -->
   {% if tag %}
-  <div class="mb-8 border-b border-[#EAE5DB] pb-5">
-    <h1 class="text-2xl font-bold text-[#1C1917] mb-1 flex items-center gap-2">
-      <i class="ph ph-tag text-[#C2613A]"></i> {{ tag }}
-    </h1>
-    <p class="text-sm text-[#8C8478] mt-1">{{ tag_records | length }} közösség ezzel a témával{% if city %} – {{ city }}{% endif %}</p>
-  </div>
 
   {% if tag_records %}
   <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -87,20 +126,6 @@
 
   <!-- Country-grouped multi-city view -->
   {% elif country_sections %}
-
-  <div class="mb-8 border-b border-[#EAE5DB] pb-5">
-    <h1 class="text-2xl font-bold text-[#1C1917] mb-1">
-      {% if selected_topics | length == 1 %}
-        <i class="ph ph-{{ topic_icons.get(selected_topics[0], 'circle') }} text-[#C2613A]"></i>
-        {{ topic_labels.get(selected_topics[0], selected_topics[0].replace('_',' ').title()) }} – {{ t('explore_communities_worldwide') }}
-      {% else %}
-        {{ t('explore_communities_worldwide') }}
-      {% endif %}
-    </h1>
-    <p class="text-sm text-[#8C8478] mt-1">
-      {{ t('explore_showing_all_cities', link='<a href="/" class="text-[#A8512F] hover:underline">' ~ t('explore_pick_city') ~ '</a>') | safe }}
-    </p>
-  </div>
 
   {% for country_sec in country_sections %}
   <div class="mb-10">
@@ -151,20 +176,7 @@
   <!-- Results (city + optional topic filter) -->
   {% else %}
 
-  <div class="flex items-start justify-between mb-6 flex-wrap gap-4 border-b border-[#EAE5DB] pb-5">
-    <div>
-      <h1 class="text-2xl font-bold text-[#1C1917]">
-        {% if selected_topics | length == 1 %}
-          <i class="ph ph-{{ topic_icons.get(selected_topics[0], 'circle') }} text-[#C2613A]"></i>
-          {{ t('explore_topic_in', label=topic_labels.get(selected_topics[0], selected_topics[0].replace('_',' ').title()), city=city) }}
-        {% else %}
-          {{ t('explore_communities_in', city=city) }}
-        {% endif %}
-      </h1>
-      {% if total > 0 %}
-      <p class="text-sm text-[#8C8478] mt-0.5" id="visible-count" data-tpl="{{ t('explore_n_communities', n='COUNT') }}">{{ t('explore_n_communities', n=total) }}</p>
-      {% endif %}
-    </div>
+  <div class="flex items-center justify-end mb-6 flex-wrap gap-2 border-b border-[#EAE5DB] pb-4">
 
     <!-- Topic chips: URL-mode when topic active, JS-mode otherwise -->
     {% if selected_topics %}
