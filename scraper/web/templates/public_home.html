@@ -18,22 +18,22 @@
 
       <!-- Stats strip -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <a href="/explore"
+        <a href="/felfedezes"
            class="bg-white border border-[#EAE5DB] rounded-lg p-4 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
           <div class="text-2xl font-extrabold text-[#1C1917]">{{ total_records }}</div>
           <div class="text-xs font-medium text-[#8C8478] mt-1 group-hover:text-[#A8512F]">{{ t('about_communities') }}</div>
         </a>
-        <a href="/cities"
+        <a href="/varosok"
            class="bg-white border border-[#EAE5DB] rounded-lg p-4 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
           <div class="text-2xl font-extrabold text-[#1C1917]">{{ cities|length }}</div>
           <div class="text-xs font-medium text-[#8C8478] mt-1 group-hover:text-[#A8512F]">{{ t('about_cities') }}</div>
         </a>
-        <a href="/people"
+        <a href="/emberek"
            class="bg-white border border-[#EAE5DB] rounded-lg p-4 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
           <div class="text-2xl font-extrabold text-[#1C1917]">{{ total_persons }}</div>
           <div class="text-xs font-medium text-[#8C8478] mt-1 group-hover:text-[#A8512F]">{{ t('about_people') }}</div>
         </a>
-        <a href="/venues"
+        <a href="/helyszinek"
            class="bg-white border border-[#EAE5DB] rounded-lg p-4 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
           <div class="text-2xl font-extrabold text-[#1C1917]">{{ total_venues }}</div>
           <div class="text-xs font-medium text-[#8C8478] mt-1 group-hover:text-[#A8512F]">{{ t('about_venues') }}</div>
@@ -45,7 +45,7 @@
       <div class="space-y-4">
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-semibold text-[#1C1917]">{{ t('home_popular_cities') }}</h2>
-          <a href="/map" class="text-xs font-medium text-[#A8512F] hover:text-[#8A4226] transition-colors">
+          <a href="/terkep" class="text-xs font-medium text-[#A8512F] hover:text-[#8A4226] transition-colors">
             {{ t('nav_map') }}
           </a>
         </div>
@@ -62,7 +62,7 @@
           {% endfor %}
         </div>
         <div class="pt-1">
-          <a href="/cities"
+          <a href="/varosok"
              class="inline-flex items-center gap-1.5 text-xs font-medium text-[#A8512F] hover:text-[#8A4226] transition-colors">
             <i class="ph ph-list-bullets"></i>
             {{ t('home_all_cities') }}
@@ -79,7 +79,7 @@
         <p class="text-xs text-[#8C8478] mt-1">{{ t('home_city_label') }} + {{ t('home_interests_label') }}</p>
       </div>
 
-      <form action="/explore" method="GET" id="main-form">
+      <form action="/felfedezes" method="GET" id="main-form">
 
         <!-- City input -->
         <div class="mb-6">

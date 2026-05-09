@@ -951,7 +951,7 @@ async def _render_explore(
     })
 
 
-@_fastapi.get("/explore", response_class=HTMLResponse)
+@_fastapi.get("/felfedezes", response_class=HTMLResponse)
 async def public_explore(
     request: Request,
     city: str = "",
@@ -968,6 +968,12 @@ async def public_explore(
         if city_sl and not topic:
             return RedirectResponse(f"/{city_sl}", status_code=301)
     return await _render_explore(request, city=city, topic=topic, tag=tag, subscribed=subscribed)
+
+
+@_fastapi.get("/explore", response_class=HTMLResponse)
+async def public_explore_en(request: Request):
+    qs = str(request.url.query)
+    return RedirectResponse("/felfedezes" + (f"?{qs}" if qs else ""), status_code=301)
 
 
 @_fastapi.get("/community/{community_id}", response_class=HTMLResponse)
@@ -1026,7 +1032,7 @@ async def public_subscribe(
         if city_sl and len(topics) == 1:
             return RedirectResponse(f"/{city_sl}/{_topic_url_slug(topics[0], city_locale)}", status_code=302)
         return RedirectResponse(
-            f"/explore?city={city}&" + "&".join(f"topic={t}" for t in topics),
+            f"/felfedezes?city={city}&" + "&".join(f"topic={t}" for t in topics),
             status_code=302,
         )
     from ..db import save_subscription
@@ -1036,7 +1042,7 @@ async def public_subscribe(
     if city_sl and len(topics) == 1:
         return RedirectResponse(f"/{city_sl}/{_topic_url_slug(topics[0], city_locale)}?subscribed=1", status_code=302)
     qs = f"city={city}&" + "&".join(f"topic={t}" for t in topics) + "&subscribed=1"
-    return RedirectResponse(f"/explore?{qs}", status_code=302)
+    return RedirectResponse(f"/felfedezes?{qs}", status_code=302)
 
 
 _FEEDBACK_EMAIL = os.environ.get("FEEDBACK_EMAIL", "")
@@ -1130,7 +1136,7 @@ async def set_lang(lang: str = "en", next: str = "/"):
     return resp
 
 
-@_fastapi.get("/map", response_class=HTMLResponse)
+@_fastapi.get("/terkep", response_class=HTMLResponse)
 async def public_map(request: Request):
     cities_data = []
     for city in (app_state.cities or []):
@@ -1158,7 +1164,7 @@ async def public_map(request: Request):
     })
 
 
-@_fastapi.get("/cities", response_class=HTMLResponse)
+@_fastapi.get("/varosok", response_class=HTMLResponse)
 async def public_cities(request: Request, requested: str = ""):
     city_totals = dict(get_city_totals(_db())) if app_state.db_path else {}
     hu_cities = [c for c in (app_state.cities or []) if c.country == "Hungary"]
@@ -1174,11 +1180,21 @@ async def public_cities(request: Request, requested: str = ""):
     })
 
 
-@_fastapi.post("/cities/request")
+@_fastapi.get("/cities", response_class=HTMLResponse)
+async def public_cities_en():
+    return RedirectResponse("/varosok", status_code=301)
+
+
+@_fastapi.post("/varosok/kerelem")
 async def request_city(request: Request, city_name: str = Form(""), email: str = Form("")):
     if city_name.strip() and app_state.db_path:
         save_city_request(app_state.db_path, city_name, email)
-    return RedirectResponse("/cities?requested=" + city_name.strip(), status_code=303)
+    return RedirectResponse("/varosok?requested=" + city_name.strip(), status_code=303)
+
+
+@_fastapi.post("/cities/request")
+async def request_city_en(request: Request, city_name: str = Form(""), email: str = Form("")):
+    return RedirectResponse("/varosok", status_code=301)
 
 
 @_fastapi.get("/admin", response_class=HTMLResponse)
@@ -1186,7 +1202,7 @@ async def admin_root_redirect():
     return RedirectResponse("/admin/", status_code=301)
 
 
-@_fastapi.get("/about", response_class=HTMLResponse)
+@_fastapi.get("/rolunk", response_class=HTMLResponse)
 async def public_about(request: Request):
     hu_names = _hu_city_names()
     hu_topic_counts = _hu_topic_counts()
@@ -1209,11 +1225,21 @@ async def public_about(request: Request):
     })
 
 
+@_fastapi.get("/about", response_class=HTMLResponse)
+async def public_about_en():
+    return RedirectResponse("/rolunk", status_code=301)
+
+
+@_fastapi.get("/map", response_class=HTMLResponse)
+async def public_map_en():
+    return RedirectResponse("/terkep", status_code=301)
+
+
 @_fastapi.get("/sitemap.xml")
 async def sitemap(request: Request):
     from fastapi.responses import Response as _Response
     base = str(request.base_url).rstrip("/")
-    urls: list[str] = [base + "/", base + "/about", base + "/explore", base + "/cities", base + "/map"]
+    urls: list[str] = [base + "/", base + "/rolunk", base + "/felfedezes", base + "/varosok", base + "/terkep"]
 
     if app_state.db_path:
         counts = get_city_topic_counts(_db())
@@ -2604,7 +2630,7 @@ async def admin_not_community_ai_suggest():
 _fastapi.include_router(admin)
 
 
-@_fastapi.get("/venues", response_class=HTMLResponse)
+@_fastapi.get("/helyszinek", response_class=HTMLResponse)
 async def public_venues(request: Request, country: str = "", city: str = "", topic: str = ""):
     if not app_state.db_path:
         return RedirectResponse("/", status_code=302)
@@ -2663,7 +2689,12 @@ async def public_venues(request: Request, country: str = "", city: str = "", top
     })
 
 
-@_fastapi.get("/people", response_class=HTMLResponse)
+@_fastapi.get("/venues", response_class=HTMLResponse)
+async def public_venues_en():
+    return RedirectResponse("/helyszinek", status_code=301)
+
+
+@_fastapi.get("/emberek", response_class=HTMLResponse)
 async def public_people(request: Request):
     hu_names = _hu_city_names()
     counts = get_person_counts(app_state.db_path) if app_state.db_path else {}
@@ -2672,6 +2703,11 @@ async def public_people(request: Request):
         "total_persons": total,
         **lang_context(request),
     })
+
+
+@_fastapi.get("/people", response_class=HTMLResponse)
+async def public_people_en():
+    return RedirectResponse("/emberek", status_code=301)
 
 
 @_fastapi.get("/{city_slug}/{segment}", response_class=HTMLResponse)

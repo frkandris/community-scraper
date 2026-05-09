@@ -175,7 +175,7 @@
 
     <!-- Topic chips: URL-mode when topic active, JS-mode otherwise -->
     {% if selected_topics %}
-    <form action="/explore" method="GET" class="flex items-center gap-1.5 flex-wrap">
+    <form action="/felfedezes" method="GET" class="flex items-center gap-1.5 flex-wrap">
       <input type="hidden" name="city" value="{{ city }}">
       {% for t in topics %}
       {% if available_topics.get(t.name, 0) > 0 %}

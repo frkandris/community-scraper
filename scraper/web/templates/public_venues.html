@@ -21,7 +21,7 @@
   {% if v.welcomed_topics %}
   <div class="flex flex-wrap gap-1">
     {% for t in v.welcomed_topics %}
-    <a href="/venues?topic={{ t | urlencode }}"
+    <a href="/helyszinek?topic={{ t | urlencode }}"
        class="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded bg-[#FDF0EA] text-[#A8512F] border border-[#FAD9C7] whitespace-nowrap hover:bg-[#FAD9C7] transition-colors">
       <i class="ph ph-{{ topic_icons.get(t, 'circle') }}" style="font-size:10px"></i>
       {{ topic_labels.get(t, t.replace('_',' ').title()) }}
@@ -66,7 +66,7 @@
   </div>
 
   <!-- Filters -->
-  <form method="GET" action="/venues" class="mb-6 flex flex-wrap gap-2 items-end">
+  <form method="GET" action="/helyszinek" class="mb-6 flex flex-wrap gap-2 items-end">
 
     <div class="flex flex-col gap-1">
       <label class="text-[10px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">Ország</label>
@@ -107,7 +107,7 @@
     </div>
 
     {% if selected_country or selected_city or selected_topic %}
-    <a href="/venues" class="text-xs text-[#A8512F] hover:text-[#8A4226] self-end pb-2.5 transition-colors">
+    <a href="/helyszinek" class="text-xs text-[#A8512F] hover:text-[#8A4226] self-end pb-2.5 transition-colors">
       Szűrők törlése
     </a>
     {% endif %}
@@ -156,7 +156,7 @@
     <i class="ph ph-map-pin text-5xl mb-4 block"></i>
     <p class="text-base">Nincsenek helyszínek a megadott szűrőkre.</p>
     {% if selected_country or selected_city or selected_topic %}
-    <a href="/venues" class="mt-3 inline-block text-sm text-[#A8512F] hover:underline">Szűrők törlése</a>
+    <a href="/helyszinek" class="mt-3 inline-block text-sm text-[#A8512F] hover:underline">Szűrők törlése</a>
     {% endif %}
   </div>
   {% endif %}

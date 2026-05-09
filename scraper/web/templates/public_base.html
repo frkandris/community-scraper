@@ -32,13 +32,13 @@
     <nav class="flex items-center gap-0.5 shrink-0">
       <div class="flex items-center gap-0.5 overflow-x-auto">
         <a href="/" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
-          {% if _p == '/' or _p.startswith('/explore') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
+          {% if _p == '/' or _p.startswith('/felfedezes') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
           {{ t('nav_discover') }}</a>
-        <a href="/map" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
-          {% if _p.startswith('/map') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
+        <a href="/terkep" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
+          {% if _p.startswith('/terkep') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
           {{ t('nav_map') }}</a>
-        <a href="/about" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
-          {% if _p.startswith('/about') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
+        <a href="/rolunk" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
+          {% if _p.startswith('/rolunk') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
           {{ t('nav_about') }}</a>
       </div>
 
@@ -57,8 +57,8 @@
       <span class="text-xs text-[#8C8478]">· {{ t('footer_tagline') }}</span>
     </div>
     <div class="flex items-center gap-4">
-      <a href="/about" class="text-xs text-[#8C8478] hover:text-[#4A4441] transition-colors">{{ t('nav_about') }}</a>
-      <a href="/map" class="text-xs text-[#8C8478] hover:text-[#4A4441] transition-colors">{{ t('nav_map') }}</a>
+      <a href="/rolunk" class="text-xs text-[#8C8478] hover:text-[#4A4441] transition-colors">{{ t('nav_about') }}</a>
+      <a href="/terkep" class="text-xs text-[#8C8478] hover:text-[#4A4441] transition-colors">{{ t('nav_map') }}</a>
       <a href="/admin" class="text-xs text-[#D8D1C4] hover:text-[#8C8478] transition-colors">Admin</a>
     </div>
   </div>

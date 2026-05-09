@@ -800,7 +800,7 @@ _T: dict[str, dict[str, str]] = {
     "nav_map": "Térkép",
     "nav_about": "Rólunk",
     "home_title": "Találd meg a közösséged",
-    "home_subtitle": "Fedezz fel helyi klubokat, csoportokat és programokat Magyarország városain keresztül.",
+    "home_subtitle": "Fedezz fel helyi klubokat, közösségeket, csoportokat.",
     "home_city_label": "Város",
     "home_city_placeholder": "Írj be egy városnevet…",
     "home_interests_label": "Érdeklődési körök",
