@@ -145,7 +145,7 @@ If no venues found, return an empty venues array.
 VENUE_USER_PROMPT_TEMPLATE = """\
 Extract physical venues that host community groups in {city} from the following page.
 Source URL: {source_url}
-
+{topics_hint}
 --- PAGE TEXT ---
 {page_text}
 --- END ---
@@ -487,9 +487,16 @@ class OllamaExtractor:
 
     async def extract_venues(
         self, text: str, city: str, locale: str, source_url: str,
+        valid_topics: list[str] | None = None,
     ) -> list[VenueRecord]:
+        topics_hint = (
+            f"\nValid topic slugs for 'welcomed_topics' (use these exact values): "
+            f"{', '.join(valid_topics)}\n"
+            if valid_topics else ""
+        )
         user_message = get_prompt("venue_user").format(
             city=city, source_url=source_url, page_text=text[:self.max_text_chars],
+            topics_hint=topics_hint,
         )
         payload = {
             "model": self.model,
@@ -699,9 +706,16 @@ class _ApiExtractor:
 
     async def extract_venues(
         self, text: str, city: str, locale: str, source_url: str,
+        valid_topics: list[str] | None = None,
     ) -> list[VenueRecord]:
+        topics_hint = (
+            f"\nValid topic slugs for 'welcomed_topics' (use these exact values): "
+            f"{', '.join(valid_topics)}\n"
+            if valid_topics else ""
+        )
         user_message = get_prompt("venue_user").format(
             city=city, source_url=source_url, page_text=text[:self.max_text_chars],
+            topics_hint=topics_hint,
         )
         payload = {
             "model": self.model,
@@ -904,12 +918,14 @@ class FallbackExtractor:
         return await self.fallback.enrich(record, page_text, false_positive_examples)
 
     async def extract_venues(self, text: str, city: str, locale: str,
-                             source_url: str) -> list[VenueRecord]:
+                             source_url: str,
+                             valid_topics: list[str] | None = None) -> list[VenueRecord]:
         for i, primary in enumerate(self.primaries):
             if not self._available(i):
                 continue
             try:
-                return await primary.extract_venues(text, city, locale, source_url)
+                return await primary.extract_venues(text, city, locale, source_url,
+                                                    valid_topics=valid_topics)
             except ExtractorRateLimitError as exc:
                 self._blocked_until[i] = time.monotonic() + exc.wait_seconds
                 log.warning("extractor_rate_limited", provider=primary.__class__.__name__,
@@ -917,7 +933,8 @@ class FallbackExtractor:
             except ExtractorQuotaError as exc:
                 log.warning("extractor_quota_exhausted", provider=primary.__class__.__name__, reason=str(exc))
                 self._exhausted[i] = True
-        return await self.fallback.extract_venues(text, city, locale, source_url)
+        return await self.fallback.extract_venues(text, city, locale, source_url,
+                                                  valid_topics=valid_topics)
 
     async def extract_persons(self, text: str, city: str, topic: str, locale: str,
                               source_url: str,

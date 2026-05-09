@@ -320,6 +320,50 @@
 
   {% endif %}
 
+  <!-- Venues section (city + single topic only) -->
+  {% if topic_venues %}
+  <div class="mt-8 pt-6 border-t border-[#EAE5DB]">
+    <h2 class="text-base font-semibold text-[#1C1917] mb-4 flex items-center gap-2">
+      <i class="ph ph-map-pin text-[#C2613A]"></i>
+      {% if selected_topics | length == 1 %}
+        {{ topic_labels.get(selected_topics[0], selected_topics[0].replace('_',' ').title()) }} {{ t('explore_venues') }}
+      {% else %}
+        {{ t('explore_venues') }}
+      {% endif %}
+      <span class="text-xs text-[#8C8478] font-normal">{{ topic_venues | length }}</span>
+    </h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      {% for v in topic_venues %}
+      <div class="bg-white rounded-lg border border-[#EAE5DB] p-4 flex flex-col gap-2">
+        <div class="flex items-start justify-between gap-2">
+          <h3 class="font-semibold text-[#1C1917] text-sm leading-snug">{{ v.name }}</h3>
+          {% if v.venue_type %}
+          <span class="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#F5F2EC] text-[#8C8478] border border-[#EAE5DB] whitespace-nowrap">
+            {{ v.venue_type.replace('_',' ') }}
+          </span>
+          {% endif %}
+        </div>
+        {% if v.description %}
+        <p class="text-xs text-[#6A6259] leading-relaxed line-clamp-3">{{ v.description }}</p>
+        {% endif %}
+        {% if v.address %}
+        <div class="flex items-start gap-1.5 text-xs text-[#8C8478] mt-auto">
+          <i class="ph ph-map-pin shrink-0 text-[#B5ADA0] mt-0.5"></i>
+          <span>{{ v.address }}</span>
+        </div>
+        {% endif %}
+        {% if v.website %}
+        <a href="{{ v.website }}" target="_blank" rel="noopener"
+           class="text-xs text-[#A8512F] hover:text-[#8A4226] hover:underline truncate">
+          {{ v.website | replace('https://','') | replace('http://','') | truncate(40) }}
+        </a>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Subscribe section -->
   <div class="mt-8 bg-white rounded-lg border border-[#EAE5DB] p-6 sm:p-8">
     <div class="max-w-lg">

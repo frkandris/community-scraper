@@ -403,7 +403,9 @@ async def _run_full(
                 if not (cache and cache.get_venue_extracted(
                         url, fingerprint=extractor.venue_fingerprint) is not None):
                     try:
-                        venues = await extractor.extract_venues(text, city.name, city.locale, url)
+                        _topic_slugs = [t.name for t in topics]
+                        venues = await extractor.extract_venues(
+                            text, city.name, city.locale, url, valid_topics=_topic_slugs)
                         if venues:
                             upsert_venues(config.db_path, [v.model_dump() for v in venues])
                             log.info("venues_extracted", url=url, found=len(venues))
@@ -533,7 +535,9 @@ async def _run_ai_only(
                 # ── Venue extraction (with fingerprint cache) ────────────────
                 if cache.get_venue_extracted(url, fingerprint=extractor.venue_fingerprint) is None:
                     try:
-                        venues = await extractor.extract_venues(text, city.name, city.locale, url)
+                        _topic_slugs = [t.name for t in topics]
+                        venues = await extractor.extract_venues(
+                            text, city.name, city.locale, url, valid_topics=_topic_slugs)
                         if venues:
                             upsert_venues(config.db_path, [v.model_dump() for v in venues])
                             log.info("venues_extracted", url=url, found=len(venues))

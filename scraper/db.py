@@ -868,6 +868,22 @@ def get_all_venues(db_path: Path) -> list[dict]:
     return [json.loads(r[0]) for r in rows]
 
 
+def get_venues_by_city_topic(db_path: Path, city: str, topic: str) -> list[dict]:
+    """Return venues in city whose welcomed_topics includes topic."""
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            """
+            SELECT DISTINCT v.data FROM venues v, json_each(json_extract(v.data, '$.welcomed_topics')) t
+            WHERE v.city = ? AND t.value = ?
+            ORDER BY v.id
+            """,
+            (city, topic),
+        ).fetchall()
+    return [json.loads(r[0]) for r in rows]
+
+
 def get_venue_counts(db_path: Path) -> dict[str, int]:
     if not db_path.exists():
         return {}

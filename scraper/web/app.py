@@ -43,6 +43,7 @@ from ..db import (
     get_total_community_count,
     get_all_venues,
     get_venue_counts,
+    get_venues_by_city_topic,
     get_venue_person_counts_by_url,
     get_persons,
     get_person_counts,
@@ -837,6 +838,10 @@ async def _render_explore(
     all_records.extend(tag_records)
     schema_json = records_to_jsonld(all_records)
 
+    topic_venues: list[dict] = []
+    if city and len(topic) == 1 and app_state.db_path:
+        topic_venues = get_venues_by_city_topic(app_state.db_path, city, topic[0])
+
     return templates.TemplateResponse(request, "public_explore.html", {
         "city": city,
         "topics": topics,
@@ -852,6 +857,7 @@ async def _render_explore(
         "schema_json": schema_json,
         "tag": tag,
         "tag_records": tag_records,
+        "topic_venues": topic_venues,
         **lang_context(request),
     })
 
