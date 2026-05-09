@@ -734,6 +734,22 @@ def clear_all_cache_pages(db_path: Path) -> int:
         return cur.rowcount
 
 
+def clear_person_cache(db_path: Path) -> int:
+    """Strip person extraction fields from all cache entries, forcing re-extraction."""
+    with _connect(db_path) as conn:
+        cur = conn.execute("""
+            UPDATE cache_pages SET data = json_remove(
+                json_remove(json_remove(json_remove(data,
+                    '$.person_extracted_at'),
+                    '$.person_fingerprint'),
+                    '$.person_model'),
+                    '$.persons_data')
+            WHERE json_extract(data, '$.person_extracted_at') IS NOT NULL
+        """)
+        conn.commit()
+        return cur.rowcount
+
+
 def get_cache_index(db_path: Path) -> list[dict]:
     if not db_path.exists():
         return []

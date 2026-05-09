@@ -417,8 +417,12 @@ async def _run_full(
                         log.warning("venues_extract_error", url=url, error=str(exc))
 
                 # ── Person extraction (with fingerprint cache) ───────────────
-                if not (cache and cache.get_person_extracted(
-                        url, city.name, topic.name, fingerprint=extractor.person_fingerprint) is not None):
+                _person_cache = cache.get_person_extracted(
+                    url, city.name, topic.name,
+                    fingerprint=extractor.person_fingerprint) if cache else None
+                if _person_cache is not None:
+                    log.debug("person_cache_hit", url=url, cached=len(_person_cache))
+                else:
                     try:
                         persons = await extractor.extract_persons(
                             text, city.name, topic.name, city.locale, url, community_names,
@@ -426,6 +430,9 @@ async def _run_full(
                         if persons:
                             upsert_persons(config.db_path, [p.model_dump() for p in persons])
                             log.info("persons_extracted", url=url, found=len(persons))
+                        elif community_names:
+                            log.info("persons_extract_zero", url=url,
+                                     communities=len(community_names))
                         if cache:
                             cache.save_person_extracted(url, city.name, topic.name,
                                                         [p.model_dump() for p in persons],
@@ -548,8 +555,11 @@ async def _run_ai_only(
                         log.warning("venues_extract_error", url=url, error=str(exc))
 
                 # ── Person extraction (with fingerprint cache) ───────────────
-                if cache.get_person_extracted(url, city.name, topic.name,
-                                              fingerprint=extractor.person_fingerprint) is None:
+                _person_cache = cache.get_person_extracted(
+                    url, city.name, topic.name, fingerprint=extractor.person_fingerprint)
+                if _person_cache is not None:
+                    log.debug("person_cache_hit", url=url, cached=len(_person_cache))
+                else:
                     try:
                         persons = await extractor.extract_persons(
                             text, city.name, topic.name, city.locale, url, community_names,
@@ -557,6 +567,9 @@ async def _run_ai_only(
                         if persons:
                             upsert_persons(config.db_path, [p.model_dump() for p in persons])
                             log.info("persons_extracted", url=url, found=len(persons))
+                        elif community_names:
+                            log.info("persons_extract_zero", url=url,
+                                     communities=len(community_names))
                         cache.save_person_extracted(url, city.name, topic.name,
                                                     [p.model_dump() for p in persons],
                                                     fingerprint=extractor.person_fingerprint,

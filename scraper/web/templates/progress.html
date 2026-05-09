@@ -48,6 +48,14 @@
     <span class="text-sm text-gray-500">
       <span id="entry-count">{{ total_filtered }}</span>{% if total_filtered != total %}<span class="text-gray-400"> / {{ total }}</span>{% endif %} entries{% if pages > 1 %} · page {{ page }}/{{ pages }}{% endif %}
     </span>
+    <form method="POST" action="/admin/progress/clear-person-cache"
+          onsubmit="return confirm('Clear person extraction cache for all URLs? The next Re-AI run will re-extract people.')">
+      <button type="submit"
+        class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
+        title="Reset person extraction cache so the next Re-AI run re-extracts people">
+        <i class="ph ph-person-simple-x" style="font-size:13px"></i> Clear person cache
+      </button>
+    </form>
     <button onclick="fillFields()" id="fill-btn"
       class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
       title="Re-run AI on all cached pages and fill in null fields (description, history, tags…) without overwriting existing data">

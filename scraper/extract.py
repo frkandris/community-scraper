@@ -551,7 +551,7 @@ class OllamaExtractor:
             raw = data.get("message", {}).get("content", "")
             return _parse_persons(raw, city, topic, locale, source_url)
         except Exception as exc:
-            log.debug("extract_persons_failed", url=source_url, error=str(exc))
+            log.warning("extract_persons_failed", url=source_url, error=str(exc))
         return []
 
     async def chat(self, user_msg: str, temperature: float = 0.3) -> str:
@@ -767,8 +767,8 @@ class _ApiExtractor:
         except ExtractorQuotaError:
             raise
         except Exception as exc:
-            log.debug("api_extract_persons_failed", provider=self.__class__.__name__,
-                      url=source_url, error=str(exc))
+            log.warning("api_extract_persons_failed", provider=self.__class__.__name__,
+                        url=source_url, error=str(exc))
         return []
 
     async def enrich(self, record: CommunityRecord, page_text: str,

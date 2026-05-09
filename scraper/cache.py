@@ -7,6 +7,7 @@ import structlog
 
 from .db import (
     clear_all_cache_pages,
+    clear_person_cache,
     delete_cache_page,
     get_all_scraped_cache,
     get_cache_index,
@@ -230,4 +231,9 @@ class CacheManager:
     def clear_all(self) -> int:
         count = clear_all_cache_pages(self.db_path)
         log.info("cache_cleared_all", deleted=count)
+        return count
+
+    def clear_person_extracted(self) -> int:
+        count = clear_person_cache(self.db_path)
+        log.info("person_cache_cleared", updated=count)
         return count

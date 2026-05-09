@@ -2157,6 +2157,15 @@ async def cache_clear_all():
     return RedirectResponse("/admin/progress", status_code=302)
 
 
+@admin.post("/progress/clear-person-cache")
+async def cache_clear_persons():
+    updated = 0
+    if app_state.cache_manager:
+        updated = app_state.cache_manager.clear_person_extracted()
+    log.info("person_cache_cleared_via_admin", updated=updated)
+    return RedirectResponse("/admin/progress", status_code=302)
+
+
 @admin.post("/progress/{url_hash}/run-scrape")
 async def cache_run_scrape(url_hash: str):
     if not app_state.cache_manager or not app_state.pipeline_cfg:
