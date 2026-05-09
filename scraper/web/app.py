@@ -96,6 +96,8 @@ TOPIC_ICONS: dict[str, str] = {
     "sustainability": "recycle",
     "crafts": "scissors",
     "fitness": "barbell",
+    "religion": "hands-praying",
+    "other": "circles-four",
 }
 
 TOPIC_LABELS: dict[str, str] = {
@@ -126,6 +128,8 @@ TOPIC_LABELS: dict[str, str] = {
     "sustainability": "Sustainability",
     "crafts": "Crafts & Making",
     "fitness": "Fitness",
+    "religion": "Religion & Faith",
+    "other": "Other",
 }
 
 
@@ -739,22 +743,63 @@ async def _render_explore(
                 "records": records,
             })
 
-    cross_city_sections: list[dict] = []
-    if not city and topic:
-        for t in topic:
-            city_results = []
-            for c in cities:
-                records = _load_communities(c.name, t)
-                if records:
-                    city_results.append({"city": c.name, "country": c.country, "records": records})
-            city_results.sort(key=lambda x: len(x["records"]), reverse=True)
-            cross_city_sections.append({
-                "topic": t,
-                "label": _topic_labels.get(t, t.replace("_", " ").title()),
-                "icon": TOPIC_ICONS.get(t, "circle"),
-                "city_results": city_results[:6],
-                "total": sum(len(cr["records"]) for cr in city_results),
-            })
+    # Country-grouped multi-city view (when no specific city is selected and no tag)
+    country_sections: list[dict] = []
+    if not city and not tag:
+        user_country = _detect_country(request)
+        city_totals = dict(get_city_totals(_db()))
+        cities_map = {c.name: c.country for c in cities}
+
+        # Group cities by country, only include cities that have data
+        country_cities: dict[str, list[tuple[str, int]]] = {}
+        for name, country in cities_map.items():
+            count = city_totals.get(name, 0)
+            if count > 0:
+                country_cities.setdefault(country, []).append((name, count))
+        for v in country_cities.values():
+            v.sort(key=lambda x: x[1], reverse=True)
+
+        # Order: user's country first, then top 3 others by total community count
+        country_order: list[tuple[str, bool]] = []
+        if user_country and user_country in country_cities:
+            country_order.append((user_country, True))
+        other_sorted = sorted(
+            [(c, clist) for c, clist in country_cities.items() if c != user_country],
+            key=lambda x: sum(cnt for _, cnt in x[1]),
+            reverse=True,
+        )
+        for c_name, _ in other_sorted[:3]:
+            country_order.append((c_name, False))
+
+        for country, is_user in country_order:
+            city_entries = country_cities.get(country, [])[:3]
+            city_sections: list[dict] = []
+            for city_name, city_count in city_entries:
+                if topic:
+                    recs: list[dict] = []
+                    for t in topic:
+                        recs.extend(_load_communities(city_name, t))
+                    recs = recs[:10]
+                else:
+                    recs = [_ensure_community_id(r)
+                            for r in get_communities_for_city(_db(), city_name)][:10]
+                if recs:
+                    city_url = "/" + _slugify(city_name)
+                    if topic and len(topic) == 1:
+                        city_url += "/" + topic[0]
+                    city_sections.append({
+                        "city": city_name,
+                        "country": country,
+                        "records": recs,
+                        "total": city_count,
+                        "city_url": city_url,
+                    })
+            if city_sections:
+                country_sections.append({
+                    "country": country,
+                    "is_user_country": is_user,
+                    "cities": city_sections,
+                })
 
     # Tag-based search: filter across communities by free-form tag
     tag_records: list[dict] = []
@@ -766,9 +811,9 @@ async def _render_explore(
     all_records: list = []
     for s in sections:
         all_records.extend(s["records"])
-    for cs in cross_city_sections:
-        for cr in cs["city_results"]:
-            all_records.extend(cr["records"])
+    for cs in country_sections:
+        for cs_city in cs["cities"]:
+            all_records.extend(cs_city["records"])
     all_records.extend(tag_records)
     schema_json = records_to_jsonld(all_records)
 
@@ -781,7 +826,7 @@ async def _render_explore(
         "topic_icons": TOPIC_ICONS,
         "topic_labels": TOPIC_LABELS,
         "available_topics": available_topics,
-        "cross_city_sections": cross_city_sections,
+        "country_sections": country_sections,
         "cities": cities,
         "subscribed": subscribed == "1",
         "schema_json": schema_json,

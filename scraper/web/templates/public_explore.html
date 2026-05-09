@@ -88,14 +88,14 @@
   </div>
   {% endif %}
 
-  <!-- No city, topics selected: cross-city aggregated results -->
-  {% elif not city and cross_city_sections %}
+  <!-- Country-grouped multi-city view -->
+  {% elif country_sections %}
 
   <div class="mb-8 border-b border-slate-200 pb-5">
     <h1 class="text-2xl font-bold text-slate-950 mb-1">
-      {% if cross_city_sections | length == 1 %}
-        <i class="ph ph-{{ cross_city_sections[0].icon }} text-emerald-700"></i>
-        {{ t('explore_topic_communities_worldwide', label=cross_city_sections[0].label) }}
+      {% if selected_topics | length == 1 %}
+        <i class="ph ph-{{ topic_icons.get(selected_topics[0], 'circle') }} text-emerald-700"></i>
+        {{ topic_labels.get(selected_topics[0], selected_topics[0].replace('_',' ').title()) }} – {{ t('explore_communities_worldwide') }}
       {% else %}
         {{ t('explore_communities_worldwide') }}
       {% endif %}
@@ -105,50 +105,50 @@
     </p>
   </div>
 
-  {% for section in cross_city_sections %}
-  {% if cross_city_sections | length > 1 %}
-  <h2 class="text-lg font-semibold text-slate-900 mb-4 mt-8 flex items-center gap-2">
-    <i class="ph ph-{{ section.icon }} text-emerald-700"></i>
-    {{ section.label }}
-    <span class="text-sm font-normal text-slate-400">{{ t('explore_n_communities', n=section.total) }}</span>
-  </h2>
-  {% endif %}
+  {% for country_sec in country_sections %}
+  <div class="mb-10">
+    <div class="flex items-center gap-2 mb-5">
+      {% if country_sec.is_user_country %}
+      <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">{{ t('explore_near_you') }}</span>
+      {% endif %}
+      <h2 class="text-lg font-bold text-slate-900">{{ country_sec.country }}</h2>
+    </div>
 
-  {% for cr in section.city_results %}
-  <div class="mb-6">
-    <div class="flex items-center justify-between mb-3">
-      <h3 class="text-base font-semibold text-slate-800 flex items-center gap-2">
-        <i class="ph ph-map-pin text-emerald-600"></i>
-        <a href="/{{ cr.city | slugify }}/{{ section.topic }}"
-           class="hover:text-emerald-800 transition-colors">{{ cr.city }}</a>
-        <span class="text-xs font-normal text-slate-400">{{ cr.country }}</span>
-      </h3>
-      <a href="/{{ cr.city | slugify }}/{{ section.topic }}"
-         class="text-xs font-medium text-emerald-700 hover:text-emerald-900 transition-colors">
-        {{ t('explore_see_all', n=cr.records|length) }}
-      </a>
+    {% for city_sec in country_sec.cities %}
+    <div class="mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-base font-semibold text-slate-700 flex items-center gap-1.5">
+          <i class="ph ph-map-pin text-emerald-500 text-sm"></i>
+          <a href="{{ city_sec.city_url }}" class="hover:text-emerald-800 transition-colors">{{ city_sec.city }}</a>
+          <span class="text-xs font-normal text-slate-400">{{ city_sec.total }} közösség</span>
+        </h3>
+        <a href="{{ city_sec.city_url }}"
+           class="text-xs font-medium text-emerald-700 hover:text-emerald-900 transition-colors">
+          {{ t('explore_see_all', n=city_sec.total) }}
+        </a>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+        {% for r in city_sec.records %}
+        <a href="{{ r.community_url }}" class="block bg-white rounded-md border border-slate-200 p-3 flex flex-col gap-1.5 hover:border-emerald-300 hover:bg-emerald-50 transition-colors">
+          <h4 class="font-semibold text-slate-950 text-xs leading-snug line-clamp-2">{{ r.name }}</h4>
+          {% if r.description %}
+          <p class="text-[11px] text-slate-500 leading-relaxed line-clamp-2 flex-1">{{ r.description }}</p>
+          {% endif %}
+          {% if r.location %}
+          <div class="flex items-center gap-1 text-[11px] text-slate-400 mt-auto">
+            <i class="ph ph-map-pin shrink-0"></i>
+            <span class="truncate">{{ r.location }}</span>
+          </div>
+          {% endif %}
+        </a>
+        {% endfor %}
+      </div>
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-      {% for r in cr.records[:4] %}
-      <a href="{{ r.community_url }}" class="block bg-white rounded-md border border-slate-200 p-4 flex flex-col gap-2 hover:border-emerald-300 hover:bg-emerald-50 transition-colors">
-        <h4 class="font-semibold text-slate-950 text-sm leading-snug">{{ r.name }}</h4>
-        {% if r.description %}
-        <p class="text-xs text-slate-600 leading-relaxed line-clamp-2">{{ r.description }}</p>
-        {% endif %}
-        {% if r.location %}
-        <div class="flex items-center gap-1.5 text-xs text-slate-500">
-          <i class="ph ph-map-pin text-slate-400"></i>
-          <span>{{ r.location }}</span>
-        </div>
-        {% endif %}
-      </a>
-      {% endfor %}
-    </div>
+    {% endfor %}
   </div>
   {% endfor %}
-  {% endfor %}
 
-  <!-- No city, no topics or no data -->
+  <!-- No city, no data -->
   {% elif not city %}
   <div class="text-center py-20">
     <i class="ph ph-buildings text-slate-300 text-6xl mb-4 block"></i>
