@@ -37,6 +37,7 @@ from ..db import (
     get_venue_counts,
     get_persons,
     get_person_counts,
+    get_cache_cost_stats,
 )
 from ..false_positives import (add as fp_add, diff_html as fp_diff_html,
                                load as fp_load, load_history as fp_load_history,
@@ -948,6 +949,7 @@ async def dashboard(request: Request):
     total_records = get_total_community_count(_db())
     venue_counts = get_venue_counts(_db())
     person_counts = get_person_counts(_db())
+    cost_stats = get_cache_cost_stats(_db())
     metadata = {
         "total_records": total_records,
         "records_by_city_topic": city_topic_counts,
@@ -1023,6 +1025,7 @@ async def dashboard(request: Request):
         "active_providers": active_providers,
         "total_venues": sum(venue_counts.values()),
         "total_persons": sum(person_counts.values()),
+        "cost_stats": cost_stats,
     })
 
 

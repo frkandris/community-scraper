@@ -656,6 +656,30 @@ def get_search_cache(db_path: Path, city: str, topic: str,
     return json.loads(row[0]) if row else None
 
 
+def get_cache_cost_stats(db_path: Path) -> dict:
+    """Return counts of work done: search queries issued, pages fetched, AI extractions run."""
+    empty = {"search_queries": 0, "web_reads": 0, "ai_calls": 0, "search_pairs": 0}
+    if not db_path.exists():
+        return empty
+    with _connect(db_path) as conn:
+        search_pairs = conn.execute("SELECT COUNT(*) FROM search_cache").fetchone()[0]
+        search_q = conn.execute(
+            "SELECT COALESCE(SUM(json_array_length(queries)), 0) FROM search_cache"
+        ).fetchone()[0]
+        web_reads = conn.execute(
+            "SELECT COUNT(*) FROM cache_pages WHERE scraped_at IS NOT NULL"
+        ).fetchone()[0]
+        ai_calls = conn.execute(
+            "SELECT COUNT(*) FROM cache_pages WHERE extracted_at IS NOT NULL"
+        ).fetchone()[0]
+    return {
+        "search_pairs": int(search_pairs),
+        "search_queries": int(search_q),
+        "web_reads": int(web_reads),
+        "ai_calls": int(ai_calls),
+    }
+
+
 # ── Venues ────────────────────────────────────────────────────────────────────
 
 def _venue_record_key(name: str, city: str) -> str:
