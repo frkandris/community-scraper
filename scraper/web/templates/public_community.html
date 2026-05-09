@@ -166,8 +166,18 @@
 
   </div>
 
+  <!-- Not a community flag -->
+  <div class="mt-4 text-right">
+    <button id="not-community-btn"
+      onclick="reportNotCommunity()"
+      class="text-xs text-slate-400 hover:text-red-600 transition-colors inline-flex items-center gap-1">
+      <i class="ph ph-flag"></i> Ez nem egy közösség
+    </button>
+    <span id="not-community-thanks" class="hidden text-xs text-slate-400 italic">Köszönjük a jelzést.</span>
+  </div>
+
   <!-- Feedback -->
-  <div class="mt-8 bg-white border border-slate-200 rounded-md p-5" id="feedback-section">
+  <div class="mt-3 bg-white border border-slate-200 rounded-md p-5" id="feedback-section">
     <div id="feedback-prompt" class="flex items-center justify-between gap-4">
       <p class="text-sm text-slate-500">{{ t('community_feedback_prompt') }}</p>
       <button onclick="document.getElementById('feedback-prompt').classList.add('hidden'); document.getElementById('feedback-form').classList.remove('hidden');"
@@ -252,6 +262,22 @@ async function submitFeedback(e, form) {
   } catch (_) {}
   document.getElementById('feedback-form').classList.add('hidden');
   document.getElementById('feedback-thanks').classList.remove('hidden');
+}
+
+async function reportNotCommunity() {
+  const btn = document.getElementById('not-community-btn');
+  btn.disabled = true;
+  btn.classList.add('opacity-50');
+  const fd = new FormData();
+  fd.append('community_id',   '{{ r.community_id | default("") }}');
+  fd.append('community_name', '{{ r.name | replace("'", "\\'") }}');
+  fd.append('city',           '{{ city }}');
+  fd.append('topic',          '{{ topic }}');
+  fd.append('source_url',     '{{ r.source_url | default("") }}');
+  fd.append('page_url',       location.href);
+  try { await fetch('/report-not-community', { method: 'POST', body: fd }); } catch (_) {}
+  btn.classList.add('hidden');
+  document.getElementById('not-community-thanks').classList.remove('hidden');
 }
 </script>
 
