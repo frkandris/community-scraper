@@ -48,6 +48,7 @@ from ..db import (
     get_persons,
     get_person_counts,
     get_cache_cost_stats,
+    get_scope_stats,
     get_prompt_overrides,
     upsert_prompt_override,
     delete_prompt_override,
@@ -1124,6 +1125,52 @@ async def public_about(request: Request):
 # ADMIN ROUTES  (prefix: /admin, protected by _BasicAuth)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+def _get_run_scopes() -> dict:
+    """Compute expected search/fetch/AI call counts for each Run Now preset."""
+    from ..extract import _prompt_hash, get_prompt as _ep
+    cfg = app_state.pipeline_cfg
+    if not cfg or not app_state.db_path:
+        return {}
+    # Best currently active model (same priority as pipeline extractor selection)
+    if cfg.deepseek_api_key:
+        model = cfg.deepseek_model or "deepseek-chat"
+    elif cfg.groq_api_key:
+        model = cfg.groq_model or "llama-3.1-70b-versatile"
+    else:
+        model = cfg.ollama_model or "llama3"
+    try:
+        extract_fp = _prompt_hash(_ep("extraction_system") + model)
+        venue_fp   = _prompt_hash(_ep("venue_system") + model)
+        person_fp  = _prompt_hash(_ep("person_system") + model)
+        stats = get_scope_stats(app_state.db_path, extract_fp, venue_fp, person_fp)
+    except Exception:
+        return {}
+    n              = stats["with_text"]
+    extract_needed = n - stats["extract_match"]
+    venue_needed   = n - stats["venue_match"]
+    person_needed  = n - stats["person_match"]
+    city_count     = len(app_state.cities or [])
+    topic_count    = len(app_state.topics or [])
+    search_pairs   = city_count * topic_count
+    return {
+        "smart": {
+            "search": search_pairs,
+            "fetch": None,          # unknown until search runs
+            "ai": extract_needed + venue_needed + person_needed,
+        },
+        "rebuild": {
+            "search": search_pairs,
+            "fetch": n,
+            "ai": n + venue_needed + person_needed,
+        },
+        "reai": {
+            "search": 0,
+            "fetch": 0,
+            "ai": n + venue_needed + person_needed,
+        },
+    }
+
+
 @admin.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
     city_topic_counts = get_city_topic_counts(_db())
@@ -1218,6 +1265,7 @@ async def dashboard(request: Request):
         "cost_stats": cost_stats,
         "revalidation_pending": revalidation_pending,
         "revalidate_state": _revalidate_state,
+        "run_scopes": _get_run_scopes(),
     })
 
 

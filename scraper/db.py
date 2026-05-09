@@ -1056,6 +1056,34 @@ def delete_not_community_report(db_path: Path, report_id: int) -> None:
 
 # ── City requests ──────────────────────────────────────────────────────────────
 
+def get_scope_stats(db_path: Path, extract_fp: str, venue_fp: str, person_fp: str) -> dict:
+    """Count pages that need each type of AI processing given current fingerprints."""
+    if not db_path.exists():
+        return {"with_text": 0, "extract_match": 0, "venue_match": 0, "person_match": 0}
+    with _connect(db_path) as conn:
+        row = conn.execute("""
+            SELECT
+                SUM(CASE WHEN json_extract(data,'$.raw_text') IS NOT NULL
+                         AND json_extract(data,'$.raw_text') != '' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN json_extract(data,'$.raw_text') IS NOT NULL
+                         AND json_extract(data,'$.raw_text') != ''
+                         AND json_extract(data,'$.extract_fingerprint') = ? THEN 1 ELSE 0 END),
+                SUM(CASE WHEN json_extract(data,'$.raw_text') IS NOT NULL
+                         AND json_extract(data,'$.raw_text') != ''
+                         AND json_extract(data,'$.venue_fingerprint') = ? THEN 1 ELSE 0 END),
+                SUM(CASE WHEN json_extract(data,'$.raw_text') IS NOT NULL
+                         AND json_extract(data,'$.raw_text') != ''
+                         AND json_extract(data,'$.person_fingerprint') = ? THEN 1 ELSE 0 END)
+            FROM cache_pages
+        """, (extract_fp, venue_fp, person_fp)).fetchone()
+    return {
+        "with_text":     int(row[0] or 0),
+        "extract_match": int(row[1] or 0),
+        "venue_match":   int(row[2] or 0),
+        "person_match":  int(row[3] or 0),
+    }
+
+
 def save_city_request(db_path: Path, city_name: str, email: str = "") -> None:
     now = datetime.now(timezone.utc).isoformat()
     with _connect(db_path) as conn:
