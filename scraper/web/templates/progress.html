@@ -45,7 +45,9 @@
   <h1 class="text-2xl font-bold text-gray-900">Progress</h1>
   <div class="flex items-center gap-3">
     <div id="phase-badge" class="hidden items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border"></div>
-    <span class="text-sm text-gray-500"><span id="entry-count">{{ total }}</span> entries{% if pages > 1 %} · page {{ page }}/{{ pages }}{% endif %}<span id="filter-count" class="hidden"> · <span id="filter-count-n"></span> shown</span></span>
+    <span class="text-sm text-gray-500">
+      <span id="entry-count">{{ total_filtered }}</span>{% if total_filtered != total %}<span class="text-gray-400"> / {{ total }}</span>{% endif %} entries{% if pages > 1 %} · page {{ page }}/{{ pages }}{% endif %}
+    </span>
     <button onclick="fillFields()" id="fill-btn"
       class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
       title="Re-run AI on all cached pages and fill in null fields (description, history, tags…) without overwriting existing data">
@@ -65,11 +67,7 @@
 
 
 <div id="cache-table-wrap">
-{% if entries %}
-{% set cities = entries | map(attribute='city') | select | unique | sort | list %}
-{% set topics = entries | map(attribute='topic') | select | unique | sort | list %}
-{% set models = entries | map(attribute='extract_model') | select | unique | sort | list %}
-{% set enrich_models = entries | map(attribute='enrich_model') | select | unique | sort | list %}
+{% if entries or filter_params %}
 
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
   <table class="w-full text-sm" id="cache-table">
@@ -102,52 +100,69 @@
       <tr class="border-b border-gray-200">
         <th class="px-3 py-2">
           <div class="flex gap-1">
-            <select id="f-city" onchange="applyFilters()"
+            <select id="f-city" onchange="filterNav('f_city', this.value)"
               class="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer">
               <option value="">All cities</option>
-              {% for c in cities %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+              {% for c in all_cities %}<option value="{{ c }}" {% if c == f_city %}selected{% endif %}>{{ c }}</option>{% endfor %}
             </select>
-            <select id="f-topic" onchange="applyFilters()"
+            <select id="f-topic" onchange="filterNav('f_topic', this.value)"
               class="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer">
               <option value="">All topics</option>
-              {% for t in topics %}<option value="{{ t }}">{{ t.replace('_',' ') }}</option>{% endfor %}
+              {% for t in all_topics %}<option value="{{ t }}" {% if t == f_topic %}selected{% endif %}>{{ t.replace('_',' ') }}</option>{% endfor %}
             </select>
           </div>
         </th>
         <th class="px-2 py-2">
-          <select id="f-scraped" onchange="applyFilters()"
+          <select id="f-scraped" onchange="filterNav('f_scraped', this.value)"
             class="w-full text-xs border border-gray-200 rounded-lg px-1.5 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer">
             <option value="">All</option>
-            <option value="1">Done</option>
-            <option value="0">Not done</option>
+            <option value="1" {% if f_scraped == '1' %}selected{% endif %}>Done</option>
+            <option value="0" {% if f_scraped == '0' %}selected{% endif %}>Not done</option>
           </select>
         </th>
         <th class="px-2 py-2">
-          <select id="f-model" onchange="applyFilters()"
+          <select id="f-model" onchange="filterNav('f_model', this.value)"
             class="w-full text-xs border border-gray-200 rounded-lg px-1.5 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer">
             <option value="">All</option>
-            <option value="__none__">Not done</option>
-            {% for m in models %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+            <option value="__none__" {% if f_model == '__none__' %}selected{% endif %}>Not done</option>
+            {% for m in all_models %}<option value="{{ m }}" {% if m == f_model %}selected{% endif %}>{{ m }}</option>{% endfor %}
           </select>
         </th>
         <th class="px-2 py-2">
-          <select id="f-enrich-scraped" onchange="applyFilters()"
+          <select id="f-enrich-scraped" onchange="filterNav('f_enrich_scraped', this.value)"
             class="w-full text-xs border border-gray-200 rounded-lg px-1.5 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer">
             <option value="">All</option>
-            <option value="1">Done</option>
-            <option value="0">Not done</option>
+            <option value="1" {% if f_enrich_scraped == '1' %}selected{% endif %}>Done</option>
+            <option value="0" {% if f_enrich_scraped == '0' %}selected{% endif %}>Not done</option>
           </select>
         </th>
         <th class="px-2 py-2">
-          <select id="f-enrich-model" onchange="applyFilters()"
+          <select id="f-enrich-model" onchange="filterNav('f_enrich_model', this.value)"
             class="w-full text-xs border border-gray-200 rounded-lg px-1.5 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer">
             <option value="">All</option>
-            <option value="__none__">Not done</option>
-            {% for m in enrich_models %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+            <option value="__none__" {% if f_enrich_model == '__none__' %}selected{% endif %}>Not done</option>
+            {% for m in all_enrich_models %}<option value="{{ m }}" {% if m == f_enrich_model %}selected{% endif %}>{{ m }}</option>{% endfor %}
           </select>
         </th>
-        <th colspan="4" class="px-3 py-2 text-right">
-          <button onclick="clearFilters()" class="text-xs text-gray-400 hover:text-blue-600 transition-colors whitespace-nowrap">Clear</button>
+        <th class="px-2 py-2 text-right">—</th>
+        <th class="px-2 py-2">
+          <select id="f-venue" onchange="filterNav('f_venue', this.value)"
+            class="w-full text-xs border border-gray-200 rounded-lg px-1 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer">
+            <option value="">All</option>
+            <option value="1" {% if f_venue == '1' %}selected{% endif %}>Has</option>
+            <option value="0" {% if f_venue == '0' %}selected{% endif %}>None</option>
+          </select>
+        </th>
+        <th class="px-2 py-2">
+          <select id="f-person" onchange="filterNav('f_person', this.value)"
+            class="w-full text-xs border border-gray-200 rounded-lg px-1 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer">
+            <option value="">All</option>
+            <option value="1" {% if f_person == '1' %}selected{% endif %}>Has</option>
+            <option value="0" {% if f_person == '0' %}selected{% endif %}>None</option>
+          </select>
+        </th>
+        <th class="px-2 py-2 text-right">
+          {% if filter_params %}<a href="/admin/progress" class="text-xs text-blue-600 hover:text-blue-800 transition-colors whitespace-nowrap">Clear</a>{% endif %}
         </th>
       </tr>
     </thead>
@@ -205,28 +220,35 @@
 </div>
 
 {% if pages > 1 %}
+{%- set fp_parts = [] -%}
+{%- for k, v in filter_params.items() -%}{%- set _ = fp_parts.append(k ~ '=' ~ v) -%}{%- endfor -%}
+{%- set fp_prefix = ('&' ~ fp_parts | join('&')) if fp_parts else '' -%}
 <div class="flex items-center justify-center gap-1 mt-4">
   {% if page > 1 %}
-  <a href="?page={{ page - 1 }}" class="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">← Prev</a>
+  <a href="?page={{ page - 1 }}{{ fp_prefix }}" class="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">← Prev</a>
   {% endif %}
   {% for p in range(1, pages + 1) %}
     {% if p == page %}
     <span class="px-3 py-1.5 text-xs rounded-lg border border-blue-300 bg-blue-50 text-blue-700 font-semibold">{{ p }}</span>
     {% elif p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
-    <a href="?page={{ p }}" class="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">{{ p }}</a>
+    <a href="?page={{ p }}{{ fp_prefix }}" class="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">{{ p }}</a>
     {% elif p == page - 3 or p == page + 3 %}
     <span class="px-1 text-xs text-gray-400">…</span>
     {% endif %}
   {% endfor %}
   {% if page < pages %}
-  <a href="?page={{ page + 1 }}" class="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">Next →</a>
+  <a href="?page={{ page + 1 }}{{ fp_prefix }}" class="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">Next →</a>
   {% endif %}
 </div>
 {% endif %}
 
 {% else %}
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center" id="empty-state">
+  {% if filter_params %}
+  <p class="text-gray-400">No entries match the current filters. <a href="/admin/progress" class="text-blue-600 hover:underline">Clear filters</a></p>
+  {% else %}
   <p class="text-gray-400">No cached pages yet. Run the scraper to populate the cache.</p>
+  {% endif %}
 </div>
 {% endif %}
 </div>
@@ -234,7 +256,7 @@
 <script>
 let activeHash = null;
 let activePhase = null;
-let lastEntryCount = {{ entries|length }};
+let lastEntryCount = {{ total_filtered }};
 
 const PHASE_CFG = {
   scrape:         { label: 'Fetch',   icon: 'ph-arrow-circle-down', badge: 'text-blue-700 bg-blue-100 border-blue-300'    },
@@ -390,14 +412,22 @@ async function refreshTable() {
 pollProgress();
 refreshTable();
 
+function filterNav(name, value) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('page', '1');
+  if (value) url.searchParams.set(name, value);
+  else url.searchParams.delete(name);
+  window.location.href = url.toString();
+}
+
 function applyFilters() {
-  const city          = document.getElementById('f-city').value;
-  const topic         = document.getElementById('f-topic').value;
-  const scraped       = document.getElementById('f-scraped').value;
-  const model         = document.getElementById('f-model').value;
-  const enrichScraped = document.getElementById('f-enrich-scraped').value;
-  const enrichModel   = document.getElementById('f-enrich-model').value;
-  let visible = 0;
+  // client-side filter for rows refreshed by JS (best-effort, no venue/person data)
+  const city          = document.getElementById('f-city')?.value || '';
+  const topic         = document.getElementById('f-topic')?.value || '';
+  const scraped       = document.getElementById('f-scraped')?.value || '';
+  const model         = document.getElementById('f-model')?.value || '';
+  const enrichScraped = document.getElementById('f-enrich-scraped')?.value || '';
+  const enrichModel   = document.getElementById('f-enrich-model')?.value || '';
   document.querySelectorAll('#cache-tbody tr').forEach(row => {
     const d = row.dataset;
     const modelMatch = !model || (model === '__none__' ? !d.model : d.model === model);
@@ -409,18 +439,7 @@ function applyFilters() {
             && (!enrichScraped || d.enrichScraped === enrichScraped)
             && enrichModelMatch;
     row.style.display = ok ? '' : 'none';
-    if (ok) visible++;
   });
-  const active = city || topic || scraped || model || enrichScraped || enrichModel;
-  const fc  = document.getElementById('filter-count');
-  const fcn = document.getElementById('filter-count-n');
-  if (active) { fcn.textContent = visible; fc.classList.remove('hidden'); }
-  else        { fc.classList.add('hidden'); }
-}
-
-function clearFilters() {
-  ['f-city','f-topic','f-scraped','f-model','f-enrich-scraped','f-enrich-model'].forEach(id => document.getElementById(id).value = '');
-  applyFilters();
 }
 
 let _fillPollTimer = null;

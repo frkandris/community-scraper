@@ -1812,22 +1812,94 @@ async def cache_detail_redirect(url_hash: str):
     return RedirectResponse(f"/admin/progress/{url_hash}", status_code=301)
 
 @admin.get("/progress", response_class=HTMLResponse)
-async def cache_page(request: Request, page: int = 1):
+async def cache_page(
+    request: Request,
+    page: int = 1,
+    f_city: str = "",
+    f_topic: str = "",
+    f_scraped: str = "",
+    f_model: str = "",
+    f_enrich_scraped: str = "",
+    f_enrich_model: str = "",
+    f_venue: str = "",
+    f_person: str = "",
+):
     entries = []
     if app_state.cache_manager:
         entries = app_state.cache_manager.get_index()
     url_counts = get_venue_person_counts_by_url(_db())
+
+    all_cities = sorted({e.get("city") for e in entries if e.get("city")})
+    all_topics = sorted({e.get("topic") for e in entries if e.get("topic")})
+    all_models = sorted({e.get("extract_model") for e in entries if e.get("extract_model")})
+    all_enrich_models = sorted({e.get("enrich_model") for e in entries if e.get("enrich_model")})
+
+    def _match(e: dict) -> bool:
+        if f_city and e.get("city") != f_city:
+            return False
+        if f_topic and e.get("topic") != f_topic:
+            return False
+        if f_scraped == "1" and not e.get("scraped_at"):
+            return False
+        if f_scraped == "0" and e.get("scraped_at"):
+            return False
+        if f_model == "__none__" and e.get("extract_model"):
+            return False
+        if f_model and f_model != "__none__" and e.get("extract_model") != f_model:
+            return False
+        if f_enrich_scraped == "1" and not e.get("enrich_scraped_at"):
+            return False
+        if f_enrich_scraped == "0" and e.get("enrich_scraped_at"):
+            return False
+        if f_enrich_model == "__none__" and e.get("enrich_model"):
+            return False
+        if f_enrich_model and f_enrich_model != "__none__" and e.get("enrich_model") != f_enrich_model:
+            return False
+        counts = url_counts.get(e.get("url", ""), {})
+        vc = counts.get("venues", 0)
+        pc = counts.get("persons", 0)
+        if f_venue == "1" and not vc:
+            return False
+        if f_venue == "0" and vc:
+            return False
+        if f_person == "1" and not pc:
+            return False
+        if f_person == "0" and pc:
+            return False
+        return True
+
+    filtered = [e for e in entries if _match(e)]
     page_size = 100
-    total = len(entries)
-    pages = max(1, (total + page_size - 1) // page_size)
+    total_all = len(entries)
+    total_filtered = len(filtered)
+    pages = max(1, (total_filtered + page_size - 1) // page_size)
     page = max(1, min(page, pages))
-    paged = entries[(page - 1) * page_size: page * page_size]
+    paged = filtered[(page - 1) * page_size: page * page_size]
+    filter_params = {k: v for k, v in {
+        "f_city": f_city, "f_topic": f_topic, "f_scraped": f_scraped,
+        "f_model": f_model, "f_enrich_scraped": f_enrich_scraped,
+        "f_enrich_model": f_enrich_model, "f_venue": f_venue, "f_person": f_person,
+    }.items() if v}
     return templates.TemplateResponse(request, "progress.html", {
         "entries": paged,
         "url_counts": url_counts,
         "page": page,
         "pages": pages,
-        "total": total,
+        "total": total_all,
+        "total_filtered": total_filtered,
+        "all_cities": all_cities,
+        "all_topics": all_topics,
+        "all_models": all_models,
+        "all_enrich_models": all_enrich_models,
+        "f_city": f_city,
+        "f_topic": f_topic,
+        "f_scraped": f_scraped,
+        "f_model": f_model,
+        "f_enrich_scraped": f_enrich_scraped,
+        "f_enrich_model": f_enrich_model,
+        "f_venue": f_venue,
+        "f_person": f_person,
+        "filter_params": filter_params,
     })
 
 
