@@ -170,6 +170,11 @@
   <div class="mt-4 text-right">
     <button id="not-community-btn"
       onclick="reportNotCommunity()"
+      data-community-id="{{ r.community_id | default('') | e }}"
+      data-community-name="{{ r.name | e }}"
+      data-city="{{ city | e }}"
+      data-topic="{{ topic | e }}"
+      data-source-url="{{ r.source_url | default('') | e }}"
       class="text-xs text-slate-400 hover:text-red-600 transition-colors inline-flex items-center gap-1">
       <i class="ph ph-flag"></i> Ez nem egy közösség
     </button>
@@ -268,12 +273,13 @@ async function reportNotCommunity() {
   const btn = document.getElementById('not-community-btn');
   btn.disabled = true;
   btn.classList.add('opacity-50');
+  const d = btn.dataset;
   const fd = new FormData();
-  fd.append('community_id',   '{{ r.community_id | default("") }}');
-  fd.append('community_name', '{{ r.name | replace("'", "\\'") }}');
-  fd.append('city',           '{{ city }}');
-  fd.append('topic',          '{{ topic }}');
-  fd.append('source_url',     '{{ r.source_url | default("") }}');
+  fd.append('community_id',   d.communityId   || '');
+  fd.append('community_name', d.communityName || '');
+  fd.append('city',           d.city          || '');
+  fd.append('topic',          d.topic         || '');
+  fd.append('source_url',     d.sourceUrl     || '');
   fd.append('page_url',       location.href);
   try { await fetch('/report-not-community', { method: 'POST', body: fd }); } catch (_) {}
   btn.classList.add('hidden');
