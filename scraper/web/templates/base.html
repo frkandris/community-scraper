@@ -23,13 +23,33 @@
     </a>
     {% endmacro %}
     {{ navlink('/admin',               'Dashboard',   _p == '/admin') }}
-    {{ navlink('/admin/results',       'Results',     _p.startswith('/admin/results')) }}
+    {# Results dropdown #}
+    {% set _res_active = _p.startswith('/admin/results') or _p.startswith('/admin/venues') or _p.startswith('/admin/persons') %}
+    <div class="relative" id="nav-results-wrap">
+      <button onclick="document.getElementById('nav-results-menu').classList.toggle('hidden')"
+        class="px-2.5 py-1 rounded-lg text-sm transition-colors flex items-center gap-1
+          {% if _res_active %}bg-gray-100 text-gray-900 font-semibold{% else %}text-gray-600 hover:text-gray-900 hover:bg-gray-50{% endif %}">
+        Results <i class="ph ph-caret-down" style="font-size:11px;margin-top:1px"></i>
+      </button>
+      <div id="nav-results-menu" class="hidden absolute left-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50">
+        <a href="/admin/results"
+          class="flex items-center gap-2 px-3 py-2 text-sm {% if _p.startswith('/admin/results') %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+          <i class="ph ph-users-three" style="font-size:14px"></i> Communities
+        </a>
+        <a href="/admin/venues"
+          class="flex items-center gap-2 px-3 py-2 text-sm {% if _p.startswith('/admin/venues') %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+          <i class="ph ph-map-pin" style="font-size:14px"></i> Venues
+        </a>
+        <a href="/admin/persons"
+          class="flex items-center gap-2 px-3 py-2 text-sm {% if _p.startswith('/admin/persons') %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+          <i class="ph ph-person" style="font-size:14px"></i> People
+        </a>
+      </div>
+    </div>
     {{ navlink('/admin/cache',         'Cache',       _p.startswith('/admin/cache')) }}
     {{ navlink('/admin/config',        'Config',      _p.startswith('/admin/config')) }}
     {{ navlink('/admin/logs',          'Logs',        _p == '/admin/logs') }}
     {{ navlink('/admin/prompts',       'Prompts',     _p == '/admin/prompts') }}
-    {{ navlink('/admin/venues',        'Venues',      _p.startswith('/admin/venues')) }}
-    {{ navlink('/admin/persons',       'People',      _p.startswith('/admin/persons')) }}
     {{ navlink('/admin/subscriptions', 'Subscribers', _p.startswith('/admin/subscriptions')) }}
     <span class="w-px h-4 bg-gray-200 mx-2 shrink-0"></span>
     <a href="/" class="text-sm text-indigo-500 hover:text-indigo-700 transition-colors">← Public</a>
@@ -74,6 +94,12 @@
     setTimeout(_pollStatus, 2000);
   }
   _pollStatus();
+  // Close Results dropdown when clicking outside
+  document.addEventListener('click', function(e) {
+    const wrap = document.getElementById('nav-results-wrap');
+    const menu = document.getElementById('nav-results-menu');
+    if (wrap && menu && !wrap.contains(e.target)) menu.classList.add('hidden');
+  });
 })();
 </script>
 
