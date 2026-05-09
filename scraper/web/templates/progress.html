@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Cache – Community Scraper{% endblock %}
+{% block title %}Progress – Community Scraper{% endblock %}
 
 {%- macro phase_cell(phase, done_at, dur_s, url_hash, run_url, can_run, extra_tip='', model=None) -%}
 {%- set label = {'scrape': 'ph-arrow-circle-down', 'extract': 'ph-brain', 'enrich_scrape': 'ph-arrow-circle-down', 'enrich_extract': 'ph-brain'}[phase] -%}
@@ -42,11 +42,11 @@
 {% block content %}
 
 <div class="flex items-center justify-between mb-6">
-  <h1 class="text-2xl font-bold text-gray-900">Page Cache</h1>
+  <h1 class="text-2xl font-bold text-gray-900">Progress</h1>
   <div class="flex items-center gap-3">
     <div id="phase-badge" class="hidden items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border"></div>
     <span class="text-sm text-gray-500"><span id="entry-count">{{ entries|length }}</span> entries<span id="filter-count" class="hidden"> · <span id="filter-count-n"></span> shown</span></span>
-    <form method="POST" action="/admin/cache/queue-extract-all"
+    <form method="POST" action="/admin/progress/queue-extract-all"
           onsubmit="return confirm('Queue AI extraction for all unprocessed entries?')">
       <button type="submit"
         class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors">
@@ -83,7 +83,7 @@
       </li>
     </ul>
     <div class="flex gap-3">
-      <form method="POST" action="/admin/cache/clear-all" class="flex-1">
+      <form method="POST" action="/admin/progress/clear-all" class="flex-1">
         <button type="submit"
           class="w-full px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition-colors">
           Delete all entries
@@ -222,18 +222,18 @@
              class="text-xs font-medium text-gray-800 hover:text-blue-600 truncate block"
              title="{{ e.url }}">{{ e.domain }}</a>
         </td>
-        {{ phase_cell("scrape",         e.scraped_at,           e.scrape_duration_s,        e.url_hash, "/admin/cache/"+e.url_hash+"/run-scrape",   true) }}
-        {{ phase_cell("extract",        e.extracted_at,         e.extract_duration_s,       e.url_hash, "/admin/cache/"+e.url_hash+"/run-extract",  e.has_text,
+        {{ phase_cell("scrape",         e.scraped_at,           e.scrape_duration_s,        e.url_hash, "/admin/progress/"+e.url_hash+"/run-scrape",   true) }}
+        {{ phase_cell("extract",        e.extracted_at,         e.extract_duration_s,       e.url_hash, "/admin/progress/"+e.url_hash+"/run-extract",  e.has_text,
             extra_tip=((e.extract_model or '?') ~ ' · ' ~ e.extract_fingerprint) if e.extract_fingerprint else '',
             model=e.extract_model) }}
-        {{ phase_cell("enrich_scrape",  e.enrich_scraped_at,    e.enrich_scrape_duration_s, e.url_hash, "/admin/cache/"+e.url_hash+"/run-enrich",   e.extracted_at) }}
-        {{ phase_cell("enrich_extract", e.enrich_extracted_at,  e.enrich_extract_duration_s,e.url_hash, "/admin/cache/"+e.url_hash+"/run-enrich",   e.extracted_at,
+        {{ phase_cell("enrich_scrape",  e.enrich_scraped_at,    e.enrich_scrape_duration_s, e.url_hash, "/admin/progress/"+e.url_hash+"/run-enrich",   e.extracted_at) }}
+        {{ phase_cell("enrich_extract", e.enrich_extracted_at,  e.enrich_extract_duration_s,e.url_hash, "/admin/progress/"+e.url_hash+"/run-enrich",   e.extracted_at,
             model=e.enrich_model) }}
         <td class="px-4 py-3 text-right text-xs font-medium text-gray-700">
           {% if e.extracted_at %}{{ e.record_count }}{% else %}<span class="text-gray-300">—</span>{% endif %}
         </td>
         <td class="px-2 py-3 text-center">
-          <a href="/admin/cache/{{ e.url_hash }}"
+          <a href="/admin/progress/{{ e.url_hash }}"
              title="Audit trail"
              class="w-8 h-8 inline-flex items-center justify-center rounded-full bg-gray-100 border border-gray-200 text-gray-500
                     hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors">
@@ -241,7 +241,7 @@
           </a>
         </td>
         <td class="px-4 py-3 text-right">
-          <form method="POST" action="/admin/cache/{{ e.url_hash }}/delete"
+          <form method="POST" action="/admin/progress/{{ e.url_hash }}/delete"
                 onsubmit="return confirm('Delete entire cache entry?')">
             <button type="submit"
               class="px-2 py-1 text-xs rounded bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 transition-colors">
@@ -374,16 +374,16 @@ function rowHtml(e) {
     <td class="px-4 py-3 max-w-xs">
       <a href="${url}" target="_blank" class="text-xs font-medium text-gray-800 hover:text-blue-600 truncate block" title="${url}">${domain}</a>
     </td>
-    ${phaseCell('scrape',         e.scraped_at,          e.scrape_duration_s,         h, '/admin/cache/'+h+'/run-scrape',  true,          undefined,  undefined)}
-    ${phaseCell('extract',        e.extracted_at,        e.extract_duration_s,        h, '/admin/cache/'+h+'/run-extract', e.has_text,    e.extract_fingerprint ? (e.extract_model||'?')+' · '+e.extract_fingerprint : undefined, e.extract_model)}
-    ${phaseCell('enrich_scrape',  e.enrich_scraped_at,   e.enrich_scrape_duration_s,  h, '/admin/cache/'+h+'/run-enrich',  !!e.extracted_at, undefined, undefined)}
-    ${phaseCell('enrich_extract', e.enrich_extracted_at, e.enrich_extract_duration_s, h, '/admin/cache/'+h+'/run-enrich',  !!e.extracted_at, undefined, e.enrich_model)}
+    ${phaseCell('scrape',         e.scraped_at,          e.scrape_duration_s,         h, '/admin/progress/'+h+'/run-scrape',  true,          undefined,  undefined)}
+    ${phaseCell('extract',        e.extracted_at,        e.extract_duration_s,        h, '/admin/progress/'+h+'/run-extract', e.has_text,    e.extract_fingerprint ? (e.extract_model||'?')+' · '+e.extract_fingerprint : undefined, e.extract_model)}
+    ${phaseCell('enrich_scrape',  e.enrich_scraped_at,   e.enrich_scrape_duration_s,  h, '/admin/progress/'+h+'/run-enrich',  !!e.extracted_at, undefined, undefined)}
+    ${phaseCell('enrich_extract', e.enrich_extracted_at, e.enrich_extract_duration_s, h, '/admin/progress/'+h+'/run-enrich',  !!e.extracted_at, undefined, e.enrich_model)}
     <td class="px-4 py-3 text-right text-xs font-medium text-gray-700">${records}</td>
     <td class="px-2 py-3 text-center">
-      <a href="/admin/cache/${h}" title="Audit trail" class="w-8 h-8 inline-flex items-center justify-center rounded-full bg-gray-100 border border-gray-200 text-gray-500 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors"><i class="ph ph-clipboard-text" style="font-size:16px"></i></a>
+      <a href="/admin/progress/${h}" title="Audit trail" class="w-8 h-8 inline-flex items-center justify-center rounded-full bg-gray-100 border border-gray-200 text-gray-500 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors"><i class="ph ph-clipboard-text" style="font-size:16px"></i></a>
     </td>
     <td class="px-4 py-3 text-right">
-      <form method="POST" action="/admin/cache/${h}/delete" onsubmit="return confirm('Delete entire cache entry?')"><button type="submit" class="px-2 py-1 text-xs rounded bg-red-50 text-red-700 hover:bg-red-100 border border-red-200">Del</button></form>
+      <form method="POST" action="/admin/progress/${h}/delete" onsubmit="return confirm('Delete entire cache entry?')"><button type="submit" class="px-2 py-1 text-xs rounded bg-red-50 text-red-700 hover:bg-red-100 border border-red-200">Del</button></form>
     </td>
   </tr>`;
 }

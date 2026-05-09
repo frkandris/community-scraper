@@ -3,7 +3,7 @@
 {% block content %}
 
 <div class="flex items-center gap-2 mb-6 text-sm">
-  <a href="/admin/cache" class="text-blue-600 hover:text-blue-800">← Cache</a>
+  <a href="/admin/progress" class="text-blue-600 hover:text-blue-800">← Cache</a>
   <span class="text-gray-400">/</span>
   <span class="text-gray-500 font-mono text-xs truncate max-w-xl">{{ entry.url_hash }}</span>
 </div>
@@ -31,20 +31,20 @@
       </div>
     </div>
     <div class="flex flex-col gap-1 shrink-0">
-      <form method="POST" action="/admin/cache/{{ entry.url_hash }}/run-scrape">
+      <form method="POST" action="/admin/progress/{{ entry.url_hash }}/run-scrape">
         <button class="w-full text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-left whitespace-nowrap">↓ Re-scrape</button>
       </form>
       {% if entry.raw_text %}
-      <form method="POST" action="/admin/cache/{{ entry.url_hash }}/run-extract">
+      <form method="POST" action="/admin/progress/{{ entry.url_hash }}/run-extract">
         <button class="w-full text-xs px-3 py-1.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 text-left whitespace-nowrap">⟳ Re-extract</button>
       </form>
       {% endif %}
       {% if entry.extracted_at %}
-      <form method="POST" action="/admin/cache/{{ entry.url_hash }}/run-enrich">
+      <form method="POST" action="/admin/progress/{{ entry.url_hash }}/run-enrich">
         <button class="w-full text-xs px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-left whitespace-nowrap">↓ Re-enrich</button>
       </form>
       {% endif %}
-      <form method="POST" action="/admin/cache/{{ entry.url_hash }}/delete"
+      <form method="POST" action="/admin/progress/{{ entry.url_hash }}/delete"
             onsubmit="return confirm('Delete entire entry?')">
         <button class="w-full text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-left whitespace-nowrap">✕ Delete all</button>
       </form>
@@ -102,7 +102,7 @@
             {% elif e.extracted_at %}bg-purple-400
             {% elif e.scraped_at %}bg-blue-400
             {% else %}bg-gray-300{% endif %}"></span>
-          <a href="/admin/cache/{{ e.url_hash }}" class="text-blue-600 hover:underline truncate">{{ e.url }}</a>
+          <a href="/admin/progress/{{ e.url_hash }}" class="text-blue-600 hover:underline truncate">{{ e.url }}</a>
         </div>
         {% endfor %}
       </div>
@@ -121,7 +121,7 @@
         entry.scraped_at,
         'blue',
         ((entry.scraped_at[:16].replace('T',' ') ~ ' · ' ~ (entry.scrape_duration_s|fmt_dur)) if entry.scraped_at else '— not done'),
-        '/admin/cache/' ~ entry.url_hash ~ '/delete-scraped',
+        '/admin/progress/' ~ entry.url_hash ~ '/delete-scraped',
         'Delete scraped text') }}
   </summary>
   {% if entry.raw_text %}
@@ -145,7 +145,7 @@
         entry.extracted_at,
         'purple',
         ((entry.extracted_at[:16].replace('T',' ') ~ ' · ' ~ (entry.extract_duration_s|fmt_dur) ~ ' · ' ~ (entry.records|length if entry.records else 0) ~ ' records') if entry.extracted_at else '— not done'),
-        '/admin/cache/' ~ entry.url_hash ~ '/delete-extracted',
+        '/admin/progress/' ~ entry.url_hash ~ '/delete-extracted',
         'Delete AI extraction') }}
   </summary>
   {% if entry.extracted_at %}
@@ -210,7 +210,7 @@
               <input type="hidden" name="city" value="{{ entry.city }}">
               <input type="hidden" name="topic" value="{{ entry.topic }}">
               <input type="hidden" name="fp_type" value="extraction">
-              <input type="hidden" name="redirect_to" value="/admin/cache/{{ current_url_hash }}">
+              <input type="hidden" name="redirect_to" value="/admin/progress/{{ current_url_hash }}">
               <button class="text-xs text-red-500 hover:text-red-700 font-medium">✕ False positive (remove)</button>
             </form>
             {% else %}
@@ -225,7 +225,7 @@
               <input type="hidden" name="topic" value="{{ entry.topic }}">
               <input type="hidden" name="source_url" value="{{ entry.url }}">
               <input type="hidden" name="fp_type" value="extraction">
-              <input type="hidden" name="redirect_to" value="/admin/cache/{{ current_url_hash }}">
+              <input type="hidden" name="redirect_to" value="/admin/progress/{{ current_url_hash }}">
               <input type="text" name="reason" required placeholder="Miért nem közösség?"
                 class="flex-1 text-xs border border-red-200 rounded-lg px-2 py-1 bg-red-50 focus:outline-none focus:ring-1 focus:ring-red-300">
               <button type="submit" class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium whitespace-nowrap">Jelölés</button>
@@ -324,7 +324,7 @@
             <input type="hidden" name="city" value="{{ entry.city }}">
             <input type="hidden" name="topic" value="{{ entry.topic }}">
             <input type="hidden" name="fp_type" value="enrichment">
-            <input type="hidden" name="redirect_to" value="/admin/cache/{{ current_url_hash }}">
+            <input type="hidden" name="redirect_to" value="/admin/progress/{{ current_url_hash }}">
             <button class="text-xs text-red-500 hover:text-red-700 font-medium">✕ FP enrichment (remove)</button>
           </form>
           {% else %}
@@ -339,7 +339,7 @@
             <input type="hidden" name="topic" value="{{ entry.topic }}">
             <input type="hidden" name="source_url" value="{{ entry.url }}">
             <input type="hidden" name="fp_type" value="enrichment">
-            <input type="hidden" name="redirect_to" value="/admin/cache/{{ current_url_hash }}">
+            <input type="hidden" name="redirect_to" value="/admin/progress/{{ current_url_hash }}">
             <input type="text" name="reason" required placeholder="Mi volt helytelen az enrichment eredményében?"
               class="flex-1 text-xs border border-red-200 rounded-lg px-2 py-1 bg-red-50 focus:outline-none focus:ring-1 focus:ring-red-300">
             <button type="submit" class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium whitespace-nowrap">Jelölés</button>

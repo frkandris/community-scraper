@@ -1072,7 +1072,7 @@ async def fp_add_route(
     redirect_to: str = Form(""),
 ):
     fp_add(_db(), name, city, topic, reason, source_url, fp_type=fp_type)
-    return RedirectResponse(_safe_redirect_target(redirect_to, "/admin/cache"), status_code=302)
+    return RedirectResponse(_safe_redirect_target(redirect_to, "/admin/progress"), status_code=302)
 
 
 @admin.post("/false-positive/remove")
@@ -1084,7 +1084,7 @@ async def fp_remove_route(
     redirect_to: str = Form(""),
 ):
     fp_remove(_db(), name, city, topic, fp_type=fp_type)
-    return RedirectResponse(_safe_redirect_target(redirect_to, "/admin/cache"), status_code=302)
+    return RedirectResponse(_safe_redirect_target(redirect_to, "/admin/progress"), status_code=302)
 
 
 @admin.get("/prompts", response_class=HTMLResponse)
@@ -1431,11 +1431,11 @@ async def api_cache_entries():
     return JSONResponse(entries)
 
 
-@admin.post("/cache/queue-extract-all")
+@admin.post("/progress/queue-extract-all")
 async def cache_queue_extract_all():
     """Enqueue AI extraction for every entry that has scraped text but no extraction yet."""
     if not app_state.cache_manager or not app_state.pipeline_cfg:
-        return RedirectResponse("/admin/cache", status_code=302)
+        return RedirectResponse("/admin/progress", status_code=302)
     entries = app_state.cache_manager.get_index()
     cfg = app_state.pipeline_cfg
     count = 0
@@ -1480,25 +1480,33 @@ async def cache_queue_extract_all():
         count += 1
 
     log.info("bulk_extract_queued", count=count)
-    return RedirectResponse("/admin/cache", status_code=302)
+    return RedirectResponse("/admin/progress", status_code=302)
 
 
-@admin.get("/cache", response_class=HTMLResponse)
+@admin.get("/cache")
+async def cache_redirect():
+    return RedirectResponse("/admin/progress", status_code=301)
+
+@admin.get("/cache/{url_hash}")
+async def cache_detail_redirect(url_hash: str):
+    return RedirectResponse(f"/admin/progress/{url_hash}", status_code=301)
+
+@admin.get("/progress", response_class=HTMLResponse)
 async def cache_page(request: Request):
     entries = []
     if app_state.cache_manager:
         entries = app_state.cache_manager.get_index()
-    return templates.TemplateResponse(request, "cache.html", {"entries": entries})
+    return templates.TemplateResponse(request, "progress.html", {"entries": entries})
 
 
-@admin.get("/cache/{url_hash}", response_class=HTMLResponse)
+@admin.get("/progress/{url_hash}", response_class=HTMLResponse)
 async def cache_detail(request: Request, url_hash: str):
     if not app_state.cache_manager:
-        return RedirectResponse("/admin/cache", status_code=302)
+        return RedirectResponse("/admin/progress", status_code=302)
 
     entry = app_state.cache_manager.get_entry(url_hash)
     if not entry:
-        return RedirectResponse("/admin/cache", status_code=302)
+        return RedirectResponse("/admin/progress", status_code=302)
 
     store_records = []
     city = entry.get("city", "")
@@ -1537,7 +1545,7 @@ async def cache_detail(request: Request, url_hash: str):
             if e.get("city") == city and e.get("topic") == topic and e.get("url_hash") != url_hash
         ]
 
-    return templates.TemplateResponse(request, "cache_detail.html", {
+    return templates.TemplateResponse(request, "progress_detail.html", {
         "entry": entry,
         "store_records": store_records,
         "schema_json": schema_json,
@@ -1554,43 +1562,43 @@ async def cache_detail(request: Request, url_hash: str):
     })
 
 
-@admin.post("/cache/{url_hash}/delete-scraped")
+@admin.post("/progress/{url_hash}/delete-scraped")
 async def cache_delete_scraped(url_hash: str):
     if app_state.cache_manager:
         app_state.cache_manager.delete_scraped(url_hash)
-    return RedirectResponse("/admin/cache", status_code=302)
+    return RedirectResponse("/admin/progress", status_code=302)
 
 
-@admin.post("/cache/{url_hash}/delete-extracted")
+@admin.post("/progress/{url_hash}/delete-extracted")
 async def cache_delete_extracted(url_hash: str):
     if app_state.cache_manager:
         app_state.cache_manager.delete_extracted(url_hash)
-    return RedirectResponse("/admin/cache", status_code=302)
+    return RedirectResponse("/admin/progress", status_code=302)
 
 
-@admin.post("/cache/{url_hash}/delete")
+@admin.post("/progress/{url_hash}/delete")
 async def cache_delete_entry(url_hash: str):
     if app_state.cache_manager:
         app_state.cache_manager.delete_entry(url_hash)
-    return RedirectResponse("/admin/cache", status_code=302)
+    return RedirectResponse("/admin/progress", status_code=302)
 
 
-@admin.post("/cache/clear-all")
+@admin.post("/progress/clear-all")
 async def cache_clear_all():
     if app_state.cache_manager:
         app_state.cache_manager.clear_all()
     deleted = delete_all_communities(_db())
     log.info("clear_all_data", deleted_communities=deleted)
-    return RedirectResponse("/admin/cache", status_code=302)
+    return RedirectResponse("/admin/progress", status_code=302)
 
 
-@admin.post("/cache/{url_hash}/run-scrape")
+@admin.post("/progress/{url_hash}/run-scrape")
 async def cache_run_scrape(url_hash: str):
     if not app_state.cache_manager or not app_state.pipeline_cfg:
-        return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
+        return RedirectResponse(f"/admin/progress/{url_hash}", status_code=302)
     entry = app_state.cache_manager.get_entry(url_hash)
     if not entry:
-        return RedirectResponse("/admin/cache", status_code=302)
+        return RedirectResponse("/admin/progress", status_code=302)
 
     url = entry["url"]
     city = entry.get("city", "")
@@ -1619,16 +1627,16 @@ async def cache_run_scrape(url_hash: str):
             app_state.current_url = None
 
     _enqueue("scrape", url_hash, url, city, topic, _do, priority=True)
-    return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
+    return RedirectResponse(f"/admin/progress/{url_hash}", status_code=302)
 
 
-@admin.post("/cache/{url_hash}/run-extract")
+@admin.post("/progress/{url_hash}/run-extract")
 async def cache_run_extract(url_hash: str):
     if not app_state.cache_manager or not app_state.pipeline_cfg:
-        return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
+        return RedirectResponse(f"/admin/progress/{url_hash}", status_code=302)
     entry = app_state.cache_manager.get_entry(url_hash)
     if not entry or not entry.get("raw_text"):
-        return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
+        return RedirectResponse(f"/admin/progress/{url_hash}", status_code=302)
 
     url = entry["url"]
     city = entry.get("city", "")
@@ -1664,17 +1672,17 @@ async def cache_run_extract(url_hash: str):
             app_state.current_url = None
 
     _enqueue("extract", url_hash, url, city, topic, _do, priority=True)
-    return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
+    return RedirectResponse(f"/admin/progress/{url_hash}", status_code=302)
 
 
-@admin.post("/cache/{url_hash}/run-enrich")
+@admin.post("/progress/{url_hash}/run-enrich")
 async def cache_run_enrich(url_hash: str):
     if not app_state.cache_manager or not app_state.pipeline_cfg:
-        return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
+        return RedirectResponse(f"/admin/progress/{url_hash}", status_code=302)
     entry = app_state.cache_manager.get_entry(url_hash)
     records = app_state.cache_manager.get_extracted(entry["url"]) if entry else None
     if not records:
-        return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
+        return RedirectResponse(f"/admin/progress/{url_hash}", status_code=302)
 
     url = entry["url"]
     city = entry.get("city", "")
@@ -1724,7 +1732,7 @@ async def cache_run_enrich(url_hash: str):
             app_state.current_url = None
 
     _enqueue("enrich", url_hash, url, city, topic, _do, priority=True)
-    return RedirectResponse(f"/admin/cache/{url_hash}", status_code=302)
+    return RedirectResponse(f"/admin/progress/{url_hash}", status_code=302)
 
 
 @admin.get("/runs/{run_id}", response_class=HTMLResponse)
