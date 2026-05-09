@@ -19,4 +19,5 @@ scraper/web/static/css/app.css
 
 .agents/
 .claude/
+.superpowers/
 skills-lock.json
