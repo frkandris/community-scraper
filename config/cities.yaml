@@ -1,9 +1,5 @@
 cities:
   # Hungary
-  - name: Szentendre
-    country: Hungary
-    locale: hu
-    search_variants: [Szentendre]
   - name: Budapest
     country: Hungary
     locale: hu
@@ -12,34 +8,1354 @@ cities:
     country: Hungary
     locale: hu
     search_variants: [Debrecen]
-  - name: Miskolc
-    country: Hungary
-    locale: hu
-    search_variants: [Miskolc]
-  - name: Győr
-    country: Hungary
-    locale: hu
-    search_variants: [Győr, Gyor]
-  - name: Pécs
-    country: Hungary
-    locale: hu
-    search_variants: [Pécs, Pecs]
   - name: Szeged
     country: Hungary
     locale: hu
     search_variants: [Szeged]
-  - name: Kecskemét
+  - name: Miskolc
     country: Hungary
     locale: hu
-    search_variants: [Kecskemét, Kecskemet]
+    search_variants: [Miskolc]
+  - name: Pécs
+    country: Hungary
+    locale: hu
+    search_variants: [Pécs, Pecs]
+  - name: Győr
+    country: Hungary
+    locale: hu
+    search_variants: [Győr, Gyor]
   - name: Nyíregyháza
     country: Hungary
     locale: hu
     search_variants: [Nyíregyháza, Nyiregyhaza]
+  - name: Kecskemét
+    country: Hungary
+    locale: hu
+    search_variants: [Kecskemét, Kecskemet]
   - name: Székesfehérvár
     country: Hungary
     locale: hu
     search_variants: [Székesfehérvár, Szekesfehervar]
+  - name: Szombathely
+    country: Hungary
+    locale: hu
+    search_variants: [Szombathely]
+  - name: Érd
+    country: Hungary
+    locale: hu
+    search_variants: [Érd, Erd]
+  - name: Szolnok
+    country: Hungary
+    locale: hu
+    search_variants: [Szolnok]
+  - name: Tatabánya
+    country: Hungary
+    locale: hu
+    search_variants: [Tatabánya, Tatabanya]
+  - name: Sopron
+    country: Hungary
+    locale: hu
+    search_variants: [Sopron]
+  - name: Kaposvár
+    country: Hungary
+    locale: hu
+    search_variants: [Kaposvár, Kaposvar]
+  - name: Békéscsaba
+    country: Hungary
+    locale: hu
+    search_variants: [Békéscsaba, Bekescsaba]
+  - name: Veszprém
+    country: Hungary
+    locale: hu
+    search_variants: [Veszprém, Veszprem]
+  - name: Zalaegerszeg
+    country: Hungary
+    locale: hu
+    search_variants: [Zalaegerszeg]
+  - name: Eger
+    country: Hungary
+    locale: hu
+    search_variants: [Eger, "Eger Hungary"]
+  - name: Nagykanizsa
+    country: Hungary
+    locale: hu
+    search_variants: [Nagykanizsa]
+  - name: Dunakeszi
+    country: Hungary
+    locale: hu
+    search_variants: [Dunakeszi]
+  - name: Hódmezővásárhely
+    country: Hungary
+    locale: hu
+    search_variants: [Hódmezővásárhely, Hodmezovasarhely]
+  - name: Dunaújváros
+    country: Hungary
+    locale: hu
+    search_variants: [Dunaújváros, Dunaujvaros]
+  - name: Szigetszentmiklós
+    country: Hungary
+    locale: hu
+    search_variants: [Szigetszentmiklós, Szigetszentmiklos]
+  - name: Cegléd
+    country: Hungary
+    locale: hu
+    search_variants: [Cegléd, Cegled]
+  - name: Vác
+    country: Hungary
+    locale: hu
+    search_variants: [Vác, Vac]
+  - name: Mosonmagyaróvár
+    country: Hungary
+    locale: hu
+    search_variants: [Mosonmagyaróvár, Mosonmagyarovar]
+  - name: Baja
+    country: Hungary
+    locale: hu
+    search_variants: [Baja, "Baja Hungary"]
+  - name: Gödöllő
+    country: Hungary
+    locale: hu
+    search_variants: [Gödöllő, Godollo]
+  - name: Salgótarján
+    country: Hungary
+    locale: hu
+    search_variants: [Salgótarján, Salgotarjan]
+  - name: Ózd
+    country: Hungary
+    locale: hu
+    search_variants: [Ózd, Ozd]
+  - name: Szekszárd
+    country: Hungary
+    locale: hu
+    search_variants: [Szekszárd, Szekszard]
+  - name: Hajdúböszörmény
+    country: Hungary
+    locale: hu
+    search_variants: [Hajdúböszörmény, Hajduboszormeny]
+  - name: Pápa
+    country: Hungary
+    locale: hu
+    search_variants: [Pápa, Papa]
+  - name: Budaörs
+    country: Hungary
+    locale: hu
+    search_variants: [Budaörs, Budaors]
+  - name: Kiskunfélegyháza
+    country: Hungary
+    locale: hu
+    search_variants: [Kiskunfélegyháza, Kiskunfelegyhaza]
+  - name: Gyula
+    country: Hungary
+    locale: hu
+    search_variants: [Gyula]
+  - name: Esztergom
+    country: Hungary
+    locale: hu
+    search_variants: [Esztergom]
+  - name: Szentendre
+    country: Hungary
+    locale: hu
+    search_variants: [Szentendre]
+  - name: Gyöngyös
+    country: Hungary
+    locale: hu
+    search_variants: [Gyöngyös, Gyongyos]
+  - name: Ajka
+    country: Hungary
+    locale: hu
+    search_variants: [Ajka]
+  - name: Jászberény
+    country: Hungary
+    locale: hu
+    search_variants: [Jászberény, Jaszbereny]
+  - name: Siófok
+    country: Hungary
+    locale: hu
+    search_variants: [Siófok, Siofok]
+  - name: Orosháza
+    country: Hungary
+    locale: hu
+    search_variants: [Orosháza, Oroshaza]
+  - name: Kiskunhalas
+    country: Hungary
+    locale: hu
+    search_variants: [Kiskunhalas]
+  - name: Szentes
+    country: Hungary
+    locale: hu
+    search_variants: [Szentes]
+  - name: Gyál
+    country: Hungary
+    locale: hu
+    search_variants: [Gyál, Gyal]
+  - name: Kazincbarcika
+    country: Hungary
+    locale: hu
+    search_variants: [Kazincbarcika]
+  - name: Hajdúszoboszló
+    country: Hungary
+    locale: hu
+    search_variants: [Hajdúszoboszló, Hajduszoboszlo]
+  - name: Dunaharaszti
+    country: Hungary
+    locale: hu
+    search_variants: [Dunaharaszti]
+  - name: Nagykőrös
+    country: Hungary
+    locale: hu
+    search_variants: [Nagykőrös, Nagykoros]
+  - name: Tata
+    country: Hungary
+    locale: hu
+    search_variants: [Tata, "Tata Hungary"]
+  - name: Komló
+    country: Hungary
+    locale: hu
+    search_variants: [Komló, Komlo]
+  - name: Makó
+    country: Hungary
+    locale: hu
+    search_variants: [Makó, Mako]
+  - name: Vecsés
+    country: Hungary
+    locale: hu
+    search_variants: [Vecsés, Vecses]
+  - name: Törökszentmiklós
+    country: Hungary
+    locale: hu
+    search_variants: [Törökszentmiklós, Torokszentmiklos]
+  - name: Hatvan
+    country: Hungary
+    locale: hu
+    search_variants: [Hatvan]
+  - name: Karcag
+    country: Hungary
+    locale: hu
+    search_variants: [Karcag]
+  - name: Keszthely
+    country: Hungary
+    locale: hu
+    search_variants: [Keszthely]
+  - name: Várpalota
+    country: Hungary
+    locale: hu
+    search_variants: [Várpalota, Varpalota]
+  - name: Békés
+    country: Hungary
+    locale: hu
+    search_variants: [Békés, Bekes]
+  - name: Fót
+    country: Hungary
+    locale: hu
+    search_variants: [Fót, Fot]
+  - name: Paks
+    country: Hungary
+    locale: hu
+    search_variants: [Paks]
+  - name: Komárom
+    country: Hungary
+    locale: hu
+    search_variants: [Komárom, Komarom, "Komárom Hungary"]
+  - name: Százhalombatta
+    country: Hungary
+    locale: hu
+    search_variants: [Százhalombatta, Szazhalombatta]
+  - name: Dombóvár
+    country: Hungary
+    locale: hu
+    search_variants: [Dombóvár, Dombovar]
+  - name: Göd
+    country: Hungary
+    locale: hu
+    search_variants: [Göd, God]
+  - name: Oroszlány
+    country: Hungary
+    locale: hu
+    search_variants: [Oroszlány, Oroszlany]
+  - name: Monor
+    country: Hungary
+    locale: hu
+    search_variants: [Monor]
+  - name: Veresegyház
+    country: Hungary
+    locale: hu
+    search_variants: [Veresegyház, Veresegyhaz]
+  - name: Balmazújváros
+    country: Hungary
+    locale: hu
+    search_variants: [Balmazújváros, Balmazujvaros]
+  - name: Mohács
+    country: Hungary
+    locale: hu
+    search_variants: [Mohács, Mohacs]
+  - name: Gyömrő
+    country: Hungary
+    locale: hu
+    search_variants: [Gyömrő, Gyomro]
+  - name: Szigethalom
+    country: Hungary
+    locale: hu
+    search_variants: [Szigethalom]
+  - name: Hajdúnánás
+    country: Hungary
+    locale: hu
+    search_variants: [Hajdúnánás, Hajdunanas]
+  - name: Mátészalka
+    country: Hungary
+    locale: hu
+    search_variants: [Mátészalka, Mateszalka]
+  - name: Pomáz
+    country: Hungary
+    locale: hu
+    search_variants: [Pomáz, Pomaz]
+  - name: Dabas
+    country: Hungary
+    locale: hu
+    search_variants: [Dabas]
+  - name: Mezőtúr
+    country: Hungary
+    locale: hu
+    search_variants: [Mezőtúr, Mezotur]
+  - name: Kisvárda
+    country: Hungary
+    locale: hu
+    search_variants: [Kisvárda, Kisvarda]
+  - name: Mezőkövesd
+    country: Hungary
+    locale: hu
+    search_variants: [Mezőkövesd, Mezokovesd]
+  - name: Csongrád
+    country: Hungary
+    locale: hu
+    search_variants: [Csongrád, Csongrad]
+  - name: Szarvas
+    country: Hungary
+    locale: hu
+    search_variants: [Szarvas]
+  - name: Kalocsa
+    country: Hungary
+    locale: hu
+    search_variants: [Kalocsa]
+  - name: Tiszaújváros
+    country: Hungary
+    locale: hu
+    search_variants: [Tiszaújváros, Tiszaujvaros]
+  - name: Pécel
+    country: Hungary
+    locale: hu
+    search_variants: [Pécel, Pecel]
+  - name: Tapolca
+    country: Hungary
+    locale: hu
+    search_variants: [Tapolca]
+  - name: Balassagyarmat
+    country: Hungary
+    locale: hu
+    search_variants: [Balassagyarmat]
+  - name: Berettyóújfalu
+    country: Hungary
+    locale: hu
+    search_variants: [Berettyóújfalu, Berettyoujfalu]
+  - name: Sárvár
+    country: Hungary
+    locale: hu
+    search_variants: [Sárvár, Sarvar]
+  - name: Sátoraljaújhely
+    country: Hungary
+    locale: hu
+    search_variants: [Sátoraljaújhely, Satoraljaujhely]
+  - name: Püspökladány
+    country: Hungary
+    locale: hu
+    search_variants: [Püspökladány, Puspokladany]
+  - name: Abony
+    country: Hungary
+    locale: hu
+    search_variants: [Abony]
+  - name: Kiskőrös
+    country: Hungary
+    locale: hu
+    search_variants: [Kiskőrös, Kiskoros]
+  - name: Mór
+    country: Hungary
+    locale: hu
+    search_variants: [Mór, Mor]
+  - name: Budakeszi
+    country: Hungary
+    locale: hu
+    search_variants: [Budakeszi]
+  - name: Pilisvörösvár
+    country: Hungary
+    locale: hu
+    search_variants: [Pilisvörösvár, Pilisvorosvar]
+  - name: Törökbálint
+    country: Hungary
+    locale: hu
+    search_variants: [Törökbálint, Torokbalint]
+  - name: Bonyhád
+    country: Hungary
+    locale: hu
+    search_variants: [Bonyhád, Bonyhad]
+  - name: Gyomaendrőd
+    country: Hungary
+    locale: hu
+    search_variants: [Gyomaendrőd, Gyomaendrod]
+  - name: Hajdúsámson
+    country: Hungary
+    locale: hu
+    search_variants: [Hajdúsámson, Hajdusamson]
+  - name: Balatonfüred
+    country: Hungary
+    locale: hu
+    search_variants: [Balatonfüred, Balatonfured]
+  - name: Biatorbágy
+    country: Hungary
+    locale: hu
+    search_variants: [Biatorbágy, Biatorbagy]
+  - name: Tiszavasvári
+    country: Hungary
+    locale: hu
+    search_variants: [Tiszavasvári, Tiszavasvari]
+  - name: Hajdúhadház
+    country: Hungary
+    locale: hu
+    search_variants: [Hajdúhadház, Hajduhadhaz]
+  - name: Újfehértó
+    country: Hungary
+    locale: hu
+    search_variants: [Újfehértó, Ujfeherto]
+  - name: Gárdony
+    country: Hungary
+    locale: hu
+    search_variants: [Gárdony, Gardony]
+  - name: Nagykáta
+    country: Hungary
+    locale: hu
+    search_variants: [Nagykáta, Nagykata]
+  - name: Kistarcsa
+    country: Hungary
+    locale: hu
+    search_variants: [Kistarcsa]
+  - name: Bátonyterenye
+    country: Hungary
+    locale: hu
+    search_variants: [Bátonyterenye, Batonyterenye]
+  - name: Albertirsa
+    country: Hungary
+    locale: hu
+    search_variants: [Albertirsa]
+  - name: Nyírbátor
+    country: Hungary
+    locale: hu
+    search_variants: [Nyírbátor, Nyirbator]
+  - name: Sárospatak
+    country: Hungary
+    locale: hu
+    search_variants: [Sárospatak, Sarospatak]
+  - name: Sárbogárd
+    country: Hungary
+    locale: hu
+    search_variants: [Sárbogárd, Sarbogard]
+  - name: Maglód
+    country: Hungary
+    locale: hu
+    search_variants: [Maglód, Maglod]
+  - name: Bicske
+    country: Hungary
+    locale: hu
+    search_variants: [Bicske]
+  - name: Dorog
+    country: Hungary
+    locale: hu
+    search_variants: [Dorog]
+  - name: Üllő
+    country: Hungary
+    locale: hu
+    search_variants: [Üllő, Ullo]
+  - name: Tiszakécske
+    country: Hungary
+    locale: hu
+    search_variants: [Tiszakécske, Tiszakecske]
+  - name: Kőszeg
+    country: Hungary
+    locale: hu
+    search_variants: [Kőszeg, Koszeg]
+  - name: Pilis
+    country: Hungary
+    locale: hu
+    search_variants: [Pilis]
+  - name: Sajószentpéter
+    country: Hungary
+    locale: hu
+    search_variants: [Sajószentpéter, Sajoszentpeter]
+  - name: Körmend
+    country: Hungary
+    locale: hu
+    search_variants: [Körmend, Kormend]
+  - name: Marcali
+    country: Hungary
+    locale: hu
+    search_variants: [Marcali]
+  - name: Lajosmizse
+    country: Hungary
+    locale: hu
+    search_variants: [Lajosmizse]
+  - name: Isaszeg
+    country: Hungary
+    locale: hu
+    search_variants: [Isaszeg]
+  - name: Kiskunmajsa
+    country: Hungary
+    locale: hu
+    search_variants: [Kiskunmajsa]
+  - name: Kisújszállás
+    country: Hungary
+    locale: hu
+    search_variants: [Kisújszállás, Kisujszallas]
+  - name: Tiszafüred
+    country: Hungary
+    locale: hu
+    search_variants: [Tiszafüred, Tiszafured]
+  - name: Tolna
+    country: Hungary
+    locale: hu
+    search_variants: [Tolna]
+  - name: Celldömölk
+    country: Hungary
+    locale: hu
+    search_variants: [Celldömölk, Celldomolk]
+  - name: Tiszaföldvár
+    country: Hungary
+    locale: hu
+    search_variants: [Tiszaföldvár, Tiszafoldvar]
+  - name: Barcs
+    country: Hungary
+    locale: hu
+    search_variants: [Barcs]
+  - name: Budakalász
+    country: Hungary
+    locale: hu
+    search_variants: [Budakalász, Budakalasz]
+  - name: Szigetvár
+    country: Hungary
+    locale: hu
+    search_variants: [Szigetvár, Szigetvar]
+  - name: Heves
+    country: Hungary
+    locale: hu
+    search_variants: [Heves]
+  - name: Nagyatád
+    country: Hungary
+    locale: hu
+    search_variants: [Nagyatád, Nagyatad]
+  - name: Kapuvár
+    country: Hungary
+    locale: hu
+    search_variants: [Kapuvár, Kapuvar]
+  - name: Csorna
+    country: Hungary
+    locale: hu
+    search_variants: [Csorna]
+  - name: Tököl
+    country: Hungary
+    locale: hu
+    search_variants: [Tököl, Tokol]
+  - name: Mezőberény
+    country: Hungary
+    locale: hu
+    search_variants: [Mezőberény, Mezobereny]
+  - name: Ráckeve
+    country: Hungary
+    locale: hu
+    search_variants: [Ráckeve, Rackeve]
+  - name: Kerepes
+    country: Hungary
+    locale: hu
+    search_variants: [Kerepes]
+  - name: Sarkad
+    country: Hungary
+    locale: hu
+    search_variants: [Sarkad]
+  - name: Halásztelek
+    country: Hungary
+    locale: hu
+    search_variants: [Halásztelek, Halasztelek]
+  - name: Edelény
+    country: Hungary
+    locale: hu
+    search_variants: [Edelény, Edeleny]
+  - name: Ócsa
+    country: Hungary
+    locale: hu
+    search_variants: [Ócsa, Ocsa]
+  - name: Pásztó
+    country: Hungary
+    locale: hu
+    search_variants: [Pásztó, Paszto]
+  - name: Nagykálló
+    country: Hungary
+    locale: hu
+    search_variants: [Nagykálló, Nagykallo]
+  - name: Siklós
+    country: Hungary
+    locale: hu
+    search_variants: [Siklós, Siklos]
+  - name: Szeghalom
+    country: Hungary
+    locale: hu
+    search_variants: [Szeghalom]
+  - name: Szerencs
+    country: Hungary
+    locale: hu
+    search_variants: [Szerencs]
+  - name: Szentgotthárd
+    country: Hungary
+    locale: hu
+    search_variants: [Szentgotthárd, Szentgotthard]
+  - name: Vásárosnamény
+    country: Hungary
+    locale: hu
+    search_variants: [Vásárosnamény, Vasarosnameny]
+  - name: Nádudvar
+    country: Hungary
+    locale: hu
+    search_variants: [Nádudvar, Nadudvar]
+  - name: Hajdúdorog
+    country: Hungary
+    locale: hu
+    search_variants: [Hajdúdorog, Hajdudorog]
+  - name: Derecske
+    country: Hungary
+    locale: hu
+    search_variants: [Derecske]
+  - name: Balatonalmádi
+    country: Hungary
+    locale: hu
+    search_variants: [Balatonalmádi, Balatonalmadi]
+  - name: Túrkeve
+    country: Hungary
+    locale: hu
+    search_variants: [Túrkeve, Turkeve]
+  - name: Jánoshalma
+    country: Hungary
+    locale: hu
+    search_variants: [Jánoshalma, Janoshalma]
+  - name: Dunaföldvár
+    country: Hungary
+    locale: hu
+    search_variants: [Dunaföldvár, Dunafoldvar]
+  - name: Kecel
+    country: Hungary
+    locale: hu
+    search_variants: [Kecel]
+  - name: Jászapáti
+    country: Hungary
+    locale: hu
+    search_variants: [Jászapáti, Jaszapati]
+  - name: Kunszentmárton
+    country: Hungary
+    locale: hu
+    search_variants: [Kunszentmárton, Kunszentmarton]
+  - name: Kunszentmiklós
+    country: Hungary
+    locale: hu
+    search_variants: [Kunszentmiklós, Kunszentmiklos]
+  - name: Tamási
+    country: Hungary
+    locale: hu
+    search_variants: [Tamási, Tamasi]
+  - name: Fehérgyarmat
+    country: Hungary
+    locale: hu
+    search_variants: [Fehérgyarmat, Fehergyarmat]
+  - name: Ercsi
+    country: Hungary
+    locale: hu
+    search_variants: [Ercsi]
+  - name: Polgár
+    country: Hungary
+    locale: hu
+    search_variants: [Polgár, Polgar]
+  - name: Sándorfalva
+    country: Hungary
+    locale: hu
+    search_variants: [Sándorfalva, Sandorfalva]
+  - name: Jászárokszállás
+    country: Hungary
+    locale: hu
+    search_variants: [Jászárokszállás, Jaszarokszallas]
+  - name: Dévaványa
+    country: Hungary
+    locale: hu
+    search_variants: [Dévaványa, Devavanya]
+  - name: Nyíradony
+    country: Hungary
+    locale: hu
+    search_variants: [Nyíradony, Nyiradony]
+  - name: Tura
+    country: Hungary
+    locale: hu
+    search_variants: [Tura]
+  - name: Dunavarsány
+    country: Hungary
+    locale: hu
+    search_variants: [Dunavarsány, Dunavarsany]
+  - name: Kunhegyes
+    country: Hungary
+    locale: hu
+    search_variants: [Kunhegyes]
+  - name: Füzesabony
+    country: Hungary
+    locale: hu
+    search_variants: [Füzesabony, Fuzesabony]
+  - name: Soltvadkert
+    country: Hungary
+    locale: hu
+    search_variants: [Soltvadkert]
+  - name: Nyergesújfalu
+    country: Hungary
+    locale: hu
+    search_variants: [Nyergesújfalu, Nyergesujfalu]
+  - name: Lenti
+    country: Hungary
+    locale: hu
+    search_variants: [Lenti]
+  - name: Létavértes
+    country: Hungary
+    locale: hu
+    search_variants: [Létavértes, Letavertes]
+  - name: Kistelek
+    country: Hungary
+    locale: hu
+    search_variants: [Kistelek]
+  - name: Zirc
+    country: Hungary
+    locale: hu
+    search_variants: [Zirc]
+  - name: Polgárdi
+    country: Hungary
+    locale: hu
+    search_variants: [Polgárdi, Polgardi]
+  - name: Ács
+    country: Hungary
+    locale: hu
+    search_variants: [Ács, Acs]
+  - name: Vésztő
+    country: Hungary
+    locale: hu
+    search_variants: [Vésztő, Veszto]
+  - name: Mindszent
+    country: Hungary
+    locale: hu
+    search_variants: [Mindszent]
+  - name: Ibrány
+    country: Hungary
+    locale: hu
+    search_variants: [Ibrány, Ibrany]
+  - name: Enying
+    country: Hungary
+    locale: hu
+    search_variants: [Enying]
+  - name: Putnok
+    country: Hungary
+    locale: hu
+    search_variants: [Putnok]
+  - name: Nyírtelek
+    country: Hungary
+    locale: hu
+    search_variants: [Nyírtelek, Nyirtelek]
+  - name: Bácsalmás
+    country: Hungary
+    locale: hu
+    search_variants: [Bácsalmás, Bacsalmas]
+  - name: Felsőzsolca
+    country: Hungary
+    locale: hu
+    search_variants: [Felsőzsolca, Felsozsolca]
+  - name: Kerekegyháza
+    country: Hungary
+    locale: hu
+    search_variants: [Kerekegyháza, Kerekegyhaza]
+  - name: Zalaszentgrót
+    country: Hungary
+    locale: hu
+    search_variants: [Zalaszentgrót, Zalaszentgrot]
+  - name: Balkány
+    country: Hungary
+    locale: hu
+    search_variants: [Balkány, Balkany]
+  - name: Szentlőrinc
+    country: Hungary
+    locale: hu
+    search_variants: [Szentlőrinc, Szentlorinc]
+  - name: Fegyvernek
+    country: Hungary
+    locale: hu
+    search_variants: [Fegyvernek]
+  - name: Téglás
+    country: Hungary
+    locale: hu
+    search_variants: [Téglás, Teglas]
+  - name: Nagyecsed
+    country: Hungary
+    locale: hu
+    search_variants: [Nagyecsed]
+  - name: Solt
+    country: Hungary
+    locale: hu
+    search_variants: [Solt]
+  - name: Encs
+    country: Hungary
+    locale: hu
+    search_variants: [Encs]
+  - name: Martfű
+    country: Hungary
+    locale: hu
+    search_variants: [Martfű, Martfu]
+  - name: Aszód
+    country: Hungary
+    locale: hu
+    search_variants: [Aszód, Aszod]
+  - name: Sümeg
+    country: Hungary
+    locale: hu
+    search_variants: [Sümeg, Sumeg]
+  - name: Bátaszék
+    country: Hungary
+    locale: hu
+    search_variants: [Bátaszék, Bataszek]
+  - name: Szabadszállás
+    country: Hungary
+    locale: hu
+    search_variants: [Szabadszállás, Szabadszallas]
+  - name: Jánossomorja
+    country: Hungary
+    locale: hu
+    search_variants: [Jánossomorja, Janossomorja]
+  - name: Mezőkovácsháza
+    country: Hungary
+    locale: hu
+    search_variants: [Mezőkovácsháza, Mezokovacshaza]
+  - name: Újszász
+    country: Hungary
+    locale: hu
+    search_variants: [Újszász, Ujszasz]
+  - name: Mórahalom
+    country: Hungary
+    locale: hu
+    search_variants: [Mórahalom, Morahalom]
+  - name: Kozármisleny
+    country: Hungary
+    locale: hu
+    search_variants: [Kozármisleny, Kozarmisleny]
+  - name: Tótkomlós
+    country: Hungary
+    locale: hu
+    search_variants: [Tótkomlós, Totkomlos]
+  - name: Szécsény
+    country: Hungary
+    locale: hu
+    search_variants: [Szécsény, Szecseny]
+  - name: Tápiószele
+    country: Hungary
+    locale: hu
+    search_variants: [Tápiószele, Tapioszele]
+  - name: Pusztaszabolcs
+    country: Hungary
+    locale: hu
+    search_variants: [Pusztaszabolcs]
+  - name: Battonya
+    country: Hungary
+    locale: hu
+    search_variants: [Battonya]
+  - name: Mezőcsát
+    country: Hungary
+    locale: hu
+    search_variants: [Mezőcsát, Mezocsat]
+  - name: Kaba
+    country: Hungary
+    locale: hu
+    search_variants: [Kaba]
+  - name: Berhida
+    country: Hungary
+    locale: hu
+    search_variants: [Berhida]
+  - name: Füzesgyarmat
+    country: Hungary
+    locale: hu
+    search_variants: [Füzesgyarmat, Fuzesgyarmat]
+  - name: Balatonboglár
+    country: Hungary
+    locale: hu
+    search_variants: [Balatonboglár, Balatonboglar]
+  - name: Nagyhalász
+    country: Hungary
+    locale: hu
+    search_variants: [Nagyhalász, Nagyhalasz]
+  - name: Velence
+    country: Hungary
+    locale: hu
+    search_variants: [Velence]
+  - name: Izsák
+    country: Hungary
+    locale: hu
+    search_variants: [Izsák, Izsak]
+  - name: Alsózsolca
+    country: Hungary
+    locale: hu
+    search_variants: [Alsózsolca, Alsozsolca]
+  - name: Jászfényszaru
+    country: Hungary
+    locale: hu
+    search_variants: [Jászfényszaru, Jaszfenyszaru]
+  - name: Martonvásár
+    country: Hungary
+    locale: hu
+    search_variants: [Martonvásár, Martonvasar]
+  - name: Lőrinci
+    country: Hungary
+    locale: hu
+    search_variants: [Lőrinci, Lorinci]
+  - name: Zsámbék
+    country: Hungary
+    locale: hu
+    search_variants: [Zsámbék, Zsambek]
+  - name: Kisbér
+    country: Hungary
+    locale: hu
+    search_variants: [Kisbér, Kisber]
+  - name: Jászkisér
+    country: Hungary
+    locale: hu
+    search_variants: [Jászkisér, Jaszkiser]
+  - name: Komádi
+    country: Hungary
+    locale: hu
+    search_variants: [Komádi, Komadi]
+  - name: Vámospércs
+    country: Hungary
+    locale: hu
+    search_variants: [Vámospércs, Vamospercs]
+  - name: Szikszó
+    country: Hungary
+    locale: hu
+    search_variants: [Szikszó, Szikszo]
+  - name: Tiszalök
+    country: Hungary
+    locale: hu
+    search_variants: [Tiszalök, Tiszalok]
+  - name: Mezőhegyes
+    country: Hungary
+    locale: hu
+    search_variants: [Mezőhegyes, Mezohegyes]
+  - name: Rákóczifalva
+    country: Hungary
+    locale: hu
+    search_variants: [Rákóczifalva, Rakoczifalva]
+  - name: Csákvár
+    country: Hungary
+    locale: hu
+    search_variants: [Csákvár, Csakvar]
+  - name: Tát
+    country: Hungary
+    locale: hu
+    search_variants: [Tát, Tat]
+  - name: Balatonlelle
+    country: Hungary
+    locale: hu
+    search_variants: [Balatonlelle]
+  - name: Újkígyós
+    country: Hungary
+    locale: hu
+    search_variants: [Újkígyós, Ujkigyos]
+  - name: Csurgó
+    country: Hungary
+    locale: hu
+    search_variants: [Csurgó, Csurgo]
+  - name: Nyékládháza
+    country: Hungary
+    locale: hu
+    search_variants: [Nyékládháza, Nyekladhaza]
+  - name: Mélykút
+    country: Hungary
+    locale: hu
+    search_variants: [Mélykút, Melykut]
+  - name: Nyírmada
+    country: Hungary
+    locale: hu
+    search_variants: [Nyírmada, Nyirmada]
+  - name: Csenger
+    country: Hungary
+    locale: hu
+    search_variants: [Csenger]
+  - name: Kemecse
+    country: Hungary
+    locale: hu
+    search_variants: [Kemecse]
+  - name: Lábatlan
+    country: Hungary
+    locale: hu
+    search_variants: [Lábatlan, Labatlan]
+  - name: Csorvás
+    country: Hungary
+    locale: hu
+    search_variants: [Csorvás, Csorvas]
+  - name: Emőd
+    country: Hungary
+    locale: hu
+    search_variants: [Emőd, Emod]
+  - name: Örkény
+    country: Hungary
+    locale: hu
+    search_variants: [Örkény, Orkeny]
+  - name: Fonyód
+    country: Hungary
+    locale: hu
+    search_variants: [Fonyód, Fonyod]
+  - name: Hévíz
+    country: Hungary
+    locale: hu
+    search_variants: [Hévíz, Heviz]
+  - name: Nagymaros
+    country: Hungary
+    locale: hu
+    search_variants: [Nagymaros]
+  - name: Tiszacsege
+    country: Hungary
+    locale: hu
+    search_variants: [Tiszacsege]
+  - name: Elek
+    country: Hungary
+    locale: hu
+    search_variants: [Elek]
+  - name: Rácalmás
+    country: Hungary
+    locale: hu
+    search_variants: [Rácalmás, Racalmas]
+  - name: Körösladány
+    country: Hungary
+    locale: hu
+    search_variants: [Körösladány, Korosladany]
+  - name: Aba
+    country: Hungary
+    locale: hu
+    search_variants: [Aba]
+  - name: Kenderes
+    country: Hungary
+    locale: hu
+    search_variants: [Kenderes]
+  - name: Tompa
+    country: Hungary
+    locale: hu
+    search_variants: [Tompa]
+  - name: Rakamaz
+    country: Hungary
+    locale: hu
+    search_variants: [Rakamaz]
+  - name: Harkány
+    country: Hungary
+    locale: hu
+    search_variants: [Harkány, Harkany]
+  - name: Tab
+    country: Hungary
+    locale: hu
+    search_variants: [Tab, "Tab Hungary"]
+  - name: Tokaj
+    country: Hungary
+    locale: hu
+    search_variants: [Tokaj, "Tokaj Hungary"]
+  - name: Szendrő
+    country: Hungary
+    locale: hu
+    search_variants: [Szendrő, Szendro]
+  - name: Devecser
+    country: Hungary
+    locale: hu
+    search_variants: [Devecser]
+  - name: Záhony
+    country: Hungary
+    locale: hu
+    search_variants: [Záhony, Zahony]
+  - name: Vasvár
+    country: Hungary
+    locale: hu
+    search_variants: [Vasvár, Vasvar]
+  - name: Demecser
+    country: Hungary
+    locale: hu
+    search_variants: [Demecser]
+  - name: Abádszalók
+    country: Hungary
+    locale: hu
+    search_variants: [Abádszalók, Abadszalok]
+  - name: Biharkeresztes
+    country: Hungary
+    locale: hu
+    search_variants: [Biharkeresztes]
+  - name: Mándok
+    country: Hungary
+    locale: hu
+    search_variants: [Mándok, Mandok]
+  - name: Balatonfűzfő
+    country: Hungary
+    locale: hu
+    search_variants: [Balatonfűzfő, Balatonfuzfo]
+  - name: Tét
+    country: Hungary
+    locale: hu
+    search_variants: [Tét, Tet]
+  - name: Letenye
+    country: Hungary
+    locale: hu
+    search_variants: [Letenye]
+  - name: Bodajk
+    country: Hungary
+    locale: hu
+    search_variants: [Bodajk]
+  - name: Pannonhalma
+    country: Hungary
+    locale: hu
+    search_variants: [Pannonhalma]
+  - name: Pécsvárad
+    country: Hungary
+    locale: hu
+    search_variants: [Pécsvárad, Pecsvarad]
+  - name: Simontornya
+    country: Hungary
+    locale: hu
+    search_variants: [Simontornya]
+  - name: Dombrád
+    country: Hungary
+    locale: hu
+    search_variants: [Dombrád, Dombrad]
+  - name: Baktalórántháza
+    country: Hungary
+    locale: hu
+    search_variants: [Baktalórántháza, Baktaloranthaza]
+  - name: Bóly
+    country: Hungary
+    locale: hu
+    search_variants: [Bóly, Boly]
+  - name: Fertőszentmiklós
+    country: Hungary
+    locale: hu
+    search_variants: [Fertőszentmiklós, Fertoszentmiklos]
+  - name: Bábolna
+    country: Hungary
+    locale: hu
+    search_variants: [Bábolna, Babolna]
+  - name: Dunavecse
+    country: Hungary
+    locale: hu
+    search_variants: [Dunavecse]
+  - name: Verpelét
+    country: Hungary
+    locale: hu
+    search_variants: [Verpelét, Verpelet]
+  - name: Mezőkeresztes
+    country: Hungary
+    locale: hu
+    search_variants: [Mezőkeresztes, Mezokeresztes]
+  - name: Ajak
+    country: Hungary
+    locale: hu
+    search_variants: [Ajak]
+  - name: Adony
+    country: Hungary
+    locale: hu
+    search_variants: [Adony]
+  - name: Bük
+    country: Hungary
+    locale: hu
+    search_variants: [Bük, Buk]
+  - name: Vaja
+    country: Hungary
+    locale: hu
+    search_variants: [Vaja]
+  - name: Medgyesegyháza
+    country: Hungary
+    locale: hu
+    search_variants: [Medgyesegyháza, Medgyesegyhaza]
+  - name: Fertőd
+    country: Hungary
+    locale: hu
+    search_variants: [Fertőd, Fertod]
+  - name: Herend
+    country: Hungary
+    locale: hu
+    search_variants: [Herend]
+  - name: Nagybajom
+    country: Hungary
+    locale: hu
+    search_variants: [Nagybajom]
+  - name: Csepreg
+    country: Hungary
+    locale: hu
+    search_variants: [Csepreg]
+  - name: Vép
+    country: Hungary
+    locale: hu
+    search_variants: [Vép, Vep]
+  - name: Besenyszög
+    country: Hungary
+    locale: hu
+    search_variants: [Besenyszög, Besenyszog]
+  - name: Lébény
+    country: Hungary
+    locale: hu
+    search_variants: [Lébény, Lebeny]
+  - name: Borsodnádasd
+    country: Hungary
+    locale: hu
+    search_variants: [Borsodnádasd, Borsodnadasd]
+  - name: Cigánd
+    country: Hungary
+    locale: hu
+    search_variants: [Cigánd, Cigand]
+  - name: Sásd
+    country: Hungary
+    locale: hu
+    search_variants: [Sásd, Sasd]
+  - name: Abaújszántó
+    country: Hungary
+    locale: hu
+    search_variants: [Abaújszántó, Abaujszanto]
+  - name: Hajós
+    country: Hungary
+    locale: hu
+    search_variants: [Hajós, Hajos]
+  - name: Bélapátfalva
+    country: Hungary
+    locale: hu
+    search_variants: [Bélapátfalva, Belapatfalva]
+  - name: Lengyeltóti
+    country: Hungary
+    locale: hu
+    search_variants: [Lengyeltóti, Lengyeltoti]
+  - name: Zalalövő
+    country: Hungary
+    locale: hu
+    search_variants: [Zalalövő, Zalalovo]
+  - name: Kisköre
+    country: Hungary
+    locale: hu
+    search_variants: [Kisköre, Kiskore]
+  - name: Csanádpalota
+    country: Hungary
+    locale: hu
+    search_variants: [Csanádpalota, Csanadpalota]
+  - name: Sajóbábony
+    country: Hungary
+    locale: hu
+    search_variants: [Sajóbábony, Sajobabony]
+  - name: Rétság
+    country: Hungary
+    locale: hu
+    search_variants: [Rétság, Retsag]
+  - name: Nyírlugos
+    country: Hungary
+    locale: hu
+    search_variants: [Nyírlugos, Nyirlugos]
+  - name: Szob
+    country: Hungary
+    locale: hu
+    search_variants: [Szob]
+  - name: Beled
+    country: Hungary
+    locale: hu
+    search_variants: [Beled]
+  - name: Répcelak
+    country: Hungary
+    locale: hu
+    search_variants: [Répcelak, Repcelak]
+  - name: Balatonkenese
+    country: Hungary
+    locale: hu
+    search_variants: [Balatonkenese]
+  - name: Sellye
+    country: Hungary
+    locale: hu
+    search_variants: [Sellye]
+  - name: Jánosháza
+    country: Hungary
+    locale: hu
+    search_variants: [Jánosháza, Janoshaza]
+  - name: Gyöngyöspata
+    country: Hungary
+    locale: hu
+    search_variants: [Gyöngyöspata, Gyongyospata]
+  - name: Rudabánya
+    country: Hungary
+    locale: hu
+    search_variants: [Rudabánya, Rudabanya]
+  - name: Zamárdi
+    country: Hungary
+    locale: hu
+    search_variants: [Zamárdi, Zamardi]
+  - name: Kadarkút
+    country: Hungary
+    locale: hu
+    search_variants: [Kadarkút, Kadarkut]
+  - name: Villány
+    country: Hungary
+    locale: hu
+    search_variants: [Villány, Villany]
+  - name: Mágocs
+    country: Hungary
+    locale: hu
+    search_variants: [Mágocs, Magocs]
+  - name: Nagymányok
+    country: Hungary
+    locale: hu
+    search_variants: [Nagymányok, Nagymanyok]
+  - name: Balatonföldvár
+    country: Hungary
+    locale: hu
+    search_variants: [Balatonföldvár, Balatonfoldvar]
+  - name: Máriapócs
+    country: Hungary
+    locale: hu
+    search_variants: [Máriapócs, Mariapocs]
+  - name: Badacsonytomaj
+    country: Hungary
+    locale: hu
+    search_variants: [Badacsonytomaj]
+  - name: Pétervására
+    country: Hungary
+    locale: hu
+    search_variants: [Pétervására, Petervasara]
+  - name: Gönc
+    country: Hungary
+    locale: hu
+    search_variants: [Gönc, Gonc]
+  - name: Gyönk
+    country: Hungary
+    locale: hu
+    search_variants: [Gyönk, Gyonk]
+  - name: Zalakaros
+    country: Hungary
+    locale: hu
+    search_variants: [Zalakaros]
+  - name: Visegrád
+    country: Hungary
+    locale: hu
+    search_variants: [Visegrád, Visegrad, "Visegrád Hungary"]
+  - name: Pacsa
+    country: Hungary
+    locale: hu
+    search_variants: [Pacsa]
+  - name: Igal
+    country: Hungary
+    locale: hu
+    search_variants: [Igal]
+  - name: Őriszentpéter
+    country: Hungary
+    locale: hu
+    search_variants: [Őriszentpéter, Oriszentpeter]
+  - name: Pálháza
+    country: Hungary
+    locale: hu
+    search_variants: [Pálháza, Palhaza]
 
   # Austria
   - name: Vienna
