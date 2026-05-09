@@ -213,11 +213,19 @@
     <p class="text-xs font-medium uppercase tracking-wide text-slate-400 mb-2">{{ t('community_source_page') }}</p>
     <div class="flex flex-col gap-1.5">
       {% for url in all_sources %}
-      <a href="{{ url }}" target="_blank" rel="noopener"
-         class="inline-flex items-center gap-1.5 text-xs text-emerald-700 hover:text-emerald-900 transition-colors group">
-        <i class="ph ph-arrow-square-out shrink-0"></i>
-        <span class="truncate group-hover:underline">{{ url | replace('https://','') | replace('http://','') }}</span>
-      </a>
+      {% set _uhash = url | sha256_16 %}
+      <div class="flex items-center gap-2">
+        <a href="{{ url }}" target="_blank" rel="noopener"
+           class="inline-flex items-center gap-1.5 text-xs text-emerald-700 hover:text-emerald-900 transition-colors group min-w-0">
+          <i class="ph ph-arrow-square-out shrink-0"></i>
+          <span class="truncate group-hover:underline">{{ url | replace('https://','') | replace('http://','') }}</span>
+        </a>
+        <a href="/source/{{ _uhash }}"
+           title="Forrás részletei: mikor, milyen keresés, prompt, eredmény"
+           class="shrink-0 w-5 h-5 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-colors">
+          <i class="ph ph-info" style="font-size:11px"></i>
+        </a>
+      </div>
       {% endfor %}
     </div>
   </div>

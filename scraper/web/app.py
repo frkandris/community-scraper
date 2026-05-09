@@ -210,6 +210,12 @@ app = _BasicAuth(_fastapi)
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 templates.env.filters["urlencode"] = lambda s: _url_quote(str(s), safe="")
 
+def _sha256_16(url: str) -> str:
+    import hashlib
+    return hashlib.sha256(str(url).encode()).hexdigest()[:16]
+
+templates.env.filters["sha256_16"] = _sha256_16
+
 
 def _fmt_dur(s: float | None) -> str:
     if s is None:
@@ -795,6 +801,41 @@ async def public_community_legacy(request: Request, community_id: str):
     if not record:
         return RedirectResponse("/", status_code=302)
     return RedirectResponse(record["community_url"], status_code=301)
+
+
+@_fastapi.get("/source/{url_hash}", response_class=HTMLResponse)
+async def public_source_page(request: Request, url_hash: str):
+    """Public provenance page: search queries, scraped text, prompt, extracted records."""
+    import hashlib
+    if not app_state.cache_manager:
+        return RedirectResponse("/", status_code=302)
+    entry = app_state.cache_manager.get_entry(url_hash)
+    if not entry:
+        return RedirectResponse("/", status_code=302)
+
+    cfg = app_state.pipeline_cfg
+    max_text_chars = cfg.ollama_max_text_chars if cfg else 6000
+
+    extract_user_prompt = ""
+    if entry.get("raw_text") and entry.get("topic") and entry.get("city"):
+        extract_user_prompt = USER_PROMPT_TEMPLATE.format(
+            topic=entry.get("topic", ""),
+            city=entry.get("city", ""),
+            source_url=entry.get("url", ""),
+            page_text=entry.get("raw_text", "")[:max_text_chars],
+        )
+
+    # Look up search cache to find what queries led to this URL
+    search_queries: list[str] = entry.get("source_queries") or []
+
+    return templates.TemplateResponse(request, "public_source.html", {
+        "entry": entry,
+        "extract_system_prompt": SYSTEM_PROMPT,
+        "extract_user_prompt": extract_user_prompt,
+        "search_queries": search_queries,
+        "topic_labels": TOPIC_LABELS,
+        **lang_context(request),
+    })
 
 
 @_fastapi.post("/subscribe")
