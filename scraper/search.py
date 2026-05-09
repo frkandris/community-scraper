@@ -157,7 +157,7 @@ class BraveSearchClient:
             SearchResult(
                 url=item.get("url", ""),
                 title=item.get("title", ""),
-                snippet=item.get("description", ""),
+                snippet=item.get("description") or "",
             )
             for item in items[:num_results]
         ]
@@ -226,7 +226,7 @@ class SearXNGClient:
             SearchResult(
                 url=item.get("url", ""),
                 title=item.get("title", ""),
-                snippet=item.get("content", ""),
+                snippet=item.get("content") or "",
             )
             for item in data.get("results", [])[:num_results]
         ]
