@@ -877,6 +877,7 @@ async def _render_explore(
         for c_name, _ in other_sorted[:3]:
             country_order.append((c_name, False))
 
+        all_city_topic_counts = get_city_topic_counts(_db())
         for country, is_user in country_order:
             # When browsing by topic, show ALL cities and ALL records so counts match.
             # Without topic, show 3-city sample for discovery.
@@ -896,12 +897,29 @@ async def _render_explore(
                     if topic and len(topic) == 1:
                         city_url += "/" + _topic_url_slug(topic[0], _city_locale(city_name))
                     topic_count = len(recs) if topic else city_count
+                    city_locale_str = _city_locale(city_name)
+                    city_chips = sorted(
+                        [
+                            {
+                                "name": t_obj.name,
+                                "label": _topic_labels.get(t_obj.name, t_obj.name.replace("_", " ").title()),
+                                "icon": TOPIC_ICONS.get(t_obj.name, "circle"),
+                                "count": cnt,
+                                "url": f"/{_slugify(city_name)}/{_topic_url_slug(t_obj.name, city_locale_str)}",
+                            }
+                            for t_obj in topics
+                            if (cnt := all_city_topic_counts.get(city_name, {}).get(t_obj.name, 0)) > 0
+                        ],
+                        key=lambda x: x["count"],
+                        reverse=True,
+                    )
                     city_sections.append({
                         "city": city_name,
                         "country": country,
                         "records": recs,
                         "total": topic_count,
                         "city_url": city_url,
+                        "topic_chips": city_chips,
                     })
             if city_sections:
                 country_sections.append({

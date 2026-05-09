@@ -142,6 +142,18 @@
           {{ t('explore_see_all', n=city_sec.total) }}
         </a>
       </div>
+      {% if city_sec.topic_chips %}
+      <div class="flex flex-wrap gap-1.5 mb-3">
+        {% for chip in city_sec.topic_chips %}
+        <a href="{{ chip.url }}"
+           class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border bg-white border-[#EAE5DB] text-[#6A6259] hover:border-[#FAD9C7] hover:text-[#4C2615] hover:bg-[#FDF0EA]/50 transition-colors">
+          <i class="ph ph-{{ chip.icon }}"></i>
+          {{ chip.label }}
+          <span class="font-bold text-[#C2613A] ml-0.5">{{ chip.count }}</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
         {% for r in city_sec.records %}
         <a href="{{ r.community_url }}" class="block bg-white rounded-lg border border-[#EAE5DB] p-3 flex flex-col gap-1.5 shadow-sm hover:border-[#E88E6B] hover:bg-[#FDF0EA]/40 hover:shadow-md transition-all">
