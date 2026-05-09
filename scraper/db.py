@@ -121,6 +121,15 @@ def init_db(db_path: Path) -> None:
             )
         """)
 
+        # Editable prompt overrides (key = prompt identifier)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS prompt_overrides (
+                key        TEXT PRIMARY KEY,
+                content    TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+
         # Search result cache — URL lists per city+topic
         conn.execute("""
             CREATE TABLE IF NOT EXISTS search_cache (
@@ -670,6 +679,33 @@ def append_prompt_history(db_path: Path, version: int, timestamp: str,
             INSERT INTO prompt_history (version, timestamp, content, fp_type, fp_count)
             VALUES (?, ?, ?, ?, ?)
         """, (version, timestamp, content, fp_type, fp_count))
+        conn.commit()
+
+
+# ── Prompt overrides ──────────────────────────────────────────────────────────
+
+def get_prompt_overrides(db_path: Path) -> dict[str, str]:
+    if not db_path.exists():
+        return {}
+    with _connect(db_path) as conn:
+        rows = conn.execute("SELECT key, content FROM prompt_overrides").fetchall()
+    return {r[0]: r[1] for r in rows}
+
+
+def upsert_prompt_override(db_path: Path, key: str, content: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO prompt_overrides (key, content, updated_at) VALUES (?, ?, ?)"
+            " ON CONFLICT(key) DO UPDATE SET content=excluded.content, updated_at=excluded.updated_at",
+            (key, content, now),
+        )
+        conn.commit()
+
+
+def delete_prompt_override(db_path: Path, key: str) -> None:
+    with _connect(db_path) as conn:
+        conn.execute("DELETE FROM prompt_overrides WHERE key=?", (key,))
         conn.commit()
 
 

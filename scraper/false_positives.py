@@ -59,8 +59,8 @@ def build_prompt_section(fps: list[dict], city: str = "", topic: str = "",
 # ── Prompt version history ────────────────────────────────────────────────────
 
 def _base_prompt(fp_type: str) -> str:
-    from .extract import ENRICH_SYSTEM_PROMPT, SYSTEM_PROMPT
-    return SYSTEM_PROMPT if fp_type == "extraction" else ENRICH_SYSTEM_PROMPT
+    from .extract import get_prompt
+    return get_prompt("extraction_system") if fp_type == "extraction" else get_prompt("enrich_system")
 
 
 def _record_history(db_path: Path, fp_type: str) -> None:

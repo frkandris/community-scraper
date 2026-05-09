@@ -44,6 +44,9 @@ from ..db import (
     get_persons,
     get_person_counts,
     get_cache_cost_stats,
+    get_prompt_overrides,
+    upsert_prompt_override,
+    delete_prompt_override,
 )
 from ..false_positives import (add as fp_add, diff_html as fp_diff_html,
                                load as fp_load, load_history as fp_load_history,
@@ -52,6 +55,7 @@ from ..extract import (ENRICH_SCHEMA, ENRICH_SYSTEM_PROMPT, EXTRACTION_SCHEMA,
                        SYSTEM_PROMPT, USER_PROMPT_TEMPLATE,
                        VENUE_SCHEMA, VENUE_SYSTEM_PROMPT, VENUE_USER_PROMPT_TEMPLATE,
                        PERSON_SCHEMA, PERSON_SYSTEM_PROMPT, PERSON_USER_PROMPT_TEMPLATE,
+                       PROMPT_KEYS, get_prompt, set_prompt_override,
                        DeepSeekExtractor, FallbackExtractor, GroqExtractor, OllamaExtractor)
 from ..fetch import fetch_and_clean
 from ..models import CommunityRecord
@@ -325,6 +329,15 @@ def _reload_runtime_config() -> None:
     app_state.cities = cities
     app_state.topics = topics
     app_state.pipeline_cfg = pipeline_cfg
+    _load_prompt_overrides()
+
+
+def _load_prompt_overrides() -> None:
+    if not app_state.db_path:
+        return
+    overrides = get_prompt_overrides(app_state.db_path)
+    for key in PROMPT_KEYS:
+        set_prompt_override(key, overrides.get(key))
 
 _static_dir = Path(__file__).parent / "static"
 _static_dir.mkdir(exist_ok=True)
@@ -1224,21 +1237,53 @@ async def prompts_page(request: Request):
 
     nc_reports = get_not_community_reports(_db()) if app_state.db_path else []
     extraction_rules = [fp for fp in fps if fp.get("fp_type") == "extraction_rule"]
+    active_overrides = get_prompt_overrides(_db()) if app_state.db_path else {}
     return templates.TemplateResponse(request, "prompts.html", {
         "extraction_history": _versioned("extraction", SYSTEM_PROMPT),
         "enrichment_history": _versioned("enrichment", ENRICH_SYSTEM_PROMPT),
-        "extraction_prompt": SYSTEM_PROMPT + build_prompt_section(fps, fp_type="extraction"),
-        "enrichment_prompt": ENRICH_SYSTEM_PROMPT + build_prompt_section(fps, fp_type="enrichment"),
-        "venue_prompt": VENUE_SYSTEM_PROMPT,
-        "venue_user_template": VENUE_USER_PROMPT_TEMPLATE,
+        "extraction_prompt": get_prompt("extraction_system") + build_prompt_section(fps, fp_type="extraction"),
+        "enrichment_prompt": get_prompt("enrich_system") + build_prompt_section(fps, fp_type="enrichment"),
+        "venue_prompt": get_prompt("venue_system"),
+        "venue_user_template": get_prompt("venue_user"),
         "venue_schema": json.dumps(VENUE_SCHEMA, indent=2),
-        "person_prompt": PERSON_SYSTEM_PROMPT,
-        "person_user_template": PERSON_USER_PROMPT_TEMPLATE,
+        "person_prompt": get_prompt("person_system"),
+        "person_user_template": get_prompt("person_user"),
         "person_schema": json.dumps(PERSON_SCHEMA, indent=2),
         "false_positives": fps,
         "nc_reports": nc_reports,
         "extraction_rules": extraction_rules,
+        "prompt_overrides": active_overrides,
+        "prompt_defaults": {k: PROMPT_KEYS[k]() for k in PROMPT_KEYS},
     })
+
+
+@admin.post("/prompts/save")
+async def admin_prompt_save(key: str = Form(...), content: str = Form(...)):
+    """Save an edited prompt override to DB and activate it immediately."""
+    if key not in PROMPT_KEYS or not app_state.db_path:
+        return JSONResponse({"ok": False, "error": "invalid key"})
+    upsert_prompt_override(_db(), key, content)
+    set_prompt_override(key, content)
+    if key in ("extraction_system", "enrich_system"):
+        _reload_fp_history(key)
+    return JSONResponse({"ok": True})
+
+
+@admin.post("/prompts/reset")
+async def admin_prompt_reset(key: str = Form(...)):
+    """Delete a prompt override (revert to hardcoded default)."""
+    if key not in PROMPT_KEYS or not app_state.db_path:
+        return JSONResponse({"ok": False, "error": "invalid key"})
+    delete_prompt_override(_db(), key)
+    set_prompt_override(key, None)
+    return JSONResponse({"ok": True})
+
+
+def _reload_fp_history(key: str) -> None:
+    """Record a new prompt history entry when a base prompt is edited."""
+    fp_type = "extraction" if key == "extraction_system" else "enrichment"
+    from ..false_positives import _record_history
+    _record_history(_db(), fp_type)
 
 
 async def _ai_chat(user_msg: str, temperature: float = 0.3) -> str:

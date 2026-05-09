@@ -229,6 +229,34 @@ Extract contact information for a specific named community group from a web page
 Return only fields where the page has clear evidence. Leave others as empty string or empty array.
 """
 
+# ── Runtime prompt override mechanism ─────────────────────────────────────────
+# Callers (app.py) load DB overrides at startup and after edits via set_prompt_override().
+# All extractor methods call get_prompt() so they always use the live active version.
+
+_PROMPT_OVERRIDES: dict[str, str] = {}
+
+PROMPT_KEYS = {
+    "extraction_system": lambda: SYSTEM_PROMPT,
+    "extraction_user":   lambda: USER_PROMPT_TEMPLATE,
+    "enrich_system":     lambda: ENRICH_SYSTEM_PROMPT,
+    "venue_system":      lambda: VENUE_SYSTEM_PROMPT,
+    "venue_user":        lambda: VENUE_USER_PROMPT_TEMPLATE,
+    "person_system":     lambda: PERSON_SYSTEM_PROMPT,
+    "person_user":       lambda: PERSON_USER_PROMPT_TEMPLATE,
+}
+
+
+def get_prompt(key: str) -> str:
+    return _PROMPT_OVERRIDES.get(key) or PROMPT_KEYS[key]()
+
+
+def set_prompt_override(key: str, content: str | None) -> None:
+    if content is None:
+        _PROMPT_OVERRIDES.pop(key, None)
+    else:
+        _PROMPT_OVERRIDES[key] = content
+
+
 ENRICH_SCHEMA = {
     "type": "object",
     "properties": {
@@ -400,7 +428,7 @@ class OllamaExtractor:
 
     @property
     def model_fingerprint(self) -> str:
-        return _prompt_hash(SYSTEM_PROMPT + self.model)
+        return _prompt_hash(get_prompt("extraction_system") + self.model)
 
     async def extract(
         self,
@@ -412,13 +440,13 @@ class OllamaExtractor:
         false_positive_examples: str = "",
     ) -> list[CommunityRecord]:
         truncated = text[: self.max_text_chars]
-        user_message = USER_PROMPT_TEMPLATE.format(
+        user_message = get_prompt("extraction_user").format(
             topic=topic,
             city=city,
             source_url=source_url,
             page_text=truncated,
         )
-        system = SYSTEM_PROMPT + false_positive_examples
+        system = get_prompt("extraction_system") + false_positive_examples
         payload = {
             "model": self.model,
             "messages": [
@@ -444,13 +472,13 @@ class OllamaExtractor:
     async def extract_venues(
         self, text: str, city: str, locale: str, source_url: str,
     ) -> list[VenueRecord]:
-        user_message = VENUE_USER_PROMPT_TEMPLATE.format(
+        user_message = get_prompt("venue_user").format(
             city=city, source_url=source_url, page_text=text[:self.max_text_chars],
         )
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": VENUE_SYSTEM_PROMPT},
+                {"role": "system", "content": get_prompt("venue_system")},
                 {"role": "user", "content": user_message},
             ],
             "stream": False,
@@ -473,7 +501,7 @@ class OllamaExtractor:
         community_names: list[str] | None = None,
     ) -> list[PersonRecord]:
         names_str = "\n".join(f"- {n}" for n in (community_names or [])) or "(none known)"
-        user_message = PERSON_USER_PROMPT_TEMPLATE.format(
+        user_message = get_prompt("person_user").format(
             city=city, topic=topic, source_url=source_url,
             community_names=names_str,
             page_text=text[:self.max_text_chars],
@@ -481,7 +509,7 @@ class OllamaExtractor:
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": PERSON_SYSTEM_PROMPT},
+                {"role": "system", "content": get_prompt("person_system")},
                 {"role": "user", "content": user_message},
             ],
             "stream": False,
@@ -522,7 +550,7 @@ class OllamaExtractor:
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": ENRICH_SYSTEM_PROMPT + false_positive_examples},
+                {"role": "system", "content": get_prompt("enrich_system") + false_positive_examples},
                 {"role": "user", "content": user_message},
             ],
             "stream": False,
@@ -581,7 +609,7 @@ class _ApiExtractor:
 
     @property
     def model_fingerprint(self) -> str:
-        return _prompt_hash(SYSTEM_PROMPT + self.model)
+        return _prompt_hash(get_prompt("extraction_system") + self.model)
 
     def _headers(self) -> dict:
         return {"Authorization": f"Bearer {self.api_key}"}
@@ -625,13 +653,13 @@ class _ApiExtractor:
         false_positive_examples: str = "",
     ) -> list[CommunityRecord]:
         truncated = text[: self.max_text_chars]
-        user_message = USER_PROMPT_TEMPLATE.format(
+        user_message = get_prompt("extraction_user").format(
             topic=topic, city=city, source_url=source_url, page_text=truncated,
         )
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT + false_positive_examples + _API_EXTRACT_SUFFIX},
+                {"role": "system", "content": get_prompt("extraction_system") + false_positive_examples + _API_EXTRACT_SUFFIX},
                 {"role": "user",   "content": user_message},
             ],
             "temperature": self.temperature,
@@ -644,13 +672,13 @@ class _ApiExtractor:
     async def extract_venues(
         self, text: str, city: str, locale: str, source_url: str,
     ) -> list[VenueRecord]:
-        user_message = VENUE_USER_PROMPT_TEMPLATE.format(
+        user_message = get_prompt("venue_user").format(
             city=city, source_url=source_url, page_text=text[:self.max_text_chars],
         )
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": VENUE_SYSTEM_PROMPT + "\n\nRespond ONLY with valid JSON: {\"venues\": [...]}"},
+                {"role": "system", "content": get_prompt("venue_system") + "\n\nRespond ONLY with valid JSON: {\"venues\": [...]}"},
                 {"role": "user",   "content": user_message},
             ],
             "temperature": 0.0,
@@ -672,7 +700,7 @@ class _ApiExtractor:
         community_names: list[str] | None = None,
     ) -> list[PersonRecord]:
         names_str = "\n".join(f"- {n}" for n in (community_names or [])) or "(none known)"
-        user_message = PERSON_USER_PROMPT_TEMPLATE.format(
+        user_message = get_prompt("person_user").format(
             city=city, topic=topic, source_url=source_url,
             community_names=names_str,
             page_text=text[:self.max_text_chars],
@@ -680,7 +708,7 @@ class _ApiExtractor:
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": PERSON_SYSTEM_PROMPT + "\n\nRespond ONLY with valid JSON: {\"persons\": [...]}"},
+                {"role": "system", "content": get_prompt("person_system") + "\n\nRespond ONLY with valid JSON: {\"persons\": [...]}"},
                 {"role": "user",   "content": user_message},
             ],
             "temperature": 0.0,
@@ -706,7 +734,7 @@ class _ApiExtractor:
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": ENRICH_SYSTEM_PROMPT + false_positive_examples + _API_ENRICH_SUFFIX},
+                {"role": "system", "content": get_prompt("enrich_system") + false_positive_examples + _API_ENRICH_SUFFIX},
                 {"role": "user",   "content": user_message},
             ],
             "temperature": 0.0,
