@@ -156,7 +156,7 @@ class BraveSearchClient:
         return [
             SearchResult(
                 url=item.get("url", ""),
-                title=item.get("title", ""),
+                title=item.get("title") or "",
                 snippet=item.get("description") or "",
             )
             for item in items[:num_results]
@@ -225,7 +225,7 @@ class SearXNGClient:
         return [
             SearchResult(
                 url=item.get("url", ""),
-                title=item.get("title", ""),
+                title=item.get("title") or "",
                 snippet=item.get("content") or "",
             )
             for item in data.get("results", [])[:num_results]
@@ -430,8 +430,8 @@ class SerperSearchClient:
         return [
             SearchResult(
                 url=item.get("link", ""),
-                title=item.get("title", ""),
-                snippet=item.get("snippet", ""),
+                title=item.get("title") or "",
+                snippet=item.get("snippet") or "",
             )
             for item in items[:num_results]
             if item.get("link")
@@ -535,8 +535,8 @@ class DataForSEOClient:
                         continue
                     results.append(SearchResult(
                         url=url,
-                        title=item.get("title", ""),
-                        snippet=item.get("description", ""),
+                        title=item.get("title") or "",
+                        snippet=item.get("description") or "",
                     ))
         log.info("dataforseo_results", query=query, found=len(results))
         return results[:num_results]
