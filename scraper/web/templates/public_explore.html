@@ -28,6 +28,12 @@
       {{ topic_labels.get(t, t.replace('_',' ').title()) }}
     </span>
     {% endfor %}
+    {% if tag %}
+    <span class="text-slate-300">/</span>
+    <span class="text-sm font-semibold text-emerald-700">
+      <i class="ph ph-tag"></i> {{ tag }}
+    </span>
+    {% endif %}
 
     <a href="{% if city %}/{{ city | slugify }}{% else %}/{% endif %}" class="ml-auto text-xs font-medium text-emerald-700 hover:text-emerald-900 border border-emerald-200 rounded-md px-3 py-1 transition-colors">
       {{ t('explore_change_filters') }}
@@ -47,8 +53,43 @@
   </div>
   {% endif %}
 
+  <!-- Tag search results -->
+  {% if tag %}
+  <div class="mb-8 border-b border-slate-200 pb-5">
+    <h1 class="text-2xl font-bold text-slate-950 mb-1 flex items-center gap-2">
+      <i class="ph ph-tag text-emerald-700"></i> {{ tag }}
+    </h1>
+    <p class="text-sm text-slate-500 mt-1">{{ tag_records | length }} közösség ezzel a témával{% if city %} – {{ city }}{% endif %}</p>
+  </div>
+
+  {% if tag_records %}
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+    {% for r in tag_records %}
+    <a href="{{ r.community_url }}" class="block bg-white rounded-md border border-slate-200 p-4 flex flex-col gap-2 hover:border-emerald-300 hover:bg-emerald-50 transition-colors">
+      <h4 class="font-semibold text-slate-950 text-sm leading-snug">{{ r.name }}</h4>
+      {% if r.description %}
+      <p class="text-xs text-slate-600 leading-relaxed line-clamp-2">{{ r.description }}</p>
+      {% endif %}
+      <div class="flex items-center gap-3 text-xs text-slate-500 mt-auto pt-1">
+        {% if r.location %}
+        <span class="flex items-center gap-1"><i class="ph ph-map-pin text-slate-400"></i>{{ r.location }}</span>
+        {% endif %}
+        {% if r.city %}
+        <span class="flex items-center gap-1"><i class="ph ph-buildings text-slate-400"></i>{{ r.city }}</span>
+        {% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-center py-16 text-slate-400">
+    <i class="ph ph-tag text-5xl mb-3 block"></i>
+    <p class="text-base">Nincs közösség ezzel a taggel.</p>
+  </div>
+  {% endif %}
+
   <!-- No city, topics selected: cross-city aggregated results -->
-  {% if not city and cross_city_sections %}
+  {% elif not city and cross_city_sections %}
 
   <div class="mb-8 border-b border-slate-200 pb-5">
     <h1 class="text-2xl font-bold text-slate-950 mb-1">

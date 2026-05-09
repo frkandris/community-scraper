@@ -84,7 +84,7 @@
     {% if r.tags %}
     <div class="mt-2 flex flex-wrap gap-1.5">
       {% for tag in r.tags %}
-      <a href="/explore?topic={{ tag | urlencode }}"
+      <a href="/explore?tag={{ tag | urlencode }}"
          class="text-xs bg-indigo-50 text-indigo-600 border border-indigo-100 px-2 py-0.5 rounded-full hover:bg-indigo-100 transition-colors">{{ tag }}</a>
       {% endfor %}
     </div>

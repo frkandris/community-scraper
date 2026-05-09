@@ -31,6 +31,7 @@ from ..db import (
     get_communities,
     get_communities_by_ids,
     get_communities_for_city,
+    search_communities_by_tag,
     get_topic_counts,
     get_total_community_count,
     get_all_venues,
@@ -697,6 +698,7 @@ async def _render_explore(
     request: Request,
     city: str = "",
     topic: list[str] | None = None,
+    tag: str = "",
     subscribed: str = "",
 ) -> HTMLResponse:
     if topic is None:
@@ -754,12 +756,20 @@ async def _render_explore(
                 "total": sum(len(cr["records"]) for cr in city_results),
             })
 
+    # Tag-based search: filter across communities by free-form tag
+    tag_records: list[dict] = []
+    if tag:
+        tag_records = [_ensure_community_id(r)
+                       for r in search_communities_by_tag(_db(), tag, city)]
+        total += len(tag_records)
+
     all_records: list = []
     for s in sections:
         all_records.extend(s["records"])
     for cs in cross_city_sections:
         for cr in cs["city_results"]:
             all_records.extend(cr["records"])
+    all_records.extend(tag_records)
     schema_json = records_to_jsonld(all_records)
 
     return templates.TemplateResponse(request, "public_explore.html", {
@@ -775,6 +785,8 @@ async def _render_explore(
         "cities": cities,
         "subscribed": subscribed == "1",
         "schema_json": schema_json,
+        "tag": tag,
+        "tag_records": tag_records,
         **lang_context(request),
     })
 
@@ -784,15 +796,17 @@ async def public_explore(
     request: Request,
     city: str = "",
     topic: list[str] = Query(default=[]),
+    tag: str = "",
     subscribed: str = "",
 ):
     city_sl = _slugify(city) if city else ""
-    if city_sl and len(topic) == 1:
-        qs = "?subscribed=1" if subscribed == "1" else ""
-        return RedirectResponse(f"/{city_sl}/{topic[0]}{qs}", status_code=301)
-    if city_sl and not topic:
-        return RedirectResponse(f"/{city_sl}", status_code=301)
-    return await _render_explore(request, city=city, topic=topic, subscribed=subscribed)
+    if not tag:
+        if city_sl and len(topic) == 1:
+            qs = "?subscribed=1" if subscribed == "1" else ""
+            return RedirectResponse(f"/{city_sl}/{topic[0]}{qs}", status_code=301)
+        if city_sl and not topic:
+            return RedirectResponse(f"/{city_sl}", status_code=301)
+    return await _render_explore(request, city=city, topic=topic, tag=tag, subscribed=subscribed)
 
 
 @_fastapi.get("/community/{community_id}", response_class=HTMLResponse)

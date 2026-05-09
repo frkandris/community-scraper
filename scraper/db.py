@@ -353,6 +353,28 @@ def get_communities(db_path: Path, city: str, topic: str) -> list[dict]:
     return [json.loads(r[0]) for r in rows]
 
 
+def search_communities_by_tag(db_path: Path, tag: str, city: str = "") -> list[dict]:
+    """Return communities whose tags array contains `tag` (exact match, case-sensitive)."""
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        if city:
+            rows = conn.execute(
+                "SELECT data FROM communities WHERE city=? AND EXISTS ("
+                "  SELECT 1 FROM json_each(json_extract(data,'$.tags')) WHERE value=?"
+                ") ORDER BY id",
+                (city, tag)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT data FROM communities WHERE EXISTS ("
+                "  SELECT 1 FROM json_each(json_extract(data,'$.tags')) WHERE value=?"
+                ") ORDER BY city, id",
+                (tag,)
+            ).fetchall()
+    return [json.loads(r[0]) for r in rows]
+
+
 def get_communities_for_city(db_path: Path, city: str) -> list[dict]:
     if not db_path.exists():
         return []
