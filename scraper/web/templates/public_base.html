@@ -29,22 +29,50 @@
       <span>közösségek.com</span>
     </a>
     {% set _p = request.url.path %}
-    <nav class="flex items-center gap-0.5 shrink-0">
-      <div class="flex items-center gap-0.5 overflow-x-auto">
-        <a href="/" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
-          {% if _p == '/' or _p.startswith('/felfedezes') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
-          {{ t('nav_discover') }}</a>
-        <a href="/terkep" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
-          {% if _p.startswith('/terkep') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
-          {{ t('nav_map') }}</a>
-        <a href="/rolunk" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
-          {% if _p.startswith('/rolunk') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
-          {{ t('nav_about') }}</a>
-      </div>
-
+    <!-- Desktop nav -->
+    <nav class="hidden sm:flex items-center gap-0.5 shrink-0">
+      <a href="/" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
+        {% if _p == '/' or _p.startswith('/felfedezes') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
+        {{ t('nav_discover') }}</a>
+      <a href="/terkep" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
+        {% if _p.startswith('/terkep') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
+        {{ t('nav_map') }}</a>
+      <a href="/rolunk" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
+        {% if _p.startswith('/rolunk') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
+        {{ t('nav_about') }}</a>
+    </nav>
+    <!-- Mobile hamburger button -->
+    <button id="nav-toggle" class="sm:hidden p-2 rounded-md text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC] transition-colors" aria-label="Menü">
+      <i id="nav-icon" class="ph ph-list text-xl"></i>
+    </button>
+  </div>
+  <!-- Mobile nav dropdown -->
+  <div id="nav-mobile" class="hidden sm:hidden border-t border-[#EAE5DB] bg-white/95">
+    <nav class="max-w-6xl mx-auto px-4 py-2 flex flex-col gap-0.5">
+      <a href="/" class="px-3 py-2.5 text-sm font-medium rounded-md transition-colors
+        {% if _p == '/' or _p.startswith('/felfedezes') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
+        {{ t('nav_discover') }}</a>
+      <a href="/terkep" class="px-3 py-2.5 text-sm font-medium rounded-md transition-colors
+        {% if _p.startswith('/terkep') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
+        {{ t('nav_map') }}</a>
+      <a href="/rolunk" class="px-3 py-2.5 text-sm font-medium rounded-md transition-colors
+        {% if _p.startswith('/rolunk') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
+        {{ t('nav_about') }}</a>
     </nav>
   </div>
 </header>
+<script>
+(function(){
+  var btn = document.getElementById('nav-toggle');
+  var menu = document.getElementById('nav-mobile');
+  var icon = document.getElementById('nav-icon');
+  btn.addEventListener('click', function(){
+    var open = !menu.classList.contains('hidden');
+    menu.classList.toggle('hidden', open);
+    icon.className = open ? 'ph ph-list text-xl' : 'ph ph-x text-xl';
+  });
+})();
+</script>
 
 <main>
   {% block content %}{% endblock %}

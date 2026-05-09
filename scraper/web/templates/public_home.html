@@ -21,8 +21,8 @@
 <div class="max-w-6xl mx-auto px-4 sm:px-6 pt-8 pb-12">
   <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)] gap-8 items-start">
 
-    <!-- Left: stats + cities -->
-    <section class="space-y-8">
+    <!-- Left: stats + cities (order-2 on mobile so interests appear first) -->
+    <section class="space-y-8 order-2 lg:order-1">
 
       <!-- Stats strip -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -80,8 +80,8 @@
       {% endif %}
     </section>
 
-    <!-- Right: search form -->
-    <section class="bg-white rounded-xl border border-[#EAE5DB] p-5 sm:p-6 lg:sticky lg:top-20 shadow-sm">
+    <!-- Right: search form (order-1 on mobile so it appears before cities) -->
+    <section class="bg-white rounded-xl border border-[#EAE5DB] p-5 sm:p-6 lg:sticky lg:top-20 shadow-sm order-1 lg:order-2">
       <div class="mb-6">
         <h2 class="text-base font-bold text-[#1C1917]">{{ t('nav_discover') }}</h2>
         <p class="text-xs text-[#8C8478] mt-1">{{ t('home_city_label') }} + {{ t('home_interests_label') }}</p>
