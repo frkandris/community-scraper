@@ -22,17 +22,17 @@
 {% block content %}
 
 <!-- Stats bar -->
-<div class="bg-white border-b border-[#EAE5DB]">
+<div class="brand-gradient">
   <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-6 flex-wrap">
-    <h1 class="text-sm font-semibold text-[#1C1917] flex items-center gap-2">
-      <i class="ph ph-map-trifold text-[#C2613A]"></i>
+    <h1 class="text-sm font-semibold text-white flex items-center gap-2">
+      <i class="ph ph-map-trifold text-white/80"></i>
       {{ t('map_title') }}
     </h1>
-    <div class="flex items-center gap-1.5 text-xs text-[#8C8478] ml-auto">
-      <span class="inline-block w-3 h-3 rounded-full bg-[#C2613A] opacity-80 shrink-0"></span>
-      <strong class="text-[#1C1917]">{{ total }}</strong> {{ t('map_n_communities') }}
+    <div class="flex items-center gap-1.5 text-xs text-white/70 ml-auto">
+      <span class="inline-block w-3 h-3 rounded-full bg-white/80 shrink-0"></span>
+      <strong class="text-white">{{ total }}</strong> {{ t('map_n_communities') }}
       {{ t('map_n_in') }}
-      <strong class="text-[#1C1917]">{{ cities_with_data }}</strong> {{ t('map_n_city') if cities_with_data == 1 else t('map_n_cities') }}
+      <strong class="text-white">{{ cities_with_data }}</strong> {{ t('map_n_city') if cities_with_data == 1 else t('map_n_cities') }}
     </div>
   </div>
 </div>
