@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Run the app locally
-python -m scraper.main
+source .venv/bin/activate && ADMIN_PASSWORD=test python3 -m scraper.main
 
 # Run tests
 pytest
@@ -21,7 +21,7 @@ ruff check scraper/
 pip install -e ".[dev]"
 ```
 
-There is no local dev script. The app runs as a FastAPI server (uvicorn) on port 8001. Config is loaded from `config/` on startup. `ADMIN_PASSWORD` env var must be set or the admin UI is inaccessible.
+There is no local dev script. The app runs as a FastAPI server (uvicorn) on port 8000. Config is loaded from `config/` on startup. `ADMIN_PASSWORD` env var must be set or the admin UI is inaccessible.
 
 ## Architecture
 
@@ -70,6 +70,8 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Two modes:
 **False positives**: stored in `false_positives` table. `build_prompt_section(all_fps, city, topic)` appends them to the extraction system prompt. Call `get_false_positives(_db())` to load them.
 
 **Community identity**: `community_id` = SHA-256[:12] of `name.lower()|city.lower()`. Stable across re-runs. `record_key` = `norm(name)|norm(city)|norm(topic)` (unique DB key).
+
+**CSS build**: `scraper/web/static/css/app.css` is gitignored. Docker builds it from `input.css` via `pytailwindcss` at image build time. For local dev, maintain `app.css` manually. Committing `input.css` changes is sufficient for production.
 
 ## Adding Things
 
