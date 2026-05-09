@@ -113,6 +113,7 @@ TOPIC_ICONS: dict[str, str] = {
     "crafts": "scissors",
     "fitness": "barbell",
     "religion": "hands-praying",
+    "baby": "baby",
     "other": "circles-four",
 }
 
@@ -145,6 +146,7 @@ TOPIC_LABELS: dict[str, str] = {
     "crafts": "Crafts & Making",
     "fitness": "Fitness",
     "religion": "Religion & Faith",
+    "baby": "Baba & Szülő",
     "other": "Other",
 }
 

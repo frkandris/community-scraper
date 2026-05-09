@@ -72,7 +72,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "community_general": "Communities", "gardening": "Gardening",
     "film_club": "Film Club", "trivia": "Trivia & Quizzes",
     "sustainability": "Sustainability", "crafts": "Crafts & Making", "fitness": "Fitness",
-    "religion": "Religion & Faith", "other": "Other",
+    "religion": "Religion & Faith", "baby": "Baby & Parents", "other": "Other",
 },
 "hu": {
     "running": "Futás", "board_games": "Társasjáték", "choir": "Kórus",
@@ -85,7 +85,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "community_general": "Közösségek", "gardening": "Kertészet",
     "film_club": "Filmklub", "trivia": "Kvíz",
     "sustainability": "Fenntarthatóság", "crafts": "Kézművesség", "fitness": "Fitnesz",
-    "religion": "Vallás", "other": "Egyéb",
+    "religion": "Vallás", "baby": "Baba & Szülő", "other": "Egyéb",
 },
 "de": {
     "running": "Laufen", "board_games": "Brettspiele", "choir": "Chor",
@@ -98,7 +98,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "community_general": "Gemeinschaften", "gardening": "Gärtnern",
     "film_club": "Filmklub", "trivia": "Quiz",
     "sustainability": "Nachhaltigkeit", "crafts": "Basteln", "fitness": "Fitness",
-    "religion": "Religion & Glaube", "other": "Sonstiges",
+    "religion": "Religion & Glaube", "baby": "Baby & Eltern", "other": "Sonstiges",
 },
 "fr": {
     "running": "Course à pied", "board_games": "Jeux de société", "choir": "Chœur",
@@ -111,7 +111,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "community_general": "Communautés", "gardening": "Jardinage",
     "film_club": "Ciné-club", "trivia": "Quiz",
     "sustainability": "Développement durable", "crafts": "Artisanat", "fitness": "Fitness",
-    "religion": "Religion & Foi", "other": "Autre",
+    "religion": "Religion & Foi", "baby": "Bébé & Parents", "other": "Autre",
 },
 "es": {
     "running": "Correr", "board_games": "Juegos de mesa", "choir": "Coro",
@@ -124,7 +124,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "community_general": "Comunidades", "gardening": "Jardinería",
     "film_club": "Cineclub", "trivia": "Trivia",
     "sustainability": "Sostenibilidad", "crafts": "Manualidades", "fitness": "Fitness",
-    "religion": "Religión & Fe", "other": "Otro",
+    "religion": "Religión & Fe", "baby": "Bebé & Padres", "other": "Otro",
 },
 "it": {
     "running": "Corsa", "board_games": "Giochi da tavolo", "choir": "Coro",
@@ -137,7 +137,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "community_general": "Comunità", "gardening": "Giardinaggio",
     "film_club": "Cineforum", "trivia": "Quiz",
     "sustainability": "Sostenibilità", "crafts": "Artigianato", "fitness": "Fitness",
-    "religion": "Religione & Fede", "other": "Altro",
+    "religion": "Religione & Fede", "baby": "Neonati & Genitori", "other": "Altro",
 },
 "pt": {
     "running": "Corrida", "board_games": "Jogos de tabuleiro", "choir": "Coro",
@@ -150,7 +150,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "community_general": "Comunidades", "gardening": "Jardinagem",
     "film_club": "Cineclube", "trivia": "Quiz",
     "sustainability": "Sustentabilidade", "crafts": "Artesanato", "fitness": "Fitness",
-    "religion": "Religião & Fé", "other": "Outro",
+    "religion": "Religião & Fé", "baby": "Bebê & Pais", "other": "Outro",
 },
 "ru": {
     "running": "Бег", "board_games": "Настольные игры", "choir": "Хор",
@@ -163,7 +163,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "community_general": "Сообщества", "gardening": "Садоводство",
     "film_club": "Киноклуб", "trivia": "Викторина",
     "sustainability": "Устойчивость", "crafts": "Рукоделие", "fitness": "Фитнес",
-    "religion": "Религия & Вера", "other": "Другое",
+    "religion": "Религия & Вера", "baby": "Малыш & Родители", "other": "Другое",
 },
 "pl": {
     "running": "Bieganie", "board_games": "Gry planszowe", "choir": "Chór",
@@ -176,7 +176,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "community_general": "Społeczności", "gardening": "Ogrodnictwo",
     "film_club": "Klub filmowy", "trivia": "Quiz",
     "sustainability": "Zrównoważony rozwój", "crafts": "Rękodzieło", "fitness": "Fitness",
-    "religion": "Religia & Wiara", "other": "Inne",
+    "religion": "Religia & Wiara", "baby": "Niemowlęta & Rodzice", "other": "Inne",
 },
 "uk": {
     "running": "Біг", "board_games": "Настільні ігри", "choir": "Хор",
@@ -189,7 +189,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "community_general": "Спільноти", "gardening": "Садівництво",
     "film_club": "Кіноклуб", "trivia": "Вікторина",
     "sustainability": "Сталий розвиток", "crafts": "Рукоділля", "fitness": "Фітнес",
-    "religion": "Релігія & Віра", "other": "Інше",
+    "religion": "Релігія & Віра", "baby": "Малюк & Батьки", "other": "Інше",
 },
 "zh": {
     "running": "跑步", "board_games": "桌游", "choir": "合唱团",
@@ -202,7 +202,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "community_general": "社区", "gardening": "园艺",
     "film_club": "电影俱乐部", "trivia": "问答",
     "sustainability": "可持续发展", "crafts": "手工艺", "fitness": "健身",
-    "religion": "宗教 & 信仰", "other": "其他",
+    "religion": "宗教 & 信仰", "baby": "婴儿 & 父母", "other": "其他",
 },
 "ja": {
     "running": "ランニング", "board_games": "ボードゲーム", "choir": "合唱",
@@ -215,7 +215,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "community_general": "コミュニティ", "gardening": "ガーデニング",
     "film_club": "映画鑑賞会", "trivia": "クイズ",
     "sustainability": "サステナビリティ", "crafts": "クラフト", "fitness": "フィットネス",
-    "religion": "宗教 & 信仰", "other": "その他",
+    "religion": "宗教 & 信仰", "baby": "赤ちゃん & 親", "other": "その他",
 },
 "ko": {
     "running": "러닝", "board_games": "보드게임", "choir": "합창",
@@ -228,7 +228,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "community_general": "커뮤니티", "gardening": "가드닝",
     "film_club": "영화 동호회", "trivia": "퀴즈",
     "sustainability": "지속가능성", "crafts": "공예", "fitness": "피트니스",
-    "religion": "종교 & 신앙", "other": "기타",
+    "religion": "종교 & 신앙", "baby": "아기 & 부모", "other": "기타",
 },
 "ar": {
     "running": "الجري", "board_games": "ألعاب الطاولة", "choir": "جوقة",
@@ -241,7 +241,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "community_general": "المجتمعات", "gardening": "البستنة",
     "film_club": "نادي الأفلام", "trivia": "الألغاز",
     "sustainability": "الاستدامة", "crafts": "الحرف اليدوية", "fitness": "اللياقة",
-    "religion": "الدين & الإيمان", "other": "أخرى",
+    "religion": "الدين & الإيمان", "baby": "الرضع & الآباء", "other": "أخرى",
 },
 "fa": {
     "running": "دویدن", "board_games": "بازی‌های رومیزی", "choir": "گروه کر",
@@ -254,7 +254,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "community_general": "جوامع", "gardening": "باغبانی",
     "film_club": "باشگاه فیلم", "trivia": "مسابقه",
     "sustainability": "پایداری", "crafts": "صنایع دستی", "fitness": "تناسب اندام",
-    "religion": "دین & ایمان", "other": "دیگر",
+    "religion": "دین & ایمان", "baby": "نوزاد & والدین", "other": "دیگر",
 },
 "he": {
     "running": "ריצה", "board_games": "משחקי קופסה", "choir": "מקהלה",
@@ -267,7 +267,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "community_general": "קהילות", "gardening": "גינון",
     "film_club": "מועדון קולנוע", "trivia": "טריוויה",
     "sustainability": "קיימות", "crafts": "אומנות", "fitness": "כושר",
-    "religion": "דת & אמונה", "other": "אחר",
+    "religion": "דת & אמונה", "baby": "תינוק & הורים", "other": "אחר",
 },
 "hi": {
     "running": "दौड़", "board_games": "बोर्ड गेम्स", "choir": "गायक मंडल",
@@ -280,7 +280,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "community_general": "समुदाय", "gardening": "बागवानी",
     "film_club": "फिल्म क्लब", "trivia": "सामान्य ज्ञान",
     "sustainability": "स्थिरता", "crafts": "शिल्पकला", "fitness": "फिटनेस",
-    "religion": "धर्म & आस्था", "other": "अन्य",
+    "religion": "धर्म & आस्था", "baby": "शिशु & माता-पिता", "other": "अन्य",
 },
 "tr": {
     "running": "Koşu", "board_games": "Masa Oyunları", "choir": "Koro",

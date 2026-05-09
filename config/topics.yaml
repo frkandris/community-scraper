@@ -562,6 +562,26 @@ topics:
       ru: ["религиозная община", "приход", "молитвенная группа", "церковная община"]
       ar: ["مجتمع ديني", "جماعة دينية", "مجموعة عبادة", "رعية"]
 
+  - name: baby
+    search_terms:
+      hu: ["babacsoport", "babaklub", "mama-baba", "kismamakör", "szülőcsoport", "babagimnasztika", "babaúszás", "babamasszázs", "anyaklub", "szülői közösség"]
+      en: ["baby group", "parent group", "mommy group", "toddler group", "parent-baby class", "new parents group", "baby class", "mum group"]
+      de: [Babygruppe, Elterngruppe, Krabbelgruppe, "Mutter-Kind-Gruppe", Elternkreis, Babytreff]
+      fr: ["groupe bébé", "groupe parents", "atelier parents-bébés", "groupe mamans", "cercle parental"]
+      es: ["grupo de bebés", "grupo de padres", "grupo de mamás", "clase de bebés", "comunidad de padres"]
+      pt: ["grupo de bebês", "grupo de pais", "turma de bebês", "grupo de mamães"]
+      it: ["gruppo mamme", "gruppo genitori", "gruppo bebè", "classe neonati", "circolo genitori"]
+      nl: [babygroep, oudergroep, mammagroep, peutergroep, ouder-kindgroep]
+      pl: ["grupa dla mam", "grupa rodziców", "grupa niemowląt", "zajęcia dla niemowląt"]
+      cs: ["skupina pro rodiče", "skupinapro miminka", "maminky s dětmi", "rodičovská skupina"]
+      da: [babygruppe, forældregruppe, mammagruppe, småbørnsgruppe]
+      sv: [babygrupp, föräldragrupp, mammagrupp, småbarnsgrupp]
+      fi: [babyryhmä, vanhempainryhmä, äitiryhmä, vauvatreffit]
+      tr: ["bebek grubu", "ebeveyn grubu", "anne grubu", "bebek sınıfı"]
+      ja: [ベビーサークル, ママサークル, 親子グループ, 子育てグループ]
+      ko: ["육아 모임", "엄마 모임", "베이비 클래스", "부모 그룹"]
+      zh: [亲子群, 妈妈群, 婴儿班, 家长群]
+
   - name: other
     search_terms:
       hu: ["közösségi csoport", "helyi közösség", "egyéb közösség", "szabadidős csoport", "hobby csoport"]
