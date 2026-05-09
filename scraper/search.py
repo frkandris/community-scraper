@@ -60,6 +60,29 @@ LOCALE_TO_SERPER = {
     "zh": ("cn", "zh"),
 }
 
+# DataForSEO location codes: https://api.dataforseo.com/v3/serp/google/locations
+# (GET endpoint returns the full list; these are the most common ones)
+LOCALE_TO_DATAFORSEO_LOCATION: dict[str, int] = {
+    "hu": 2348,   # Hungary
+    "de": 2276,   # Germany
+    "fr": 2250,   # France
+    "it": 2380,   # Italy
+    "es": 2724,   # Spain
+    "nl": 2528,   # Netherlands
+    "pl": 2616,   # Poland
+    "sv": 2752,   # Sweden
+    "da": 2208,   # Denmark
+    "fi": 2246,   # Finland
+    "no": 2578,   # Norway
+    "cs": 2203,   # Czech Republic
+    "ro": 2642,   # Romania
+    "tr": 2792,   # Turkey
+    "ru": 2643,   # Russia
+    "uk": 2804,   # Ukraine
+    "pt": 2076,   # Brazil
+    "en": 2840,   # United States (default for English)
+}
+
 # Brave Search only accepts a fixed list of country codes; unmapped locales fall back to US.
 LOCALE_TO_BRAVE_COUNTRY = {
     "en": "US",
@@ -463,7 +486,11 @@ class DataForSEOClient:
         locale = str(locale)  # guard against PyYAML parsing "no" as bool False
         # DataForSEO uses bare ISO 639-1 language codes
         lang = locale.split("-")[0] if "-" in locale else locale
-        payload = [{"keyword": query, "language_code": lang, "depth": min(num_results, 100)}]
+        task: dict = {"keyword": query, "language_code": lang, "depth": min(num_results, 100)}
+        location_code = LOCALE_TO_DATAFORSEO_LOCATION.get(lang)
+        if location_code:
+            task["location_code"] = location_code
+        payload = [task]
         headers = {"Authorization": self._auth_header, "Content-Type": "application/json"}
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -511,7 +538,7 @@ class DataForSEOClient:
                         title=item.get("title", ""),
                         snippet=item.get("description", ""),
                     ))
-        log.debug("dataforseo_results", query=query, found=len(results))
+        log.info("dataforseo_results", query=query, found=len(results))
         return results[:num_results]
 
     async def search_all(
@@ -564,7 +591,10 @@ class FallbackSearchClient:
             if self._exhausted[i]:
                 continue
             try:
-                return await primary.search_all(queries, locale=locale, num_results=num_results)
+                results = await primary.search_all(queries, locale=locale, num_results=num_results)
+                if results:
+                    return results
+                log.info("search_empty_try_next", provider=type(primary).__name__, queries=queries)
             except SearchQuotaError as exc:
                 log.warning("search_quota_exhausted", provider=type(primary).__name__, reason=str(exc))
                 self._exhausted[i] = True
