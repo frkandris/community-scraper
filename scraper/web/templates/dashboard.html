@@ -11,37 +11,54 @@
     </span>
     {% endif %}
   </div>
-  {% if is_running %}
-  <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm bg-yellow-100 text-yellow-800 font-medium">
-    <span class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>Running…
-  </span>
-  {% else %}
-  <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm bg-green-100 text-green-800 font-medium">
-    <span class="w-2 h-2 rounded-full bg-green-500"></span>Idle
-  </span>
-  {% endif %}
+  <div class="flex items-center gap-3">
+    <!-- Scope toggle -->
+    <div class="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5 text-xs font-medium">
+      <button id="scope-btn-hu" onclick="setDashScope('hu')"
+        class="px-3 py-1.5 rounded-md transition-colors bg-white text-gray-900 shadow-sm border border-gray-200">
+        🇭🇺 Hungary
+      </button>
+      <button id="scope-btn-global" onclick="setDashScope('global')"
+        class="px-3 py-1.5 rounded-md transition-colors text-gray-500 hover:text-gray-700">
+        Global
+      </button>
+    </div>
+    {% if is_running %}
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm bg-yellow-100 text-yellow-800 font-medium">
+      <span class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>Running…
+    </span>
+    {% else %}
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm bg-green-100 text-green-800 font-medium">
+      <span class="w-2 h-2 rounded-full bg-green-500"></span>Idle
+    </span>
+    {% endif %}
+  </div>
 </div>
 
 <!-- Stats cards -->
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
   <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
     <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Communities</div>
-    <div class="text-3xl font-bold text-gray-900">{{ metadata.get('total_records', 0) }}</div>
+    <div id="stat-communities" class="text-3xl font-bold text-gray-900"
+      data-hu="{{ hu_total_records }}" data-global="{{ total_records }}">{{ hu_total_records }}</div>
     <a href="/admin/results" class="text-xs text-blue-500 hover:text-blue-700 mt-1 inline-block">View →</a>
   </div>
   <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
     <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Venues</div>
-    <div class="text-3xl font-bold text-gray-900">{{ total_venues }}</div>
+    <div id="stat-venues" class="text-3xl font-bold text-gray-900"
+      data-hu="{{ hu_total_venues }}" data-global="{{ total_venues }}">{{ hu_total_venues }}</div>
     <a href="/admin/venues" class="text-xs text-blue-500 hover:text-blue-700 mt-1 inline-block">View →</a>
   </div>
   <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
     <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">People</div>
-    <div class="text-3xl font-bold text-gray-900">{{ total_persons }}</div>
+    <div id="stat-persons" class="text-3xl font-bold text-gray-900"
+      data-hu="{{ hu_total_persons }}" data-global="{{ total_persons }}">{{ hu_total_persons }}</div>
     <a href="/admin/persons" class="text-xs text-blue-500 hover:text-blue-700 mt-1 inline-block">View →</a>
   </div>
   <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
     <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Cities</div>
-    <div class="text-3xl font-bold text-gray-900">{{ city_count }}</div>
+    <div id="stat-cities" class="text-3xl font-bold text-gray-900"
+      data-hu="{{ hu_city_count }}" data-global="{{ city_count }}">{{ hu_city_count }}</div>
     {% if test_mode %}<div class="text-xs text-amber-600 mt-0.5">test mode active</div>{% endif %}
   </div>
 </div>
@@ -408,6 +425,39 @@
 </div>
 
 <script>
+// Dashboard scope toggle (Hungary / Global)
+let dashScope = 'hu';
+function setDashScope(scope) {
+  dashScope = scope;
+  // Update toggle button styles
+  const huBtn     = document.getElementById('scope-btn-hu');
+  const globalBtn = document.getElementById('scope-btn-global');
+  if (scope === 'hu') {
+    huBtn.className     = 'px-3 py-1.5 rounded-md transition-colors bg-white text-gray-900 shadow-sm border border-gray-200';
+    globalBtn.className = 'px-3 py-1.5 rounded-md transition-colors text-gray-500 hover:text-gray-700';
+  } else {
+    globalBtn.className = 'px-3 py-1.5 rounded-md transition-colors bg-white text-gray-900 shadow-sm border border-gray-200';
+    huBtn.className     = 'px-3 py-1.5 rounded-md transition-colors text-gray-500 hover:text-gray-700';
+  }
+  // Swap stat values
+  ['communities','venues','persons','cities'].forEach(id => {
+    const el = document.getElementById('stat-' + id);
+    if (el) el.textContent = el.dataset[scope];
+  });
+  // Pre-set run scope to Hungary when in HU mode
+  const scopeType    = document.getElementById('scope-type');
+  const scopeCountry = document.getElementById('scope-country');
+  if (scope === 'hu') {
+    scopeType.value = 'country';
+    for (let i = 0; i < scopeCountry.options.length; i++) {
+      if (scopeCountry.options[i].value === 'Hungary') { scopeCountry.selectedIndex = i; break; }
+    }
+  } else {
+    scopeType.value = 'all';
+  }
+  scopeType.dispatchEvent(new Event('change'));
+}
+
 (function () {
   // Status polling
   const runBtn   = document.getElementById('run-btn');
@@ -509,6 +559,7 @@
 
   // Init
   selectPreset('smart');
+  setDashScope('hu');
 })();
 
 // Revalidation

@@ -1403,6 +1403,14 @@ async def dashboard(request: Request):
     run_cities = sorted([{"name": c.name, "country": c.country} for c in all_cities],
                         key=lambda c: (c["country"], c["name"]))
 
+    # Hungary-scoped stats
+    hu_names = _hu_city_names()
+    hu_topic_counts = get_topic_counts_for_cities(_db(), hu_names) if hu_names else {}
+    hu_total_records = sum(hu_topic_counts.values())
+    hu_total_venues = sum(v for k, v in venue_counts.items() if k in hu_names)
+    hu_total_persons = sum(v for k, v in person_counts.items() if k in hu_names)
+    hu_city_count = len(hu_names)
+
     return templates.TemplateResponse(request, "dashboard.html", {
         "metadata": metadata,
         "is_running": app_state.is_running,
@@ -1419,12 +1427,17 @@ async def dashboard(request: Request):
         "active_providers": active_providers,
         "total_venues": sum(venue_counts.values()),
         "total_persons": sum(person_counts.values()),
+        "total_records": total_records,
         "cost_stats": cost_stats,
         "revalidation_pending": revalidation_pending,
         "revalidate_state": _revalidate_state,
         "run_scopes": _get_run_scopes(),
         "run_countries": run_countries,
         "run_cities": run_cities,
+        "hu_total_records": hu_total_records,
+        "hu_total_venues": hu_total_venues,
+        "hu_total_persons": hu_total_persons,
+        "hu_city_count": hu_city_count,
     })
 
 
