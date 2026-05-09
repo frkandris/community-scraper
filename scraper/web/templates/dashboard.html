@@ -57,6 +57,10 @@
       <input type="hidden" name="run_mode"       id="f-run-mode"       value="full">
       <input type="hidden" name="skip_scraped"   id="f-skip-scraped"   value="on">
       <input type="hidden" name="skip_extracted" id="f-skip-extracted" value="on">
+      <!-- Phase toggles (values updated by JS checkboxes below) -->
+      <input type="hidden" name="run_communities" id="f-run-communities" value="on">
+      <input type="hidden" name="run_venues"      id="f-run-venues"      value="on">
+      <input type="hidden" name="run_persons"     id="f-run-persons"     value="on">
 
       <!-- Preset cards -->
       {%- macro scope_row(s, f, ai, color) -%}
@@ -163,6 +167,34 @@
           </div>
         </div>
 
+      </div>
+
+      <!-- Phase toggles -->
+      <div id="phase-opts" class="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
+        <div class="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-2">AI phases</div>
+        <div class="flex gap-4">
+          <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+            <input type="checkbox" id="cb-communities" checked
+              class="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+              onchange="document.getElementById('f-run-communities').value = this.checked ? 'on' : 'off'">
+            <i class="ph ph-brain text-gray-500" style="font-size:12px"></i>
+            <span class="text-gray-700">Communities</span>
+          </label>
+          <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+            <input type="checkbox" id="cb-venues" checked
+              class="rounded border-gray-300 text-orange-500 focus:ring-orange-400"
+              onchange="document.getElementById('f-run-venues').value = this.checked ? 'on' : 'off'">
+            <i class="ph ph-map-pin text-gray-500" style="font-size:12px"></i>
+            <span class="text-gray-700">Venues</span>
+          </label>
+          <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+            <input type="checkbox" id="cb-persons" checked
+              class="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+              onchange="document.getElementById('f-run-persons').value = this.checked ? 'on' : 'off'">
+            <i class="ph ph-person text-gray-500" style="font-size:12px"></i>
+            <span class="text-gray-700">People</span>
+          </label>
+        </div>
       </div>
 
       <button id="run-btn" type="submit" {% if is_running %}disabled{% endif %}
@@ -366,17 +398,31 @@
 
   // Preset config
   const PRESETS = {
-    smart:      { mode: 'full',    skipScraped: 'on',  skipExtracted: 'on',  label: 'Run Smart',
+    smart:      { mode: 'full',    skipScraped: 'on',  skipExtracted: 'on',
+                  communities: true, venues: true, persons: true,
+                  label: 'Run Smart',
                   activeColor: 'border-blue-500 bg-blue-50',    hoverColor: 'hover:border-blue-300 hover:bg-blue-50' },
-    refresh:    { mode: 'full',    skipScraped: '',    skipExtracted: '',    label: 'Full Rebuild',
+    refresh:    { mode: 'full',    skipScraped: '',    skipExtracted: '',
+                  communities: true, venues: true, persons: true,
+                  label: 'Full Rebuild',
                   activeColor: 'border-orange-400 bg-orange-50', hoverColor: 'hover:border-orange-300 hover:bg-orange-50' },
-    reai:       { mode: 'ai_only', skipScraped: '',    skipExtracted: '',    label: 'Run Re-AI',
+    reai:       { mode: 'ai_only', skipScraped: '',    skipExtracted: '',
+                  communities: true, venues: true, persons: true,
+                  label: 'Run Re-AI',
                   activeColor: 'border-purple-400 bg-purple-50', hoverColor: 'hover:border-purple-300 hover:bg-purple-50' },
-    revalidate: { mode: null,      skipScraped: '',    skipExtracted: '',    label: 'Revalidate',
+    revalidate: { mode: null,      skipScraped: '',    skipExtracted: '',
+                  communities: true, venues: true, persons: true,
+                  label: 'Revalidate',
                   activeColor: 'border-amber-400 bg-amber-50',   hoverColor: 'hover:border-amber-300 hover:bg-amber-50' },
   };
 
   let selected = 'smart';
+
+  function setCheckbox(id, checked) {
+    const cb = document.getElementById(id);
+    cb.checked = checked;
+    cb.dispatchEvent(new Event('change'));
+  }
 
   function selectPreset(key) {
     selected = key;
@@ -386,6 +432,9 @@
       document.getElementById('f-skip-scraped').value   = p.skipScraped;
       document.getElementById('f-skip-extracted').value = p.skipExtracted;
     }
+    setCheckbox('cb-communities', p.communities);
+    setCheckbox('cb-venues',      p.venues);
+    setCheckbox('cb-persons',     p.persons);
     document.getElementById('run-btn-label').textContent = p.label;
 
     document.querySelectorAll('.preset-card').forEach(card => {

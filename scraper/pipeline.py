@@ -158,6 +158,9 @@ async def run_pipeline(
     run_mode: str = "full",
     skip_scraped: bool | None = None,
     skip_extracted: bool | None = None,
+    run_communities: bool = True,
+    run_venues: bool = True,
+    run_persons: bool = True,
     on_progress: Callable[[str | None, str | None], None] | None = None,
 ) -> tuple[list[dict], int]:
     _skip_scraped = skip_scraped if skip_scraped is not None else config.cache_skip_scraped
@@ -202,11 +205,13 @@ async def run_pipeline(
 
     if run_mode == "ai_only":
         total_new, pair_logs = await _run_ai_only(
-            cities, topics, config, extractor, cache, _skip_extracted, run_stats, on_progress
+            cities, topics, config, extractor, cache, _skip_extracted, run_stats, on_progress,
+            run_communities=run_communities, run_venues=run_venues, run_persons=run_persons,
         )
     else:
         total_new, pair_logs = await _run_full(
-            cities, topics, config, extractor, cache, _skip_scraped, _skip_extracted, run_stats, on_progress
+            cities, topics, config, extractor, cache, _skip_scraped, _skip_extracted, run_stats, on_progress,
+            run_communities=run_communities, run_venues=run_venues, run_persons=run_persons,
         )
 
     log.info("pipeline_complete", run_mode=run_mode, total_new_records=total_new)
@@ -223,6 +228,9 @@ async def _run_full(
     skip_extracted: bool,
     run_stats: dict,
     on_progress: Callable[[str | None, str | None], None] | None,
+    run_communities: bool = True,
+    run_venues: bool = True,
+    run_persons: bool = True,
 ) -> tuple[int, list[dict]]:
     _searxng = SearXNGClient(config.searxng_url, rate_limit_seconds=config.search_rate_limit)
     _ddg = DuckDuckGoClient(rate_limit_seconds=max(config.search_rate_limit, 2.0))
@@ -337,7 +345,7 @@ async def _run_full(
                         pair_log["records_extracted"] += len(cached_records)
                         community_cache_hit = True
 
-                if not community_cache_hit:
+                if not community_cache_hit and run_communities:
                     if on_progress:
                         on_progress("extract", url)
                     t0 = time.monotonic()
@@ -400,7 +408,7 @@ async def _run_full(
                     community_names = [r.name for r in final_records]
 
                 # ── Venue extraction (with fingerprint cache) ────────────────
-                if not (cache and cache.get_venue_extracted(
+                if run_venues and not (cache and cache.get_venue_extracted(
                         url, fingerprint=extractor.venue_fingerprint) is not None):
                     try:
                         _topic_slugs = [t.name for t in topics]
@@ -422,7 +430,7 @@ async def _run_full(
                     fingerprint=extractor.person_fingerprint) if cache else None
                 if _person_cache is not None:
                     log.debug("person_cache_hit", url=url, cached=len(_person_cache))
-                else:
+                elif run_persons:
                     try:
                         persons = await extractor.extract_persons(
                             text, city.name, topic.name, city.locale, url, community_names,
@@ -457,13 +465,17 @@ async def _run_ai_only(
     skip_extracted: bool,
     run_stats: dict,
     on_progress: Callable[[str | None, str | None], None] | None,
+    run_communities: bool = True,
+    run_venues: bool = True,
+    run_persons: bool = True,
 ) -> tuple[int, list[dict]]:
     if not cache:
         log.warning("ai_only_mode_no_cache")
         return 0, []
 
     all_scraped = cache.get_all_scraped()
-    log.info("ai_only_start", cached_pages=len(all_scraped))
+    log.info("ai_only_start", cached_pages=len(all_scraped),
+             run_communities=run_communities, run_venues=run_venues, run_persons=run_persons)
 
     city_topic_pages: dict[tuple[str, str], list[tuple[str, str]]] = {}
     for url, text, city, topic in all_scraped:
@@ -499,18 +511,19 @@ async def _run_ai_only(
                 community_names: list[str] = []
 
                 # ── Community extraction (with fingerprint cache) ────────────
+                # Always read from cache for community_names (helps person extraction).
+                # Only run fresh extraction when run_communities=True and cache misses.
                 community_cache_hit = False
-                if skip_extracted:
-                    cached = cache.get_extracted(url, fingerprint=extractor.model_fingerprint)
-                    if cached is not None:
-                        log.debug("cache_hit_extract", url=url)
-                        records.extend(cached)
-                        community_names = [r.name for r in cached]
-                        pair_log["cache_hits_extract"] += 1
-                        pair_log["records_extracted"] += len(cached)
-                        community_cache_hit = True
+                cached = cache.get_extracted(url, fingerprint=extractor.model_fingerprint)
+                if cached is not None:
+                    log.debug("cache_hit_extract", url=url)
+                    records.extend(cached)
+                    community_names = [r.name for r in cached]
+                    pair_log["cache_hits_extract"] += 1
+                    pair_log["records_extracted"] += len(cached)
+                    community_cache_hit = True
 
-                if not community_cache_hit:
+                if not community_cache_hit and run_communities:
                     if on_progress:
                         on_progress("extract", url)
                     try:
@@ -540,7 +553,8 @@ async def _run_ai_only(
                     community_names = [r.name for r in joinable]
 
                 # ── Venue extraction (with fingerprint cache) ────────────────
-                if cache.get_venue_extracted(url, fingerprint=extractor.venue_fingerprint) is None:
+                if run_venues and cache.get_venue_extracted(
+                        url, fingerprint=extractor.venue_fingerprint) is None:
                     try:
                         _topic_slugs = [t.name for t in topics]
                         venues = await extractor.extract_venues(
@@ -559,7 +573,7 @@ async def _run_ai_only(
                     url, city.name, topic.name, fingerprint=extractor.person_fingerprint)
                 if _person_cache is not None:
                     log.debug("person_cache_hit", url=url, cached=len(_person_cache))
-                else:
+                elif run_persons:
                     try:
                         persons = await extractor.extract_persons(
                             text, city.name, topic.name, city.locale, url, community_names,

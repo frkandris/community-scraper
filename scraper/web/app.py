@@ -1709,6 +1709,9 @@ async def trigger_run(
     run_mode: str = Form("full"),
     skip_scraped: str = Form("off"),
     skip_extracted: str = Form("off"),
+    run_communities: str = Form("on"),
+    run_venues: str = Form("on"),
+    run_persons: str = Form("on"),
 ):
     if app_state.is_running:
         return RedirectResponse("/admin/logs", status_code=302)
@@ -1718,6 +1721,9 @@ async def trigger_run(
     app_state.is_running = True
     _skip_scraped = (skip_scraped == "on")
     _skip_extracted = (skip_extracted == "on")
+    _run_communities = (run_communities == "on")
+    _run_venues = (run_venues == "on")
+    _run_persons = (run_persons == "on")
 
     def _on_progress(phase: str | None, url: str | None) -> None:
         app_state.current_phase = phase
@@ -1737,6 +1743,9 @@ async def trigger_run(
                 run_mode=run_mode,
                 skip_scraped=_skip_scraped,
                 skip_extracted=_skip_extracted,
+                run_communities=_run_communities,
+                run_venues=_run_venues,
+                run_persons=_run_persons,
                 on_progress=_on_progress,
             )
             app_state.last_run_at = datetime.now(timezone.utc)
