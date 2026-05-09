@@ -2,15 +2,21 @@
 {% block title %}Emberek – közösségek.com{% endblock %}
 {% block content %}
 
-<div class="max-w-2xl mx-auto px-4 sm:px-6 py-16 text-center">
+<div class="brand-gradient relative overflow-hidden">
+  <div class="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white opacity-[0.07] pointer-events-none"></div>
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 relative">
+    <p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">Közösségi emberek</p>
+    <h1 class="text-xl sm:text-2xl font-black tracking-[-0.025em] text-white leading-tight">Közösségi vezetők és oktatók</h1>
+    <p class="text-sm text-white/75 mt-1">{{ total_persons }} személy az adatbázisban</p>
+  </div>
+</div>
+
+<div class="max-w-2xl mx-auto px-4 sm:px-6 py-12 text-center">
   <div class="inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#F5F2EC] border border-[#EAE5DB] mb-6">
     <i class="ph ph-users text-3xl text-[#A8512F]"></i>
   </div>
-  <h1 class="text-2xl sm:text-3xl font-bold text-[#1C1917] mb-2">Közösségi vezetők és oktatók</h1>
   <p class="text-sm text-[#8C8478] mb-6">Közösségek vezetői, oktatók, előadók</p>
-  <p class="text-4xl font-extrabold text-[#C2613A] mb-2">{{ total_persons }}</p>
-  <p class="text-sm text-[#8C8478]">személy az adatbázisban</p>
-  <div class="mt-10">
+  <div class="mt-6">
     <a href="/"
        class="inline-block px-6 py-2.5 bg-[#A8512F] text-white text-sm font-semibold rounded-lg hover:bg-[#8A4226] transition-colors">
       Közösségek felfedezése →

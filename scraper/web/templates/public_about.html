@@ -2,12 +2,18 @@
 {% block title %}About – közösségek.com{% endblock %}
 {% block content %}
 
+<div class="brand-gradient relative overflow-hidden">
+  <div class="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white opacity-[0.07] pointer-events-none"></div>
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 relative">
+    <p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">közösségek.com</p>
+    <h1 class="text-xl sm:text-2xl font-black tracking-[-0.025em] text-white leading-tight">{{ t('about_title') }}</h1>
+  </div>
+</div>
+
 <div class="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-12">
 
   <!-- Mission: trust-first -->
   <div class="max-w-3xl border-b border-[#EAE5DB] pb-10">
-    <p class="text-xs font-semibold uppercase tracking-[0.08em] text-[#A8512F] mb-3">{{ t('nav_about') }}</p>
-    <h1 class="text-3xl font-bold tracking-tight text-[#1C1917] mb-5">{{ t('about_title') }}</h1>
     <div class="space-y-4 text-[#6A6259] leading-relaxed">
       <p>{{ t('about_description') }}</p>
     </div>
