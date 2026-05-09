@@ -834,7 +834,7 @@ _T: dict[str, dict[str, str]] = {
     "community_feedback_send": "Küldés",
     "community_feedback_cancel": "Mégse",
     "community_feedback_thanks": "Köszönjük a visszajelzést!",
-    "about_title": "A közösségek.com-ről",
+    "about_title": "Rólunk",
     "about_cities": "város",
     "about_topics": "téma",
     "about_communities": "közösség",
