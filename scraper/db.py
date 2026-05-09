@@ -71,6 +71,10 @@ def init_db(db_path: Path) -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_comm_community_id ON communities(community_id)"
         )
+        try:
+            conn.execute("ALTER TABLE communities ADD COLUMN revalidate_fingerprint TEXT")
+        except sqlite3.OperationalError:
+            pass
 
         # Cache pages — full JSON entry per scraped URL
         conn.execute("""
@@ -406,6 +410,51 @@ def get_all_communities(db_path: Path) -> list[dict]:
             "SELECT data FROM communities ORDER BY city, topic, id"
         ).fetchall()
     return [json.loads(r[0]) for r in rows]
+
+
+def get_communities_needing_revalidation(
+    db_path: Path,
+    fingerprint: str,
+    city: str = "",
+    topic: str = "",
+) -> list[dict]:
+    """Return communities whose revalidate_fingerprint doesn't match the current fingerprint."""
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        if city and topic:
+            rows = conn.execute(
+                "SELECT data FROM communities WHERE city=? AND topic=?"
+                " AND (revalidate_fingerprint IS NULL OR revalidate_fingerprint != ?)"
+                " ORDER BY id",
+                (city, topic, fingerprint),
+            ).fetchall()
+        elif city:
+            rows = conn.execute(
+                "SELECT data FROM communities WHERE city=?"
+                " AND (revalidate_fingerprint IS NULL OR revalidate_fingerprint != ?)"
+                " ORDER BY topic, id",
+                (city, fingerprint),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT data FROM communities"
+                " WHERE revalidate_fingerprint IS NULL OR revalidate_fingerprint != ?"
+                " ORDER BY city, topic, id",
+                (fingerprint,),
+            ).fetchall()
+    return [json.loads(r[0]) for r in rows]
+
+
+def set_community_revalidate_fingerprint(
+    db_path: Path, record_key: str, fingerprint: str
+) -> None:
+    with _connect(db_path) as conn:
+        conn.execute(
+            "UPDATE communities SET revalidate_fingerprint=? WHERE record_key=?",
+            (fingerprint, record_key),
+        )
+        conn.commit()
 
 
 def get_communities_for_city(db_path: Path, city: str) -> list[dict]:

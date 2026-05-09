@@ -36,6 +36,9 @@ from ..db import (
     save_not_community_report,
     get_not_community_reports,
     delete_not_community_report,
+    get_communities_needing_revalidation,
+    set_community_revalidate_fingerprint,
+    _community_record_key,
     get_topic_counts,
     get_total_community_count,
     get_all_venues,
@@ -52,7 +55,7 @@ from ..false_positives import (add as fp_add, diff_html as fp_diff_html,
                                load as fp_load, load_history as fp_load_history,
                                remove as fp_remove, build_prompt_section)
 from ..extract import (ENRICH_SCHEMA, ENRICH_SYSTEM_PROMPT, EXTRACTION_SCHEMA,
-                       SYSTEM_PROMPT, USER_PROMPT_TEMPLATE,
+                       SYSTEM_PROMPT, USER_PROMPT_TEMPLATE, _prompt_hash,
                        VENUE_SCHEMA, VENUE_SYSTEM_PROMPT, VENUE_USER_PROMPT_TEMPLATE,
                        PERSON_SCHEMA, PERSON_SYSTEM_PROMPT, PERSON_USER_PROMPT_TEMPLATE,
                        PROMPT_KEYS, get_prompt, set_prompt_override,
@@ -1360,7 +1363,7 @@ async def prompts_nc_rule_remove(name: str = Form(...)):
 
 # ── Re-validate existing communities ─────────────────────────────────────────
 
-_revalidate_state: dict = {"running": False, "done": 0, "total": 0, "flagged": 0, "error": ""}
+_revalidate_state: dict = {"running": False, "done": 0, "total": 0, "flagged": 0, "skipped": 0, "error": ""}
 
 
 @admin.post("/revalidate/start")
@@ -1381,19 +1384,24 @@ async def admin_revalidate_status():
 
 
 async def _run_revalidate(city: str, topic: str) -> None:
-    _revalidate_state.update({"running": True, "done": 0, "total": 0, "flagged": 0, "error": ""})
+    _revalidate_state.update({"running": True, "done": 0, "total": 0, "flagged": 0, "skipped": 0, "error": ""})
     try:
         fps = fp_load(_db())
         rules_section = build_prompt_section(fps, fp_type="extraction")
         rules_section += build_prompt_section(fps, fp_type="extraction_rule") if fps else ""
 
-        if city and topic:
-            communities = get_communities(_db(), city, topic)
-        elif city:
-            communities = get_communities_for_city(_db(), city)
-        else:
-            communities = get_all_communities(_db())
+        # Fingerprint captures the prompt content + FP rules so we skip already-validated records
+        revalidate_fp = _prompt_hash(
+            SYSTEM_PROMPT[:1500] + rules_section +
+            "Is this a GENUINE ongoing community group (not a business, event, or false positive)?"
+        )
 
+        all_count = len(get_all_communities(_db()) if not city else
+                        (get_communities(_db(), city, topic) if topic else
+                         get_communities_for_city(_db(), city)))
+        communities = get_communities_needing_revalidation(_db(), revalidate_fp, city, topic)
+
+        _revalidate_state["skipped"] = all_count - len(communities)
         _revalidate_state["total"] = len(communities)
 
         for record in communities:
@@ -1425,6 +1433,9 @@ async def _run_revalidate(city: str, topic: str) -> None:
                         source_url=src,
                     )
                     _revalidate_state["flagged"] += 1
+                set_community_revalidate_fingerprint(
+                    _db(), _community_record_key(name, c, t), revalidate_fp
+                )
             except Exception as exc:
                 log.warning("revalidate_item_failed", name=name, error=str(exc))
             _revalidate_state["done"] += 1
