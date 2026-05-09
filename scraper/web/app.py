@@ -35,6 +35,7 @@ from ..db import (
     get_total_community_count,
     get_all_venues,
     get_venue_counts,
+    get_venue_person_counts_by_url,
     get_persons,
     get_person_counts,
     get_cache_cost_stats,
@@ -1492,11 +1493,23 @@ async def cache_detail_redirect(url_hash: str):
     return RedirectResponse(f"/admin/progress/{url_hash}", status_code=301)
 
 @admin.get("/progress", response_class=HTMLResponse)
-async def cache_page(request: Request):
+async def cache_page(request: Request, page: int = 1):
     entries = []
     if app_state.cache_manager:
         entries = app_state.cache_manager.get_index()
-    return templates.TemplateResponse(request, "progress.html", {"entries": entries})
+    url_counts = get_venue_person_counts_by_url(_db())
+    page_size = 100
+    total = len(entries)
+    pages = max(1, (total + page_size - 1) // page_size)
+    page = max(1, min(page, pages))
+    paged = entries[(page - 1) * page_size: page * page_size]
+    return templates.TemplateResponse(request, "progress.html", {
+        "entries": paged,
+        "url_counts": url_counts,
+        "page": page,
+        "pages": pages,
+        "total": total,
+    })
 
 
 @admin.get("/progress/{url_hash}", response_class=HTMLResponse)

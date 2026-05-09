@@ -45,7 +45,7 @@
   <h1 class="text-2xl font-bold text-gray-900">Progress</h1>
   <div class="flex items-center gap-3">
     <div id="phase-badge" class="hidden items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border"></div>
-    <span class="text-sm text-gray-500"><span id="entry-count">{{ entries|length }}</span> entries<span id="filter-count" class="hidden"> · <span id="filter-count-n"></span> shown</span></span>
+    <span class="text-sm text-gray-500"><span id="entry-count">{{ total }}</span> entries{% if pages > 1 %} · page {{ page }}/{{ pages }}{% endif %}<span id="filter-count" class="hidden"> · <span id="filter-count-n"></span> shown</span></span>
     <form method="POST" action="/admin/progress/queue-extract-all"
           onsubmit="return confirm('Queue AI extraction for all unprocessed entries?')">
       <button type="submit"
@@ -75,7 +75,7 @@
     <ul class="text-sm text-gray-600 mb-6 space-y-1.5">
       <li class="flex items-center gap-2">
         <i class="ph ph-file-x text-red-400 shrink-0" style="font-size:15px"></i>
-        <span><strong id="modal-entry-count">{{ entries|length }}</strong> cached pages</span>
+        <span><strong id="modal-entry-count">{{ total }}</strong> cached pages</span>
       </li>
       <li class="flex items-center gap-2">
         <i class="ph ph-folder-open text-red-400 shrink-0" style="font-size:15px"></i>
@@ -137,6 +137,12 @@
           <i class="ph ph-brain" style="font-size:15px"></i> AI+
         </th>
         <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Rec.</th>
+        <th class="text-center px-2 py-3 text-xs font-semibold text-green-400 uppercase tracking-wide w-12" title="Venues extracted">
+          <i class="ph ph-map-pin" style="font-size:15px"></i>
+        </th>
+        <th class="text-center px-2 py-3 text-xs font-semibold text-sky-400 uppercase tracking-wide w-12" title="People extracted">
+          <i class="ph ph-person" style="font-size:15px"></i>
+        </th>
         <th class="text-center px-2 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide w-12" title="Details">
           <i class="ph ph-clipboard-text" style="font-size:15px"></i>
         </th>
@@ -198,7 +204,7 @@
             {% for m in enrich_models %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
           </select>
         </th>
-        <th colspan="2"></th>
+        <th colspan="4"></th>
         <th class="px-3 py-2 text-right">
           <button onclick="clearFilters()" class="text-xs text-gray-400 hover:text-blue-600 transition-colors whitespace-nowrap">Clear</button>
         </th>
@@ -232,6 +238,18 @@
         <td class="px-4 py-3 text-right text-xs font-medium text-gray-700">
           {% if e.extracted_at %}{{ e.record_count }}{% else %}<span class="text-gray-300">—</span>{% endif %}
         </td>
+        {% set _vc = url_counts.get(e.url, {}).get('venues', 0) %}
+        {% set _pc = url_counts.get(e.url, {}).get('persons', 0) %}
+        <td class="px-2 py-3 text-center text-xs">
+          {% if _vc %}<span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-700 font-semibold text-[10px]">{{ _vc }}</span>
+          {% elif e.extracted_at %}<span class="text-gray-300">—</span>
+          {% else %}<span class="text-gray-200">·</span>{% endif %}
+        </td>
+        <td class="px-2 py-3 text-center text-xs">
+          {% if _pc %}<span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-sky-100 text-sky-700 font-semibold text-[10px]">{{ _pc }}</span>
+          {% elif e.extracted_at %}<span class="text-gray-300">—</span>
+          {% else %}<span class="text-gray-200">·</span>{% endif %}
+        </td>
         <td class="px-2 py-3 text-center">
           <a href="/admin/progress/{{ e.url_hash }}"
              title="Audit trail"
@@ -254,6 +272,27 @@
     </tbody>
   </table>
 </div>
+
+{% if pages > 1 %}
+<div class="flex items-center justify-center gap-1 mt-4">
+  {% if page > 1 %}
+  <a href="?page={{ page - 1 }}" class="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">← Prev</a>
+  {% endif %}
+  {% for p in range(1, pages + 1) %}
+    {% if p == page %}
+    <span class="px-3 py-1.5 text-xs rounded-lg border border-blue-300 bg-blue-50 text-blue-700 font-semibold">{{ p }}</span>
+    {% elif p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
+    <a href="?page={{ p }}" class="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">{{ p }}</a>
+    {% elif p == page - 3 or p == page + 3 %}
+    <span class="px-1 text-xs text-gray-400">…</span>
+    {% endif %}
+  {% endfor %}
+  {% if page < pages %}
+  <a href="?page={{ page + 1 }}" class="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">Next →</a>
+  {% endif %}
+</div>
+{% endif %}
+
 {% else %}
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center" id="empty-state">
   <p class="text-gray-400">No cached pages yet. Run the scraper to populate the cache.</p>

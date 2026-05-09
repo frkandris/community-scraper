@@ -745,6 +745,27 @@ def get_venue_counts(db_path: Path) -> dict[str, int]:
     return {r[0]: r[1] for r in rows}
 
 
+def get_venue_person_counts_by_url(db_path: Path) -> dict[str, dict]:
+    """Return {url: {venues: n, persons: n}} for the progress page."""
+    if not db_path.exists():
+        return {}
+    result: dict[str, dict] = {}
+    with _connect(db_path) as conn:
+        for (src_url, cnt) in conn.execute(
+            "SELECT json_extract(data,'$.source_url'), COUNT(*) FROM venues"
+            " WHERE json_extract(data,'$.source_url') IS NOT NULL"
+            " GROUP BY json_extract(data,'$.source_url')"
+        ).fetchall():
+            result.setdefault(src_url, {"venues": 0, "persons": 0})["venues"] = cnt
+        for (src_url, cnt) in conn.execute(
+            "SELECT json_extract(data,'$.source_url'), COUNT(*) FROM persons"
+            " WHERE json_extract(data,'$.source_url') IS NOT NULL"
+            " GROUP BY json_extract(data,'$.source_url')"
+        ).fetchall():
+            result.setdefault(src_url, {"venues": 0, "persons": 0})["persons"] = cnt
+    return result
+
+
 # ── Persons ───────────────────────────────────────────────────────────────────
 
 def _person_record_key(name: str, city: str, role: str, community_name: str) -> str:
