@@ -38,6 +38,7 @@ from ..db import (
     delete_not_community_report,
     get_communities_needing_revalidation,
     set_community_revalidate_fingerprint,
+    set_community_hidden,
     _community_record_key,
     get_topic_counts,
     get_total_community_count,
@@ -1535,21 +1536,26 @@ async def _run_revalidate(city: str, topic: str) -> None:
             try:
                 answer = await _ai_chat(prompt, temperature=0.1)
                 verdict = "NO" if answer.upper().startswith("NO") else "YES"
+                rk = _community_record_key(name, c, t)
                 log.info("revalidate_checked", name=name, city=c, verdict=verdict)
                 if verdict == "NO":
-                    save_not_community_report(
-                        _db(),
-                        community_id=record.get("community_id", ""),
-                        community_name=name,
-                        city=c,
-                        topic=t,
-                        page_url=src,
-                        source_url=src,
-                    )
+                    try:
+                        save_not_community_report(
+                            _db(),
+                            community_id=record.get("community_id", ""),
+                            community_name=name,
+                            city=c,
+                            topic=t,
+                            page_url=src,
+                            source_url=src,
+                        )
+                    except Exception:
+                        pass
+                    set_community_hidden(_db(), rk, True)
                     _revalidate_state["flagged"] += 1
-                set_community_revalidate_fingerprint(
-                    _db(), _community_record_key(name, c, t), revalidate_fp
-                )
+                else:
+                    set_community_hidden(_db(), rk, False)
+                set_community_revalidate_fingerprint(_db(), rk, revalidate_fp)
             except Exception as exc:
                 log.warning("revalidate_item_failed", name=name, error=str(exc))
             _revalidate_state["done"] += 1

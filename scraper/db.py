@@ -87,6 +87,10 @@ def init_db(db_path: Path) -> None:
             conn.execute("ALTER TABLE communities ADD COLUMN revalidate_fingerprint TEXT")
         except sqlite3.OperationalError:
             pass
+        try:
+            conn.execute("ALTER TABLE communities ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
 
         # Cache pages — full JSON entry per scraped URL
         conn.execute("""
@@ -388,7 +392,7 @@ def get_communities(db_path: Path, city: str, topic: str) -> list[dict]:
         return []
     with _connect(db_path) as conn:
         rows = conn.execute(
-            "SELECT data FROM communities WHERE city=? AND topic=? ORDER BY id",
+            "SELECT data FROM communities WHERE city=? AND topic=? AND hidden=0 ORDER BY id",
             (city, topic)
         ).fetchall()
     return [json.loads(r[0]) for r in rows]
@@ -401,14 +405,14 @@ def search_communities_by_tag(db_path: Path, tag: str, city: str = "") -> list[d
     with _connect(db_path) as conn:
         if city:
             rows = conn.execute(
-                "SELECT data FROM communities WHERE city=? AND EXISTS ("
+                "SELECT data FROM communities WHERE city=? AND hidden=0 AND EXISTS ("
                 "  SELECT 1 FROM json_each(json_extract(data,'$.tags')) WHERE value=?"
                 ") ORDER BY id",
                 (city, tag)
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT data FROM communities WHERE EXISTS ("
+                "SELECT data FROM communities WHERE hidden=0 AND EXISTS ("
                 "  SELECT 1 FROM json_each(json_extract(data,'$.tags')) WHERE value=?"
                 ") ORDER BY city, id",
                 (tag,)
@@ -471,12 +475,21 @@ def set_community_revalidate_fingerprint(
         conn.commit()
 
 
+def set_community_hidden(db_path: Path, record_key: str, hidden: bool) -> None:
+    with _connect(db_path) as conn:
+        conn.execute(
+            "UPDATE communities SET hidden=? WHERE record_key=?",
+            (1 if hidden else 0, record_key),
+        )
+        conn.commit()
+
+
 def get_communities_for_city(db_path: Path, city: str) -> list[dict]:
     if not db_path.exists():
         return []
     with _connect(db_path) as conn:
         rows = conn.execute(
-            "SELECT data FROM communities WHERE city=? ORDER BY topic, id",
+            "SELECT data FROM communities WHERE city=? AND hidden=0 ORDER BY topic, id",
             (city,)
         ).fetchall()
     return [json.loads(r[0]) for r in rows]
@@ -487,7 +500,7 @@ def find_community_by_id(db_path: Path, community_id: str) -> dict | None:
         return None
     with _connect(db_path) as conn:
         row = conn.execute(
-            "SELECT data FROM communities WHERE community_id=? LIMIT 1",
+            "SELECT data FROM communities WHERE community_id=? AND hidden=0 LIMIT 1",
             (community_id,)
         ).fetchone()
     return json.loads(row[0]) if row else None
@@ -500,7 +513,7 @@ def get_communities_by_ids(db_path: Path, community_ids: list[str]) -> list[dict
     placeholders = ",".join("?" * len(community_ids))
     with _connect(db_path) as conn:
         rows = conn.execute(
-            f"SELECT data FROM communities WHERE community_id IN ({placeholders})",
+            f"SELECT data FROM communities WHERE community_id IN ({placeholders}) AND hidden=0",
             community_ids,
         ).fetchall()
     return [json.loads(r[0]) for r in rows]
@@ -511,7 +524,7 @@ def get_topic_counts(db_path: Path) -> dict[str, int]:
         return {}
     with _connect(db_path) as conn:
         rows = conn.execute(
-            "SELECT topic, COUNT(*) FROM communities GROUP BY topic"
+            "SELECT topic, COUNT(*) FROM communities WHERE hidden=0 GROUP BY topic"
         ).fetchall()
     return {r[0]: r[1] for r in rows}
 
@@ -521,7 +534,7 @@ def get_city_topic_counts(db_path: Path) -> dict[str, dict[str, int]]:
         return {}
     with _connect(db_path) as conn:
         rows = conn.execute(
-            "SELECT city, topic, COUNT(*) FROM communities GROUP BY city, topic"
+            "SELECT city, topic, COUNT(*) FROM communities WHERE hidden=0 GROUP BY city, topic"
         ).fetchall()
     result: dict[str, dict[str, int]] = {}
     for city, topic, count in rows:
@@ -534,7 +547,7 @@ def get_city_totals(db_path: Path) -> list[tuple[str, int]]:
         return []
     with _connect(db_path) as conn:
         rows = conn.execute(
-            "SELECT city, COUNT(*) as cnt FROM communities GROUP BY city ORDER BY cnt DESC"
+            "SELECT city, COUNT(*) as cnt FROM communities WHERE hidden=0 GROUP BY city ORDER BY cnt DESC"
         ).fetchall()
     return [(r[0], r[1]) for r in rows]
 
@@ -543,7 +556,7 @@ def get_total_community_count(db_path: Path) -> int:
     if not db_path.exists():
         return 0
     with _connect(db_path) as conn:
-        row = conn.execute("SELECT COUNT(*) FROM communities").fetchone()
+        row = conn.execute("SELECT COUNT(*) FROM communities WHERE hidden=0").fetchone()
     return row[0] if row else 0
 
 
