@@ -76,6 +76,8 @@ def load_config_from_docs(
         enrich_communities=pipeline_settings.get("enrich_communities", True),
         brave_api_key=os.environ.get("BRAVE_API_KEY", ""),
         serper_api_key=os.environ.get("SERPER_DEV_API_KEY", ""),
+        dataforseo_login=os.environ.get("DATAFORSEO_LOGIN", ""),
+        dataforseo_password=os.environ.get("DATAFORSEO_PASSWORD", ""),
         deepseek_api_key=os.environ.get("DEEPSEEK_API_KEY", ""),
         deepseek_model=deepseek_cfg.get("model", "deepseek-chat"),
         deepseek_temperature=deepseek_cfg.get("temperature", 0.1),

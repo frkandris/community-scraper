@@ -998,6 +998,7 @@ async def dashboard(request: Request):
     cfg = app_state.pipeline_cfg
     active_providers = {
         "search": (
+            (["DataForSEO"] if cfg and cfg.dataforseo_login and cfg.dataforseo_password else []) +
             (["Serper"] if cfg and cfg.serper_api_key else []) +
             (["Brave"] if cfg and cfg.brave_api_key else []) +
             ["DDG", "SearXNG"]
@@ -1679,7 +1680,13 @@ async def cache_run_enrich(url_hash: str):
     async def _do() -> None:
         try:
             extractor = _build_extractor(cfg)
-            if cfg.brave_api_key:
+            if cfg.dataforseo_login and cfg.dataforseo_password:
+                from ..search import DataForSEOClient
+                searxng = DataForSEOClient(
+                    cfg.dataforseo_login, cfg.dataforseo_password,
+                    rate_limit_seconds=cfg.search_rate_limit,
+                )
+            elif cfg.brave_api_key:
                 searxng: BraveSearchClient | SearXNGClient = BraveSearchClient(
                     cfg.brave_api_key, rate_limit_seconds=cfg.search_rate_limit
                 )

@@ -10,7 +10,7 @@ from .extract import DeepSeekExtractor, FallbackExtractor, GroqExtractor, Ollama
 from .false_positives import build_prompt_section
 from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
-from .search import BraveSearchClient, DuckDuckGoClient, FallbackSearchClient, SearXNGClient, SerperSearchClient, build_queries
+from .search import BraveSearchClient, DataForSEOClient, DuckDuckGoClient, FallbackSearchClient, SearXNGClient, SerperSearchClient, build_queries
 from .db import get_search_cache, save_search_cache, upsert_venues, upsert_persons
 from .store import save_results
 
@@ -130,6 +130,8 @@ class PipelineConfig:
     db_path: Path
     brave_api_key: str = ""
     serper_api_key: str = ""
+    dataforseo_login: str = ""
+    dataforseo_password: str = ""
     deepseek_api_key: str = ""
     deepseek_model: str = "deepseek-chat"
     deepseek_temperature: float = 0.1
@@ -225,6 +227,11 @@ async def _run_full(
     _searxng = SearXNGClient(config.searxng_url, rate_limit_seconds=config.search_rate_limit)
     _ddg = DuckDuckGoClient(rate_limit_seconds=max(config.search_rate_limit, 2.0))
     search_primaries = []
+    if config.dataforseo_login and config.dataforseo_password:
+        search_primaries.append(DataForSEOClient(
+            config.dataforseo_login, config.dataforseo_password,
+            rate_limit_seconds=config.search_rate_limit,
+        ))
     if config.serper_api_key:
         search_primaries.append(SerperSearchClient(config.serper_api_key, rate_limit_seconds=config.search_rate_limit))
     if config.brave_api_key:

@@ -438,6 +438,105 @@ class SerperSearchClient:
         self._last_request_time = time.monotonic()
 
 
+class DataForSEOClient:
+    """DataForSEO Google Organic SERP — live mode, $2/1K queries.
+    Works reliably from datacenter IPs; raises SearchQuotaError on depleted credits.
+    Auth: Basic HTTP with login:password (base64-encoded).
+    """
+
+    _BASE = "https://api.dataforseo.com/v3/serp/google/organic/live/regular"
+
+    def __init__(self, login: str, password: str, rate_limit_seconds: float = 1.0):
+        import base64
+        self.rate_limit_seconds = rate_limit_seconds
+        self._last_request_time: float = 0.0
+        raw = f"{login}:{password}".encode()
+        self._auth_header = f"Basic {base64.b64encode(raw).decode()}"
+
+    async def search(
+        self,
+        query: str,
+        locale: str = "en",
+        num_results: int = 10,
+    ) -> list[SearchResult]:
+        await self._rate_limit()
+        # DataForSEO uses bare ISO 639-1 language codes
+        lang = locale.split("-")[0] if "-" in locale else locale
+        payload = [{"keyword": query, "language_code": lang, "depth": min(num_results, 100)}]
+        headers = {"Authorization": self._auth_header, "Content-Type": "application/json"}
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(self._BASE, json=payload, headers=headers)
+        except Exception as exc:
+            log.warning("dataforseo_request_failed", query=query, error=str(exc))
+            return []
+
+        if resp.status_code == 402:
+            raise SearchQuotaError("DataForSEO: insufficient credits (HTTP 402)")
+        if resp.status_code == 429:
+            raise SearchQuotaError("DataForSEO: rate limited (HTTP 429)")
+        if resp.status_code >= 400:
+            log.warning("dataforseo_http_error", query=query, status=resp.status_code)
+            return []
+
+        try:
+            data = resp.json()
+        except Exception:
+            log.warning("dataforseo_bad_json", query=query)
+            return []
+
+        top = data.get("status_code", 0)
+        if top == 40201:
+            raise SearchQuotaError("DataForSEO: insufficient credits (40201)")
+        if top not in (20000, 20100):
+            log.warning("dataforseo_api_error", query=query, status_code=top,
+                        message=data.get("status_message", ""))
+            return []
+
+        results: list[SearchResult] = []
+        for task in data.get("tasks", []):
+            task_status = task.get("status_code", 0)
+            if task_status == 40201:
+                raise SearchQuotaError("DataForSEO: task quota exhausted (40201)")
+            for result in task.get("result") or []:
+                for item in result.get("items") or []:
+                    if item.get("type") != "organic":
+                        continue
+                    url = item.get("url", "")
+                    if not url:
+                        continue
+                    results.append(SearchResult(
+                        url=url,
+                        title=item.get("title", ""),
+                        snippet=item.get("description", ""),
+                    ))
+        log.debug("dataforseo_results", query=query, found=len(results))
+        return results[:num_results]
+
+    async def search_all(
+        self,
+        queries: list[str],
+        locale: str = "en",
+        num_results: int = 10,
+    ) -> list[SearchResult]:
+        seen_urls: set[str] = set()
+        combined: list[SearchResult] = []
+        for query in queries:
+            for r in await self.search(query, locale=locale, num_results=num_results):
+                if r.url not in seen_urls:
+                    seen_urls.add(r.url)
+                    combined.append(r)
+        return combined
+
+    async def _rate_limit(self) -> None:
+        import time
+        now = time.monotonic()
+        elapsed = now - self._last_request_time
+        if elapsed < self.rate_limit_seconds:
+            await asyncio.sleep(self.rate_limit_seconds - elapsed)
+        self._last_request_time = time.monotonic()
+
+
 class FallbackSearchClient:
     """Tries primaries left-to-right; on quota exhaustion falls back to SearXNG."""
 
