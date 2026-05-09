@@ -2,49 +2,50 @@
 {% block title %}About – kozossegek.com{% endblock %}
 {% block content %}
 
-<div class="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-10">
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-12">
 
-  <!-- Project description -->
-  <div class="max-w-3xl border-b border-slate-200 pb-8">
-    <h1 class="text-3xl font-extrabold text-slate-950 mb-5">{{ t('about_title') }}</h1>
-    <div class="prose prose-slate max-w-none space-y-4 text-slate-600 leading-relaxed">
+  <!-- Mission: trust-first -->
+  <div class="max-w-3xl border-b border-[#EAE5DB] pb-10">
+    <p class="text-xs font-semibold uppercase tracking-[0.08em] text-[#A8512F] mb-3">About</p>
+    <h1 class="text-3xl font-bold tracking-tight text-[#1C1917] mb-5">{{ t('about_title') }}</h1>
+    <div class="space-y-4 text-[#6A6259] leading-relaxed">
       <p>{{ t('about_description') }}</p>
-      <h3 class="text-base font-semibold text-slate-800 mt-6 mb-2">{{ t('about_how_it_works') }}</h3>
+      <h3 class="text-base font-semibold text-[#2E2B29] mt-6 mb-2">{{ t('about_how_it_works') }}</h3>
       <p>{{ t('about_how_it_works_text') }}</p>
     </div>
   </div>
 
   <!-- Stats -->
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-    <div class="bg-white rounded-md border border-slate-200 p-5 text-center">
-      <div class="text-4xl font-extrabold text-slate-950 mb-1">{{ city_count }}</div>
-      <div class="text-sm text-slate-500 font-medium">{{ t('about_cities') }}</div>
+    <div class="bg-white border border-[#EAE5DB] rounded-lg p-6 text-center">
+      <div class="text-4xl font-extrabold text-[#1C1917] mb-1">{{ city_count }}</div>
+      <div class="text-sm text-[#8C8478] font-medium">{{ t('about_cities') }}</div>
     </div>
-    <div class="bg-white rounded-md border border-slate-200 p-5 text-center">
-      <div class="text-4xl font-extrabold text-slate-950 mb-1">{{ topic_count }}</div>
-      <div class="text-sm text-slate-500 font-medium">{{ t('about_topics') }}</div>
+    <div class="bg-white border border-[#EAE5DB] rounded-lg p-6 text-center">
+      <div class="text-4xl font-extrabold text-[#1C1917] mb-1">{{ topic_count }}</div>
+      <div class="text-sm text-[#8C8478] font-medium">{{ t('about_topics') }}</div>
     </div>
-    <div class="bg-white rounded-md border border-slate-200 p-5 text-center">
-      <div class="text-4xl font-extrabold text-slate-950 mb-1">{{ total_records }}</div>
-      <div class="text-sm text-slate-500 font-medium">{{ t('about_communities') }}</div>
+    <div class="bg-white border border-[#EAE5DB] rounded-lg p-6 text-center">
+      <div class="text-4xl font-extrabold text-[#1C1917] mb-1">{{ total_records }}</div>
+      <div class="text-sm text-[#8C8478] font-medium">{{ t('about_communities') }}</div>
     </div>
   </div>
 
   <!-- Browse by interest -->
   <div>
-    <h2 class="text-xl font-bold text-slate-950 mb-5">{{ t('about_browse_interest') }}</h2>
+    <h2 class="text-xl font-bold text-[#1C1917] mb-5">{{ t('about_browse_interest') }}</h2>
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
       {% for topic in topics %}
       <a href="/explore?topic={{ topic.name }}"
-         class="relative flex items-center gap-2 min-h-12 px-3 bg-white rounded-md border border-slate-200
-           hover:border-emerald-400 hover:bg-emerald-50 transition-colors group">
-        <i class="ph ph-{{ topic_icons.get(topic.name, 'circle') }} text-lg text-slate-500 group-hover:text-emerald-700 leading-none shrink-0"></i>
-        <span class="text-xs font-medium text-slate-700 group-hover:text-emerald-900 leading-tight min-w-0 pr-5">
+         class="relative flex items-center gap-2 min-h-[44px] px-3 bg-white rounded-lg border border-[#EAE5DB]
+           hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
+        <i class="ph ph-{{ topic_icons.get(topic.name, 'circle') }} text-lg text-[#8C8478] group-hover:text-[#C2613A] leading-none shrink-0"></i>
+        <span class="text-xs font-medium text-[#4A4441] group-hover:text-[#8A4226] leading-tight min-w-0 pr-5">
           {{ topic_labels.get(topic.name, topic.name.replace('_',' ').title()) }}
         </span>
         {%- set cnt = topic_counts.get(topic.name, 0) -%}
         {%- if cnt > 0 -%}
-        <span class="absolute top-2 right-2 text-[10px] font-bold text-emerald-700 leading-none">{{ cnt }}</span>
+        <span class="absolute top-2 right-2 text-[10px] font-bold text-[#C2613A] leading-none">{{ cnt }}</span>
         {%- endif -%}
       </a>
       {% endfor %}
@@ -54,35 +55,35 @@
   {% if featured_cities %}
   <!-- Popular cities -->
   <div>
-    <h2 class="text-xl font-bold text-slate-950 mb-5">{{ t('about_popular_cities') }}</h2>
+    <h2 class="text-xl font-bold text-[#1C1917] mb-5">{{ t('about_popular_cities') }}</h2>
     <div class="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-2">
       {% for name, country, count in featured_cities %}
       <a href="/{{ name | slugify }}"
-         class="flex items-center justify-between bg-white rounded-md border border-slate-200 px-4 py-3
-                hover:border-emerald-400 hover:bg-emerald-50 transition-colors group">
+         class="flex items-center justify-between bg-white rounded-lg border border-[#EAE5DB] px-4 py-3
+                hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
         <div class="min-w-0">
-          <div class="text-sm font-semibold text-slate-800 group-hover:text-emerald-900 truncate">{{ name }}</div>
-          <div class="text-xs text-slate-400">{{ country }}</div>
+          <div class="text-sm font-semibold text-[#2E2B29] group-hover:text-[#8A4226] truncate">{{ name }}</div>
+          <div class="text-xs text-[#8C8478]">{{ country }}</div>
         </div>
-        <span class="text-sm font-bold text-emerald-700 shrink-0 ml-2">{{ count }}</span>
+        <span class="text-sm font-bold text-[#C2613A] shrink-0 ml-2">{{ count }}</span>
       </a>
       {% endfor %}
     </div>
   </div>
   {% endif %}
 
-  <!-- Data quality notice -->
-  <div class="bg-amber-50 border border-amber-100 rounded-md p-6">
-    <h3 class="font-semibold text-amber-900 mb-2 flex items-center gap-2">
-      <i class="ph ph-warning text-amber-600"></i> {{ t('about_data_quality') }}
+  <!-- Data quality notice (calm, informational — not alarming) -->
+  <div class="bg-[#F5F2EC] border border-[#EAE5DB] rounded-lg p-6">
+    <h3 class="font-semibold text-[#2E2B29] mb-2 flex items-center gap-2">
+      <i class="ph ph-info text-[#8C8478]"></i> {{ t('about_data_quality') }}
     </h3>
-    <p class="text-sm text-amber-800 leading-relaxed">{{ t('about_data_quality_text') }}</p>
+    <p class="text-sm text-[#6A6259] leading-relaxed">{{ t('about_data_quality_text') }}</p>
   </div>
 
   <!-- CTA -->
-  <div class="text-center">
+  <div class="text-center pb-4">
     <a href="/"
-      class="inline-block px-8 py-3 bg-emerald-700 text-white font-bold rounded-md hover:bg-emerald-800 transition-colors text-base">
+      class="inline-block px-8 py-3 bg-[#A8512F] text-white font-bold rounded-lg hover:bg-[#A8512F] transition-colors text-base">
       {{ t('about_start_exploring') }}
     </a>
   </div>

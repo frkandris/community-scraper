@@ -2,178 +2,180 @@
 {% block title %}kozossegek.com – Find your community{% endblock %}
 {% block content %}
 
-<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
-  <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)] gap-6 items-start">
-    <section class="space-y-6">
-      <div class="border-b border-slate-200 pb-6">
-        <p class="text-xs font-semibold uppercase tracking-widest text-emerald-700 mb-3">Community index</p>
-        <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-950 leading-tight">
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+  <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)] gap-8 items-start">
+
+    <!-- Left: hero + stats + cities -->
+    <section class="space-y-8">
+      <div class="border-b border-[#EAE5DB] pb-8">
+        <p class="text-xs font-semibold uppercase tracking-[0.08em] text-[#A8512F] mb-3">Community index</p>
+        <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-[#1C1917] leading-tight">
           {{ t('home_title') }}
         </h1>
-        <p class="mt-4 text-base text-slate-600 leading-relaxed max-w-2xl">
+        <p class="mt-4 text-base text-[#6A6259] leading-relaxed max-w-2xl">
           {{ t('home_subtitle') }}
         </p>
       </div>
 
+      <!-- Stats strip -->
       <div class="grid grid-cols-3 sm:grid-cols-5 gap-3">
-        <div class="bg-white border border-slate-200 rounded-md p-4">
-          <div class="text-2xl font-extrabold text-slate-950">{{ total_records }}</div>
-          <div class="text-xs font-medium text-slate-500 mt-1">{{ t('about_communities') }}</div>
+        <div class="bg-white border border-[#EAE5DB] rounded-lg p-4">
+          <div class="text-2xl font-extrabold text-[#1C1917]">{{ total_records }}</div>
+          <div class="text-xs font-medium text-[#8C8478] mt-1">{{ t('about_communities') }}</div>
         </div>
-        <div class="bg-white border border-slate-200 rounded-md p-4">
-          <div class="text-2xl font-extrabold text-slate-950">{{ total_venues }}</div>
-          <div class="text-xs font-medium text-slate-500 mt-1">{{ t('about_venues') }}</div>
+        <div class="bg-white border border-[#EAE5DB] rounded-lg p-4">
+          <div class="text-2xl font-extrabold text-[#1C1917]">{{ total_venues }}</div>
+          <div class="text-xs font-medium text-[#8C8478] mt-1">{{ t('about_venues') }}</div>
         </div>
-        <div class="bg-white border border-slate-200 rounded-md p-4">
-          <div class="text-2xl font-extrabold text-slate-950">{{ total_persons }}</div>
-          <div class="text-xs font-medium text-slate-500 mt-1">{{ t('about_people') }}</div>
+        <div class="bg-white border border-[#EAE5DB] rounded-lg p-4">
+          <div class="text-2xl font-extrabold text-[#1C1917]">{{ total_persons }}</div>
+          <div class="text-xs font-medium text-[#8C8478] mt-1">{{ t('about_people') }}</div>
         </div>
-        <div class="bg-white border border-slate-200 rounded-md p-4 hidden sm:block">
-          <div class="text-2xl font-extrabold text-slate-950">{{ cities|length }}</div>
-          <div class="text-xs font-medium text-slate-500 mt-1">{{ t('about_cities') }}</div>
+        <div class="bg-white border border-[#EAE5DB] rounded-lg p-4 hidden sm:block">
+          <div class="text-2xl font-extrabold text-[#1C1917]">{{ cities|length }}</div>
+          <div class="text-xs font-medium text-[#8C8478] mt-1">{{ t('about_cities') }}</div>
         </div>
-        <div class="bg-white border border-slate-200 rounded-md p-4 hidden sm:block">
-          <div class="text-2xl font-extrabold text-slate-950">{{ topics|length }}</div>
-          <div class="text-xs font-medium text-slate-500 mt-1">{{ t('about_topics') }}</div>
+        <div class="bg-white border border-[#EAE5DB] rounded-lg p-4 hidden sm:block">
+          <div class="text-2xl font-extrabold text-[#1C1917]">{{ topics|length }}</div>
+          <div class="text-xs font-medium text-[#8C8478] mt-1">{{ t('about_topics') }}</div>
         </div>
       </div>
 
+      <!-- Popular cities -->
       {% set has_cities = city_groups.user_cities or city_groups.other_sections %}
       {% if has_cities %}
       <div class="space-y-6">
         <div class="flex items-center justify-between">
-          <h2 class="text-sm font-semibold text-slate-900">{{ t('home_popular_cities') }}</h2>
-          <a href="/map" class="text-xs font-medium text-emerald-700 hover:text-emerald-900 transition-colors">
+          <h2 class="text-sm font-semibold text-[#1C1917]">{{ t('home_popular_cities') }}</h2>
+          <a href="/map" class="text-xs font-medium text-[#A8512F] hover:text-[#8A4226] transition-colors">
             {{ t('home_view_world_map') }}
           </a>
         </div>
 
-        {# ── User's own country ── #}
         {% if city_groups.user_cities %}
         <div>
-          <div class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
+          <div class="text-xs font-semibold text-[#8C8478] uppercase tracking-[0.08em] mb-2">
             {{ city_groups.user_country }}
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             {% for name, country, count in city_groups.user_cities %}
             <a href="/{{ name | slugify }}"
-               class="flex items-center justify-between bg-white rounded-md border border-slate-200 px-3 py-2.5
-                      hover:border-emerald-400 hover:bg-emerald-50 transition-colors group">
-              <span class="text-sm font-semibold text-slate-800 group-hover:text-emerald-900 truncate min-w-0">{{ name }}</span>
-              <span class="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-2 py-0.5 shrink-0 ml-2">{{ count }}</span>
+               class="flex items-center justify-between bg-white rounded-lg border border-[#EAE5DB] px-3 py-2.5
+                      hover:border-[#E88E6B] hover:bg-[#FDF0EA] transition-colors group">
+              <span class="text-sm font-semibold text-[#2E2B29] group-hover:text-[#8A4226] truncate min-w-0">{{ name }}</span>
+              <span class="text-xs font-bold text-[#C2613A] bg-[#FDF0EA] border border-[#FAD9C7] rounded-full px-2 py-0.5 shrink-0 ml-2">{{ count }}</span>
             </a>
             {% endfor %}
           </div>
         </div>
         {% endif %}
 
-        {# ── Other top countries ── #}
         {% for section in city_groups.other_sections %}
         <div>
           <div class="flex items-center gap-2 mb-2">
-            <span class="text-xs font-semibold text-slate-400 uppercase tracking-widest">{{ section.country }}</span>
-            <span class="text-xs text-slate-300">{{ section.total }} közösség</span>
+            <span class="text-xs font-semibold text-[#8C8478] uppercase tracking-[0.08em]">{{ section.country }}</span>
+            <span class="text-xs text-[#B5ADA0]">{{ section.total }} közösség</span>
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {% for name, country, count in section.cities %}
             <a href="/{{ name | slugify }}"
-               class="flex items-center justify-between bg-white rounded-md border border-slate-200 px-3 py-2.5
-                      hover:border-emerald-400 hover:bg-emerald-50 transition-colors group">
-              <span class="text-sm font-semibold text-slate-800 group-hover:text-emerald-900 truncate min-w-0">{{ name }}</span>
-              <span class="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-2 py-0.5 shrink-0 ml-2">{{ count }}</span>
+               class="flex items-center justify-between bg-white rounded-lg border border-[#EAE5DB] px-3 py-2.5
+                      hover:border-[#E88E6B] hover:bg-[#FDF0EA] transition-colors group">
+              <span class="text-sm font-semibold text-[#2E2B29] group-hover:text-[#8A4226] truncate min-w-0">{{ name }}</span>
+              <span class="text-xs font-bold text-[#C2613A] bg-[#FDF0EA] border border-[#FAD9C7] rounded-full px-2 py-0.5 shrink-0 ml-2">{{ count }}</span>
             </a>
             {% endfor %}
           </div>
         </div>
         {% endfor %}
-
       </div>
       {% endif %}
     </section>
 
-    <section class="bg-white rounded-md border border-slate-200 p-4 sm:p-5 lg:sticky lg:top-20">
-      <div class="flex items-start justify-between gap-4 mb-5">
+    <!-- Right: search form -->
+    <section class="bg-white rounded-xl border border-[#EAE5DB] p-5 sm:p-6 lg:sticky lg:top-20 shadow-sm">
+      <div class="flex items-start justify-between gap-4 mb-6">
         <div>
-          <h2 class="text-base font-bold text-slate-950">{{ t('nav_discover') }}</h2>
-          <p class="text-xs text-slate-500 mt-1">{{ t('home_city_label') }} + {{ t('home_interests_label') }}</p>
+          <h2 class="text-base font-bold text-[#1C1917]">{{ t('nav_discover') }}</h2>
+          <p class="text-xs text-[#8C8478] mt-1">{{ t('home_city_label') }} + {{ t('home_interests_label') }}</p>
         </div>
-        <a href="/about" class="text-xs font-medium text-slate-500 hover:text-emerald-700 transition-colors">
+        <a href="/about" class="text-xs font-medium text-[#8C8478] hover:text-[#C2613A] transition-colors shrink-0">
           {{ t('nav_about') }}
         </a>
       </div>
 
       <form action="/explore" method="GET" id="main-form">
 
-      <!-- City input -->
-      <div class="mb-5">
-        <label for="city-input" class="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">
-          {{ t('home_city_label') }}
-        </label>
-        <div class="relative">
-          <i class="ph ph-city absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg pointer-events-none"></i>
-          <input
-            type="text"
-            name="city"
-            id="city-input"
-            list="cities-list"
-            value="{{ selected_city }}"
-            placeholder="{{ t('home_city_placeholder') }}"
-            autocomplete="off"
-            class="w-full pl-10 pr-3 py-3 text-base border border-slate-300 rounded-md
-              focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 transition-colors
-              bg-white placeholder-slate-400"
-          >
-          <datalist id="cities-list">
-            {% for city in cities %}
-            <option value="{{ city.name }}">{{ city.name }}, {{ city.country }}</option>
-            {% endfor %}
-          </datalist>
-        </div>
-        <p id="city-hint" class="mt-2 text-xs text-slate-500 hidden">
-          <span id="city-count-text"></span>
-        </p>
-      </div>
-
-      <!-- Topic chips -->
-      <div class="mb-5">
-        <div class="flex items-center justify-between mb-3">
-          <label class="text-xs font-semibold text-slate-500 uppercase tracking-widest">{{ t('home_interests_label') }}</label>
-          <button type="button" id="clear-topics"
-            class="text-xs text-emerald-700 hover:text-emerald-900 font-medium hidden">
-            {{ t('home_clear_all') }}
-          </button>
-        </div>
-
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[430px] overflow-y-auto pr-1" id="topics-grid">
-          {% for topic in topics %}
-          <label class="cursor-pointer select-none" data-topic="{{ topic.name }}">
-            <input type="checkbox" name="topic" value="{{ topic.name }}" class="sr-only peer">
-            <div class="relative flex items-center gap-2 min-h-12 px-2.5 py-2
-              rounded-md border border-slate-200 bg-white
-              peer-checked:border-emerald-600 peer-checked:bg-emerald-50 peer-checked:ring-1 peer-checked:ring-emerald-600
-              hover:border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer">
-              <i class="ph ph-{{ topic_icons.get(topic.name, 'circle') }} text-lg text-slate-500 leading-none shrink-0"></i>
-              <span class="text-xs font-medium text-slate-700 leading-tight min-w-0 pr-5">
-                {{ topic_labels.get(topic.name, topic.name.replace('_',' ').title()) }}
-              </span>
-              <span class="count-badge absolute top-2 right-2 text-[10px] font-bold text-emerald-700 leading-none">
-                {%- set cnt = topic_counts.get(topic.name, 0) -%}
-                {%- if cnt > 0 %}{{ cnt }}{% endif -%}
-              </span>
-            </div>
+        <!-- City input -->
+        <div class="mb-6">
+          <label for="city-input" class="block text-xs font-semibold text-[#8C8478] uppercase tracking-[0.08em] mb-2">
+            {{ t('home_city_label') }}
           </label>
-          {% endfor %}
+          <div class="relative">
+            <i class="ph ph-city absolute left-3 top-1/2 -translate-y-1/2 text-[#B5ADA0] text-lg pointer-events-none"></i>
+            <input
+              type="text"
+              name="city"
+              id="city-input"
+              list="cities-list"
+              value="{{ selected_city }}"
+              placeholder="{{ t('home_city_placeholder') }}"
+              autocomplete="off"
+              class="w-full pl-10 pr-3 py-3 text-base border border-[#D8D1C4] rounded-lg
+                focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 transition-colors
+                bg-white placeholder-[#B5ADA0] text-[#1C1917]"
+            >
+            <datalist id="cities-list">
+              {% for city in cities %}
+              <option value="{{ city.name }}">{{ city.name }}, {{ city.country }}</option>
+              {% endfor %}
+            </datalist>
+          </div>
+          <p id="city-hint" class="mt-2 text-xs text-[#8C8478] min-h-[1rem]">
+            <span id="city-count-text"></span>
+          </p>
         </div>
-      </div>
 
-      <!-- Explore button -->
-      <button type="submit"
-        class="w-full py-3 bg-emerald-700 text-white font-semibold rounded-md
-          hover:bg-emerald-800 active:bg-emerald-900 transition-colors text-base">
-        {{ t('home_explore_btn') }}
-      </button>
+        <!-- Topic chips -->
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-3">
+            <label class="text-xs font-semibold text-[#8C8478] uppercase tracking-[0.08em]">{{ t('home_interests_label') }}</label>
+            <button type="button" id="clear-topics"
+              class="text-xs text-[#A8512F] hover:text-[#8A4226] font-medium hidden transition-colors">
+              {{ t('home_clear_all') }}
+            </button>
+          </div>
 
-    </form>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-[430px] overflow-y-auto pr-0.5" id="topics-grid">
+            {% for topic in topics %}
+            <label class="cursor-pointer select-none" data-topic="{{ topic.name }}">
+              <input type="checkbox" name="topic" value="{{ topic.name }}" class="sr-only peer">
+              <div class="relative flex items-center gap-2 min-h-[44px] px-2.5 py-2
+                rounded-lg border border-[#EAE5DB] bg-white
+                peer-checked:border-[#C2613A] peer-checked:bg-[#FDF0EA] peer-checked:ring-1 peer-checked:ring-[#C2613A]
+                hover:border-[#FAD9C7] hover:bg-[#FDF0EA]/50 transition-colors cursor-pointer">
+                <i class="ph ph-{{ topic_icons.get(topic.name, 'circle') }} text-lg text-[#8C8478] peer-checked:text-[#C2613A] leading-none shrink-0"></i>
+                <span class="text-xs font-medium text-[#4A4441] leading-tight min-w-0 pr-5">
+                  {{ topic_labels.get(topic.name, topic.name.replace('_',' ').title()) }}
+                </span>
+                <span class="count-badge absolute top-1.5 right-2 text-[10px] font-bold text-[#C2613A] leading-none">
+                  {%- set cnt = topic_counts.get(topic.name, 0) -%}
+                  {%- if cnt > 0 %}{{ cnt }}{% endif -%}
+                </span>
+              </div>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Explore button -->
+        <button type="submit"
+          class="w-full py-3 bg-[#A8512F] text-white font-semibold rounded-lg
+            hover:bg-[#A8512F] active:bg-[#8A4226] transition-colors text-base">
+          {{ t('home_explore_btn') }}
+        </button>
+
+      </form>
     </section>
   </div>
 </div>
@@ -185,7 +187,6 @@ const cityCountText = document.getElementById('city-count-text');
 const clearBtn = document.getElementById('clear-topics');
 const labels = document.querySelectorAll('label[data-topic]');
 
-// Global topic counts from server (shown when no city is typed)
 const globalCounts = {{ topic_counts | tojson }};
 
 function updateClearBtn() {
@@ -198,7 +199,6 @@ clearBtn.addEventListener('click', () => {
   updateClearBtn();
 });
 
-// Click-without-city: navigate directly to /explore?topic=X
 labels.forEach(label => {
   label.addEventListener('click', function(e) {
     const city = cityInput.value.trim();
@@ -206,7 +206,6 @@ labels.forEach(label => {
       e.preventDefault();
       window.location.href = '/explore?topic=' + encodeURIComponent(this.dataset.topic);
     }
-    // With a city: let checkbox toggle normally, then form submit
   });
 });
 
@@ -217,15 +216,12 @@ function showGlobalCounts() {
     const badge = label.querySelector('.count-badge');
     badge.textContent = count > 0 ? count : '';
   });
-  hint.classList.add('hidden');
+  cityCountText.textContent = '';
 }
 
 let fetchTimeout;
 async function fetchCounts(city) {
-  if (!city || city.length < 2) {
-    showGlobalCounts();
-    return;
-  }
+  if (!city || city.length < 2) { showGlobalCounts(); return; }
   try {
     const res = await fetch('/api/city-topics?city=' + encodeURIComponent(city));
     const data = await res.json();
@@ -237,13 +233,9 @@ async function fetchCounts(city) {
       badge.textContent = count > 0 ? count : '';
       if (count > 0) total += count;
     });
-    if (total > 0) {
-      cityCountText.textContent = total + ' communities found in ' + city;
-      hint.classList.remove('hidden');
-    } else {
-      cityCountText.textContent = 'No data yet for ' + city + ' — check back after the next run.';
-      hint.classList.remove('hidden');
-    }
+    cityCountText.textContent = total > 0
+      ? total + ' communities found in ' + city
+      : 'No data yet for ' + city + ' — check back after the next run.';
   } catch (e) {}
 }
 
@@ -252,9 +244,7 @@ cityInput.addEventListener('input', () => {
   fetchTimeout = setTimeout(() => fetchCounts(cityInput.value.trim()), 300);
 });
 
-if (cityInput.value.trim()) {
-  fetchCounts(cityInput.value.trim());
-}
+if (cityInput.value.trim()) fetchCounts(cityInput.value.trim());
 </script>
 
 {% endblock %}

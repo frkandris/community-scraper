@@ -2,9 +2,230 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Design Tokens — Warm Editorial Minimalism ──────────────────────────── */
+/* Philosophy: Notion/Craft-inspired. Warm paper backgrounds, ink-dark text,  */
+/* terracotta accent. No dark mode (out of scope per brief).                  */
+
+:root {
+  /* ── Color: Backgrounds ── */
+  --color-bg-primary:     #FAFAF8;   /* warm off-white — page canvas */
+  --color-bg-secondary:   #FFFFFF;   /* card/panel surface */
+  --color-bg-tertiary:    #F5F2EC;   /* input wells, subtle insets */
+  --color-bg-inverse:     #1C1917;   /* dark surface (used sparingly) */
+
+  /* ── Color: Text ── */
+  --color-text-primary:   #1C1917;   /* ink dark — main body & headings */
+  --color-text-secondary: #6A6259;   /* warm mid-gray — supporting copy */
+  --color-text-tertiary:  #8C8478;   /* placeholder, disabled, captions */
+  --color-text-inverse:   #FAFAF8;   /* text on dark backgrounds */
+  --color-text-link:      #C2613A;   /* terracotta links */
+
+  /* ── Color: Borders ── */
+  --color-border-primary:   #EAE5DB; /* default card/panel border */
+  --color-border-secondary: #F5F2EC; /* very subtle — dividers */
+  --color-border-focus:     #C2613A; /* terracotta focus ring */
+
+  /* ── Color: Accent — Terracotta ── */
+  --color-accent-primary:        #C2613A;
+  --color-accent-primary-hover:  #A8512F;
+  --color-accent-primary-active: #8A4226;
+  --color-accent-primary-subtle: #FDF0EA; /* tinted bg for checked states */
+  --color-accent-primary-muted:  #FAD9C7; /* border on checked states */
+
+  /* ── Color: Status ── */
+  --color-status-success:         #16A34A;
+  --color-status-success-surface: #F0FDF4;
+  --color-status-success-border:  #DCFCE7;
+  --color-status-warning:         #D97706;
+  --color-status-warning-surface: #FFFBEB;
+  --color-status-warning-border:  #FEF3C7;
+  --color-status-error:           #DC2626;
+  --color-status-error-surface:   #FEF2F2;
+  --color-status-error-border:    #FECACA;
+  --color-status-info:            #2563EB;
+  --color-status-info-surface:    #EFF6FF;
+  --color-status-info-border:     #DBEAFE;
+
+  /* ── Color: Surface ── */
+  --color-surface-overlay: rgb(28 25 23 / 0.4); /* modal backdrop */
+
+  /* ── Typography ── */
+  --font-family-body:    'Inter', system-ui, -apple-system, sans-serif;
+  --font-family-display: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-family-mono:    ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --font-size-xs:   11px;
+  --font-size-sm:   13px;
+  --font-size-base: 15px;
+  --font-size-md:   16px;
+  --font-size-lg:   18px;
+  --font-size-xl:   20px;
+  --font-size-2xl:  24px;
+  --font-size-3xl:  30px;
+  --font-size-4xl:  36px;
+  --font-size-5xl:  48px;
+
+  --font-weight-normal:   400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+  --font-weight-bold:     700;
+  --font-weight-extrabold: 800;
+
+  --line-height-tight:   1.2;
+  --line-height-snug:    1.35;
+  --line-height-normal:  1.6;
+  --line-height-relaxed: 1.75;
+
+  --letter-spacing-tight:  -0.02em;
+  --letter-spacing-snug:   -0.01em;
+  --letter-spacing-normal:  0;
+  --letter-spacing-wide:    0.05em;  /* labels, allcaps */
+  --letter-spacing-wider:   0.08em;  /* overlines */
+
+  /* ── Spacing (8px base) ── */
+  --space-0:  0;
+  --space-1:  2px;
+  --space-2:  4px;
+  --space-3:  6px;
+  --space-4:  8px;
+  --space-5:  12px;
+  --space-6:  16px;
+  --space-7:  24px;
+  --space-8:  32px;
+  --space-9:  48px;
+  --space-10: 64px;
+  --space-11: 96px;
+  --space-12: 128px;
+
+  /* ── Layout ── */
+  --max-width-content: 68ch;
+  --max-width-wide:    90rem;
+  --max-width-page:    76rem;
+
+  --border-radius-sm:   4px;
+  --border-radius-md:   6px;
+  --border-radius-lg:   8px;
+  --border-radius-xl:   12px;
+  --border-radius-full: 9999px;
+
+  /* ── Shadows (warm-tinted, not cool gray) ── */
+  --shadow-sm:    0 1px 2px 0 rgb(28 25 23 / 0.05);
+  --shadow-md:    0 1px 3px 0 rgb(28 25 23 / 0.08), 0 1px 2px -1px rgb(28 25 23 / 0.06);
+  --shadow-lg:    0 4px 6px -1px rgb(28 25 23 / 0.08), 0 2px 4px -2px rgb(28 25 23 / 0.05);
+  --shadow-xl:    0 10px 15px -3px rgb(28 25 23 / 0.08), 0 4px 6px -4px rgb(28 25 23 / 0.04);
+  --shadow-focus: 0 0 0 3px rgb(194 97 58 / 0.25);
+
+  /* ── Motion ── */
+  --duration-instant: 50ms;
+  --duration-fast:    120ms;
+  --duration-normal:  200ms;
+  --duration-slow:    350ms;
+  --duration-slower:  500ms;
+
+  --easing-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --easing-in:      cubic-bezier(0.4, 0, 1, 1);
+  --easing-out:     cubic-bezier(0, 0, 0.2, 1);
+
+  /* ── Responsive breakpoints (reference only — use Tailwind classes) ── */
+  --breakpoint-sm:  375px;
+  --breakpoint-md:  768px;
+  --breakpoint-lg:  1024px;
+  --breakpoint-xl:  1280px;
+}
+
+/* ─── Base Styles ─────────────────────────────────────────────────────────── */
+
 @layer base {
   html {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-family-body);
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-primary);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Focus ring — terracotta, consistent across all interactive elements */
+  :focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  /* Remove default focus for mouse users */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+}
+
+/* ─── Component Tokens ────────────────────────────────────────────────────── */
+
+@layer components {
+  /* Primary button */
+  .btn-primary {
+    background-color: var(--color-accent-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+    border-radius: var(--border-radius-md);
+    transition: background-color var(--duration-fast) var(--easing-default);
+  }
+  .btn-primary:hover  { background-color: var(--color-accent-primary-hover); }
+  .btn-primary:active { background-color: var(--color-accent-primary-active); }
+
+  /* Card surface */
+  .card {
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Input */
+  .input {
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-primary);
+    transition: border-color var(--duration-fast) var(--easing-default),
+                box-shadow var(--duration-fast) var(--easing-default);
+  }
+  .input:focus {
+    border-color: var(--color-border-focus);
+    box-shadow: var(--shadow-focus);
+    outline: none;
+  }
+  .input::placeholder { color: var(--color-text-tertiary); }
+
+  /* Label overline (uppercase section labels) */
+  .label-overline {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: var(--letter-spacing-wider);
+    text-transform: uppercase;
+    color: var(--color-text-tertiary);
+  }
+
+  /* Chip/pill — unselected */
+  .chip {
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    transition: border-color var(--duration-fast) var(--easing-default),
+                background-color var(--duration-fast) var(--easing-default),
+                color var(--duration-fast) var(--easing-default);
+  }
+  .chip:hover {
+    border-color: var(--color-accent-primary-muted);
+    background-color: var(--color-accent-primary-subtle);
+    color: var(--color-text-primary);
+  }
+
+  /* Chip — selected/checked */
+  .chip-active {
+    background-color: var(--color-accent-primary-subtle);
+    border-color: var(--color-accent-primary);
+    color: var(--color-accent-primary-active);
   }
 }

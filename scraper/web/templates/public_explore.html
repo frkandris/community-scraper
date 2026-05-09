@@ -13,29 +13,29 @@
 {% endblock %}
 {% block content %}
 
-<!-- Top bar -->
-<div class="bg-white/95 border-b border-slate-200 sticky top-[57px] z-10 backdrop-blur">
+<!-- Sticky sub-bar -->
+<div class="bg-white/95 border-b border-[#EAE5DB] sticky top-[57px] z-10 backdrop-blur">
   <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-2 flex-wrap">
-    <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition-colors">kozossegek.com</a>
+    <a href="/" class="text-sm text-[#8C8478] hover:text-[#1C1917] transition-colors">kozossegek.com</a>
     {% if city %}
-    <span class="text-slate-300">/</span>
-    <a href="/{{ city | slugify }}" class="text-sm {% if not selected_topics %}font-semibold text-slate-950{% else %}text-slate-500 hover:text-slate-900{% endif %}">{{ city }}</a>
+    <span class="text-[#D8D1C4]">/</span>
+    <a href="/{{ city | slugify }}" class="text-sm {% if not selected_topics %}font-semibold text-[#1C1917]{% else %}text-[#8C8478] hover:text-[#1C1917]{% endif %}">{{ city }}</a>
     {% endif %}
     {% for t in selected_topics %}
-    <span class="text-slate-300">/</span>
-    <span class="text-sm font-semibold text-emerald-700">
+    <span class="text-[#D8D1C4]">/</span>
+    <span class="text-sm font-semibold text-[#A8512F]">
       <i class="ph ph-{{ topic_icons.get(t, 'circle') }}"></i>
       {{ topic_labels.get(t, t.replace('_',' ').title()) }}
     </span>
     {% endfor %}
     {% if tag %}
-    <span class="text-slate-300">/</span>
-    <span class="text-sm font-semibold text-emerald-700">
+    <span class="text-[#D8D1C4]">/</span>
+    <span class="text-sm font-semibold text-[#A8512F]">
       <i class="ph ph-tag"></i> {{ tag }}
     </span>
     {% endif %}
 
-    <a href="{% if city %}/{{ city | slugify }}{% else %}/{% endif %}" class="ml-auto text-xs font-medium text-emerald-700 hover:text-emerald-900 border border-emerald-200 rounded-md px-3 py-1 transition-colors">
+    <a href="{% if city %}/{{ city | slugify }}{% else %}/{% endif %}" class="ml-auto text-xs font-medium text-[#A8512F] hover:text-[#8A4226] border border-[#FAD9C7] rounded-md px-3 py-1 transition-colors whitespace-nowrap">
       {{ t('explore_change_filters') }}
     </a>
   </div>
@@ -44,45 +44,45 @@
 <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
 
   {% if subscribed %}
-  <div class="mb-6 bg-emerald-50 border border-emerald-200 rounded-md px-5 py-4 flex items-center gap-3">
-    <i class="ph ph-check-circle text-green-600 text-xl"></i>
+  <div class="mb-6 bg-[#FDF0EA] border border-[#FAD9C7] rounded-lg px-5 py-4 flex items-center gap-3">
+    <i class="ph ph-check-circle text-[#C2613A] text-xl shrink-0"></i>
     <div>
-      <div class="text-sm font-semibold text-emerald-900">{{ t('explore_subscribed_title') }}</div>
-      <div class="text-xs text-emerald-700 mt-0.5">{{ t('explore_subscribed_desc', city=city) }}</div>
+      <div class="text-sm font-semibold text-[#4C2615]">{{ t('explore_subscribed_title') }}</div>
+      <div class="text-xs text-[#8A4226] mt-0.5">{{ t('explore_subscribed_desc', city=city) }}</div>
     </div>
   </div>
   {% endif %}
 
   <!-- Tag search results -->
   {% if tag %}
-  <div class="mb-8 border-b border-slate-200 pb-5">
-    <h1 class="text-2xl font-bold text-slate-950 mb-1 flex items-center gap-2">
-      <i class="ph ph-tag text-emerald-700"></i> {{ tag }}
+  <div class="mb-8 border-b border-[#EAE5DB] pb-5">
+    <h1 class="text-2xl font-bold text-[#1C1917] mb-1 flex items-center gap-2">
+      <i class="ph ph-tag text-[#C2613A]"></i> {{ tag }}
     </h1>
-    <p class="text-sm text-slate-500 mt-1">{{ tag_records | length }} közösség ezzel a témával{% if city %} – {{ city }}{% endif %}</p>
+    <p class="text-sm text-[#8C8478] mt-1">{{ tag_records | length }} közösség ezzel a témával{% if city %} – {{ city }}{% endif %}</p>
   </div>
 
   {% if tag_records %}
   <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
     {% for r in tag_records %}
-    <a href="{{ r.community_url }}" class="block bg-white rounded-md border border-slate-200 p-4 flex flex-col gap-2 hover:border-emerald-300 hover:bg-emerald-50 transition-colors">
-      <h4 class="font-semibold text-slate-950 text-sm leading-snug">{{ r.name }}</h4>
+    <a href="{{ r.community_url }}" class="block bg-white rounded-lg border border-[#EAE5DB] p-4 flex flex-col gap-2 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/40 transition-colors">
+      <h4 class="font-semibold text-[#1C1917] text-sm leading-snug">{{ r.name }}</h4>
       {% if r.description %}
-      <p class="text-xs text-slate-600 leading-relaxed line-clamp-2">{{ r.description }}</p>
+      <p class="text-xs text-[#6A6259] leading-relaxed line-clamp-2">{{ r.description }}</p>
       {% endif %}
-      <div class="flex items-center gap-3 text-xs text-slate-500 mt-auto pt-1">
+      <div class="flex items-center gap-3 text-xs text-[#8C8478] mt-auto pt-1">
         {% if r.location %}
-        <span class="flex items-center gap-1"><i class="ph ph-map-pin text-slate-400"></i>{{ r.location }}</span>
+        <span class="flex items-center gap-1"><i class="ph ph-map-pin text-[#B5ADA0]"></i>{{ r.location }}</span>
         {% endif %}
         {% if r.city %}
-        <span class="flex items-center gap-1"><i class="ph ph-buildings text-slate-400"></i>{{ r.city }}</span>
+        <span class="flex items-center gap-1"><i class="ph ph-buildings text-[#B5ADA0]"></i>{{ r.city }}</span>
         {% endif %}
       </div>
     </a>
     {% endfor %}
   </div>
   {% else %}
-  <div class="text-center py-16 text-slate-400">
+  <div class="text-center py-16 text-[#B5ADA0]">
     <i class="ph ph-tag text-5xl mb-3 block"></i>
     <p class="text-base">Nincs közösség ezzel a taggel.</p>
   </div>
@@ -91,17 +91,17 @@
   <!-- Country-grouped multi-city view -->
   {% elif country_sections %}
 
-  <div class="mb-8 border-b border-slate-200 pb-5">
-    <h1 class="text-2xl font-bold text-slate-950 mb-1">
+  <div class="mb-8 border-b border-[#EAE5DB] pb-5">
+    <h1 class="text-2xl font-bold text-[#1C1917] mb-1">
       {% if selected_topics | length == 1 %}
-        <i class="ph ph-{{ topic_icons.get(selected_topics[0], 'circle') }} text-emerald-700"></i>
+        <i class="ph ph-{{ topic_icons.get(selected_topics[0], 'circle') }} text-[#C2613A]"></i>
         {{ topic_labels.get(selected_topics[0], selected_topics[0].replace('_',' ').title()) }} – {{ t('explore_communities_worldwide') }}
       {% else %}
         {{ t('explore_communities_worldwide') }}
       {% endif %}
     </h1>
-    <p class="text-sm text-slate-500 mt-1">
-      {{ t('explore_showing_all_cities', link='<a href="/" class="text-emerald-700 hover:underline">' ~ t('explore_pick_city') ~ '</a>') | safe }}
+    <p class="text-sm text-[#8C8478] mt-1">
+      {{ t('explore_showing_all_cities', link='<a href="/" class="text-[#A8512F] hover:underline">' ~ t('explore_pick_city') ~ '</a>') | safe }}
     </p>
   </div>
 
@@ -109,34 +109,34 @@
   <div class="mb-10">
     <div class="flex items-center gap-2 mb-5">
       {% if country_sec.is_user_country %}
-      <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">{{ t('explore_near_you') }}</span>
+      <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#FDF0EA] text-[#C2613A] border border-[#FAD9C7]">{{ t('explore_near_you') }}</span>
       {% endif %}
-      <h2 class="text-lg font-bold text-slate-900">{{ country_sec.country }}</h2>
+      <h2 class="text-lg font-bold text-[#1C1917]">{{ country_sec.country }}</h2>
     </div>
 
     {% for city_sec in country_sec.cities %}
     <div class="mb-6">
       <div class="flex items-center justify-between mb-3">
-        <h3 class="text-base font-semibold text-slate-700 flex items-center gap-1.5">
-          <i class="ph ph-map-pin text-emerald-500 text-sm"></i>
-          <a href="{{ city_sec.city_url }}" class="hover:text-emerald-800 transition-colors">{{ city_sec.city }}</a>
-          <span class="text-xs font-normal text-slate-400">{{ city_sec.total }} közösség</span>
+        <h3 class="text-base font-semibold text-[#4A4441] flex items-center gap-1.5">
+          <i class="ph ph-map-pin text-[#C2613A] text-sm"></i>
+          <a href="{{ city_sec.city_url }}" class="hover:text-[#8A4226] transition-colors">{{ city_sec.city }}</a>
+          <span class="text-xs font-normal text-[#8C8478]">{{ city_sec.total }} közösség</span>
         </h3>
         <a href="{{ city_sec.city_url }}"
-           class="text-xs font-medium text-emerald-700 hover:text-emerald-900 transition-colors">
+           class="text-xs font-medium text-[#A8512F] hover:text-[#8A4226] transition-colors">
           {{ t('explore_see_all', n=city_sec.total) }}
         </a>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
         {% for r in city_sec.records %}
-        <a href="{{ r.community_url }}" class="block bg-white rounded-md border border-slate-200 p-3 flex flex-col gap-1.5 hover:border-emerald-300 hover:bg-emerald-50 transition-colors">
-          <h4 class="font-semibold text-slate-950 text-xs leading-snug line-clamp-2">{{ r.name }}</h4>
+        <a href="{{ r.community_url }}" class="block bg-white rounded-lg border border-[#EAE5DB] p-3 flex flex-col gap-1.5 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/40 transition-colors">
+          <h4 class="font-semibold text-[#1C1917] text-xs leading-snug line-clamp-2">{{ r.name }}</h4>
           {% if r.description %}
-          <p class="text-[11px] text-slate-500 leading-relaxed line-clamp-2 flex-1">{{ r.description }}</p>
+          <p class="text-[11px] text-[#6A6259] leading-relaxed line-clamp-2 flex-1">{{ r.description }}</p>
           {% endif %}
           {% if r.location %}
-          <div class="flex items-center gap-1 text-[11px] text-slate-400 mt-auto">
-            <i class="ph ph-map-pin shrink-0"></i>
+          <div class="flex items-center gap-1 text-[11px] text-[#8C8478] mt-auto">
+            <i class="ph ph-map-pin shrink-0 text-[#B5ADA0]"></i>
             <span class="truncate">{{ r.location }}</span>
           </div>
           {% endif %}
@@ -151,9 +151,9 @@
   <!-- No city, no data -->
   {% elif not city %}
   <div class="text-center py-20">
-    <i class="ph ph-buildings text-slate-300 text-6xl mb-4 block"></i>
-    <h2 class="text-xl font-semibold text-slate-800 mb-3">{{ t('explore_choose_city') }}</h2>
-    <a href="/" class="inline-block px-6 py-3 bg-emerald-700 text-white rounded-md font-medium hover:bg-emerald-800 transition-colors">
+    <i class="ph ph-buildings text-[#D8D1C4] text-6xl mb-4 block"></i>
+    <h2 class="text-xl font-semibold text-[#4A4441] mb-3">{{ t('explore_choose_city') }}</h2>
+    <a href="/" class="inline-block px-6 py-3 bg-[#A8512F] text-white rounded-lg font-medium hover:bg-[#8A4226] transition-colors">
       {{ t('explore_back_search') }}
     </a>
   </div>
@@ -161,24 +161,24 @@
   <!-- Results (city + optional topic filter) -->
   {% else %}
 
-  <div class="flex items-start justify-between mb-5 flex-wrap gap-4 border-b border-slate-200 pb-5">
+  <div class="flex items-start justify-between mb-6 flex-wrap gap-4 border-b border-[#EAE5DB] pb-5">
     <div>
-      <h1 class="text-2xl font-bold text-slate-950">
+      <h1 class="text-2xl font-bold text-[#1C1917]">
         {% if selected_topics | length == 1 %}
-          <i class="ph ph-{{ topic_icons.get(selected_topics[0], 'circle') }} text-emerald-700"></i>
+          <i class="ph ph-{{ topic_icons.get(selected_topics[0], 'circle') }} text-[#C2613A]"></i>
           {{ topic_labels.get(selected_topics[0], selected_topics[0].replace('_',' ').title()) }} in {{ city }}
         {% else %}
           Communities in {{ city }}
         {% endif %}
       </h1>
       {% if total > 0 %}
-      <p class="text-sm text-slate-500 mt-0.5" id="visible-count">{{ total }} {{ 'community' if total == 1 else 'communities' }}</p>
+      <p class="text-sm text-[#8C8478] mt-0.5" id="visible-count">{{ total }} {{ 'community' if total == 1 else 'communities' }}</p>
       {% endif %}
     </div>
 
-    <!-- Topic chips: JS filtering when no URL topic, URL-nav when topic active -->
+    <!-- Topic chips: URL-mode when topic active, JS-mode otherwise -->
     {% if selected_topics %}
-    <form action="/explore" method="GET" class="flex items-center gap-2 flex-wrap">
+    <form action="/explore" method="GET" class="flex items-center gap-1.5 flex-wrap">
       <input type="hidden" name="city" value="{{ city }}">
       {% for t in topics %}
       {% if available_topics.get(t.name, 0) > 0 %}
@@ -186,12 +186,12 @@
         <input type="checkbox" name="topic" value="{{ t.name }}" class="sr-only peer"
           {% if t.name in selected_topics %}checked{% endif %}
           onchange="this.form.submit()">
-        <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors cursor-pointer
-          peer-checked:bg-emerald-50 peer-checked:border-emerald-600 peer-checked:text-emerald-900
-          border-slate-200 bg-white text-slate-500 hover:border-slate-300">
+        <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer
+          peer-checked:bg-[#FDF0EA] peer-checked:border-[#C2613A] peer-checked:text-[#4C2615]
+          border-[#EAE5DB] bg-white text-[#6A6259] hover:border-[#FAD9C7] hover:bg-[#FDF0EA]/50">
           <i class="ph ph-{{ topic_icons.get(t.name, 'circle') }}"></i>
           {{ topic_labels.get(t.name, t.name.replace('_',' ').title()) }}
-          <span class="ml-0.5 font-bold text-emerald-700">{{ available_topics[t.name] }}</span>
+          <span class="ml-0.5 font-bold text-[#C2613A]">{{ available_topics[t.name] }}</span>
         </span>
       </label>
       {% endif %}
@@ -203,11 +203,11 @@
       {% if available_topics.get(t.name, 0) > 0 %}
       <button type="button" onclick="filterTopic('{{ t.name }}')"
         data-topic="{{ t.name }}"
-        class="topic-chip inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors
-          bg-white border-slate-200 text-slate-500 hover:border-emerald-300 hover:text-emerald-800">
+        class="topic-chip inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors
+          bg-white border-[#EAE5DB] text-[#6A6259] hover:border-[#FAD9C7] hover:text-[#4C2615] hover:bg-[#FDF0EA]/50">
         <i class="ph ph-{{ topic_icons.get(t.name, 'circle') }}"></i>
         {{ topic_labels.get(t.name, t.name.replace('_',' ').title()) }}
-        <span class="font-bold text-emerald-700">{{ available_topics[t.name] }}</span>
+        <span class="font-bold text-[#C2613A]">{{ available_topics[t.name] }}</span>
       </button>
       {% endif %}
       {% endfor %}
@@ -216,10 +216,10 @@
   </div>
 
   {% if total == 0 %}
-  <div class="bg-white rounded-md border border-slate-200 p-12 text-center mb-8">
-    <i class="ph ph-magnifying-glass text-slate-300 text-5xl mb-4 block"></i>
-    <h3 class="text-lg font-semibold text-slate-800 mb-2">{{ t('explore_no_data_title') }}</h3>
-    <p class="text-sm text-slate-500 max-w-xs mx-auto">{{ t('explore_no_data_desc') }}</p>
+  <div class="bg-white rounded-lg border border-[#EAE5DB] p-12 text-center mb-8">
+    <i class="ph ph-magnifying-glass text-[#D8D1C4] text-5xl mb-4 block"></i>
+    <h3 class="text-lg font-semibold text-[#4A4441] mb-2">{{ t('explore_no_data_title') }}</h3>
+    <p class="text-sm text-[#8C8478] max-w-xs mx-auto">{{ t('explore_no_data_desc') }}</p>
   </div>
   {% else %}
 
@@ -227,40 +227,40 @@
   {% if section.records %}
   <div id="section-{{ section.topic }}" data-topic="{{ section.topic }}">
   {% if sections | length > 1 %}
-  <h2 class="text-base font-semibold text-slate-800 mb-3 mt-6 flex items-center gap-2">
-    <i class="ph ph-{{ section.icon }} text-emerald-700"></i>
+  <h2 class="text-base font-semibold text-[#2E2B29] mb-3 mt-6 flex items-center gap-2">
+    <i class="ph ph-{{ section.icon }} text-[#C2613A]"></i>
     {{ section.label }}
-    <span class="ml-1 text-xs text-slate-400 font-normal">{{ section.records | length }}</span>
+    <span class="ml-1 text-xs text-[#8C8478] font-normal">{{ section.records | length }}</span>
   </h2>
   {% endif %}
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
     {% for r in section.records %}
-    <div class="relative bg-white rounded-md border border-slate-200 p-5 hover:border-emerald-300 hover:bg-emerald-50 transition-colors flex flex-col gap-3">
-      <a href="{{ r.community_url }}" class="absolute inset-0 rounded-md" aria-label="{{ r.name }}"></a>
+    <div class="relative bg-white rounded-lg border border-[#EAE5DB] p-5 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/30 transition-colors flex flex-col gap-3">
+      <a href="{{ r.community_url }}" class="absolute inset-0 rounded-lg" aria-label="{{ r.name }}"></a>
 
-      <h3 class="font-semibold text-slate-950 text-base leading-snug">{{ r.name }}</h3>
+      <h3 class="font-semibold text-[#1C1917] text-base leading-snug">{{ r.name }}</h3>
 
       {% if r.description %}
-      <p class="text-sm text-slate-600 leading-relaxed line-clamp-2">{{ r.description }}</p>
+      <p class="text-sm text-[#6A6259] leading-relaxed line-clamp-2">{{ r.description }}</p>
       {% endif %}
 
       <div class="grid grid-cols-1 gap-1 text-sm">
         {% if r.location %}
-        <div class="flex items-start gap-2 text-slate-600">
-          <i class="ph ph-map-pin text-base leading-5 shrink-0 text-slate-400"></i>
+        <div class="flex items-start gap-2 text-[#6A6259]">
+          <i class="ph ph-map-pin text-base leading-5 shrink-0 text-[#B5ADA0]"></i>
           <span>{{ r.location }}</span>
         </div>
         {% endif %}
         {% if r.meeting_schedule %}
-        <div class="flex items-start gap-2 text-slate-600">
-          <i class="ph ph-calendar text-base leading-5 shrink-0 text-slate-400"></i>
+        <div class="flex items-start gap-2 text-[#6A6259]">
+          <i class="ph ph-calendar text-base leading-5 shrink-0 text-[#B5ADA0]"></i>
           <span>{{ r.meeting_schedule }}</span>
         </div>
         {% endif %}
         {% if r.contact or r.email %}
-        <div class="flex items-start gap-2 text-slate-600">
-          <i class="ph ph-envelope text-base leading-5 shrink-0 text-slate-400"></i>
+        <div class="flex items-start gap-2 text-[#6A6259]">
+          <i class="ph ph-envelope text-base leading-5 shrink-0 text-[#B5ADA0]"></i>
           <span>{{ r.email or r.contact }}</span>
         </div>
         {% endif %}
@@ -271,7 +271,7 @@
       {% if r.fee %}{% set _ = chips.append({'icon': 'currency-circle-dollar', 'text': r.fee, 'color': 'green' if r.fee | lower in ('ingyenes','free','gratis','kostenlos','gratuit') else 'amber'}) %}{% endif %}
       {% if r.member_count %}{% set _ = chips.append({'icon': 'users-three', 'text': r.member_count, 'color': 'blue'}) %}{% endif %}
       {% if r.skill_level %}{% set _ = chips.append({'icon': 'star', 'text': r.skill_level, 'color': 'fuchsia'}) %}{% endif %}
-      {% if r.founding_year %}{% set _ = chips.append({'icon': 'flag', 'text': r.founding_year | string, 'color': 'gray'}) %}{% endif %}
+      {% if r.founding_year %}{% set _ = chips.append({'icon': 'flag', 'text': r.founding_year | string, 'color': 'neutral'}) %}{% endif %}
       {% if chips %}
       <div class="flex flex-wrap gap-1.5">
         {% for chip in chips %}
@@ -280,7 +280,7 @@
           {% elif chip.color == 'amber' %}bg-amber-50 text-amber-700 border border-amber-100
           {% elif chip.color == 'blue' %}bg-blue-50 text-blue-700 border border-blue-100
           {% elif chip.color == 'fuchsia' %}bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-100
-          {% else %}bg-slate-50 text-slate-600 border border-slate-200{% endif %}">
+          {% else %}bg-[#F5F2EC] text-[#6A6259] border border-[#EAE5DB]{% endif %}">
           <i class="ph ph-{{ chip.icon }}"></i>{{ chip.text }}
         </span>
         {% endfor %}
@@ -288,9 +288,8 @@
       {% endif %}
 
       {% set website_url = r.website if r.website and r.website.startswith('http') else ('https://' ~ r.website if r.website else '') %}
-      {% set valid_social = r.social_links | selectattr('__class__') | select('string') | list if r.social_links else [] %}
       {% if (website_url and website_url | valid_url) or r.social_links %}
-      <div class="relative z-10 flex flex-wrap gap-2 pt-1 border-t border-slate-100">
+      <div class="relative z-10 flex flex-wrap gap-2 pt-1 border-t border-[#F5F2EC]">
         {% if website_url and website_url | valid_url %}
         {% set wm = website_url | link_meta %}
         <a href="{{ website_url }}" target="_blank" rel="noopener"
@@ -322,19 +321,19 @@
   {% endif %}
 
   <!-- Subscribe section -->
-  <div class="mt-8 bg-white rounded-md border border-slate-200 p-6 sm:p-8">
+  <div class="mt-8 bg-white rounded-lg border border-[#EAE5DB] p-6 sm:p-8">
     <div class="max-w-lg">
-      <h3 class="text-lg font-bold text-slate-950 mb-1 flex items-center gap-2">
-        <i class="ph ph-bell-ringing text-emerald-700"></i> {{ t('subscribe_title') }}
+      <h3 class="text-lg font-bold text-[#1C1917] mb-1 flex items-center gap-2">
+        <i class="ph ph-bell-ringing text-[#C2613A]"></i> {{ t('subscribe_title') }}
       </h3>
-      <p class="text-sm text-slate-500 mb-5">
+      <p class="text-sm text-[#8C8478] mb-5">
         We'll email you when new
         {% if selected_topics %}
-          <strong>{{ selected_topics | map('replace', '_', ' ') | join(', ') }}</strong>
+          <strong class="text-[#4A4441]">{{ selected_topics | map('replace', '_', ' ') | join(', ') }}</strong>
         {% else %}
           community
         {% endif %}
-        groups are found in <strong>{{ city }}</strong>.
+        groups are found in <strong class="text-[#4A4441]">{{ city }}</strong>.
       </p>
 
       <form action="/subscribe" method="POST" class="flex flex-col sm:flex-row gap-3">
@@ -347,14 +346,14 @@
           name="email"
           required
           placeholder="your@email.com"
-          class="flex-1 px-4 py-2.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 bg-white transition-colors"
+          class="flex-1 px-4 py-2.5 border border-[#D8D1C4] rounded-lg text-sm focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 bg-white transition-colors placeholder-[#B5ADA0] text-[#1C1917]"
         >
         <button type="submit"
-          class="px-6 py-2.5 bg-emerald-700 text-white text-sm font-semibold rounded-md hover:bg-emerald-800 transition-colors whitespace-nowrap">
+          class="px-6 py-2.5 bg-[#A8512F] text-white text-sm font-semibold rounded-lg hover:bg-[#A8512F] transition-colors whitespace-nowrap">
           {{ t('subscribe_btn') }}
         </button>
       </form>
-      <p class="mt-2 text-xs text-slate-400">{{ t('subscribe_no_spam') }}</p>
+      <p class="mt-2 text-xs text-[#B5ADA0]">{{ t('subscribe_no_spam') }}</p>
     </div>
   </div>
 
@@ -368,13 +367,13 @@
     if (active.has(topic)) { active.delete(topic); } else { active.add(topic); }
     var chips = document.querySelectorAll('.topic-chip');
     chips.forEach(function(c) {
-      var on = active.size === 0 || active.has(c.dataset.topic);
-      c.classList.toggle('bg-emerald-50', active.has(c.dataset.topic));
-      c.classList.toggle('border-emerald-600', active.has(c.dataset.topic));
-      c.classList.toggle('text-emerald-900', active.has(c.dataset.topic));
-      c.classList.toggle('bg-white', !active.has(c.dataset.topic));
-      c.classList.toggle('border-slate-200', !active.has(c.dataset.topic));
-      c.classList.toggle('text-slate-500', !active.has(c.dataset.topic));
+      var isActive = active.has(c.dataset.topic);
+      c.classList.toggle('bg-[#FDF0EA]', isActive);
+      c.classList.toggle('border-[#C2613A]', isActive);
+      c.classList.toggle('text-[#4C2615]', isActive);
+      c.classList.toggle('bg-white', !isActive);
+      c.classList.toggle('border-[#EAE5DB]', !isActive);
+      c.classList.toggle('text-[#6A6259]', !isActive);
     });
     var sections = document.querySelectorAll('div[id^="section-"][data-topic]');
     var visible = 0;
