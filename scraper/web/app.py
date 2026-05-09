@@ -44,6 +44,8 @@ from ..false_positives import (add as fp_add, diff_html as fp_diff_html,
                                remove as fp_remove, build_prompt_section)
 from ..extract import (ENRICH_SCHEMA, ENRICH_SYSTEM_PROMPT, EXTRACTION_SCHEMA,
                        SYSTEM_PROMPT, USER_PROMPT_TEMPLATE,
+                       VENUE_SCHEMA, VENUE_SYSTEM_PROMPT, VENUE_USER_PROMPT_TEMPLATE,
+                       PERSON_SCHEMA, PERSON_SYSTEM_PROMPT, PERSON_USER_PROMPT_TEMPLATE,
                        DeepSeekExtractor, FallbackExtractor, GroqExtractor, OllamaExtractor)
 from ..fetch import fetch_and_clean
 from ..models import CommunityRecord
@@ -1102,6 +1104,12 @@ async def prompts_page(request: Request):
         "enrichment_history": _versioned("enrichment", ENRICH_SYSTEM_PROMPT),
         "extraction_prompt": SYSTEM_PROMPT + build_prompt_section(fps, fp_type="extraction"),
         "enrichment_prompt": ENRICH_SYSTEM_PROMPT + build_prompt_section(fps, fp_type="enrichment"),
+        "venue_prompt": VENUE_SYSTEM_PROMPT,
+        "venue_user_template": VENUE_USER_PROMPT_TEMPLATE,
+        "venue_schema": json.dumps(VENUE_SCHEMA, indent=2),
+        "person_prompt": PERSON_SYSTEM_PROMPT,
+        "person_user_template": PERSON_USER_PROMPT_TEMPLATE,
+        "person_schema": json.dumps(PERSON_SCHEMA, indent=2),
         "false_positives": fps,
     })
 

@@ -153,4 +153,70 @@
 </div>
 {% endif %}
 
+{# ── Venue prompt ─────────────────────────────────────────────────────────────── #}
+<h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 mt-10">Venue extraction prompt</h2>
+
+<details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-2">
+  <summary class="list-none flex items-center gap-3 px-5 py-3 bg-green-50 border-b border-green-100 cursor-pointer hover:bg-green-100 select-none">
+    <span class="text-sm font-semibold text-green-800">System prompt</span>
+    <span class="ml-auto text-gray-400 text-xs">▾</span>
+  </summary>
+  <div class="px-5 py-4">
+    <pre class="text-xs text-gray-700 bg-gray-50 rounded-lg p-3 overflow-auto max-h-80 whitespace-pre-wrap leading-relaxed">{{ venue_prompt }}</pre>
+  </div>
+</details>
+
+<details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-2">
+  <summary class="list-none flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 select-none">
+    <span class="text-sm font-semibold text-gray-700">User prompt template</span>
+    <span class="ml-auto text-gray-400 text-xs">▾</span>
+  </summary>
+  <div class="px-5 py-4">
+    <pre class="text-xs text-gray-700 bg-gray-50 rounded-lg p-3 overflow-auto max-h-64 whitespace-pre-wrap leading-relaxed">{{ venue_user_template }}</pre>
+  </div>
+</details>
+
+<details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+  <summary class="list-none flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 select-none">
+    <span class="text-sm font-semibold text-gray-700">JSON schema</span>
+    <span class="ml-auto text-gray-400 text-xs">▾</span>
+  </summary>
+  <div class="px-5 py-4">
+    <pre class="text-xs text-gray-700 bg-gray-50 rounded-lg p-3 overflow-auto max-h-64 whitespace-pre-wrap leading-relaxed">{{ venue_schema }}</pre>
+  </div>
+</details>
+
+{# ── Person prompt ─────────────────────────────────────────────────────────────── #}
+<h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Person extraction prompt</h2>
+
+<details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-2">
+  <summary class="list-none flex items-center gap-3 px-5 py-3 bg-sky-50 border-b border-sky-100 cursor-pointer hover:bg-sky-100 select-none">
+    <span class="text-sm font-semibold text-sky-800">System prompt</span>
+    <span class="ml-auto text-gray-400 text-xs">▾</span>
+  </summary>
+  <div class="px-5 py-4">
+    <pre class="text-xs text-gray-700 bg-gray-50 rounded-lg p-3 overflow-auto max-h-80 whitespace-pre-wrap leading-relaxed">{{ person_prompt }}</pre>
+  </div>
+</details>
+
+<details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-2">
+  <summary class="list-none flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 select-none">
+    <span class="text-sm font-semibold text-gray-700">User prompt template</span>
+    <span class="ml-auto text-gray-400 text-xs">▾</span>
+  </summary>
+  <div class="px-5 py-4">
+    <pre class="text-xs text-gray-700 bg-gray-50 rounded-lg p-3 overflow-auto max-h-64 whitespace-pre-wrap leading-relaxed">{{ person_user_template }}</pre>
+  </div>
+</details>
+
+<details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+  <summary class="list-none flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 select-none">
+    <span class="text-sm font-semibold text-gray-700">JSON schema</span>
+    <span class="ml-auto text-gray-400 text-xs">▾</span>
+  </summary>
+  <div class="px-5 py-4">
+    <pre class="text-xs text-gray-700 bg-gray-50 rounded-lg p-3 overflow-auto max-h-64 whitespace-pre-wrap leading-relaxed">{{ person_schema }}</pre>
+  </div>
+</details>
+
 {% endblock %}
