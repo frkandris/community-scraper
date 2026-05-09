@@ -5,9 +5,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Run the app locally
-source .venv/bin/activate && ADMIN_PASSWORD=test python3 -m scraper.main
-
 # Run tests
 pytest
 
@@ -21,7 +18,7 @@ ruff check scraper/
 pip install -e ".[dev]"
 ```
 
-There is no local dev script. The app runs as a FastAPI server (uvicorn) on port 8000. Config is loaded from `config/` on startup. `ADMIN_PASSWORD` env var must be set or the admin UI is inaccessible.
+**No local dev environment.** The app runs on Hetzner, managed by Coolify. Do not attempt to start the server locally for verification — read templates and code directly instead. The app is a FastAPI server (uvicorn) on port 8000 in production. `ADMIN_PASSWORD` env var must be set or the admin UI is inaccessible.
 
 ## Architecture
 
