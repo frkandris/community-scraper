@@ -80,21 +80,29 @@
       <input type="hidden" name="run_persons"     id="f-run-persons"     value="on">
 
       <!-- Preset cards -->
-      {%- macro scope_row(s, f, ai, color) -%}
+      {%- macro scope_row(s, f, ai, color, s_hu=none, f_hu=none, ai_hu=none) -%}
+      {%- set s_g = s if s is not none else 0 -%}
+      {%- set s_h = s_hu if s_hu is not none else s_g -%}
+      {%- set f_h = f_hu if f_hu is not none else f -%}
+      {%- set ai_g = ai if ai is not none else 0 -%}
+      {%- set ai_h = ai_hu if ai_hu is not none else ai_g -%}
       <div class="flex gap-2 mt-1.5 text-[9px] font-semibold">
-        {%- if s is not none and s != 0 -%}
-        <span class="flex items-center gap-0.5 text-{{ color }}-600 opacity-70">
-          <i class="ph ph-magnifying-glass"></i>{{ s }}
+        {%- if s_g != 0 or s_h != 0 -%}
+        <span class="flex items-center gap-0.5 text-{{ color }}-600 opacity-70"
+              data-global="{{ s_g }}" data-hu="{{ s_h }}">
+          <i class="ph ph-magnifying-glass"></i><span class="rs-num">{{ s_g }}</span>
         </span>
         {%- endif -%}
         {%- if f is not none -%}
-        <span class="flex items-center gap-0.5 text-{{ color }}-600 opacity-70">
-          <i class="ph ph-globe"></i>{{ f }}
+        <span class="flex items-center gap-0.5 text-{{ color }}-600 opacity-70"
+              data-global="{{ f }}" data-hu="{{ f_h }}">
+          <i class="ph ph-globe"></i><span class="rs-num">{{ f }}</span>
         </span>
         {%- endif -%}
-        {%- if ai is not none and ai != 0 -%}
-        <span class="flex items-center gap-0.5 text-{{ color }}-600">
-          <i class="ph ph-cpu"></i>{{ ai }}
+        {%- if ai_g != 0 or ai_h != 0 -%}
+        <span class="flex items-center gap-0.5 text-{{ color }}-600"
+              data-global="{{ ai_g }}" data-hu="{{ ai_h }}">
+          <i class="ph ph-cpu"></i><span class="rs-num">{{ ai_g }}</span>
         </span>
         {%- endif -%}
       </div>
@@ -118,7 +126,7 @@
                 <div class="text-blue-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(new)</span> + Enrich</div>
               </div>
               {% if run_scopes.smart %}
-              {{ scope_row(run_scopes.smart.search, none, run_scopes.smart.ai, 'blue') }}
+              {{ scope_row(run_scopes.smart.search, none, run_scopes.smart.ai, 'blue', run_scopes.smart.search_hu, none, run_scopes.smart.ai_hu) }}
               {% endif %}
             </button>
 
@@ -134,7 +142,7 @@
                 <div class="text-gray-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(all)</span> + Enrich</div>
               </div>
               {% if run_scopes.rebuild %}
-              {{ scope_row(run_scopes.rebuild.search, run_scopes.rebuild.fetch, run_scopes.rebuild.ai, 'orange') }}
+              {{ scope_row(run_scopes.rebuild.search, run_scopes.rebuild.fetch, run_scopes.rebuild.ai, 'orange', run_scopes.rebuild.search_hu, run_scopes.rebuild.fetch_hu, run_scopes.rebuild.ai_hu) }}
               {% endif %}
             </button>
 
@@ -157,7 +165,7 @@
                 <div class="text-gray-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(all cached)</span> + Enrich</div>
               </div>
               {% if run_scopes.reai %}
-              {{ scope_row(none, none, run_scopes.reai.ai, 'purple') }}
+              {{ scope_row(none, none, run_scopes.reai.ai, 'purple', none, none, run_scopes.reai.ai_hu) }}
               {% endif %}
             </button>
 
@@ -443,6 +451,13 @@ function setDashScope(scope) {
   ['communities','venues','persons','cities'].forEach(id => {
     const el = document.getElementById('stat-' + id);
     if (el) el.textContent = el.dataset[scope];
+  });
+  // Swap run-scope preset numbers
+  document.querySelectorAll('.rs-num').forEach(el => {
+    const parent = el.parentElement;
+    if (parent && parent.dataset[scope] !== undefined) {
+      el.textContent = parent.dataset[scope];
+    }
   });
   // Pre-set run scope to Hungary when in HU mode
   const scopeType    = document.getElementById('scope-type');

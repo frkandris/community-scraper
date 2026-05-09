@@ -1295,30 +1295,47 @@ def _get_run_scopes() -> dict:
         venue_fp   = _prompt_hash(_ep("venue_system") + model)
         person_fp  = _prompt_hash(_ep("person_system") + model)
         stats = get_scope_stats(app_state.db_path, extract_fp, venue_fp, person_fp)
+        hu_names = list(_hu_city_names())
+        stats_hu = get_scope_stats(app_state.db_path, extract_fp, venue_fp, person_fp, cities=hu_names) if hu_names else {"with_text": 0, "extract_match": 0, "venue_match": 0, "person_match": 0}
     except Exception:
         return {}
     n              = stats["with_text"]
     extract_needed = n - stats["extract_match"]
     venue_needed   = n - stats["venue_match"]
     person_needed  = n - stats["person_match"]
+    n_hu              = stats_hu["with_text"]
+    extract_needed_hu = n_hu - stats_hu["extract_match"]
+    venue_needed_hu   = n_hu - stats_hu["venue_match"]
+    person_needed_hu  = n_hu - stats_hu["person_match"]
     city_count     = len(app_state.cities or [])
     topic_count    = len(app_state.topics or [])
+    hu_city_count  = len(hu_names)
     search_pairs   = city_count * topic_count
+    search_pairs_hu = hu_city_count * topic_count
     return {
         "smart": {
-            "search": search_pairs,
-            "fetch": None,          # unknown until search runs
-            "ai": extract_needed + venue_needed + person_needed,
+            "search":    search_pairs,
+            "search_hu": search_pairs_hu,
+            "fetch":     None,
+            "fetch_hu":  None,
+            "ai":        extract_needed + venue_needed + person_needed,
+            "ai_hu":     extract_needed_hu + venue_needed_hu + person_needed_hu,
         },
         "rebuild": {
-            "search": search_pairs,
-            "fetch": n,
-            "ai": n + venue_needed + person_needed,
+            "search":    search_pairs,
+            "search_hu": search_pairs_hu,
+            "fetch":     n,
+            "fetch_hu":  n_hu,
+            "ai":        n + venue_needed + person_needed,
+            "ai_hu":     n_hu + venue_needed_hu + person_needed_hu,
         },
         "reai": {
-            "search": 0,
-            "fetch": 0,
-            "ai": n + venue_needed + person_needed,
+            "search":    0,
+            "search_hu": 0,
+            "fetch":     0,
+            "fetch_hu":  0,
+            "ai":        n + venue_needed + person_needed,
+            "ai_hu":     n_hu + venue_needed_hu + person_needed_hu,
         },
     }
 
