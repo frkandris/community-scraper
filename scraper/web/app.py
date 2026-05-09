@@ -1271,6 +1271,11 @@ async def dashboard(request: Request):
         except Exception:
             pass
 
+    all_cities = app_state.cities or []
+    run_countries = sorted({c.country for c in all_cities if c.country})
+    run_cities = sorted([{"name": c.name, "country": c.country} for c in all_cities],
+                        key=lambda c: (c["country"], c["name"]))
+
     return templates.TemplateResponse(request, "dashboard.html", {
         "metadata": metadata,
         "is_running": app_state.is_running,
@@ -1291,6 +1296,8 @@ async def dashboard(request: Request):
         "revalidation_pending": revalidation_pending,
         "revalidate_state": _revalidate_state,
         "run_scopes": _get_run_scopes(),
+        "run_countries": run_countries,
+        "run_cities": run_cities,
     })
 
 
@@ -1733,6 +1740,8 @@ async def trigger_run(
     run_communities: str = Form("on"),
     run_venues: str = Form("on"),
     run_persons: str = Form("on"),
+    filter_country: str = Form(""),
+    filter_city: str = Form(""),
 ):
     if app_state.is_running:
         return RedirectResponse("/admin/logs", status_code=302)
@@ -1746,6 +1755,12 @@ async def trigger_run(
     _run_venues = (run_venues == "on")
     _run_persons = (run_persons == "on")
 
+    cities = app_state.cities or []
+    if filter_city.strip():
+        cities = [c for c in cities if c.name == filter_city.strip()]
+    elif filter_country.strip():
+        cities = [c for c in cities if c.country == filter_country.strip()]
+
     def _on_progress(phase: str | None, url: str | None) -> None:
         app_state.current_phase = phase
         app_state.current_url = url
@@ -1757,7 +1772,7 @@ async def trigger_run(
         total_new = 0
         try:
             pair_logs, total_new = await run_pipeline(
-                app_state.cities,
+                cities,
                 app_state.topics,
                 app_state.pipeline_cfg,
                 cache=app_state.cache_manager,

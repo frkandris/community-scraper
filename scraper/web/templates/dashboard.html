@@ -169,6 +169,30 @@
 
       </div>
 
+      <!-- Scope filter: country or city -->
+      <input type="hidden" id="f-filter-country" name="filter_country" value="">
+      <input type="hidden" id="f-filter-city"    name="filter_city"    value="">
+      <div class="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+        <div class="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Scope</div>
+        <div class="flex gap-2">
+          <select id="scope-type" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:border-blue-400 cursor-pointer">
+            <option value="all">All cities</option>
+            <option value="country">By country</option>
+            <option value="city">By city</option>
+          </select>
+          <select id="scope-country" class="hidden text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:border-blue-400 flex-1 cursor-pointer">
+            {% for country in run_countries %}
+            <option value="{{ country }}">{{ country }}</option>
+            {% endfor %}
+          </select>
+          <select id="scope-city" class="hidden text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:border-blue-400 flex-1 cursor-pointer">
+            {% for c in run_cities %}
+            <option value="{{ c.name }}">{{ c.name }}{% if c.country %} ({{ c.country }}){% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
       <!-- Phase toggles -->
       <div id="phase-opts" class="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
         <div class="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-2">AI phases</div>
@@ -449,6 +473,25 @@
       }
     });
   }
+
+  // Scope filter wiring
+  const scopeType    = document.getElementById('scope-type');
+  const scopeCountry = document.getElementById('scope-country');
+  const scopeCity    = document.getElementById('scope-city');
+  const fCountry     = document.getElementById('f-filter-country');
+  const fCity        = document.getElementById('f-filter-city');
+
+  function updateScope() {
+    const v = scopeType.value;
+    scopeCountry.classList.toggle('hidden', v !== 'country');
+    scopeCity.classList.toggle('hidden', v !== 'city');
+    fCountry.value = (v === 'country') ? scopeCountry.value : '';
+    fCity.value    = (v === 'city')    ? scopeCity.value    : '';
+  }
+
+  scopeType.addEventListener('change', updateScope);
+  scopeCountry.addEventListener('change', updateScope);
+  scopeCity.addEventListener('change', updateScope);
 
   document.getElementById('run-form').addEventListener('submit', async function(e) {
     if (selected === 'revalidate') {
