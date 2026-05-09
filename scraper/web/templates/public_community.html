@@ -15,7 +15,7 @@
     {% endif %}
     {% if topic %}
     <span class="text-[#D8D1C4]">/</span>
-    <a href="/{{ city | slugify }}/{{ topic }}"
+    <a href="/{{ city | slugify }}/{{ topic_slug }}"
        class="hover:text-[#1C1917] transition-colors shrink-0">
       {{ topic_labels.get(topic, topic.replace('_',' ').title()) }}
     </a>
@@ -42,7 +42,7 @@
           </a>
           {% endif %}
           {% if topic %}
-          <a href="/{{ city | slugify }}/{{ topic }}"
+          <a href="/{{ city | slugify }}/{{ topic_slug }}"
              class="inline-flex items-center gap-1 text-xs text-[#8A4226] bg-[#FDF0EA] border border-[#FAD9C7] px-2 py-0.5 rounded-md hover:bg-[#FAD9C7] transition-colors">
             <i class="ph ph-{{ topic_icons.get(topic, 'circle') }}"></i>
             {{ topic_labels.get(topic, topic.replace('_',' ').title()) }}
@@ -357,7 +357,7 @@
   <!-- Back link -->
   {% if city and topic %}
   <div class="mt-6 text-center">
-    <a href="/{{ city | slugify }}/{{ topic }}"
+    <a href="/{{ city | slugify }}/{{ topic_slug }}"
        class="inline-flex items-center gap-2 text-sm text-[#A8512F] hover:text-[#8A4226] transition-colors font-medium">
       <i class="ph ph-arrow-left"></i>
       {{ t('community_more_in').format(label=topic_labels.get(topic, topic.replace('_',' ').title()), city=city) }}

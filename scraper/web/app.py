@@ -565,6 +565,35 @@ def _city_from_slug(city_slug: str) -> str | None:
     return None
 
 
+def _city_locale(city_name: str) -> str:
+    for city in (app_state.cities or []):
+        if city.name == city_name:
+            return city.locale or "en"
+    return "en"
+
+
+def _topic_url_slug(topic_name: str, locale: str) -> str:
+    """Return the URL slug for a topic in the given locale."""
+    labels = get_topic_labels(locale)
+    label = labels.get(topic_name, topic_name.replace("_", " ").title())
+    return _slugify(label)
+
+
+def _topic_from_url_slug(slug: str, locale: str) -> str | None:
+    """Given a localized URL slug and locale, return the canonical topic name."""
+    labels = get_topic_labels(locale)
+    for topic_name, label in labels.items():
+        if _slugify(label) == slug:
+            return topic_name
+    # fall back to English
+    if locale != "en":
+        en_labels = get_topic_labels("en")
+        for topic_name, label in en_labels.items():
+            if _slugify(label) == slug:
+                return topic_name
+    return None
+
+
 def _find_community_by_slug(city_name: str, name_slug: str) -> dict | None:
     for r in get_communities_for_city(_db(), city_name):
         r = _ensure_community_id(r)
@@ -834,7 +863,7 @@ async def _render_explore(
                 if recs:
                     city_url = "/" + _slugify(city_name)
                     if topic and len(topic) == 1:
-                        city_url += "/" + topic[0]
+                        city_url += "/" + _topic_url_slug(topic[0], _city_locale(city_name))
                     city_sections.append({
                         "city": city_name,
                         "country": country,
@@ -869,6 +898,9 @@ async def _render_explore(
     if city and len(topic) == 1 and app_state.db_path:
         topic_venues = get_venues_by_city_topic(app_state.db_path, city, topic[0])
 
+    city_locale = _city_locale(city) if city else "en"
+    topic_url_slugs = {t.name: _topic_url_slug(t.name, city_locale) for t in (app_state.topics or [])}
+
     return templates.TemplateResponse(request, "public_explore.html", {
         "city": city,
         "topics": topics,
@@ -885,6 +917,7 @@ async def _render_explore(
         "tag": tag,
         "tag_records": tag_records,
         "topic_venues": topic_venues,
+        "topic_url_slugs": topic_url_slugs,
         **lang_context(request),
     })
 
@@ -901,7 +934,8 @@ async def public_explore(
     if not tag:
         if city_sl and len(topic) == 1:
             qs = "?subscribed=1" if subscribed == "1" else ""
-            return RedirectResponse(f"/{city_sl}/{topic[0]}{qs}", status_code=301)
+            topic_slug = _topic_url_slug(topic[0], _city_locale(city)) if city else topic[0]
+            return RedirectResponse(f"/{city_sl}/{topic_slug}{qs}", status_code=301)
         if city_sl and not topic:
             return RedirectResponse(f"/{city_sl}", status_code=301)
     return await _render_explore(request, city=city, topic=topic, tag=tag, subscribed=subscribed)
@@ -958,9 +992,10 @@ async def public_subscribe(
     topics: list[str] = Form(default=[]),
 ):
     city_sl = _slugify(city) if city else ""
+    city_locale = _city_locale(city) if city else "en"
     if not app_state.db_path or not email or not city or not topics:
         if city_sl and len(topics) == 1:
-            return RedirectResponse(f"/{city_sl}/{topics[0]}", status_code=302)
+            return RedirectResponse(f"/{city_sl}/{_topic_url_slug(topics[0], city_locale)}", status_code=302)
         return RedirectResponse(
             f"/explore?city={city}&" + "&".join(f"topic={t}" for t in topics),
             status_code=302,
@@ -970,7 +1005,7 @@ async def public_subscribe(
         save_subscription(app_state.db_path, email, city, t)
 
     if city_sl and len(topics) == 1:
-        return RedirectResponse(f"/{city_sl}/{topics[0]}?subscribed=1", status_code=302)
+        return RedirectResponse(f"/{city_sl}/{_topic_url_slug(topics[0], city_locale)}?subscribed=1", status_code=302)
     qs = f"city={city}&" + "&".join(f"topic={t}" for t in topics) + "&subscribed=1"
     return RedirectResponse(f"/explore?{qs}", status_code=302)
 
@@ -1156,8 +1191,11 @@ async def sitemap(request: Request):
         counts = get_city_topic_counts(_db())
         for city_name, topics in counts.items():
             city_sl = _slugify(city_name)
+            city_locale = _city_locale(city_name)
             urls.append(f"{base}/{city_sl}")
             for topic_name in topics:
+                topic_sl = _topic_url_slug(topic_name, city_locale)
+                urls.append(f"{base}/{city_sl}/{topic_sl}")
                 for record in get_communities(_db(), city_name, topic_name):
                     name_sl = _slugify(record.get("name", ""))
                     if name_sl:
@@ -2618,7 +2656,11 @@ async def public_city_segment(
     if not city_name:
         return RedirectResponse("/", status_code=302)
     topic_names = {t.name for t in (app_state.topics or [])}
-    actual_topic = segment if segment in topic_names else segment.replace("-", "_")
+    city_locale = _city_locale(city_name)
+    # Try localized slug first, then fall back to English slug
+    actual_topic = _topic_from_url_slug(segment, city_locale)
+    if actual_topic not in topic_names:
+        actual_topic = segment if segment in topic_names else segment.replace("-", "_")
     if actual_topic in topic_names:
         return await _render_explore(
             request, city=city_name, topic=[actual_topic], subscribed=subscribed
@@ -2627,14 +2669,19 @@ async def public_city_segment(
     if record:
         schema_json = records_to_jsonld([record])
         history = get_community_history(app_state.db_path, record.get("community_id", ""))
+        rec_topic = record.get("topic", "")
+        city_locale = _city_locale(city_name)
+        topic_url_slugs = {t.name: _topic_url_slug(t.name, city_locale) for t in (app_state.topics or [])}
         return templates.TemplateResponse(request, "public_community.html", {
             "r": record,
-            "topic": record.get("topic", ""),
+            "topic": rec_topic,
+            "topic_slug": _topic_url_slug(rec_topic, city_locale),
             "city": city_name,
             "schema_json": schema_json,
             "topic_icons": TOPIC_ICONS,
             "topic_labels": TOPIC_LABELS,
             "community_history": history,
+            "topic_url_slugs": topic_url_slugs,
             **lang_context(request),
         })
     return RedirectResponse(f"/{city_slug}", status_code=302)
