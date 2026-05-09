@@ -323,91 +323,114 @@ async def _run_full(
 
             records = []
             for url, text in fetched:
+                community_names: list[str] = []
+
+                # ── Community extraction (with fingerprint cache) ────────────
+                community_cache_hit = False
                 if cache and skip_extracted:
                     cached_records = cache.get_extracted(url, fingerprint=extractor.model_fingerprint)
                     if cached_records is not None:
                         log.debug("cache_hit_extract", url=url)
                         records.extend(cached_records)
+                        community_names = [r.name for r in cached_records]
                         pair_log["cache_hits_extract"] += 1
                         pair_log["records_extracted"] += len(cached_records)
-                        continue
+                        community_cache_hit = True
 
-                if on_progress:
-                    on_progress("extract", url)
-                t0 = time.monotonic()
-                try:
-                    extracted = await extractor.extract(
-                        text=text, city=city.name, topic=topic.name,
-                        locale=city.locale, source_url=url,
-                        false_positive_examples=build_prompt_section(
-                            all_fps, city=city.name, topic=topic.name
-                        ),
-                    )
-                finally:
-                    extract_dur = time.monotonic() - t0
+                if not community_cache_hit:
                     if on_progress:
-                        on_progress(None, None)
-
-                joinable = [r for r in extracted if r.joinable]
-                if len(joinable) < len(extracted):
-                    log.info("joinability_filtered", url=url,
-                             kept=len(joinable), removed=len(extracted) - len(joinable))
-
-                enrich_timing = {"scrape": 0.0, "extract": 0.0, "count": 0, "needed": False}
-                final_records = []
-                enrich_logs: list[dict] = []
-                for record in joinable:
-                    log_entry: dict = {
-                        "community_name": record.name,
-                        "search_query": None,
-                        "research_urls": [],
-                        "enriched": False,
-                        "fields_added": [],
-                    }
-                    if config.enrich_communities and _needs_enrichment(record):
-                        enrich_timing["needed"] = True
-                        record = await _enrich_record(
-                            record, searxng, extractor, config, semaphore,
-                            on_progress, enrich_timing, log_entry,
-                            enrich_fp_examples=enrich_fp_section,
+                        on_progress("extract", url)
+                    t0 = time.monotonic()
+                    try:
+                        extracted = await extractor.extract(
+                            text=text, city=city.name, topic=topic.name,
+                            locale=city.locale, source_url=url,
+                            false_positive_examples=build_prompt_section(
+                                all_fps, city=city.name, topic=topic.name
+                            ),
                         )
-                    enrich_logs.append(log_entry)
-                    final_records.append(record)
+                    finally:
+                        extract_dur = time.monotonic() - t0
+                        if on_progress:
+                            on_progress(None, None)
 
-                if cache:
-                    cache.save_extracted(url, final_records, duration_s=extract_dur,
-                                         fingerprint=extractor.model_fingerprint,
-                                         model=extractor.model)
-                    if enrich_timing["needed"]:
-                        cache.mark_enrich_scraped(url, enrich_timing["scrape"])
-                        cache.mark_enrich_extracted(url, enrich_timing["count"], enrich_timing["extract"], model=extractor.model)
-                        cache.save_enrich_log(url, enrich_logs)
+                    joinable = [r for r in extracted if r.joinable]
+                    if len(joinable) < len(extracted):
+                        log.info("joinability_filtered", url=url,
+                                 kept=len(joinable), removed=len(extracted) - len(joinable))
 
-                if final_records:
-                    save_results(city.name, topic.name, final_records, config.db_path)
+                    enrich_timing = {"scrape": 0.0, "extract": 0.0, "count": 0, "needed": False}
+                    final_records = []
+                    enrich_logs: list[dict] = []
+                    for record in joinable:
+                        log_entry: dict = {
+                            "community_name": record.name,
+                            "search_query": None,
+                            "research_urls": [],
+                            "enriched": False,
+                            "fields_added": [],
+                        }
+                        if config.enrich_communities and _needs_enrichment(record):
+                            enrich_timing["needed"] = True
+                            record = await _enrich_record(
+                                record, searxng, extractor, config, semaphore,
+                                on_progress, enrich_timing, log_entry,
+                                enrich_fp_examples=enrich_fp_section,
+                            )
+                        enrich_logs.append(log_entry)
+                        final_records.append(record)
 
-                records.extend(final_records)
-                total_new += len(final_records)
-                pair_log["records_extracted"] += len(final_records)
-                log.info("extracted", url=url, found=len(extracted), kept=len(final_records))
+                    if cache:
+                        cache.save_extracted(url, final_records, duration_s=extract_dur,
+                                             fingerprint=extractor.model_fingerprint,
+                                             model=extractor.model)
+                        if enrich_timing["needed"]:
+                            cache.mark_enrich_scraped(url, enrich_timing["scrape"])
+                            cache.mark_enrich_extracted(url, enrich_timing["count"],
+                                                        enrich_timing["extract"], model=extractor.model)
+                            cache.save_enrich_log(url, enrich_logs)
 
-                community_names = [r.name for r in final_records]
-                try:
-                    venues = await extractor.extract_venues(text, city.name, city.locale, url)
-                    if venues:
-                        upsert_venues(config.db_path, [v.model_dump() for v in venues])
-                        log.info("venues_extracted", url=url, found=len(venues))
-                except Exception as exc:
-                    log.warning("venues_extract_error", url=url, error=str(exc))
-                try:
-                    persons = await extractor.extract_persons(
-                        text, city.name, topic.name, city.locale, url, community_names,
-                    )
-                    if persons:
-                        upsert_persons(config.db_path, [p.model_dump() for p in persons])
-                        log.info("persons_extracted", url=url, found=len(persons))
-                except Exception as exc:
-                    log.warning("persons_extract_error", url=url, error=str(exc))
+                    if final_records:
+                        save_results(city.name, topic.name, final_records, config.db_path)
+
+                    records.extend(final_records)
+                    total_new += len(final_records)
+                    pair_log["records_extracted"] += len(final_records)
+                    log.info("extracted", url=url, found=len(extracted), kept=len(final_records))
+                    community_names = [r.name for r in final_records]
+
+                # ── Venue extraction (with fingerprint cache) ────────────────
+                if not (cache and cache.get_venue_extracted(
+                        url, fingerprint=extractor.venue_fingerprint) is not None):
+                    try:
+                        venues = await extractor.extract_venues(text, city.name, city.locale, url)
+                        if venues:
+                            upsert_venues(config.db_path, [v.model_dump() for v in venues])
+                            log.info("venues_extracted", url=url, found=len(venues))
+                        if cache:
+                            cache.save_venue_extracted(url, [v.model_dump() for v in venues],
+                                                       fingerprint=extractor.venue_fingerprint,
+                                                       model=extractor.model)
+                    except Exception as exc:
+                        log.warning("venues_extract_error", url=url, error=str(exc))
+
+                # ── Person extraction (with fingerprint cache) ───────────────
+                if not (cache and cache.get_person_extracted(
+                        url, city.name, topic.name, fingerprint=extractor.person_fingerprint) is not None):
+                    try:
+                        persons = await extractor.extract_persons(
+                            text, city.name, topic.name, city.locale, url, community_names,
+                        )
+                        if persons:
+                            upsert_persons(config.db_path, [p.model_dump() for p in persons])
+                            log.info("persons_extracted", url=url, found=len(persons))
+                        if cache:
+                            cache.save_person_extracted(url, city.name, topic.name,
+                                                        [p.model_dump() for p in persons],
+                                                        fingerprint=extractor.person_fingerprint,
+                                                        model=extractor.model)
+                    except Exception as exc:
+                        log.warning("persons_extract_error", url=url, error=str(exc))
 
             count = save_results(city.name, topic.name, records, config.db_path)
             run_stats[city.name][topic.name] = count
@@ -464,59 +487,78 @@ async def _run_ai_only(
             log.info("ai_only_processing", city=city.name, topic=topic.name, pages=len(pages))
             records = []
             for url, text in pages:
+                community_names: list[str] = []
+
+                # ── Community extraction (with fingerprint cache) ────────────
+                community_cache_hit = False
                 if skip_extracted:
                     cached = cache.get_extracted(url, fingerprint=extractor.model_fingerprint)
                     if cached is not None:
                         log.debug("cache_hit_extract", url=url)
                         records.extend(cached)
+                        community_names = [r.name for r in cached]
                         pair_log["cache_hits_extract"] += 1
                         pair_log["records_extracted"] += len(cached)
-                        continue
+                        community_cache_hit = True
 
-                if on_progress:
-                    on_progress("extract", url)
-                try:
-                    extracted = await extractor.extract(
-                        text=text, city=city.name, topic=topic.name,
-                        locale=city.locale, source_url=url,
-                    )
-                finally:
+                if not community_cache_hit:
                     if on_progress:
-                        on_progress(None, None)
+                        on_progress("extract", url)
+                    try:
+                        extracted = await extractor.extract(
+                            text=text, city=city.name, topic=topic.name,
+                            locale=city.locale, source_url=url,
+                        )
+                    finally:
+                        if on_progress:
+                            on_progress(None, None)
 
-                joinable = [r for r in extracted if r.joinable]
-                if len(joinable) < len(extracted):
-                    log.info("joinability_filtered", url=url,
-                             kept=len(joinable), removed=len(extracted) - len(joinable))
+                    joinable = [r for r in extracted if r.joinable]
+                    if len(joinable) < len(extracted):
+                        log.info("joinability_filtered", url=url,
+                                 kept=len(joinable), removed=len(extracted) - len(joinable))
 
-                cache.save_extracted(url, joinable, fingerprint=extractor.model_fingerprint,
-                                     model=extractor.model)
+                    cache.save_extracted(url, joinable, fingerprint=extractor.model_fingerprint,
+                                         model=extractor.model)
 
-                if joinable:
-                    save_results(city.name, topic.name, joinable, config.db_path)
+                    if joinable:
+                        save_results(city.name, topic.name, joinable, config.db_path)
 
-                records.extend(joinable)
-                total_new += len(joinable)
-                pair_log["records_extracted"] += len(joinable)
-                log.info("extracted", url=url, found=len(extracted), kept=len(joinable))
+                    records.extend(joinable)
+                    total_new += len(joinable)
+                    pair_log["records_extracted"] += len(joinable)
+                    log.info("extracted", url=url, found=len(extracted), kept=len(joinable))
+                    community_names = [r.name for r in joinable]
 
-                community_names = [r.name for r in joinable]
-                try:
-                    venues = await extractor.extract_venues(text, city.name, city.locale, url)
-                    if venues:
-                        upsert_venues(config.db_path, [v.model_dump() for v in venues])
-                        log.info("venues_extracted", url=url, found=len(venues))
-                except Exception as exc:
-                    log.warning("venues_extract_error", url=url, error=str(exc))
-                try:
-                    persons = await extractor.extract_persons(
-                        text, city.name, topic.name, city.locale, url, community_names,
-                    )
-                    if persons:
-                        upsert_persons(config.db_path, [p.model_dump() for p in persons])
-                        log.info("persons_extracted", url=url, found=len(persons))
-                except Exception as exc:
-                    log.warning("persons_extract_error", url=url, error=str(exc))
+                # ── Venue extraction (with fingerprint cache) ────────────────
+                if cache.get_venue_extracted(url, fingerprint=extractor.venue_fingerprint) is None:
+                    try:
+                        venues = await extractor.extract_venues(text, city.name, city.locale, url)
+                        if venues:
+                            upsert_venues(config.db_path, [v.model_dump() for v in venues])
+                            log.info("venues_extracted", url=url, found=len(venues))
+                        cache.save_venue_extracted(url, [v.model_dump() for v in venues],
+                                                   fingerprint=extractor.venue_fingerprint,
+                                                   model=extractor.model)
+                    except Exception as exc:
+                        log.warning("venues_extract_error", url=url, error=str(exc))
+
+                # ── Person extraction (with fingerprint cache) ───────────────
+                if cache.get_person_extracted(url, city.name, topic.name,
+                                              fingerprint=extractor.person_fingerprint) is None:
+                    try:
+                        persons = await extractor.extract_persons(
+                            text, city.name, topic.name, city.locale, url, community_names,
+                        )
+                        if persons:
+                            upsert_persons(config.db_path, [p.model_dump() for p in persons])
+                            log.info("persons_extracted", url=url, found=len(persons))
+                        cache.save_person_extracted(url, city.name, topic.name,
+                                                    [p.model_dump() for p in persons],
+                                                    fingerprint=extractor.person_fingerprint,
+                                                    model=extractor.model)
+                    except Exception as exc:
+                        log.warning("persons_extract_error", url=url, error=str(exc))
 
             count = save_results(city.name, topic.name, records, config.db_path)
             run_stats[city.name][topic.name] = count

@@ -430,6 +430,18 @@ class OllamaExtractor:
     def model_fingerprint(self) -> str:
         return _prompt_hash(get_prompt("extraction_system") + self.model)
 
+    @property
+    def venue_fingerprint(self) -> str:
+        return _prompt_hash(get_prompt("venue_system") + self.model)
+
+    @property
+    def person_fingerprint(self) -> str:
+        return _prompt_hash(get_prompt("person_system") + self.model)
+
+    @property
+    def enrich_fingerprint(self) -> str:
+        return _prompt_hash(get_prompt("enrich_system") + self.model)
+
     async def extract(
         self,
         text: str,
@@ -610,6 +622,18 @@ class _ApiExtractor:
     @property
     def model_fingerprint(self) -> str:
         return _prompt_hash(get_prompt("extraction_system") + self.model)
+
+    @property
+    def venue_fingerprint(self) -> str:
+        return _prompt_hash(get_prompt("venue_system") + self.model)
+
+    @property
+    def person_fingerprint(self) -> str:
+        return _prompt_hash(get_prompt("person_system") + self.model)
+
+    @property
+    def enrich_fingerprint(self) -> str:
+        return _prompt_hash(get_prompt("enrich_system") + self.model)
 
     def _headers(self) -> dict:
         return {"Authorization": f"Bearer {self.api_key}"}
@@ -822,6 +846,21 @@ class FallbackExtractor:
     def model_fingerprint(self) -> str:
         idx = self._first_available()
         return self.primaries[idx].model_fingerprint if idx is not None else self.fallback.model_fingerprint
+
+    @property
+    def venue_fingerprint(self) -> str:
+        idx = self._first_available()
+        return self.primaries[idx].venue_fingerprint if idx is not None else self.fallback.venue_fingerprint
+
+    @property
+    def person_fingerprint(self) -> str:
+        idx = self._first_available()
+        return self.primaries[idx].person_fingerprint if idx is not None else self.fallback.person_fingerprint
+
+    @property
+    def enrich_fingerprint(self) -> str:
+        idx = self._first_available()
+        return self.primaries[idx].enrich_fingerprint if idx is not None else self.fallback.enrich_fingerprint
 
     @property
     def model(self) -> str:

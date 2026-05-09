@@ -108,6 +108,53 @@ class CacheManager:
         entry["records"] = [r.model_dump() for r in records]
         save_cache_page(self.db_path, entry)
 
+    # ── Venue extraction cache ───────────────────────────────────────────────
+
+    def get_venue_extracted(self, url: str, fingerprint: str | None = None) -> list[dict] | None:
+        entry = load_cache_page(self.db_path, _url_hash(url))
+        if not entry or not entry.get("venue_extracted_at"):
+            return None
+        if fingerprint and entry.get("venue_fingerprint") != fingerprint:
+            return None
+        return entry.get("venues_data") or []
+
+    def save_venue_extracted(self, url: str, venues: list[dict],
+                              fingerprint: str | None = None, model: str | None = None) -> None:
+        h = _url_hash(url)
+        entry = load_cache_page(self.db_path, h) or {"url": url, "url_hash": h, "domain": _domain(url)}
+        entry["venue_extracted_at"] = datetime.now(timezone.utc).isoformat()
+        entry["venue_fingerprint"] = fingerprint
+        entry["venue_model"] = model
+        entry["venues_data"] = venues
+        save_cache_page(self.db_path, entry)
+
+    # ── Person extraction cache ──────────────────────────────────────────────
+
+    def get_person_extracted(self, url: str, city: str, topic: str,
+                              fingerprint: str | None = None) -> list[dict] | None:
+        entry = load_cache_page(self.db_path, _url_hash(url))
+        if not entry or not entry.get("person_extracted_at"):
+            return None
+        if fingerprint and entry.get("person_fingerprint") != fingerprint:
+            return None
+        persons_data = entry.get("persons_data") or {}
+        key = f"{city}/{topic}"
+        if key not in persons_data:
+            return None
+        return persons_data[key]
+
+    def save_person_extracted(self, url: str, city: str, topic: str, persons: list[dict],
+                               fingerprint: str | None = None, model: str | None = None) -> None:
+        h = _url_hash(url)
+        entry = load_cache_page(self.db_path, h) or {"url": url, "url_hash": h, "domain": _domain(url)}
+        persons_data = entry.get("persons_data") or {}
+        persons_data[f"{city}/{topic}"] = persons
+        entry["person_extracted_at"] = datetime.now(timezone.utc).isoformat()
+        entry["person_fingerprint"] = fingerprint
+        entry["person_model"] = model
+        entry["persons_data"] = persons_data
+        save_cache_page(self.db_path, entry)
+
     # ── Enrich timing markers ────────────────────────────────────────────────
 
     def mark_enrich_scraped(self, url: str, duration_s: float) -> None:
