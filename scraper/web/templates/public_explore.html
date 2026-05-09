@@ -101,7 +101,7 @@
   {% if tag_records %}
   <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
     {% for r in tag_records %}
-    <a href="{{ r.community_url }}" class="block bg-white rounded-lg border border-[#EAE5DB] p-4 flex flex-col gap-2 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/40 transition-colors">
+    <a href="{{ r.community_url }}" class="block bg-white rounded-lg border border-[#EAE5DB] p-4 flex flex-col gap-2 shadow-sm hover:border-[#E88E6B] hover:bg-[#FDF0EA]/40 hover:shadow-md transition-all">
       <h4 class="font-semibold text-[#1C1917] text-sm leading-snug">{{ r.name }}</h4>
       {% if r.description %}
       <p class="text-xs text-[#6A6259] leading-relaxed line-clamp-2">{{ r.description }}</p>
@@ -144,7 +144,7 @@
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
         {% for r in city_sec.records %}
-        <a href="{{ r.community_url }}" class="block bg-white rounded-lg border border-[#EAE5DB] p-3 flex flex-col gap-1.5 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/40 transition-colors">
+        <a href="{{ r.community_url }}" class="block bg-white rounded-lg border border-[#EAE5DB] p-3 flex flex-col gap-1.5 shadow-sm hover:border-[#E88E6B] hover:bg-[#FDF0EA]/40 hover:shadow-md transition-all">
           <h4 class="font-semibold text-[#1C1917] text-xs leading-snug line-clamp-2">{{ r.name }}</h4>
           {% if r.description %}
           <p class="text-[11px] text-[#6A6259] leading-relaxed line-clamp-2 flex-1">{{ r.description }}</p>
@@ -238,7 +238,7 @@
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
     {% for r in section.records %}
-    <div class="relative bg-white rounded-lg border border-[#EAE5DB] p-5 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/30 transition-colors flex flex-col gap-3">
+    <div class="relative bg-white rounded-lg border border-[#EAE5DB] p-5 shadow-sm hover:border-[#E88E6B] hover:bg-[#FDF0EA]/30 hover:shadow-md transition-all flex flex-col gap-3">
       <a href="{{ r.community_url }}" class="absolute inset-0 rounded-lg" aria-label="{{ r.name }}"></a>
 
       <h3 class="font-semibold text-[#1C1917] text-base leading-snug">{{ r.name }}</h3>
