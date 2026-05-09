@@ -25,6 +25,27 @@ def _needs_enrichment(record: "CommunityRecord") -> bool:
     return not record.website and not record.social_links and not record.contact
 
 
+def _persons_from_leaders(records: "list[CommunityRecord]", city_name: str, topic_name: str) -> list:
+    from .models import PersonRecord
+    from datetime import datetime, timezone
+    extracted_at = datetime.now(timezone.utc).isoformat()
+    persons = []
+    for rec in records:
+        if not rec.leader:
+            continue
+        persons.append(PersonRecord(
+            name=rec.leader,
+            role="leader",
+            city=city_name,
+            topic=topic_name,
+            community_name=rec.name,
+            community_id=rec.community_id or "",
+            source_url=rec.source_url,
+            extracted_at=extracted_at,
+        ))
+    return persons
+
+
 async def _enrich_record(
     record: "CommunityRecord",
     searxng: "SearXNGClient | BraveSearchClient",
@@ -449,6 +470,14 @@ async def _run_full(
                     except Exception as exc:
                         log.warning("persons_extract_error", url=url, error=str(exc))
 
+            # ── Synthesize PersonRecords from community leader fields ────────
+            if run_persons:
+                leader_persons = _persons_from_leaders(records, city.name, topic.name)
+                if leader_persons:
+                    upsert_persons(config.db_path, [p.model_dump() for p in leader_persons])
+                    log.info("persons_from_leaders", city=city.name, topic=topic.name,
+                             found=len(leader_persons))
+
             count = save_results(city.name, topic.name, records, config.db_path)
             run_stats[city.name][topic.name] = count
             pair_logs.append(pair_log)
@@ -590,6 +619,14 @@ async def _run_ai_only(
                                                     model=extractor.model)
                     except Exception as exc:
                         log.warning("persons_extract_error", url=url, error=str(exc))
+
+            # ── Synthesize PersonRecords from community leader fields ────────
+            if run_persons:
+                leader_persons = _persons_from_leaders(records, city.name, topic.name)
+                if leader_persons:
+                    upsert_persons(config.db_path, [p.model_dump() for p in leader_persons])
+                    log.info("persons_from_leaders", city=city.name, topic=topic.name,
+                             found=len(leader_persons))
 
             count = save_results(city.name, topic.name, records, config.db_path)
             run_stats[city.name][topic.name] = count
