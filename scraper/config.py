@@ -41,7 +41,7 @@ def load_config_from_docs(
         CityConfig(
             name=c["name"],
             country=c.get("country", ""),
-            locale=c["locale"],
+            locale=str(c["locale"]),  # str() guards against PyYAML parsing "no" as bool
             search_variants=c.get("search_variants", [c["name"]]),
         )
         for c in cities_items
@@ -49,7 +49,7 @@ def load_config_from_docs(
     cities = [c for c in all_cities if not test_mode or c.name in test_cities]
 
     topics = [
-        TopicConfig(name=t["name"], search_terms=t["search_terms"])
+        TopicConfig(name=t["name"], search_terms={str(k): v for k, v in t["search_terms"].items()})
         for t in topic_items
     ]
     cache_cfg = settings.get("cache", {})

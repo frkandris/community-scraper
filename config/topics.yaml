@@ -13,7 +13,7 @@ topics:
       cs: [běhání, "běžecký klub", "běžecká skupina"]
       da: [løb, løbeklub, løbegruppe]
       sv: [löpning, löparklubb, löpargrupp]
-      no: [løping, løpeklubb, løpegruppe]
+      "no": [løping, løpeklubb, løpegruppe]
       fi: [juoksu, juoksuseura, juoksuryhmä]
       tr: [koşu, "koşu kulübü", "koşu grubu"]
       ja: ["ランニングクラブ", "ランニングサークル", マラソン]

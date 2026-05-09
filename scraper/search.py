@@ -460,6 +460,7 @@ class DataForSEOClient:
         num_results: int = 10,
     ) -> list[SearchResult]:
         await self._rate_limit()
+        locale = str(locale)  # guard against PyYAML parsing "no" as bool False
         # DataForSEO uses bare ISO 639-1 language codes
         lang = locale.split("-")[0] if "-" in locale else locale
         payload = [{"keyword": query, "language_code": lang, "depth": min(num_results, 100)}]

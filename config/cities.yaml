@@ -452,7 +452,7 @@ cities:
     search_variants: [Malmö, Malmo, "Malmö Sweden"]
   - name: Oslo
     country: Norway
-    locale: no
+    locale: "no"
     search_variants: [Oslo, "Oslo Norway"]
   - name: Helsinki
     country: Finland
