@@ -1221,6 +1221,8 @@ async def prompts_page(request: Request):
             out.append({**v, "diff_html": fp_diff_html(prev, v["content"])})
         return out
 
+    nc_reports = get_not_community_reports(_db()) if app_state.db_path else []
+    extraction_rules = [fp for fp in fps if fp.get("fp_type") == "extraction_rule"]
     return templates.TemplateResponse(request, "prompts.html", {
         "extraction_history": _versioned("extraction", SYSTEM_PROMPT),
         "enrichment_history": _versioned("enrichment", ENRICH_SYSTEM_PROMPT),
@@ -1233,7 +1235,84 @@ async def prompts_page(request: Request):
         "person_user_template": PERSON_USER_PROMPT_TEMPLATE,
         "person_schema": json.dumps(PERSON_SCHEMA, indent=2),
         "false_positives": fps,
+        "nc_reports": nc_reports,
+        "extraction_rules": extraction_rules,
     })
+
+
+@admin.post("/prompts/nc-assist")
+async def prompts_nc_assist(notes: str = Form("")):
+    """Ask the LLM to formulate a prompt addition based on not-community reports + admin notes."""
+    if not app_state.db_path:
+        return JSONResponse({"ok": False, "suggestion": ""})
+    from ..extract import SYSTEM_PROMPT as _SP
+    reports = get_not_community_reports(_db())
+
+    examples_part = ""
+    if reports:
+        examples_part = "Flagged items (extracted but NOT real communities):\n" + "\n".join(
+            f'- "{r["community_name"]}" ({r["city"]}, {r["topic"]})'
+            for r in reports[:30]
+        ) + "\n\n"
+
+    notes_part = f"Admin context / reason:\n{notes.strip()}\n\n" if notes.strip() else ""
+
+    user_msg = (
+        f"{examples_part}"
+        f"{notes_part}"
+        "Current extraction system prompt (excerpt):\n"
+        f"```\n{_SP[:2000]}\n```\n\n"
+        "Write a short, concrete addition (1–5 sentences) to insert into the system prompt "
+        "that will help the extractor avoid similar mistakes in the future. "
+        "Write only the text to add — no commentary, no markdown headers, no quotes around it."
+    )
+
+    try:
+        import httpx
+        ollama_url = str(app_state.settings.get("ollama", {}).get("url", "http://localhost:11434")).rstrip("/")
+        model = str(app_state.settings.get("ollama", {}).get("model", "llama3.2:3b"))
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": user_msg}],
+            "stream": False,
+            "options": {"temperature": 0.3},
+        }
+        async with httpx.AsyncClient(timeout=120) as client:
+            resp = await client.post(f"{ollama_url}/api/chat", json=payload)
+            resp.raise_for_status()
+            suggestion = resp.json()["message"]["content"].strip()
+        return JSONResponse({"ok": True, "suggestion": suggestion})
+    except Exception as exc:
+        log.warning("nc_assist_failed", error=str(exc))
+        return JSONResponse({"ok": False, "suggestion": f"Error: {exc}"})
+
+
+@admin.post("/prompts/nc-accept")
+async def prompts_nc_accept(rule_text: str = Form(...)):
+    """Save an AI-generated extraction rule into the prompt."""
+    if not app_state.db_path or not rule_text.strip():
+        return JSONResponse({"ok": False})
+    from ..false_positives import add as fp_add
+    fp_add(
+        _db(),
+        name=f"[AI rule] {rule_text[:60]}",
+        city="",
+        topic="",
+        reason=rule_text.strip(),
+        source_url="",
+        fp_type="extraction_rule",
+    )
+    return JSONResponse({"ok": True})
+
+
+@admin.post("/prompts/nc-rule-remove")
+async def prompts_nc_rule_remove(name: str = Form(...)):
+    """Remove an AI-generated extraction rule."""
+    if not app_state.db_path:
+        return JSONResponse({"ok": False})
+    from ..false_positives import remove as fp_remove
+    fp_remove(_db(), name=name, city="", topic="", fp_type="extraction_rule")
+    return JSONResponse({"ok": True})
 
 
 @admin.get("/config", response_class=HTMLResponse)

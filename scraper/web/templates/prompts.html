@@ -57,6 +57,78 @@
 </details>
 {% endif %}
 
+{# ── Not-community → Prompt assistant ────────────────────────────────────────── #}
+<div class="bg-white rounded-xl shadow-sm border border-orange-100 overflow-hidden mb-6">
+  <div class="flex items-center gap-3 px-5 py-3 bg-orange-50 border-b border-orange-100">
+    <i class="ph ph-flag text-orange-500" style="font-size:16px"></i>
+    <span class="text-sm font-semibold text-orange-800">Not-community bejelzések → prompt kiegészítés</span>
+    {% if nc_reports %}
+    <span class="text-xs bg-orange-200 text-orange-800 rounded-full px-2 py-0.5 font-medium">{{ nc_reports | length }} függő</span>
+    {% endif %}
+  </div>
+  <div class="px-5 py-4">
+    {% if nc_reports %}
+    <div class="mb-3 space-y-1">
+      {% for r in nc_reports[:10] %}
+      <div class="text-xs text-gray-600 border-l-2 border-orange-300 pl-2">
+        <span class="font-medium text-gray-800">{{ r.community_name }}</span>
+        <span class="text-gray-400 ml-1">{{ r.city }}{% if r.topic %} / {{ r.topic.replace('_',' ') }}{% endif %}</span>
+      </div>
+      {% endfor %}
+      {% if nc_reports | length > 10 %}
+      <div class="text-xs text-gray-400 pl-2">… és {{ nc_reports | length - 10 }} további</div>
+      {% endif %}
+    </div>
+    {% else %}
+    <p class="text-xs text-gray-400 mb-3">Nincs függő bejelzés. Jelölj meg elemeket a publikus oldalakon vagy a <a href="/admin/not-community" class="text-blue-500 hover:underline">Not-community</a> oldalon.</p>
+    {% endif %}
+    <div class="mb-3">
+      <label class="block text-xs font-medium text-gray-600 mb-1">Kontextus / magyarázat (opcionális)</label>
+      <textarea id="nc-notes" rows="3"
+        class="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-200 resize-none"
+        placeholder="Pl. ezek mind bolt/vállalkozás hirdetések, nem valódi közösségek…"></textarea>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="ncAssist()"
+        class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
+        <i class="ph ph-brain" style="font-size:13px"></i> AI fogalmazás
+      </button>
+      <span id="nc-loading" class="hidden text-xs text-gray-400 animate-pulse">Gondolkodom…</span>
+    </div>
+    <div id="nc-result" class="hidden mt-4">
+      <div class="text-xs font-medium text-gray-500 mb-1">Generált prompt kiegészítés:</div>
+      <pre id="nc-text" class="text-xs text-gray-700 bg-slate-50 rounded-lg p-3 whitespace-pre-wrap leading-relaxed border border-slate-200 mb-3"></pre>
+      <div class="flex items-center gap-2">
+        <button onclick="ncAccept()"
+          class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+          <i class="ph ph-check-circle" style="font-size:13px"></i> Beépít az extraction prompt-ba
+        </button>
+        <button onclick="document.getElementById('nc-result').classList.add('hidden')"
+          class="text-xs text-gray-400 hover:text-gray-600">Elveti</button>
+      </div>
+      <p id="nc-accepted-msg" class="hidden text-xs text-green-600 mt-2 font-medium">✓ Mentve — az extraction prompt következő futástól tartalmazza.</p>
+    </div>
+  </div>
+</div>
+
+{% if extraction_rules %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+  <div class="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+    <span class="text-sm font-semibold text-gray-700">AI-generált extraction szabályok</span>
+    <span class="text-xs text-orange-500 font-medium">{{ extraction_rules | length }}</span>
+  </div>
+  <div class="px-5 py-4 space-y-2">
+    {% for r in extraction_rules %}
+    <div class="flex items-start gap-3 text-xs border-l-2 border-orange-300 pl-3 py-1">
+      <div class="min-w-0 flex-1 text-gray-700 leading-relaxed">{{ r.reason }}</div>
+      <button onclick="removeRule(this, {{ r.name | tojson }})"
+        class="text-gray-300 hover:text-red-500 transition-colors shrink-0" title="Remove">✕</button>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Extraction version history</h3>
 {% if extraction_history %}
 <div class="space-y-2 mb-8">
@@ -219,4 +291,49 @@
   </div>
 </details>
 
+<script>
+async function ncAssist() {
+  const notes = document.getElementById('nc-notes').value;
+  document.getElementById('nc-loading').classList.remove('hidden');
+  document.getElementById('nc-result').classList.add('hidden');
+  document.getElementById('nc-accepted-msg').classList.add('hidden');
+  try {
+    const fd = new FormData();
+    fd.append('notes', notes);
+    const r = await fetch('/admin/prompts/nc-assist', { method: 'POST', body: fd });
+    const d = await r.json();
+    document.getElementById('nc-text').textContent = d.suggestion || '(üres válasz)';
+    document.getElementById('nc-result').classList.remove('hidden');
+  } catch (e) {
+    document.getElementById('nc-text').textContent = 'Hiba: ' + e.message;
+    document.getElementById('nc-result').classList.remove('hidden');
+  } finally {
+    document.getElementById('nc-loading').classList.add('hidden');
+  }
+}
+
+async function ncAccept() {
+  const text = document.getElementById('nc-text').textContent;
+  const fd = new FormData();
+  fd.append('rule_text', text);
+  try {
+    const r = await fetch('/admin/prompts/nc-accept', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (d.ok) {
+      document.getElementById('nc-accepted-msg').classList.remove('hidden');
+    }
+  } catch (e) {}
+}
+
+async function removeRule(btn, name) {
+  const row = btn.closest('div.flex');
+  const fd = new FormData();
+  fd.append('name', name);
+  try {
+    await fetch('/admin/prompts/nc-rule-remove', { method: 'POST', body: fd });
+    row.style.opacity = '0.3';
+    setTimeout(() => row.remove(), 300);
+  } catch (e) {}
+}
+</script>
 {% endblock %}

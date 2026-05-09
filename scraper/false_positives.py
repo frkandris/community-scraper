@@ -10,7 +10,7 @@ from .db import (
     upsert_false_positive,
 )
 
-FP_TYPES = ("extraction", "enrichment")
+FP_TYPES = ("extraction", "enrichment", "extraction_rule")
 
 
 def load(db_path: Path) -> list[dict]:
@@ -20,13 +20,13 @@ def load(db_path: Path) -> list[dict]:
 def add(db_path: Path, name: str, city: str, topic: str, reason: str,
         source_url: str, fp_type: str = "extraction") -> None:
     upsert_false_positive(db_path, name, city, topic, reason, source_url, fp_type)
-    _record_history(db_path, fp_type)
+    _record_history(db_path, "extraction" if fp_type == "extraction_rule" else fp_type)
 
 
 def remove(db_path: Path, name: str, city: str, topic: str,
            fp_type: str = "extraction") -> None:
     delete_false_positive(db_path, name, city, topic, fp_type)
-    _record_history(db_path, fp_type)
+    _record_history(db_path, "extraction" if fp_type == "extraction_rule" else fp_type)
 
 
 def build_prompt_section(fps: list[dict], city: str = "", topic: str = "",
@@ -37,14 +37,22 @@ def build_prompt_section(fps: list[dict], city: str = "", topic: str = "",
         and (not city or fp.get("city") == city)
         and (not topic or fp.get("topic") == topic)
     ]
-    if not relevant:
+    rules = [fp for fp in fps if fp.get("fp_type") == "extraction_rule"] if fp_type == "extraction" else []
+
+    if not relevant and not rules:
         return ""
-    if fp_type == "extraction":
-        lines = ["\n\nNEGATIVE EXAMPLES — these are NOT valid community groups, do NOT extract them:"]
-    else:
-        lines = ["\n\nNEGATIVE EXAMPLES — previously flagged incorrect enrichment results:"]
-    for fp in relevant:
-        lines.append(f'- "{fp["name"]}": {fp["reason"]}')
+    lines = []
+    if relevant:
+        if fp_type == "extraction":
+            lines.append("\n\nNEGATIVE EXAMPLES — these are NOT valid community groups, do NOT extract them:")
+        else:
+            lines.append("\n\nNEGATIVE EXAMPLES — previously flagged incorrect enrichment results:")
+        for fp in relevant:
+            lines.append(f'- "{fp["name"]}": {fp["reason"]}')
+    if rules:
+        lines.append("\n\nADDITIONAL EXTRACTION RULES:")
+        for r in rules:
+            lines.append(r["reason"])
     return "\n".join(lines)
 
 
