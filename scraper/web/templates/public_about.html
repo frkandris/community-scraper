@@ -6,12 +6,10 @@
 
   <!-- Mission: trust-first -->
   <div class="max-w-3xl border-b border-[#EAE5DB] pb-10">
-    <p class="text-xs font-semibold uppercase tracking-[0.08em] text-[#A8512F] mb-3">About</p>
+    <p class="text-xs font-semibold uppercase tracking-[0.08em] text-[#A8512F] mb-3">{{ t('nav_about') }}</p>
     <h1 class="text-3xl font-bold tracking-tight text-[#1C1917] mb-5">{{ t('about_title') }}</h1>
     <div class="space-y-4 text-[#6A6259] leading-relaxed">
       <p>{{ t('about_description') }}</p>
-      <h3 class="text-base font-semibold text-[#2E2B29] mt-6 mb-2">{{ t('about_how_it_works') }}</h3>
-      <p>{{ t('about_how_it_works_text') }}</p>
     </div>
   </div>
 
@@ -71,14 +69,6 @@
     </div>
   </div>
   {% endif %}
-
-  <!-- Data quality notice (calm, informational — not alarming) -->
-  <div class="bg-[#F5F2EC] border border-[#EAE5DB] rounded-lg p-6">
-    <h3 class="font-semibold text-[#2E2B29] mb-2 flex items-center gap-2">
-      <i class="ph ph-info text-[#8C8478]"></i> {{ t('about_data_quality') }}
-    </h3>
-    <p class="text-sm text-[#6A6259] leading-relaxed">{{ t('about_data_quality_text') }}</p>
-  </div>
 
   <!-- CTA -->
   <div class="text-center pb-4">

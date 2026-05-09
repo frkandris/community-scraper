@@ -55,6 +55,7 @@ from ..db import (
     upsert_prompt_override,
     delete_prompt_override,
     save_city_request,
+    init_db,
 )
 from ..false_positives import (add as fp_add, diff_html as fp_diff_html,
                                load as fp_load, load_history as fp_load_history,
@@ -535,6 +536,26 @@ def _ensure_community_id(record: dict) -> dict:
 
 def _db() -> Path:
     return app_state.db_path or DATA_DIR / "scraper.db"
+
+
+_HU_SORT_MAP = str.maketrans({
+    # Each accented char maps to base + a byte > 'z'(122) so it sorts after all base-char words
+    # Multiple variants of same base use ascending bytes: ó < ö < ő, ú < ü < ű
+    ord('á'): 'a\x7f', ord('Á'): 'a\x7f',
+    ord('é'): 'e\x7f', ord('É'): 'e\x7f',
+    ord('í'): 'i\x7f', ord('Í'): 'i\x7f',
+    ord('ó'): 'o\x7d', ord('Ó'): 'o\x7d',
+    ord('ö'): 'o\x7e', ord('Ö'): 'o\x7e',
+    ord('ő'): 'o\x7f', ord('Ő'): 'o\x7f',
+    ord('ú'): 'u\x7d', ord('Ú'): 'u\x7d',
+    ord('ü'): 'u\x7e', ord('Ü'): 'u\x7e',
+    ord('ű'): 'u\x7f', ord('Ű'): 'u\x7f',
+})
+
+
+def _hu_sort_key(name: str) -> str:
+    """Sort key for Hungarian alphabetical order: á after all a-words, é after e-words, etc."""
+    return name.lower().translate(_HU_SORT_MAP)
 
 
 def _city_from_slug(city_slug: str) -> str | None:
@@ -1078,16 +1099,16 @@ async def public_cities(request: Request, requested: str = ""):
     cities_map = {c.name: c.country for c in (app_state.cities or [])}
     # Group all configured cities by country
     by_country: dict[str, list[dict]] = {}
-    for name, country in sorted(cities_map.items()):
+    for name, country in cities_map.items():
         by_country.setdefault(country, []).append({
             "name": name,
             "slug": _slugify(name),
             "count": city_totals.get(name, 0),
         })
-    # Sort countries alphabetically, sort cities within country by count desc then name
+    # Sort countries alphabetically, sort cities within country by count desc then name (HU-aware)
     country_sections = []
     for country in sorted(by_country.keys()):
-        cities_list = sorted(by_country[country], key=lambda c: (-c["count"], c["name"]))
+        cities_list = sorted(by_country[country], key=lambda c: (-c["count"], _hu_sort_key(c["name"])))
         country_sections.append({"country": country, "cities": cities_list})
 
     return templates.TemplateResponse(request, "public_cities.html", {
@@ -2472,6 +2493,7 @@ _fastapi.include_router(admin)
 async def public_venues(request: Request, country: str = "", city: str = "", topic: str = ""):
     if not app_state.db_path:
         return RedirectResponse("/", status_code=302)
+    init_db(app_state.db_path)
     all_venues = get_all_venues(app_state.db_path)
     cities_map = {c.name: c.country for c in (app_state.cities or [])}
 

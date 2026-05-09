@@ -35,9 +35,6 @@
     </span>
     {% endif %}
 
-    <a href="{% if city %}/{{ city | slugify }}{% else %}/{% endif %}" class="ml-auto text-xs font-medium text-[#A8512F] hover:text-[#8A4226] border border-[#FAD9C7] rounded-md px-3 py-1 transition-colors whitespace-nowrap">
-      {{ t('explore_change_filters') }}
-    </a>
   </div>
 </div>
 
@@ -166,13 +163,13 @@
       <h1 class="text-2xl font-bold text-[#1C1917]">
         {% if selected_topics | length == 1 %}
           <i class="ph ph-{{ topic_icons.get(selected_topics[0], 'circle') }} text-[#C2613A]"></i>
-          {{ topic_labels.get(selected_topics[0], selected_topics[0].replace('_',' ').title()) }} in {{ city }}
+          {{ t('explore_topic_in', label=topic_labels.get(selected_topics[0], selected_topics[0].replace('_',' ').title()), city=city) }}
         {% else %}
-          Communities in {{ city }}
+          {{ t('explore_communities_in', city=city) }}
         {% endif %}
       </h1>
       {% if total > 0 %}
-      <p class="text-sm text-[#8C8478] mt-0.5" id="visible-count">{{ total }} {{ 'community' if total == 1 else 'communities' }}</p>
+      <p class="text-sm text-[#8C8478] mt-0.5" id="visible-count" data-tpl="{{ t('explore_n_communities', n='COUNT') }}">{{ t('explore_n_communities', n=total) }}</p>
       {% endif %}
     </div>
 
@@ -256,12 +253,6 @@
         <div class="flex items-start gap-2 text-[#6A6259]">
           <i class="ph ph-calendar text-base leading-5 shrink-0 text-[#B5ADA0]"></i>
           <span>{{ r.meeting_schedule }}</span>
-        </div>
-        {% endif %}
-        {% if r.contact or r.email %}
-        <div class="flex items-start gap-2 text-[#6A6259]">
-          <i class="ph ph-envelope text-base leading-5 shrink-0 text-[#B5ADA0]"></i>
-          <span>{{ r.email or r.contact }}</span>
         </div>
         {% endif %}
       </div>
@@ -371,13 +362,13 @@
         <i class="ph ph-bell-ringing text-[#C2613A]"></i> {{ t('subscribe_title') }}
       </h3>
       <p class="text-sm text-[#8C8478] mb-5">
-        We'll email you when new
-        {% if selected_topics %}
-          <strong class="text-[#4A4441]">{{ selected_topics | map('replace', '_', ' ') | join(', ') }}</strong>
+        {% if selected_topics | length == 1 %}
+          {{ t('subscribe_desc_topic', topic=topic_labels.get(selected_topics[0], selected_topics[0].replace('_',' ').title()), city=city) }}
+        {% elif selected_topics %}
+          {{ t('subscribe_desc', city=city) }}
         {% else %}
-          community
+          {{ t('subscribe_desc', city=city) }}
         {% endif %}
-        groups are found in <strong class="text-[#4A4441]">{{ city }}</strong>.
       </p>
 
       <form action="/subscribe" method="POST" class="flex flex-col sm:flex-row gap-3">
@@ -427,7 +418,7 @@
       if (show) visible += parseInt(s.querySelectorAll('.grid > div').length);
     });
     var cnt = document.getElementById('visible-count');
-    if (cnt) cnt.textContent = visible + (visible === 1 ? ' community' : ' communities');
+    if (cnt) cnt.textContent = (cnt.dataset.tpl || '{n}').replace('COUNT', visible);
   };
 })();
 </script>
