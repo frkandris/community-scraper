@@ -603,3 +603,16 @@ topics:
       zh: [社区团体, 兴趣小组, 业余爱好群, 本地团体]
       ru: ["общественная группа", "местная группа", "кружок по интересам", "клуб по интересам"]
       ar: ["مجموعة مجتمعية", "مجموعة محلية", "مجموعة اهتمامات", "نادي اجتماعي"]
+
+  - name: senior
+    search_terms:
+      hu: ["nyugdíjas klub", "idősek klubja", "nyugdíjas csoport", "senior közösség", "idősek köre", "nyugdíjas kör"]
+      en: ["seniors club", "senior group", "retired community", "older adults group", "over 60s club", "retirees group"]
+      de: [Seniorenclub, Seniorengruppe, Rentnerstammtisch, Senioren-Treff, Altengruppe]
+      fr: ["club seniors", "groupe de retraités", "association des aînés", "club du troisième âge"]
+      es: ["club de mayores", "grupo de jubilados", "asociación de mayores", "club de la tercera edad"]
+      pt: ["clube de seniores", "grupo de idosos", "clube de reformados", "grupo de terceira idade"]
+      it: ["club anziani", "gruppo pensionati", "associazione anziani", "club terza età"]
+      nl: [seniorenclub, ouderengroep, seniorenvereniging, gepensioneerdengroep]
+      pl: ["klub seniora", "koło seniorów", "klub emerytów", "grupaseniorów"]
+      cs: ["klub seniorů", "skupina důchodců", "klub třetího věku"]

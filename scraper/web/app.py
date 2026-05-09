@@ -117,6 +117,7 @@ TOPIC_ICONS: dict[str, str] = {
     "fitness": "barbell",
     "religion": "hands-praying",
     "baby": "baby",
+    "senior": "sun-horizon",
     "other": "circles-four",
 }
 
@@ -150,6 +151,7 @@ TOPIC_LABELS: dict[str, str] = {
     "fitness": "Fitness",
     "religion": "Religion & Faith",
     "baby": "Baba & Szülő",
+    "senior": "Seniors",
     "other": "Other",
 }
 
@@ -1188,7 +1190,12 @@ async def admin_root_redirect():
 async def public_about(request: Request):
     hu_names = _hu_city_names()
     hu_topic_counts = _hu_topic_counts()
-    hu_top_cities = [(n, c, cnt) for n, c, cnt in _top_cities(12) if n in hu_names]
+    city_totals = dict(get_city_totals(_db())) if app_state.db_path else {}
+    all_hu_cities = sorted(
+        [{"name": c.name, "slug": _slugify(c.name), "count": city_totals.get(c.name, 0)}
+         for c in (app_state.cities or []) if c.country == "Hungary"],
+        key=lambda c: _hu_sort_key(c["name"]),
+    )
     return templates.TemplateResponse(request, "public_about.html", {
         "city_count": len(hu_names),
         "topic_count": len(app_state.topics or []),
@@ -1197,7 +1204,7 @@ async def public_about(request: Request):
         "topic_icons": TOPIC_ICONS,
         "topic_labels": TOPIC_LABELS,
         "topic_counts": hu_topic_counts,
-        "featured_cities": hu_top_cities,
+        "all_hu_cities": all_hu_cities,
         **lang_context(request),
     })
 
@@ -2657,24 +2664,12 @@ async def public_venues(request: Request, country: str = "", city: str = "", top
 
 
 @_fastapi.get("/people", response_class=HTMLResponse)
-async def public_people(request: Request, city: str = ""):
-    if not app_state.db_path:
-        return RedirectResponse("/", status_code=302)
-    counts = get_person_counts(app_state.db_path)
-    all_cities = sorted(counts.keys())
-    if city:
-        persons = get_persons(app_state.db_path, city)
-    else:
-        persons = []
-        for c in all_cities:
-            persons.extend(get_persons(app_state.db_path, c))
+async def public_people(request: Request):
+    hu_names = _hu_city_names()
+    counts = get_person_counts(app_state.db_path) if app_state.db_path else {}
+    total = sum(v for k, v in counts.items() if k in hu_names)
     return templates.TemplateResponse(request, "public_people.html", {
-        "persons": persons,
-        "counts": counts,
-        "cities": all_cities,
-        "selected_city": city,
-        "topic_icons": TOPIC_ICONS,
-        "topic_labels": TOPIC_LABELS,
+        "total_persons": total,
         **lang_context(request),
     })
 

@@ -50,21 +50,24 @@
     </div>
   </div>
 
-  {% if featured_cities %}
-  <!-- Popular cities -->
+  {% if all_hu_cities %}
+  <!-- All Hungarian cities A–Z -->
   <div>
-    <h2 class="text-xl font-bold text-[#1C1917] mb-5">{{ t('about_popular_cities') }}</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-2">
-      {% for name, country, count in featured_cities %}
-      <a href="/{{ name | slugify }}"
-         class="flex items-center justify-between bg-white rounded-lg border border-[#EAE5DB] px-4 py-3
+    <h2 class="text-xl font-bold text-[#1C1917] mb-5">Magyar városok A–Z</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+      {% for city in all_hu_cities %}
+      {% if city.count > 0 %}
+      <a href="/{{ city.slug }}"
+         class="flex items-center justify-between bg-white rounded-lg border border-[#EAE5DB] px-3 py-2.5
                 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
-        <div class="min-w-0">
-          <div class="text-sm font-semibold text-[#2E2B29] group-hover:text-[#8A4226] truncate">{{ name }}</div>
-          <div class="text-xs text-[#8C8478]">{{ country }}</div>
-        </div>
-        <span class="text-sm font-bold text-[#C2613A] shrink-0 ml-2">{{ count }}</span>
+        <span class="text-sm font-semibold text-[#2E2B29] group-hover:text-[#8A4226] truncate min-w-0">{{ city.name }}</span>
+        <span class="text-xs font-bold text-[#C2613A] shrink-0 ml-2">{{ city.count }}</span>
       </a>
+      {% else %}
+      <div class="flex items-center bg-white rounded-lg border border-[#EAE5DB] px-3 py-2.5 opacity-50">
+        <span class="text-sm font-medium text-[#8C8478] truncate min-w-0">{{ city.name }}</span>
+      </div>
+      {% endif %}
       {% endfor %}
     </div>
   </div>
