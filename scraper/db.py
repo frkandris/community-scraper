@@ -43,6 +43,14 @@ def init_db(db_path: Path) -> None:
         except sqlite3.OperationalError:
             pass
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS city_requests (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                city_name  TEXT NOT NULL,
+                email      TEXT,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS subscriptions (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
                 email      TEXT NOT NULL,
@@ -1044,3 +1052,25 @@ def delete_not_community_report(db_path: Path, report_id: int) -> None:
     with _connect(db_path) as conn:
         conn.execute("DELETE FROM not_community_reports WHERE id=?", (report_id,))
         conn.commit()
+
+
+# ── City requests ──────────────────────────────────────────────────────────────
+
+def save_city_request(db_path: Path, city_name: str, email: str = "") -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO city_requests (city_name, email, created_at) VALUES (?, ?, ?)",
+            (city_name.strip(), email.strip(), now),
+        )
+        conn.commit()
+
+
+def get_city_requests(db_path: Path) -> list[dict]:
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT id, city_name, email, created_at FROM city_requests ORDER BY created_at DESC"
+        ).fetchall()
+    return [{"id": r[0], "city_name": r[1], "email": r[2], "created_at": r[3]} for r in rows]

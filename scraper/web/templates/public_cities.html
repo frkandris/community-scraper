@@ -1,0 +1,79 @@
+{% extends "public_base.html" %}
+{% block title %}Cities – kozossegek.com{% endblock %}
+{% block content %}
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+
+  <div class="mb-8 border-b border-[#EAE5DB] pb-6">
+    <p class="text-xs font-semibold uppercase tracking-[0.08em] text-[#A8512F] mb-2">{{ t('about_cities') }}</p>
+    <h1 class="text-2xl sm:text-3xl font-bold text-[#1C1917]">Cities we track</h1>
+    <p class="text-sm text-[#8C8478] mt-2">{{ total_cities }} cities across {{ country_sections|length }} countries</p>
+  </div>
+
+  {% if requested %}
+  <div class="mb-6 px-4 py-3 bg-green-50 border border-green-200 text-green-800 rounded-lg text-sm">
+    Thanks! We've noted your request for <strong>{{ requested }}</strong> and will look into adding it.
+  </div>
+  {% endif %}
+
+  <!-- Country sections -->
+  <div class="space-y-10">
+    {% for section in country_sections %}
+    <div>
+      <h2 class="text-xs font-bold uppercase tracking-[0.1em] text-[#8C8478] mb-3 flex items-center gap-2">
+        {{ section.country }}
+        <span class="font-normal text-[#B5ADA0]">{{ section.cities|length }}</span>
+      </h2>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+        {% for city in section.cities %}
+        {% if city.count > 0 %}
+        <a href="/{{ city.slug }}"
+           class="flex items-center justify-between bg-white rounded-lg border border-[#EAE5DB] px-3 py-2.5
+                  hover:border-[#E88E6B] hover:bg-[#FDF0EA] transition-colors group">
+          <span class="text-sm font-semibold text-[#2E2B29] group-hover:text-[#8A4226] truncate min-w-0">{{ city.name }}</span>
+          <span class="text-xs font-bold text-[#C2613A] bg-[#FDF0EA] border border-[#FAD9C7] rounded-full px-2 py-0.5 shrink-0 ml-2">{{ city.count }}</span>
+        </a>
+        {% else %}
+        <div class="flex items-center justify-between bg-white rounded-lg border border-[#EAE5DB] px-3 py-2.5 opacity-60">
+          <span class="text-sm font-medium text-[#8C8478] truncate min-w-0">{{ city.name }}</span>
+          <span class="text-[10px] text-[#B5ADA0] shrink-0 ml-2">soon</span>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Request city -->
+  <div class="mt-12 pt-8 border-t border-[#EAE5DB]">
+    <div class="max-w-md">
+      <h2 class="text-base font-bold text-[#1C1917] mb-1">Don't see your city?</h2>
+      <p class="text-sm text-[#8C8478] mb-4">Let us know and we'll add it to the next scraping run.</p>
+      <form method="POST" action="/cities/request" class="space-y-3">
+        <div>
+          <input type="text" name="city_name" required
+            placeholder="City name"
+            class="w-full px-3 py-2.5 text-sm border border-[#D8D1C4] rounded-lg
+              focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20
+              bg-white placeholder-[#B5ADA0] text-[#1C1917]">
+        </div>
+        <div>
+          <input type="email" name="email"
+            placeholder="Your email (optional)"
+            class="w-full px-3 py-2.5 text-sm border border-[#D8D1C4] rounded-lg
+              focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20
+              bg-white placeholder-[#B5ADA0] text-[#1C1917]">
+        </div>
+        <button type="submit"
+          class="px-5 py-2.5 bg-[#A8512F] text-white text-sm font-semibold rounded-lg
+            hover:bg-[#8A4226] transition-colors">
+          Request city
+        </button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

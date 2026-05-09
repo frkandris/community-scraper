@@ -51,6 +51,7 @@ from ..db import (
     get_prompt_overrides,
     upsert_prompt_override,
     delete_prompt_override,
+    save_city_request,
 )
 from ..false_positives import (add as fp_add, diff_html as fp_diff_html,
                                load as fp_load, load_history as fp_load_history,
@@ -1064,6 +1065,39 @@ async def public_map(request: Request):
         "cities_tracked": len(cities_data),
         **lang_context(request),
     })
+
+
+@_fastapi.get("/cities", response_class=HTMLResponse)
+async def public_cities(request: Request, requested: str = ""):
+    city_totals = dict(get_city_totals(_db())) if app_state.db_path else {}
+    cities_map = {c.name: c.country for c in (app_state.cities or [])}
+    # Group all configured cities by country
+    by_country: dict[str, list[dict]] = {}
+    for name, country in sorted(cities_map.items()):
+        by_country.setdefault(country, []).append({
+            "name": name,
+            "slug": _slugify(name),
+            "count": city_totals.get(name, 0),
+        })
+    # Sort countries alphabetically, sort cities within country by count desc then name
+    country_sections = []
+    for country in sorted(by_country.keys()):
+        cities_list = sorted(by_country[country], key=lambda c: (-c["count"], c["name"]))
+        country_sections.append({"country": country, "cities": cities_list})
+
+    return templates.TemplateResponse(request, "public_cities.html", {
+        "country_sections": country_sections,
+        "total_cities": len(cities_map),
+        "requested": requested,
+        **lang_context(request),
+    })
+
+
+@_fastapi.post("/cities/request")
+async def request_city(request: Request, city_name: str = Form(""), email: str = Form("")):
+    if city_name.strip() and app_state.db_path:
+        save_city_request(app_state.db_path, city_name, email)
+    return RedirectResponse("/cities?requested=" + city_name.strip(), status_code=303)
 
 
 @_fastapi.get("/admin", response_class=HTMLResponse)
