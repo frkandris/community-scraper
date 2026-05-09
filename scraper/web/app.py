@@ -951,7 +951,7 @@ async def public_feedback(
                 "from": _RESEND_FROM,
                 "to": _FEEDBACK_EMAIL,
                 "reply_to": user_email or None,
-                "subject": f"[CommUnity feedback] {community_name} - {city}",
+                "subject": f"[kozossegek.com feedback] {community_name} - {city}",
                 "html": (
                     f"<p><b>Community:</b> {html.escape(community_name)}<br>"
                     f"<b>City:</b> {html.escape(city)}<br>"
