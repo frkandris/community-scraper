@@ -252,9 +252,9 @@
 
       {# Meta chips: fee, member_count, founding_year, skill_level #}
       {% set chips = [] %}
-      {% if r.fee %}{% set _ = chips.append({'icon': 'currency-circle-dollar', 'text': r.fee | truncate(15, killwords=True, end='…'), 'color': 'green' if r.fee | lower in ('ingyenes','free','gratis','kostenlos','gratuit') else 'amber'}) %}{% endif %}
-      {% if r.member_count %}{% set _ = chips.append({'icon': 'users-three', 'text': r.member_count | string | truncate(15, killwords=True, end='…'), 'color': 'blue'}) %}{% endif %}
-      {% if r.skill_level %}{% set _ = chips.append({'icon': 'star', 'text': r.skill_level | truncate(15, killwords=True, end='…'), 'color': 'fuchsia'}) %}{% endif %}
+      {% if r.fee and r.fee | length <= 15 %}{% set _ = chips.append({'icon': 'currency-circle-dollar', 'text': r.fee, 'color': 'green' if r.fee | lower in ('ingyenes','free','gratis','kostenlos','gratuit') else 'amber'}) %}{% endif %}
+      {% if r.member_count and r.member_count | string | length <= 15 %}{% set _ = chips.append({'icon': 'users-three', 'text': r.member_count, 'color': 'blue'}) %}{% endif %}
+      {% if r.skill_level and r.skill_level | length <= 15 %}{% set _ = chips.append({'icon': 'star', 'text': r.skill_level, 'color': 'fuchsia'}) %}{% endif %}
       {% if r.founding_year %}{% set _ = chips.append({'icon': 'flag', 'text': r.founding_year | string, 'color': 'neutral'}) %}{% endif %}
       {% if chips %}
       <div class="flex flex-wrap gap-1.5">

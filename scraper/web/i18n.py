@@ -73,7 +73,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "film_club": "Film Club", "trivia": "Trivia & Quizzes",
     "sustainability": "Sustainability", "crafts": "Crafts & Making", "fitness": "Fitness",
     "religion": "Religion & Faith", "baby": "Baby & Parents",
-    "senior": "Seniors", "other": "Other",
+    "senior": "Seniors", "kisallat": "Pets", "other": "Other",
 },
 "hu": {
     "running": "Futás", "board_games": "Társasjáték", "choir": "Kórus",
@@ -87,7 +87,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "film_club": "Filmklub", "trivia": "Kvíz",
     "sustainability": "Fenntarthatóság", "crafts": "Kézművesség", "fitness": "Fitnesz",
     "religion": "Vallás", "baby": "Baba & Szülő",
-    "senior": "Nyugdíjas", "other": "Egyéb",
+    "senior": "Nyugdíjas", "kisallat": "Kisállat", "other": "Egyéb",
 },
 "de": {
     "running": "Laufen", "board_games": "Brettspiele", "choir": "Chor",

@@ -123,7 +123,7 @@
 
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5" id="topics-grid">
             {% for topic in topics %}
-            <label class="cursor-pointer select-none" data-topic="{{ topic.name }}">
+            <label class="cursor-pointer select-none" data-topic="{{ topic.name }}" data-slug="{{ topic_url_slugs.get(topic.name, topic.name) }}">
               <input type="checkbox" name="topic" value="{{ topic.name }}" class="sr-only peer">
               <div class="relative flex items-center gap-2 min-h-[44px] px-2.5 py-2
                 rounded-lg border border-[#EAE5DB] bg-white
@@ -179,7 +179,7 @@ labels.forEach(label => {
     const city = cityInput.value.trim();
     if (!city) {
       e.preventDefault();
-      window.location.href = '/explore?topic=' + encodeURIComponent(this.dataset.topic);
+      window.location.href = '/felfedezes/' + this.dataset.slug;
     }
   });
 });

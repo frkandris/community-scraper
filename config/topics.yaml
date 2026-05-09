@@ -606,3 +606,10 @@ topics:
       nl: [seniorenclub, ouderengroep, seniorenvereniging, gepensioneerdengroep]
       pl: ["klub seniora", "koło seniorów", "klub emerytów", "grupaseniorów"]
       cs: ["klub seniorů", "skupina důchodců", "klub třetího věku"]
+
+  - name: kisallat
+    search_terms:
+      hu: ["kutyasétáltató csoport", "kutyás közösség", "kisállatbarát klub", "kutyabarát találkozó", "kisállat csoport", "kutya meetup", "kutyás séta"]
+      en: ["dog walking group", "pet owners community", "dog meetup", "pet club", "dog walkers group", "animal lovers club"]
+      de: [Hundegruppe, Gassigruppe, Hundetreffen, Tierfreunde, Hundehaltergruppe]
+      fr: ["groupe de promeneurs de chiens", "communauté d'animaux", "club animalier", "promenade canine"]
