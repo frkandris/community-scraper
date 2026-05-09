@@ -740,6 +740,19 @@ def get_topic_counts(db_path: Path) -> dict[str, int]:
     return {r[0]: r[1] for r in rows}
 
 
+def get_topic_counts_for_cities(db_path: Path, city_names: set[str]) -> dict[str, int]:
+    """Topic counts restricted to a specific set of city names (single query)."""
+    if not db_path.exists() or not city_names:
+        return {}
+    placeholders = ",".join("?" * len(city_names))
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            f"SELECT topic, COUNT(*) FROM communities WHERE city IN ({placeholders}) AND hidden=0 GROUP BY topic",
+            tuple(city_names),
+        ).fetchall()
+    return {r[0]: r[1] for r in rows}
+
+
 def get_city_topic_counts(db_path: Path) -> dict[str, dict[str, int]]:
     if not db_path.exists():
         return {}

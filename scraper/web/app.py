@@ -42,6 +42,7 @@ from ..db import (
     set_community_hidden,
     _community_record_key,
     get_topic_counts,
+    get_topic_counts_for_cities,
     get_total_community_count,
     get_all_venues,
     get_venue_counts,
@@ -627,18 +628,11 @@ def _global_topic_counts() -> dict[str, int]:
 
 
 def _hu_topic_counts() -> dict[str, int]:
-    """Topic counts restricted to Hungarian cities."""
+    """Topic counts restricted to Hungarian cities (single SQL query)."""
     hu = _hu_city_names()
-    all_counts = get_topic_counts(_db())
     if not hu:
-        return all_counts
-    # Re-aggregate per-topic counts only from HU cities
-    totals: dict[str, int] = {}
-    for t in (app_state.topics or []):
-        totals[t.name] = sum(
-            len(_load_communities(city, t.name)) for city in hu
-        )
-    return totals
+        return get_topic_counts(_db())
+    return get_topic_counts_for_cities(_db(), hu)
 
 
 def _top_cities(n: int = 8) -> list[tuple[str, str, int]]:
