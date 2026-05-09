@@ -32,6 +32,9 @@ from ..db import (
     get_communities_by_ids,
     get_communities_for_city,
     search_communities_by_tag,
+    save_not_community_report,
+    get_not_community_reports,
+    delete_not_community_report,
     get_topic_counts,
     get_total_community_count,
     get_all_venues,
@@ -961,6 +964,24 @@ async def public_feedback(
             log.info("feedback_email_sent", to=_FEEDBACK_EMAIL, community=community_name)
         except Exception as exc:
             log.warning("feedback_email_failed", error=str(exc))
+    return JSONResponse({"ok": True})
+
+
+@_fastapi.post("/report-not-community")
+async def public_report_not_community(
+    community_id: str = Form(""),
+    community_name: str = Form(""),
+    city: str = Form(""),
+    topic: str = Form(""),
+    source_url: str = Form(""),
+    page_url: str = Form(""),
+):
+    if not community_name or not app_state.db_path:
+        return JSONResponse({"ok": False})
+    save_not_community_report(
+        _db(), community_id, community_name, city, topic, source_url, page_url
+    )
+    log.info("not_community_reported", name=community_name, city=city)
     return JSONResponse({"ok": True})
 
 
@@ -1914,6 +1935,97 @@ async def admin_persons(request: Request, city: str = "", topic: str = ""):
         "selected_topic": topic,
         "cities": all_cities,
     })
+
+
+@admin.get("/not-community", response_class=HTMLResponse)
+async def admin_not_community(request: Request):
+    if not app_state.db_path:
+        return RedirectResponse("/admin", status_code=302)
+    reports = get_not_community_reports(_db())
+    fps = fp_load(_db())
+    fp_keys = {(fp["name"], fp["city"], fp["topic"]) for fp in fps}
+    return templates.TemplateResponse(request, "not_community.html", {
+        "reports": reports,
+        "fp_keys": fp_keys,
+        "topic_labels": TOPIC_LABELS,
+        "topic_icons": TOPIC_ICONS,
+    })
+
+
+@admin.post("/not-community/{report_id}/approve")
+async def admin_not_community_approve(report_id: int):
+    """Promote report → false positive list, then delete the report."""
+    if not app_state.db_path:
+        return JSONResponse({"ok": False})
+    reports = get_not_community_reports(_db())
+    r = next((x for x in reports if x["id"] == report_id), None)
+    if not r:
+        return JSONResponse({"ok": False, "error": "not found"})
+    fp_add(
+        _db(),
+        name=r["community_name"],
+        city=r["city"] or "",
+        topic=r["topic"] or "",
+        reason="Flagged by user as not a community",
+        source_url=r["source_url"] or "",
+        fp_type="extraction",
+    )
+    delete_not_community_report(_db(), report_id)
+    return JSONResponse({"ok": True})
+
+
+@admin.post("/not-community/{report_id}/dismiss")
+async def admin_not_community_dismiss(report_id: int):
+    if not app_state.db_path:
+        return JSONResponse({"ok": False})
+    delete_not_community_report(_db(), report_id)
+    return JSONResponse({"ok": True})
+
+
+@admin.post("/not-community/ai-suggest")
+async def admin_not_community_ai_suggest():
+    """Ask the LLM to suggest prompt improvements based on flagged items."""
+    if not app_state.db_path:
+        return JSONResponse({"ok": False, "suggestion": ""})
+    from ..extract import SYSTEM_PROMPT
+    reports = get_not_community_reports(_db())
+    if not reports:
+        return JSONResponse({"ok": True, "suggestion": "No flagged items yet."})
+
+    examples = "\n".join(
+        f'- "{r["community_name"]}" ({r["city"]}, {r["topic"]})'
+        for r in reports[:30]
+    )
+    user_msg = (
+        "The following items were extracted by the pipeline but users flagged them "
+        "as NOT being genuine community groups:\n\n"
+        f"{examples}\n\n"
+        "Current extraction system prompt:\n"
+        f"```\n{SYSTEM_PROMPT[:2000]}\n```\n\n"
+        "Based on these false positives, suggest concrete additions or changes to the "
+        "system prompt that would prevent similar mistakes in the future. "
+        "Be specific: quote the exact text to add or change. "
+        "Output only the suggested prompt change, nothing else."
+    )
+
+    try:
+        import httpx
+        ollama_url = str(app_state.settings.get("ollama", {}).get("url", "http://localhost:11434")).rstrip("/")
+        model = str(app_state.settings.get("ollama", {}).get("model", "llama3.2:3b"))
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": user_msg}],
+            "stream": False,
+            "options": {"temperature": 0.3},
+        }
+        async with httpx.AsyncClient(timeout=120) as client:
+            resp = await client.post(f"{ollama_url}/api/chat", json=payload)
+            resp.raise_for_status()
+            suggestion = resp.json()["message"]["content"].strip()
+        return JSONResponse({"ok": True, "suggestion": suggestion})
+    except Exception as exc:
+        log.warning("ai_suggest_failed", error=str(exc))
+        return JSONResponse({"ok": False, "suggestion": f"Error: {exc}"})
 
 
 _fastapi.include_router(admin)

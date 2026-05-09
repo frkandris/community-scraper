@@ -163,6 +163,20 @@ def init_db(db_path: Path) -> None:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_persons_city_topic ON persons(city, topic)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_persons_person_id ON persons(person_id)")
 
+        # User-submitted "not a community" flags — pending admin review
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS not_community_reports (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                community_id   TEXT,
+                community_name TEXT NOT NULL,
+                city           TEXT,
+                topic          TEXT,
+                source_url     TEXT,
+                page_url       TEXT,
+                reported_at    TEXT NOT NULL
+            )
+        """)
+
         conn.commit()
 
 
@@ -866,3 +880,50 @@ def get_person_counts(db_path: Path) -> dict[str, int]:
     with _connect(db_path) as conn:
         rows = conn.execute("SELECT city, COUNT(*) FROM persons GROUP BY city").fetchall()
     return {r[0]: r[1] for r in rows}
+
+
+# ── Not-community reports ─────────────────────────────────────────────────────
+
+def save_not_community_report(
+    db_path: Path,
+    community_id: str,
+    community_name: str,
+    city: str,
+    topic: str,
+    source_url: str,
+    page_url: str,
+) -> int:
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect(db_path) as conn:
+        cur = conn.execute(
+            "INSERT INTO not_community_reports"
+            " (community_id, community_name, city, topic, source_url, page_url, reported_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (community_id, community_name, city, topic, source_url, page_url, now),
+        )
+        conn.commit()
+        return cur.lastrowid
+
+
+def get_not_community_reports(db_path: Path) -> list[dict]:
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT id, community_id, community_name, city, topic, source_url, page_url, reported_at"
+            " FROM not_community_reports ORDER BY reported_at DESC"
+        ).fetchall()
+    return [
+        {
+            "id": r[0], "community_id": r[1], "community_name": r[2],
+            "city": r[3], "topic": r[4], "source_url": r[5],
+            "page_url": r[6], "reported_at": r[7],
+        }
+        for r in rows
+    ]
+
+
+def delete_not_community_report(db_path: Path, report_id: int) -> None:
+    with _connect(db_path) as conn:
+        conn.execute("DELETE FROM not_community_reports WHERE id=?", (report_id,))
+        conn.commit()
