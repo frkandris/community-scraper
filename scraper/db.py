@@ -201,6 +201,22 @@ def init_db(db_path: Path) -> None:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_persons_city_topic ON persons(city, topic)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_persons_person_id ON persons(person_id)")
 
+        # Field-level change history for communities
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS community_history (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                community_id TEXT NOT NULL,
+                changed_at   TEXT NOT NULL,
+                changed_by   TEXT NOT NULL DEFAULT 'scraper',
+                field        TEXT NOT NULL,
+                old_value    TEXT,
+                new_value    TEXT
+            )
+        """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_history_community_id ON community_history(community_id)"
+        )
+
         # User-submitted "not a community" flags — pending admin review
         conn.execute("""
             CREATE TABLE IF NOT EXISTS not_community_reports (
@@ -344,23 +360,83 @@ def get_subscriptions(db_path: Path) -> list[dict]:
 
 # ── Communities ───────────────────────────────────────────────────────────────
 
-def _bulk_upsert_communities(conn: sqlite3.Connection, records: list[dict]) -> None:
+_HISTORY_FIELDS = [
+    "name", "description", "history", "website", "tags", "social_links",
+    "meeting_schedule", "location", "contact", "fee", "age_range", "skill_level",
+    "join_process", "leader", "language", "frequency", "founding_year", "member_count",
+    "email", "phone", "confidence", "joinable",
+]
+
+
+def _val_str(v) -> str | None:
+    if v is None or v == "":
+        return None
+    if isinstance(v, (list, dict)):
+        s = json.dumps(v, ensure_ascii=False)
+        return None if s in ("[]", "{}") else s
+    return str(v)
+
+
+def _log_community_changes(
+    conn: sqlite3.Connection,
+    community_id: str,
+    old_data: dict | None,
+    new_data: dict,
+    changed_by: str = "scraper",
+) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    if old_data is None:
+        conn.execute(
+            "INSERT INTO community_history"
+            " (community_id, changed_at, changed_by, field, old_value, new_value)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (community_id, now, changed_by, "__created__", None, new_data.get("name", "")),
+        )
+        return
+    for field in _HISTORY_FIELDS:
+        old_v = _val_str(old_data.get(field))
+        new_v = _val_str(new_data.get(field))
+        if old_v != new_v:
+            conn.execute(
+                "INSERT INTO community_history"
+                " (community_id, changed_at, changed_by, field, old_value, new_value)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (community_id, now, changed_by, field, old_v, new_v),
+            )
+
+
+def _merge_source_urls(old_data: dict | None, record: dict) -> dict:
+    if not old_data:
+        return record
+    prev_urls: list[str] = old_data.get("source_urls") or []
+    if old_data.get("source_url") and old_data["source_url"] not in prev_urls:
+        prev_urls = [old_data["source_url"]] + prev_urls
+    new_urls: list[str] = record.get("source_urls") or []
+    if record.get("source_url") and record["source_url"] not in new_urls:
+        new_urls = [record["source_url"]] + new_urls
+    return {**record, "source_urls": list(dict.fromkeys(new_urls + prev_urls))}
+
+
+def _bulk_upsert_communities(
+    conn: sqlite3.Connection,
+    records: list[dict],
+    previous: dict[str, dict] | None = None,
+) -> None:
     now = datetime.now(timezone.utc).isoformat()
     for record in records:
         key = _community_record_key(record["name"], record["city"], record["topic"])
-        existing = conn.execute(
-            "SELECT data FROM communities WHERE record_key=?", (key,)
-        ).fetchone()
-        if existing:
-            existing_data = json.loads(existing[0])
-            prev_urls: list[str] = existing_data.get("source_urls") or []
-            if existing_data.get("source_url") and existing_data["source_url"] not in prev_urls:
-                prev_urls = [existing_data["source_url"]] + prev_urls
-            new_urls: list[str] = record.get("source_urls") or []
-            if record.get("source_url") and record["source_url"] not in new_urls:
-                new_urls = [record["source_url"]] + new_urls
-            merged = list(dict.fromkeys(new_urls + prev_urls))
-            record = {**record, "source_urls": merged}
+
+        # Prefer pre-delete snapshot; fall back to live row (used by bulk_upsert_communities)
+        old_data = (previous or {}).get(key)
+        if old_data is None:
+            existing_row = conn.execute(
+                "SELECT data FROM communities WHERE record_key=?", (key,)
+            ).fetchone()
+            if existing_row:
+                old_data = json.loads(existing_row[0])
+
+        record = _merge_source_urls(old_data, record)
+
         conn.execute("""
             INSERT INTO communities (record_key, community_id, city, topic, data, updated_at)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -370,6 +446,8 @@ def _bulk_upsert_communities(conn: sqlite3.Connection, records: list[dict]) -> N
                 updated_at=excluded.updated_at
         """, (key, record.get("community_id", ""), record["city"], record["topic"],
               json.dumps(record, ensure_ascii=False), now))
+
+        _log_community_changes(conn, record.get("community_id", ""), old_data, record)
 
 
 def bulk_upsert_communities(db_path: Path, records: list[dict]) -> None:
@@ -385,8 +463,17 @@ def replace_communities_for_topic(
     records: list[dict],
 ) -> None:
     with _connect(db_path) as conn:
+        # Snapshot existing records before delete so history can diff against them
+        rows = conn.execute(
+            "SELECT data FROM communities WHERE city=? AND topic=?", (city, topic)
+        ).fetchall()
+        previous: dict[str, dict] = {}
+        for (data_str,) in rows:
+            d = json.loads(data_str)
+            previous[_community_record_key(d["name"], d["city"], d["topic"])] = d
+
         conn.execute("DELETE FROM communities WHERE city=? AND topic=?", (city, topic))
-        _bulk_upsert_communities(conn, records)
+        _bulk_upsert_communities(conn, records, previous)
         conn.commit()
 
 
@@ -482,6 +569,23 @@ def set_community_revalidate_fingerprint(
             (fingerprint, record_key),
         )
         conn.commit()
+
+
+def get_community_history(db_path: Path, community_id: str, limit: int = 100) -> list[dict]:
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT changed_at, changed_by, field, old_value, new_value"
+            " FROM community_history WHERE community_id=?"
+            " ORDER BY changed_at DESC, id DESC LIMIT ?",
+            (community_id, limit),
+        ).fetchall()
+    return [
+        {"changed_at": r[0], "changed_by": r[1], "field": r[2],
+         "old_value": r[3], "new_value": r[4]}
+        for r in rows
+    ]
 
 
 def set_community_hidden(db_path: Path, record_key: str, hidden: bool) -> None:

@@ -26,6 +26,7 @@ from ..config import load_config, load_config_from_docs
 from ..db import (
     delete_all_communities,
     find_community_by_id,
+    get_community_history,
     get_all_communities,
     get_city_topic_counts,
     get_city_totals,
@@ -2544,6 +2545,7 @@ async def public_city_segment(
     record = _find_community_by_slug(city_name, segment)
     if record:
         schema_json = records_to_jsonld([record])
+        history = get_community_history(app_state.db_path, record.get("community_id", ""))
         return templates.TemplateResponse(request, "public_community.html", {
             "r": record,
             "topic": record.get("topic", ""),
@@ -2551,6 +2553,7 @@ async def public_city_segment(
             "schema_json": schema_json,
             "topic_icons": TOPIC_ICONS,
             "topic_labels": TOPIC_LABELS,
+            "community_history": history,
             **lang_context(request),
         })
     return RedirectResponse(f"/{city_slug}", status_code=302)

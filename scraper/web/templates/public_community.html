@@ -287,6 +287,73 @@
   </div>
   {% endif %}
 
+  <!-- History -->
+  {% if community_history %}
+  {% set field_labels = {
+    '__created__': 'Hozzáadva',
+    'name': 'Név',
+    'description': 'Leírás',
+    'history': 'Történet',
+    'website': 'Weboldal',
+    'tags': 'Témák',
+    'social_links': 'Közösségi oldalak',
+    'meeting_schedule': 'Találkozók',
+    'location': 'Helyszín',
+    'contact': 'Kapcsolat',
+    'fee': 'Díj',
+    'age_range': 'Korosztály',
+    'skill_level': 'Szint',
+    'join_process': 'Csatlakozás',
+    'leader': 'Vezető',
+    'language': 'Nyelv',
+    'frequency': 'Gyakoriság',
+    'founding_year': 'Alapítva',
+    'member_count': 'Tagok',
+    'email': 'Email',
+    'phone': 'Telefon',
+    'confidence': 'Megbízhatóság',
+    'joinable': 'Nyílt csatlakozás'
+  } %}
+  <div class="mt-10 border-t border-[#EAE5DB] pt-6">
+    <details class="group">
+      <summary class="flex items-center gap-2 cursor-pointer text-xs font-semibold uppercase tracking-[0.08em] text-[#8C8478] hover:text-[#4A4441] transition-colors list-none">
+        <i class="ph ph-clock-counter-clockwise"></i>
+        Változások ({{ community_history | length }})
+        <i class="ph ph-caret-down group-open:rotate-180 transition-transform ml-auto"></i>
+      </summary>
+      <div class="mt-4 space-y-1">
+        {% set ns = namespace(last_date='') %}
+        {% for entry in community_history %}
+        {% set date_str = entry.changed_at[:10] %}
+        {% if date_str != ns.last_date %}
+        {% set ns.last_date = date_str %}
+        <div class="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#B5ADA0] pt-3 pb-1 first:pt-0">
+          {{ date_str }}
+        </div>
+        {% endif %}
+        <div class="flex items-start gap-2 text-xs text-[#6A6259] py-1 border-b border-[#F5F2EC] last:border-0">
+          <span class="shrink-0 text-[#B5ADA0] w-[5.5rem]">{{ entry.changed_at[11:16] }}</span>
+          <span class="shrink-0 font-medium text-[#4A4441] w-28">{{ field_labels.get(entry.field, entry.field) }}</span>
+          {% if entry.field == '__created__' %}
+          <span class="text-[#A8512F]">hozzáadva</span>
+          {% elif entry.old_value is none %}
+          <span class="text-[#6A9E6A]">{{ entry.new_value | truncate(80) }}</span>
+          {% elif entry.new_value is none %}
+          <span class="text-[#B5ADA0] line-through">{{ entry.old_value | truncate(60) }}</span>
+          {% else %}
+          <span class="flex flex-wrap items-center gap-1 min-w-0">
+            <span class="text-[#B5ADA0] line-through truncate max-w-[12rem]">{{ entry.old_value | truncate(60) }}</span>
+            <i class="ph ph-arrow-right shrink-0"></i>
+            <span class="text-[#4A4441] truncate max-w-[12rem]">{{ entry.new_value | truncate(60) }}</span>
+          </span>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </details>
+  </div>
+  {% endif %}
+
   <!-- Back link -->
   {% if city and topic %}
   <div class="mt-6 text-center">
