@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="{{ lang }}" dir="{{ lang_dir }}">
+<html lang="hu" dir="ltr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}kozossegek.com – Find your community{% endblock %}</title>
+  <title>{% block title %}kozossegek.com – Találd meg a közösséged{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -42,23 +42,6 @@
           {{ t('nav_about') }}</a>
       </div>
 
-      <!-- Language switcher — outside overflow-x-auto so dropdown isn't clipped -->
-      <details class="relative ml-1 shrink-0">
-        <summary class="list-none cursor-pointer flex items-center gap-1 px-2 py-1.5 text-sm text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC] rounded-md transition-colors select-none">
-          <span>{{ current_lang.flag }}</span>
-          <i class="ph ph-caret-down text-xs"></i>
-        </summary>
-        <div class="absolute right-0 top-full mt-1 w-44 max-h-72 overflow-y-auto bg-white rounded-md shadow-lg border border-[#EAE5DB] py-1 z-50">
-          {% for code, info in languages.items() %}
-          <a href="/set-lang?lang={{ code }}&next={{ request.url.path }}"
-             class="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-[#F5F2EC] transition-colors
-               {% if code == lang %}font-semibold text-[#A8512F]{% else %}text-[#4A4441]{% endif %}">
-            <span>{{ info.flag }}</span>
-            <span>{{ info.name }}</span>
-          </a>
-          {% endfor %}
-        </div>
-      </details>
     </nav>
   </div>
 </header>

@@ -798,7 +798,7 @@ _T: dict[str, dict[str, str]] = {
     "nav_map": "Térkép",
     "nav_about": "Rólunk",
     "home_title": "Találd meg a közösséged",
-    "home_subtitle": "Fedezz fel helyi klubokat, csoportokat és programokat városok szerte a világon.",
+    "home_subtitle": "Fedezz fel helyi klubokat, csoportokat és programokat Magyarország városain keresztül.",
     "home_city_label": "Város",
     "home_city_placeholder": "Írj be egy városnevet…",
     "home_interests_label": "Érdeklődési körök",
@@ -842,7 +842,7 @@ _T: dict[str, dict[str, str]] = {
     "about_popular_cities": "Népszerű városok",
     "about_data_quality": "Adatminőség",
     "about_start_exploring": "Felfedezés megkezdése →",
-    "map_title": "Világ közösségi térkép",
+    "map_title": "Magyar közösségi térkép",
     "map_explore_btn": "Felfedezés →",
     "map_n_community": "közösség",
     "map_n_communities": "közösség",
@@ -860,11 +860,11 @@ _T: dict[str, dict[str, str]] = {
     "subscribe_desc": "E-mailben értesítünk, ha új közösségeket találunk {city} városban.",
     "subscribe_desc_topic": "E-mailben értesítünk, ha új {topic} közösségeket találunk {city} városban.",
     "explore_near_you": "A közeledben",
-    "about_description": "A kozossegek.com 2026-ban jött létre azzal az egyszerű céllal, hogy megkönnyítse a helyi hobbi- és érdeklődési közösségek megtalálását anélkül, hogy órákat kellene az interneten keresgélni. A cél az, hogy előbb-utóbb a világ minden nagyobb városát lefedje tucatnyi érdeklődési kategóriában, így bárki, aki új helyre költözik vagy új embereket keres, percek alatt megtalálja a saját közösségét.",
+    "about_description": "A kozossegek.com 2026-ban jött létre azzal az egyszerű céllal, hogy megkönnyítse a helyi hobbi- és érdeklődési közösségek megtalálását Magyarországon — anélkül, hogy órákat kellene az interneten keresgélni. A cél az, hogy az ország minden városát lefedjen tucatnyi érdeklődési kategóriában, így bárki, aki új helyre költözik vagy új embereket keres, percek alatt megtalálja a saját közösségét.",
     "about_how_it_works": "Hogyan működik",
     "about_how_it_works_text": "Néhány óránként egy automatizált rendszer keres az interneten közösségi csoportokat minden város × érdeklődési kör kombináció alapján. Letölti a releváns oldalakat, és egy helyi AI nyelvi modellel strukturált adatokat nyer ki belőlük — találkozási időpontok, helyszínek, elérhetőségek, weboldalak —, majd kiszűri azokat az eredményeket, amelyek nem valódi, csatlakozható csoportok.",
-    "footer_tagline": "A világ összes közössége egy helyen",
-    "cities_title": "Követett városok",
+    "footer_tagline": "Magyarország közösségei egy helyen",
+    "cities_title": "Magyar városok",
     "cities_subtitle": "{total} város {countries} országból",
     "cities_soon": "hamarosan",
     "cities_request_title": "Nem látod a városod?",
@@ -2204,12 +2204,14 @@ def make_t(lang: str):
 
 
 def lang_context(request: Request) -> dict:
-    lang = _detect_lang(request)
+    # Site is Hungary-focused; always render in Hungarian.
+    # _detect_lang / LANGUAGES / cookie infrastructure kept for future multi-lang support.
+    lang = "hu"
     return {
         "lang": lang,
-        "lang_dir": "rtl" if lang in RTL_LANGS else "ltr",
+        "lang_dir": "ltr",
         "t": make_t(lang),
         "languages": dict(sorted(LANGUAGES.items(), key=lambda x: x[1]["name"])),
-        "current_lang": LANGUAGES.get(lang, LANGUAGES["en"]),
+        "current_lang": LANGUAGES.get(lang, LANGUAGES["hu"]),
         "topic_labels": get_topic_labels(lang),
     }

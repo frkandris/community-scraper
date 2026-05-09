@@ -1,5 +1,5 @@
 {% extends "public_base.html" %}
-{% block title %}World Map – kozossegek.com{% endblock %}
+{% block title %}Térkép – kozossegek.com{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
@@ -8,8 +8,7 @@
   #map { height: calc(100vh - 57px - 64px); min-height: 480px; }
   .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
   .leaflet-popup-content { margin: 14px 16px; }
-  .city-popup-name { font-size: 15px; font-weight: 700; color: #1C1917; margin-bottom: 2px; }
-  .city-popup-country { font-size: 12px; color: #8C8478; margin-bottom: 8px; }
+  .city-popup-name { font-size: 15px; font-weight: 700; color: #1C1917; margin-bottom: 6px; }
   .city-popup-count { font-size: 13px; font-weight: 600; color: #C2613A; margin-bottom: 10px; }
   .city-popup-btn {
     display: inline-block; background: #C2613A; color: #fff;
@@ -32,7 +31,7 @@
     <div class="flex items-center gap-1.5 text-xs text-[#8C8478] ml-auto">
       <span class="inline-block w-3 h-3 rounded-full bg-[#C2613A] opacity-80 shrink-0"></span>
       <strong class="text-[#1C1917]">{{ total }}</strong> {{ t('map_n_communities') }}
-      {% if t('map_n_in') %} {{ t('map_n_in') }} {% else %} {% endif %}
+      {{ t('map_n_in') }}
       <strong class="text-[#1C1917]">{{ cities_with_data }}</strong> {{ t('map_n_city') if cities_with_data == 1 else t('map_n_cities') }}
     </div>
   </div>
@@ -42,7 +41,7 @@
 <div id="map"></div>
 
 <script>
-const map = L.map('map', { zoomControl: true }).setView([25, 10], 2);
+const map = L.map('map', { zoomControl: true }).setView([47.5, 19.0], 7);
 
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
   attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
@@ -68,7 +67,6 @@ cities.forEach(city => {
 
   const popupContent = `<div>
     <div class="city-popup-name">${city.name}</div>
-    <div class="city-popup-country">${city.country}</div>
     <div class="city-popup-count">${city.count} ${city.count === 1 ? _communitySingular : _communityPlural}</div>
     <a href="/explore?city=${encodeURIComponent(city.name)}" class="city-popup-btn">${_exploreBtn}</a>
   </div>`;

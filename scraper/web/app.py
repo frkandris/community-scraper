@@ -613,8 +613,28 @@ def _find_community(community_id: str) -> dict | None:
     return _ensure_community_id(r) if r else None
 
 
+def _hu_city_names() -> set[str]:
+    """Return the set of city names that belong to Hungary."""
+    return {c.name for c in (app_state.cities or []) if c.country == "Hungary"}
+
+
 def _global_topic_counts() -> dict[str, int]:
     return get_topic_counts(_db())
+
+
+def _hu_topic_counts() -> dict[str, int]:
+    """Topic counts restricted to Hungarian cities."""
+    hu = _hu_city_names()
+    all_counts = get_topic_counts(_db())
+    if not hu:
+        return all_counts
+    # Re-aggregate per-topic counts only from HU cities
+    totals: dict[str, int] = {}
+    for t in (app_state.topics or []):
+        totals[t.name] = sum(
+            len(_load_communities(city, t.name)) for city in hu
+        )
+    return totals
 
 
 def _top_cities(n: int = 8) -> list[tuple[str, str, int]]:
@@ -739,15 +759,20 @@ def _cities_by_country(
 
 @_fastapi.get("/", response_class=HTMLResponse)
 async def public_home(request: Request, city: str = ""):
-    cities = app_state.cities or []
+    hu_names = _hu_city_names()
+    hu_cities = [c for c in (app_state.cities or []) if c.name in hu_names]
     topics = app_state.topics or []
-    topic_counts = _global_topic_counts()
-    venue_counts = get_venue_counts(_db()) if app_state.db_path else {}
-    person_counts = get_person_counts(_db()) if app_state.db_path else {}
-    user_country = _detect_country(request)
-    city_groups = _cities_by_country(user_country)
+    topic_counts = _hu_topic_counts()
+    venue_counts = {k: v for k, v in (get_venue_counts(_db()) if app_state.db_path else {}).items() if k in hu_names}
+    person_counts = {k: v for k, v in (get_person_counts(_db()) if app_state.db_path else {}).items() if k in hu_names}
+    # Build flat HU city list sorted by community count desc
+    city_totals = dict(get_city_totals(_db())) if app_state.db_path else {}
+    hu_city_list = sorted(
+        [{"name": c.name, "slug": _slugify(c.name), "count": city_totals.get(c.name, 0)} for c in hu_cities],
+        key=lambda x: (-x["count"], x["name"]),
+    )
     return templates.TemplateResponse(request, "public_home.html", {
-        "cities": cities,
+        "cities": hu_cities,
         "topics": topics,
         "topic_icons": TOPIC_ICONS,
         "topic_labels": TOPIC_LABELS,
@@ -756,7 +781,7 @@ async def public_home(request: Request, city: str = ""):
         "total_records": sum(topic_counts.values()),
         "total_venues": sum(venue_counts.values()),
         "total_persons": sum(person_counts.values()),
-        "city_groups": city_groups,
+        "hu_city_list": hu_city_list,
         **lang_context(request),
     })
 
@@ -1107,13 +1132,14 @@ async def set_lang(lang: str = "en", next: str = "/"):
 async def public_map(request: Request):
     cities_data = []
     for city in (app_state.cities or []):
+        if city.country != "Hungary":
+            continue
         coords = CITY_COORDS.get(city.name)
         if not coords:
             continue
         count = sum(len(_load_communities(city.name, t.name)) for t in (app_state.topics or []))
         cities_data.append({
             "name": city.name,
-            "country": city.country,
             "lat": coords[0],
             "lng": coords[1],
             "count": count,
@@ -1133,24 +1159,14 @@ async def public_map(request: Request):
 @_fastapi.get("/cities", response_class=HTMLResponse)
 async def public_cities(request: Request, requested: str = ""):
     city_totals = dict(get_city_totals(_db())) if app_state.db_path else {}
-    cities_map = {c.name: c.country for c in (app_state.cities or [])}
-    # Group all configured cities by country
-    by_country: dict[str, list[dict]] = {}
-    for name, country in cities_map.items():
-        by_country.setdefault(country, []).append({
-            "name": name,
-            "slug": _slugify(name),
-            "count": city_totals.get(name, 0),
-        })
-    # Sort countries alphabetically, sort cities within country by count desc then name (HU-aware)
-    country_sections = []
-    for country in sorted(by_country.keys()):
-        cities_list = sorted(by_country[country], key=lambda c: (-c["count"], _hu_sort_key(c["name"])))
-        country_sections.append({"country": country, "cities": cities_list})
-
+    hu_cities = [c for c in (app_state.cities or []) if c.country == "Hungary"]
+    cities_list = sorted(
+        [{"name": c.name, "slug": _slugify(c.name), "count": city_totals.get(c.name, 0)} for c in hu_cities],
+        key=lambda c: (-c["count"], _hu_sort_key(c["name"])),
+    )
     return templates.TemplateResponse(request, "public_cities.html", {
-        "country_sections": country_sections,
-        "total_cities": len(cities_map),
+        "cities_list": cities_list,
+        "total_cities": len(cities_list),
         "requested": requested,
         **lang_context(request),
     })
@@ -1170,15 +1186,18 @@ async def admin_root_redirect():
 
 @_fastapi.get("/about", response_class=HTMLResponse)
 async def public_about(request: Request):
+    hu_names = _hu_city_names()
+    hu_topic_counts = _hu_topic_counts()
+    hu_top_cities = [(n, c, cnt) for n, c, cnt in _top_cities(12) if n in hu_names]
     return templates.TemplateResponse(request, "public_about.html", {
-        "city_count": len(app_state.cities or []),
+        "city_count": len(hu_names),
         "topic_count": len(app_state.topics or []),
-        "total_records": get_total_community_count(_db()),
+        "total_records": sum(hu_topic_counts.values()),
         "topics": app_state.topics or [],
         "topic_icons": TOPIC_ICONS,
         "topic_labels": TOPIC_LABELS,
-        "topic_counts": _global_topic_counts(),
-        "featured_cities": _top_cities(12),
+        "topic_counts": hu_topic_counts,
+        "featured_cities": hu_top_cities,
         **lang_context(request),
     })
 

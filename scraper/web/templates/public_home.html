@@ -1,5 +1,5 @@
 {% extends "public_base.html" %}
-{% block title %}kozossegek.com – Find your community{% endblock %}
+{% block title %}kozossegek.com – Találd meg a közösséged{% endblock %}
 {% block content %}
 
 <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
@@ -40,56 +40,29 @@
         </a>
       </div>
 
-      <!-- Popular cities -->
-      {% set has_cities = city_groups.user_cities or city_groups.other_sections %}
-      {% if has_cities %}
-      <div class="space-y-6">
+      <!-- Hungarian cities -->
+      {% if hu_city_list %}
+      <div class="space-y-4">
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-semibold text-[#1C1917]">{{ t('home_popular_cities') }}</h2>
-          <a href="/cities" class="text-xs font-medium text-[#A8512F] hover:text-[#8A4226] transition-colors">
-            {{ t('home_view_world_map') }}
+          <a href="/map" class="text-xs font-medium text-[#A8512F] hover:text-[#8A4226] transition-colors">
+            {{ t('nav_map') }}
           </a>
         </div>
-
-        {% if city_groups.user_cities %}
-        <div>
-          <div class="text-xs font-semibold text-[#8C8478] uppercase tracking-[0.08em] mb-2">
-            {{ city_groups.user_country }}
-          </div>
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {% for name, country, count in city_groups.user_cities %}
-            <a href="/{{ name | slugify }}"
-               class="flex items-center justify-between bg-white rounded-lg border border-[#EAE5DB] px-3 py-2.5
-                      hover:border-[#E88E6B] hover:bg-[#FDF0EA] transition-colors group">
-              <span class="text-sm font-semibold text-[#2E2B29] group-hover:text-[#8A4226] truncate min-w-0">{{ name }}</span>
-              <span class="text-xs font-bold text-[#C2613A] bg-[#FDF0EA] border border-[#FAD9C7] rounded-full px-2 py-0.5 shrink-0 ml-2">{{ count }}</span>
-            </a>
-            {% endfor %}
-          </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {% for city in hu_city_list %}
+          <a href="/{{ city.slug }}"
+             class="flex items-center justify-between bg-white rounded-lg border border-[#EAE5DB] px-3 py-2.5
+                    hover:border-[#E88E6B] hover:bg-[#FDF0EA] transition-colors group">
+            <span class="text-sm font-semibold text-[#2E2B29] group-hover:text-[#8A4226] truncate min-w-0">{{ city.name }}</span>
+            {% if city.count > 0 %}
+            <span class="text-xs font-bold text-[#C2613A] bg-[#FDF0EA] border border-[#FAD9C7] rounded-full px-2 py-0.5 shrink-0 ml-2">{{ city.count }}</span>
+            {% endif %}
+          </a>
+          {% endfor %}
         </div>
-        {% endif %}
-
-        {% for section in city_groups.other_sections %}
-        <div>
-          <div class="flex items-center gap-2 mb-2">
-            <span class="text-xs font-semibold text-[#8C8478] uppercase tracking-[0.08em]">{{ section.country }}</span>
-            <span class="text-xs text-[#B5ADA0]">{{ section.total }} közösség</span>
-          </div>
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {% for name, country, count in section.cities %}
-            <a href="/{{ name | slugify }}"
-               class="flex items-center justify-between bg-white rounded-lg border border-[#EAE5DB] px-3 py-2.5
-                      hover:border-[#E88E6B] hover:bg-[#FDF0EA] transition-colors group">
-              <span class="text-sm font-semibold text-[#2E2B29] group-hover:text-[#8A4226] truncate min-w-0">{{ name }}</span>
-              <span class="text-xs font-bold text-[#C2613A] bg-[#FDF0EA] border border-[#FAD9C7] rounded-full px-2 py-0.5 shrink-0 ml-2">{{ count }}</span>
-            </a>
-            {% endfor %}
-          </div>
-        </div>
-        {% endfor %}
-
-        <div class="pt-2">
-          <a href="/explore"
+        <div class="pt-1">
+          <a href="/cities"
              class="inline-flex items-center gap-1.5 text-xs font-medium text-[#A8512F] hover:text-[#8A4226] transition-colors">
             <i class="ph ph-list-bullets"></i>
             {{ t('home_all_cities') }}
@@ -129,7 +102,7 @@
             >
             <datalist id="cities-list">
               {% for city in cities %}
-              <option value="{{ city.name }}">{{ city.name }}, {{ city.country }}</option>
+              <option value="{{ city.name }}">{{ city.name }}</option>
               {% endfor %}
             </datalist>
           </div>
@@ -236,8 +209,8 @@ async function fetchCounts(city) {
       if (count > 0) total += count;
     });
     cityCountText.textContent = total > 0
-      ? total + ' communities found in ' + city
-      : 'No data yet for ' + city + ' — check back after the next run.';
+      ? total + ' közösség található ' + city + '-ban/-ben'
+      : 'Még nincs adat ' + city + '-hoz/-hez – nézz vissza a következő futás után.';
   } catch (e) {}
 }
 
