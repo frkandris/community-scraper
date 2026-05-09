@@ -1586,8 +1586,9 @@ async def trigger_run(
         started = datetime.now(timezone.utc)
         success = False
         pair_logs: list = []
+        total_new = 0
         try:
-            pair_logs = await run_pipeline(
+            pair_logs, total_new = await run_pipeline(
                 app_state.cities,
                 app_state.topics,
                 app_state.pipeline_cfg,
@@ -1609,7 +1610,8 @@ async def trigger_run(
                 from ..db import record_run
                 record_run(app_state.db_path, started, datetime.now(timezone.utc),
                            run_mode, success,
-                           json.dumps(pair_logs) if pair_logs else None)
+                           json.dumps(pair_logs) if pair_logs else None,
+                           total_new)
 
     def _clear_cancelled_run(task: asyncio.Task) -> None:
         if task.cancelled():

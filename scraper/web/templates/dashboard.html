@@ -59,58 +59,66 @@
       <input type="hidden" name="skip_extracted" id="f-skip-extracted" value="on">
 
       <!-- Preset cards -->
-      <div class="grid grid-cols-3 gap-2 mb-4" id="preset-grid">
+      <div id="preset-grid" class="mb-4 space-y-3">
 
-        <button type="button" data-preset="smart"
-          class="preset-card text-left p-3 rounded-xl border-2 border-blue-500 bg-blue-50 transition-all cursor-pointer">
-          <div class="flex items-center gap-1.5 mb-1.5">
-            <i class="ph ph-rocket-launch text-blue-600" style="font-size:14px"></i>
-            <span class="text-xs font-bold text-blue-800">Smart</span>
-          </div>
-          <p class="text-[10px] text-blue-600 leading-snug mb-2">Search new pages, skip what's already processed</p>
-          <div class="space-y-0.5 text-[9px] font-medium">
-            <div class="text-blue-500"><i class="ph ph-check"></i> Search</div>
-            <div class="text-blue-500"><i class="ph ph-check"></i> Fetch <span class="opacity-60">(new only)</span></div>
-            <div class="text-blue-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(new only)</span></div>
-            <div class="text-blue-500"><i class="ph ph-check"></i> Enrich</div>
-            <div class="text-blue-500"><i class="ph ph-check"></i> Venues</div>
-            <div class="text-blue-500"><i class="ph ph-check"></i> People</div>
-          </div>
-        </button>
+        <div>
+          <div class="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Discover</div>
+          <div class="grid grid-cols-2 gap-2">
 
-        <button type="button" data-preset="refresh"
-          class="preset-card text-left p-3 rounded-xl border-2 border-gray-200 bg-white transition-all cursor-pointer hover:border-orange-300 hover:bg-orange-50">
-          <div class="flex items-center gap-1.5 mb-1.5">
-            <i class="ph ph-arrows-clockwise text-gray-500" style="font-size:14px"></i>
-            <span class="text-xs font-bold text-gray-700">Full Refresh</span>
-          </div>
-          <p class="text-[10px] text-gray-500 leading-snug mb-2">Re-fetch and re-AI every page from scratch</p>
-          <div class="space-y-0.5 text-[9px] font-medium">
-            <div class="text-gray-500"><i class="ph ph-check"></i> Search</div>
-            <div class="text-gray-500"><i class="ph ph-check"></i> Fetch <span class="opacity-60">(all)</span></div>
-            <div class="text-gray-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(all)</span></div>
-            <div class="text-gray-500"><i class="ph ph-check"></i> Enrich</div>
-            <div class="text-gray-500"><i class="ph ph-check"></i> Venues</div>
-            <div class="text-gray-500"><i class="ph ph-check"></i> People</div>
-          </div>
-        </button>
+            <button type="button" data-preset="smart"
+              class="preset-card text-left p-3 rounded-xl border-2 border-blue-500 bg-blue-50 transition-all cursor-pointer">
+              <div class="flex items-center gap-1.5 mb-1">
+                <i class="ph ph-rocket-launch text-blue-600" style="font-size:13px"></i>
+                <span class="text-xs font-bold text-blue-800">Smart</span>
+              </div>
+              <p class="text-[9px] text-blue-500 leading-snug mb-1.5">New pages only, skip processed</p>
+              <div class="space-y-0.5 text-[9px] font-medium">
+                <div class="text-blue-500"><i class="ph ph-check"></i> Search</div>
+                <div class="text-blue-500"><i class="ph ph-check"></i> Fetch <span class="opacity-60">(new)</span></div>
+                <div class="text-blue-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(new)</span></div>
+                <div class="text-blue-500"><i class="ph ph-check"></i> Enrich + Venues + People</div>
+              </div>
+            </button>
 
-        <button type="button" data-preset="reai"
-          class="preset-card text-left p-3 rounded-xl border-2 border-gray-200 bg-white transition-all cursor-pointer hover:border-purple-300 hover:bg-purple-50">
-          <div class="flex items-center gap-1.5 mb-1.5">
-            <i class="ph ph-brain text-gray-500" style="font-size:14px"></i>
-            <span class="text-xs font-bold text-gray-700">Re-AI</span>
+            <button type="button" data-preset="refresh"
+              class="preset-card text-left p-3 rounded-xl border-2 border-gray-200 bg-white transition-all cursor-pointer hover:border-orange-300 hover:bg-orange-50">
+              <div class="flex items-center gap-1.5 mb-1">
+                <i class="ph ph-arrows-clockwise text-gray-500" style="font-size:13px"></i>
+                <span class="text-xs font-bold text-gray-700">Full Rebuild</span>
+              </div>
+              <p class="text-[9px] text-gray-400 leading-snug mb-1.5">Re-fetch everything from scratch</p>
+              <div class="space-y-0.5 text-[9px] font-medium">
+                <div class="text-gray-500"><i class="ph ph-check"></i> Search</div>
+                <div class="text-gray-500"><i class="ph ph-check"></i> Fetch <span class="opacity-60">(all)</span></div>
+                <div class="text-gray-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(all)</span></div>
+                <div class="text-gray-500"><i class="ph ph-check"></i> Enrich + Venues + People</div>
+              </div>
+            </button>
+
           </div>
-          <p class="text-[10px] text-gray-500 leading-snug mb-2">Re-run AI on all cached pages (after model/prompt change)</p>
-          <div class="space-y-0.5 text-[9px] font-medium">
-            <div class="text-gray-300"><i class="ph ph-minus"></i> Search</div>
-            <div class="text-gray-300"><i class="ph ph-minus"></i> Fetch</div>
-            <div class="text-gray-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(all cached)</span></div>
-            <div class="text-gray-500"><i class="ph ph-check"></i> Enrich</div>
-            <div class="text-gray-500"><i class="ph ph-check"></i> Venues</div>
-            <div class="text-gray-500"><i class="ph ph-check"></i> People</div>
+        </div>
+
+        <div>
+          <div class="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Retroactive</div>
+          <div class="grid grid-cols-1 gap-2">
+
+            <button type="button" data-preset="reai"
+              class="preset-card text-left p-3 rounded-xl border-2 border-gray-200 bg-white transition-all cursor-pointer hover:border-purple-300 hover:bg-purple-50">
+              <div class="flex items-center gap-1.5 mb-1">
+                <i class="ph ph-brain text-gray-500" style="font-size:13px"></i>
+                <span class="text-xs font-bold text-gray-700">Re-AI</span>
+                <span class="text-[9px] text-gray-400 font-normal ml-1">— after model/prompt change</span>
+              </div>
+              <div class="flex gap-4 text-[9px] font-medium mt-1">
+                <div class="text-gray-300"><i class="ph ph-minus"></i> Search</div>
+                <div class="text-gray-300"><i class="ph ph-minus"></i> Fetch</div>
+                <div class="text-gray-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(all cached)</span></div>
+                <div class="text-gray-500"><i class="ph ph-check"></i> Enrich + Venues + People</div>
+              </div>
+            </button>
+
           </div>
-        </button>
+        </div>
 
       </div>
 
@@ -304,14 +312,17 @@
   {% if run_history %}
   <div class="space-y-1.5">
     {% for r in run_history %}
-    <a href="/admin/runs/{{ r.id }}" class="flex items-center justify-between text-xs hover:bg-gray-50 rounded px-1 -mx-1 py-0.5 transition-colors">
-      <span class="text-gray-500 font-mono">{{ r.started_at[:16].replace('T',' ') }}</span>
-      <span class="px-1.5 py-0.5 rounded text-xs
+    <a href="/admin/runs/{{ r.id }}" class="flex items-center gap-3 text-xs hover:bg-gray-50 rounded px-1 -mx-1 py-0.5 transition-colors">
+      <span class="text-gray-400 font-mono shrink-0">{{ r.started_at[:16].replace('T',' ') }}</span>
+      <span class="px-1.5 py-0.5 rounded shrink-0
         {% if r.run_mode == 'ai_only' %}bg-purple-50 text-purple-700
         {% else %}bg-blue-50 text-blue-700{% endif %}">
-        {% if r.run_mode == 'ai_only' %}Re-AI{% else %}Full{% endif %}
+        {% if r.run_mode == 'ai_only' %}Re-AI{% else %}Discover{% endif %}
       </span>
-      <span class="{% if r.success %}text-green-600{% else %}text-red-500{% endif %}">
+      {% if r.new_records %}
+      <span class="font-semibold text-gray-700">+{{ r.new_records }}</span>
+      {% endif %}
+      <span class="ml-auto {% if r.success %}text-green-500{% else %}text-red-400{% endif %}">
         {% if r.success %}✓{% else %}✗{% endif %}
       </span>
     </a>

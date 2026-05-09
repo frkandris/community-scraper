@@ -38,6 +38,10 @@ def init_db(db_path: Path) -> None:
             conn.execute("ALTER TABLE runs ADD COLUMN search_log TEXT")
         except sqlite3.OperationalError:
             pass
+        try:
+            conn.execute("ALTER TABLE runs ADD COLUMN new_records INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
         conn.execute("""
             CREATE TABLE IF NOT EXISTS subscriptions (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -202,13 +206,14 @@ def record_run(
     run_mode: str,
     success: bool,
     search_log: str | None = None,
+    new_records: int = 0,
 ) -> int:
     with _connect(db_path) as conn:
         cur = conn.execute(
-            "INSERT INTO runs (started_at, finished_at, run_mode, success, search_log) "
-            "VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO runs (started_at, finished_at, run_mode, success, search_log, new_records) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
             (started_at.isoformat(), finished_at.isoformat(),
-             run_mode, int(success), search_log),
+             run_mode, int(success), search_log, new_records),
         )
         conn.commit()
         return cur.lastrowid
@@ -235,7 +240,7 @@ def get_run_history(db_path: Path, limit: int = 20) -> list[dict]:
     try:
         with _connect(db_path) as conn:
             rows = conn.execute(
-                "SELECT id, started_at, finished_at, run_mode, success "
+                "SELECT id, started_at, finished_at, run_mode, success, COALESCE(new_records, 0) "
                 "FROM runs ORDER BY id DESC LIMIT ?",
                 (limit,),
             ).fetchall()
@@ -246,6 +251,7 @@ def get_run_history(db_path: Path, limit: int = 20) -> list[dict]:
                 "finished_at": r[2],
                 "run_mode": r[3],
                 "success": bool(r[4]),
+                "new_records": r[5],
             }
             for r in rows
         ]

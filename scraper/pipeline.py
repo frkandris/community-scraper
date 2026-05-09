@@ -159,7 +159,7 @@ async def run_pipeline(
     skip_scraped: bool | None = None,
     skip_extracted: bool | None = None,
     on_progress: Callable[[str | None, str | None], None] | None = None,
-) -> list[dict]:
+) -> tuple[list[dict], int]:
     _skip_scraped = skip_scraped if skip_scraped is not None else config.cache_skip_scraped
     _skip_extracted = skip_extracted if skip_extracted is not None else config.cache_skip_extracted
 
@@ -210,7 +210,7 @@ async def run_pipeline(
         )
 
     log.info("pipeline_complete", run_mode=run_mode, total_new_records=total_new)
-    return pair_logs
+    return pair_logs, total_new
 
 
 async def _run_full(
