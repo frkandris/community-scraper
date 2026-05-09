@@ -45,6 +45,10 @@ For 'joinable': set true only if ALL of these apply:
 Set joinable to false for: professional/competitive ensembles, paid instruction courses where you \
 are a student not a member, venues or sports facilities, one-time or annual events.
 
+For 'description': write 1-3 sentences summarising what this group does, who it is for, and \
+what makes it distinctive. Use the page's language. Leave null only if the page gives no \
+meaningful information about the group beyond its name.
+
 Extract these additional fields when clearly stated on the page (leave null/empty if not found):
 - 'founding_year': integer year founded (e.g. 1987). Only if explicitly stated.
 - 'member_count': member count as string (e.g. "80", "200+", "~50 fő"). Only if stated.
