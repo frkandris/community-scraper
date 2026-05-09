@@ -856,9 +856,11 @@ async def _render_explore(
         city_totals = dict(get_city_totals(_db()))
         cities_map = {c.name: c.country for c in cities}
 
-        # Group cities by country, only include cities that have data
+        # Group cities by country, only include Hungarian cities that have data
         country_cities: dict[str, list[tuple[str, int]]] = {}
         for name, country in cities_map.items():
+            if country != "Hungary":
+                continue
             count = city_totals.get(name, 0)
             if count > 0:
                 country_cities.setdefault(country, []).append((name, count))
@@ -968,6 +970,14 @@ async def public_explore(
         if city_sl and not topic:
             return RedirectResponse(f"/{city_sl}", status_code=301)
     return await _render_explore(request, city=city, topic=topic, tag=tag, subscribed=subscribed)
+
+
+@_fastapi.get("/felfedezes/{topic_slug}", response_class=HTMLResponse)
+async def public_explore_topic_slug(request: Request, topic_slug: str):
+    topic_name = _topic_from_url_slug(topic_slug, "hu")
+    if not topic_name:
+        return RedirectResponse("/felfedezes", status_code=302)
+    return await _render_explore(request, topic=[topic_name])
 
 
 @_fastapi.get("/explore", response_class=HTMLResponse)

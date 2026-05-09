@@ -104,13 +104,6 @@
 
   {% for country_sec in country_sections %}
   <div class="mb-10">
-    <div class="flex items-center gap-2 mb-5">
-      {% if country_sec.is_user_country %}
-      <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#FDF0EA] text-[#C2613A] border border-[#FAD9C7]">{{ t('explore_near_you') }}</span>
-      {% endif %}
-      <h2 class="text-lg font-bold text-[#1C1917]">{{ country_sec.country }}</h2>
-    </div>
-
     {% for city_sec in country_sec.cities %}
     <div class="mb-6">
       <div class="flex items-center justify-between mb-3">
