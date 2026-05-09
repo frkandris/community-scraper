@@ -1724,11 +1724,6 @@ def _enqueue(op: str, url_hash: str, url: str, city: str, topic: str, fn,
     return item
 
 
-@admin.get("/api/queue")
-async def api_queue():
-    visible = [i for i in app_state.queue_items if i["status"] in ("running", "pending")]
-    return JSONResponse(visible)
-
 
 @admin.get("/api/progress")
 async def api_progress():
@@ -1750,59 +1745,6 @@ async def api_cache_entries():
     if app_state.cache_manager:
         entries = app_state.cache_manager.get_index()
     return JSONResponse(entries)
-
-
-@admin.post("/progress/queue-extract-all")
-async def cache_queue_extract_all():
-    """Enqueue AI extraction for every entry that has scraped text but no extraction yet."""
-    if not app_state.cache_manager or not app_state.pipeline_cfg:
-        return RedirectResponse("/admin/progress", status_code=302)
-    entries = app_state.cache_manager.get_index()
-    cfg = app_state.pipeline_cfg
-    count = 0
-    for e in entries:
-        if not e.get("has_text") or e.get("extracted_at"):
-            continue
-        entry = app_state.cache_manager.get_entry(e["url_hash"])
-        if not entry or not entry.get("raw_text"):
-            continue
-        url   = entry["url"]
-        city  = entry.get("city", "")
-        topic = entry.get("topic", "")
-        raw_text = entry["raw_text"]
-        locale = next((c.locale for c in (app_state.cities or []) if c.name == city), "en")
-
-        async def _do(url=url, city=city, topic=topic, raw_text=raw_text, locale=locale) -> None:
-            import time as _time
-            app_state.current_phase = "extract"
-            app_state.current_url = url
-            try:
-                extractor = _build_extractor(cfg)
-                t0 = _time.monotonic()
-                extracted = await extractor.extract(raw_text, city, topic, locale, url)
-                joinable = [r for r in extracted if r.joinable]
-                app_state.cache_manager.save_extracted(
-                    url,
-                    joinable,
-                    duration_s=_time.monotonic() - t0,
-                    fingerprint=extractor.model_fingerprint,
-                    model=extractor.model,
-                )
-                if joinable:
-                    save_results(city, topic, joinable, _db())
-            except Exception as exc:
-                log.error("bulk_extract_failed", url=url, error=str(exc))
-                raise
-            finally:
-                app_state.current_phase = None
-                app_state.current_url = None
-
-        _enqueue("extract", e["url_hash"], url, city, topic, _do)
-        count += 1
-
-    log.info("bulk_extract_queued", count=count)
-    return RedirectResponse("/admin/progress", status_code=302)
-
 
 _fill_fields_state: dict = {"running": False, "done": 0, "total": 0, "patched": 0, "error": ""}
 
