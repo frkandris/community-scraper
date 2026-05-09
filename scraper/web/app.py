@@ -16,7 +16,7 @@ from urllib.parse import quote as _url_quote, urlsplit
 import httpx
 import structlog
 import yaml
-from fastapi import APIRouter, FastAPI, Form, Query, Request
+from fastapi import APIRouter, BackgroundTasks, FastAPI, Form, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -26,6 +26,7 @@ from ..config import load_config, load_config_from_docs
 from ..db import (
     delete_all_communities,
     find_community_by_id,
+    get_all_communities,
     get_city_topic_counts,
     get_city_totals,
     get_communities,
@@ -1310,6 +1311,83 @@ async def prompts_nc_rule_remove(name: str = Form(...)):
     from ..false_positives import remove as fp_remove
     fp_remove(_db(), name=name, city="", topic="", fp_type="extraction_rule")
     return JSONResponse({"ok": True})
+
+
+# ── Re-validate existing communities ─────────────────────────────────────────
+
+_revalidate_state: dict = {"running": False, "done": 0, "total": 0, "flagged": 0, "error": ""}
+
+
+@admin.post("/revalidate/start")
+async def admin_revalidate_start(background_tasks: BackgroundTasks,
+                                  city: str = Form(""), topic: str = Form("")):
+    """Start a background re-validation of existing communities against the current prompt."""
+    if not app_state.db_path or not app_state.pipeline_cfg:
+        return JSONResponse({"ok": False, "error": "Not configured"})
+    if _revalidate_state["running"]:
+        return JSONResponse({"ok": False, "error": "Already running"})
+    background_tasks.add_task(_run_revalidate, city.strip(), topic.strip())
+    return JSONResponse({"ok": True})
+
+
+@admin.get("/revalidate/status")
+async def admin_revalidate_status():
+    return JSONResponse(_revalidate_state)
+
+
+async def _run_revalidate(city: str, topic: str) -> None:
+    _revalidate_state.update({"running": True, "done": 0, "total": 0, "flagged": 0, "error": ""})
+    try:
+        fps = fp_load(_db())
+        rules_section = build_prompt_section(fps, fp_type="extraction")
+        rules_section += build_prompt_section(fps, fp_type="extraction_rule") if fps else ""
+
+        if city and topic:
+            communities = get_communities(_db(), city, topic)
+        elif city:
+            communities = get_communities_for_city(_db(), city)
+        else:
+            communities = get_all_communities(_db())
+
+        _revalidate_state["total"] = len(communities)
+
+        for record in communities:
+            name = record.get("name", "")
+            c = record.get("city", city)
+            t = record.get("topic", topic)
+            desc = record.get("description", "") or ""
+            src = record.get("source_url", "") or ""
+
+            prompt = (
+                f"Extraction rules:\n{SYSTEM_PROMPT[:1500]}{rules_section}\n\n"
+                f"Community record:\n"
+                f"- Name: {name}\n"
+                f"- City: {c}, Topic: {t}\n"
+                f"- Description: {desc[:300]}\n\n"
+                "Is this a GENUINE ongoing community group (not a business, event, or false positive)? "
+                "Reply with exactly YES or NO, then a short reason (one sentence)."
+            )
+            try:
+                answer = await _ai_chat(prompt, temperature=0.1)
+                if answer.upper().startswith("NO"):
+                    save_not_community_report(
+                        _db(),
+                        community_id=record.get("community_id", ""),
+                        community_name=name,
+                        city=c,
+                        topic=t,
+                        page_url=src,
+                        source_url=src,
+                    )
+                    _revalidate_state["flagged"] += 1
+            except Exception as exc:
+                log.warning("revalidate_item_failed", name=name, error=str(exc))
+            _revalidate_state["done"] += 1
+    except Exception as exc:
+        _revalidate_state["error"] = str(exc)
+        log.warning("revalidate_failed", error=str(exc))
+    finally:
+        _revalidate_state["running"] = False
 
 
 @admin.get("/config", response_class=HTMLResponse)

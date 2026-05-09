@@ -389,6 +389,16 @@ def search_communities_by_tag(db_path: Path, tag: str, city: str = "") -> list[d
     return [json.loads(r[0]) for r in rows]
 
 
+def get_all_communities(db_path: Path) -> list[dict]:
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT data FROM communities ORDER BY city, topic, id"
+        ).fetchall()
+    return [json.loads(r[0]) for r in rows]
+
+
 def get_communities_for_city(db_path: Path, city: str) -> list[dict]:
     if not db_path.exists():
         return []

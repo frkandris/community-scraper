@@ -129,6 +129,45 @@
 </div>
 {% endif %}
 
+{# ── Re-validate existing communities ────────────────────────────────────────── #}
+<div class="bg-white rounded-xl shadow-sm border border-yellow-100 overflow-hidden mb-6">
+  <div class="flex items-center gap-3 px-5 py-3 bg-yellow-50 border-b border-yellow-100">
+    <i class="ph ph-arrows-clockwise text-yellow-600" style="font-size:16px"></i>
+    <span class="text-sm font-semibold text-yellow-800">Meglévő közösségek újraértékelése</span>
+    <span class="text-xs text-yellow-600 ml-1">— lefuttatja az aktuális promptot a már kinyert adatokon</span>
+  </div>
+  <div class="px-5 py-4">
+    <p class="text-xs text-gray-500 mb-3">Ha a prompt szigorodott, lefuttathatod az AI-t a meglévő közösségeken. Amelyikre NO-t mond, bejelöli not-community reportként (majd az admin jóváhagyja/elveti).</p>
+    <div class="flex items-end gap-3 mb-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Város (üres = összes)</label>
+        <input id="rv-city" type="text" placeholder="pl. Budapest"
+          class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 w-36 focus:outline-none focus:ring-2 focus:ring-yellow-200">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Téma (üres = összes)</label>
+        <input id="rv-topic" type="text" placeholder="pl. running"
+          class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 w-36 focus:outline-none focus:ring-2 focus:ring-yellow-200">
+      </div>
+      <button onclick="rvStart()" id="rv-btn"
+        class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors">
+        <i class="ph ph-play" style="font-size:13px"></i> Indítás
+      </button>
+    </div>
+    <div id="rv-progress" class="hidden">
+      <div class="flex items-center gap-3 text-xs text-gray-600 mb-1">
+        <span id="rv-status-text">Fut…</span>
+        <span class="ml-auto"><span id="rv-done">0</span> / <span id="rv-total">0</span> — <span id="rv-flagged" class="text-red-600 font-medium">0 jelölve</span></span>
+      </div>
+      <div class="w-full bg-gray-100 rounded-full h-1.5">
+        <div id="rv-bar" class="bg-yellow-500 h-1.5 rounded-full transition-all" style="width:0%"></div>
+      </div>
+      <p id="rv-done-msg" class="hidden text-xs text-green-600 mt-2 font-medium">✓ Kész — ellenőrizd a <a href="/admin/not-community" class="underline">Not-community</a> oldalt.</p>
+      <p id="rv-err-msg" class="hidden text-xs text-red-600 mt-2"></p>
+    </div>
+  </div>
+</div>
+
 <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Extraction version history</h3>
 {% if extraction_history %}
 <div class="space-y-2 mb-8">
@@ -321,6 +360,57 @@ async function ncAccept() {
     const d = await r.json();
     if (d.ok) {
       document.getElementById('nc-accepted-msg').classList.remove('hidden');
+    }
+  } catch (e) {}
+}
+
+let _rvPollTimer = null;
+async function rvStart() {
+  const city = document.getElementById('rv-city').value.trim();
+  const topic = document.getElementById('rv-topic').value.trim();
+  document.getElementById('rv-btn').disabled = true;
+  document.getElementById('rv-progress').classList.remove('hidden');
+  document.getElementById('rv-done-msg').classList.add('hidden');
+  document.getElementById('rv-err-msg').classList.add('hidden');
+  document.getElementById('rv-status-text').textContent = 'Indul…';
+  const fd = new FormData();
+  fd.append('city', city);
+  fd.append('topic', topic);
+  try {
+    const r = await fetch('/admin/revalidate/start', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (!d.ok) {
+      document.getElementById('rv-err-msg').textContent = d.error || 'Hiba';
+      document.getElementById('rv-err-msg').classList.remove('hidden');
+      document.getElementById('rv-btn').disabled = false;
+      return;
+    }
+    _rvPollTimer = setInterval(rvPoll, 1500);
+  } catch (e) {
+    document.getElementById('rv-err-msg').textContent = 'Hiba: ' + e.message;
+    document.getElementById('rv-err-msg').classList.remove('hidden');
+    document.getElementById('rv-btn').disabled = false;
+  }
+}
+async function rvPoll() {
+  try {
+    const d = await (await fetch('/admin/revalidate/status')).json();
+    const done = d.done || 0, total = d.total || 0, flagged = d.flagged || 0;
+    document.getElementById('rv-done').textContent = done;
+    document.getElementById('rv-total').textContent = total;
+    document.getElementById('rv-flagged').textContent = flagged + ' jelölve';
+    document.getElementById('rv-status-text').textContent = d.running ? 'Fut…' : 'Kész';
+    const pct = total > 0 ? Math.round(done / total * 100) : 0;
+    document.getElementById('rv-bar').style.width = pct + '%';
+    if (!d.running) {
+      clearInterval(_rvPollTimer);
+      document.getElementById('rv-btn').disabled = false;
+      if (d.error) {
+        document.getElementById('rv-err-msg').textContent = 'Hiba: ' + d.error;
+        document.getElementById('rv-err-msg').classList.remove('hidden');
+      } else {
+        document.getElementById('rv-done-msg').classList.remove('hidden');
+      }
     }
   } catch (e) {}
 }
