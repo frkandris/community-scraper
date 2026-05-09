@@ -207,46 +207,51 @@
 
   </div>
 
-  <!-- Not a community report -->
-  <div class="mt-2 text-right">
-    <button id="not-community-btn"
-      onclick="reportNotCommunity()"
-      data-community-id="{{ r.community_id | default('') | e }}"
-      data-community-name="{{ r.name | e }}"
-      data-city="{{ city | e }}"
-      data-topic="{{ topic | e }}"
-      data-source-url="{{ r.source_url | default('') | e }}"
-      class="text-xs text-[#B5ADA0] hover:text-red-500 transition-colors inline-flex items-center gap-1">
-      <i class="ph ph-flag"></i> Ez nem egy közösség
-    </button>
-    <span id="not-community-thanks" class="hidden text-xs text-[#8C8478] italic">Köszönjük a jelzést.</span>
-  </div>
+  <!-- Feedback & validity box -->
+  <div class="mt-4 bg-white border border-[#EAE5DB] rounded-xl p-5" id="feedback-section">
 
-  <!-- Feedback -->
-  <div class="mt-3 bg-white border border-[#EAE5DB] rounded-xl p-5" id="feedback-section">
-    <div id="feedback-prompt" class="flex items-center justify-between gap-4">
-      <p class="text-sm text-[#8C8478]">{{ t('community_feedback_prompt') }}</p>
-      <button onclick="document.getElementById('feedback-prompt').classList.add('hidden'); document.getElementById('feedback-form').classList.remove('hidden');"
-        class="shrink-0 text-xs px-3 py-1.5 border border-[#EAE5DB] rounded-lg text-[#6A6259] hover:border-[#C2613A] hover:text-[#8A4226] transition-colors">
-        {{ t('community_report_issue') }}
-      </button>
+    <!-- Initial prompt state -->
+    <div id="feedback-prompt">
+      <p class="text-sm text-[#8C8478] mb-3">{{ t('community_feedback_prompt') }}</p>
+      <div id="feedback-buttons" class="flex flex-wrap items-center gap-2">
+        <button id="not-community-btn"
+          onclick="reportNotCommunity()"
+          data-community-id="{{ r.community_id | default('') | e }}"
+          data-community-name="{{ r.name | e }}"
+          data-city="{{ city | e }}"
+          data-topic="{{ topic | e }}"
+          data-source-url="{{ r.source_url | default('') | e }}"
+          class="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-[#EAE5DB] rounded-lg text-[#6A6259] hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-colors">
+          <i class="ph ph-flag"></i> Ez nem egy közösség
+        </button>
+        <button
+          onclick="document.getElementById('feedback-prompt').classList.add('hidden'); document.getElementById('feedback-form').classList.remove('hidden');"
+          class="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-[#EAE5DB] rounded-lg text-[#6A6259] hover:border-[#C2613A] hover:text-[#8A4226] transition-colors">
+          <i class="ph ph-warning"></i> {{ t('community_report_issue') }}
+        </button>
+      </div>
+      <div id="not-community-thanks" class="hidden text-sm text-[#8C8478] flex items-center gap-2">
+        <i class="ph ph-check-circle text-green-600"></i> Köszönjük a jelzést.
+      </div>
     </div>
+
+    <!-- Feedback form -->
     <div id="feedback-form" class="hidden">
-      <p class="text-sm font-medium text-[#2E2B29] mb-3">Send feedback about <strong>{{ r.name }}</strong></p>
+      <p class="text-sm font-medium text-[#2E2B29] mb-3">Visszajelzés: <strong>{{ r.name }}</strong></p>
       <form action="/feedback" method="POST" onsubmit="submitFeedback(event, this)">
         <input type="hidden" name="community_name" value="{{ r.name }}">
         <input type="hidden" name="city" value="{{ city }}">
         <input type="hidden" name="topic" value="{{ topic }}">
         <input type="hidden" name="page_url" value="{{ request.url }}">
         <textarea name="message" rows="3" required
-          placeholder="What's wrong or missing? (e.g. wrong schedule, closed group, duplicate…)"
+          placeholder="Mi a probléma? (pl. rossz időpont, megszűnt, duplikált bejegyzés…)"
           class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg resize-none focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 mb-3 text-[#1C1917] placeholder-[#B5ADA0]"></textarea>
         <input type="email" name="user_email"
-          placeholder="Your email (optional — if you'd like a reply)"
+          placeholder="E-mail (opcionális — ha szeretnél választ kapni)"
           class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 mb-3 text-[#1C1917] placeholder-[#B5ADA0]">
         <div class="flex items-center gap-3">
           <button type="submit"
-            class="px-4 py-2 bg-[#A8512F] text-white text-xs font-semibold rounded-lg hover:bg-[#A8512F] transition-colors">
+            class="px-4 py-2 bg-[#A8512F] text-white text-xs font-semibold rounded-lg hover:bg-[#8A4226] transition-colors">
             {{ t('community_feedback_send') }}
           </button>
           <button type="button"
@@ -257,9 +262,12 @@
         </div>
       </form>
     </div>
+
+    <!-- Thanks after form submit -->
     <div id="feedback-thanks" class="hidden text-sm text-green-700 flex items-center gap-2">
       <i class="ph ph-check-circle"></i> {{ t('community_feedback_thanks') }}
     </div>
+
   </div>
 
   <!-- Source attribution -->
@@ -378,7 +386,6 @@ async function submitFeedback(e, form) {
 async function reportNotCommunity() {
   const btn = document.getElementById('not-community-btn');
   btn.disabled = true;
-  btn.classList.add('opacity-50');
   const d = btn.dataset;
   const fd = new FormData();
   fd.append('community_id',   d.communityId   || '');
@@ -388,7 +395,7 @@ async function reportNotCommunity() {
   fd.append('source_url',     d.sourceUrl     || '');
   fd.append('page_url',       location.href);
   try { await fetch('/report-not-community', { method: 'POST', body: fd }); } catch (_) {}
-  btn.classList.add('hidden');
+  document.getElementById('feedback-buttons').classList.add('hidden');
   document.getElementById('not-community-thanks').classList.remove('hidden');
 }
 </script>
