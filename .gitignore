@@ -16,3 +16,7 @@ data/scraper.db
 data/cache/
 
 scraper/web/static/css/app.css
+
+.agents/
+.claude/
+skills-lock.json
