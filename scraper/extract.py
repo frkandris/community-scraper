@@ -134,6 +134,10 @@ church | sports_hall | studio | coworking | restaurant | other
 For 'welcomed_topics': list only topics clearly mentioned \
 (e.g. ["running", "yoga", "board_games"] — use the English slug form).
 
+For 'description': write 1-2 sentences describing the venue — what kind of place it is, \
+its atmosphere or special features, and why community groups meet there. \
+Use information from the page; do not invent details. Omit if nothing useful is available.
+
 Output field values in the original language of the page.
 If no venues found, return an empty venues array.
 """
