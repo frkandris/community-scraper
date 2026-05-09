@@ -1240,9 +1240,32 @@ async def prompts_page(request: Request):
     })
 
 
+async def _deepseek_chat(user_msg: str, temperature: float = 0.3) -> str:
+    """Call DeepSeek chat API; raises on failure."""
+    import httpx
+    cfg = app_state.pipeline_cfg
+    api_key = cfg.deepseek_api_key if cfg else ""
+    model = cfg.deepseek_model if cfg else "deepseek-chat"
+    if not api_key:
+        raise RuntimeError("DEEPSEEK_API_KEY not configured")
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": user_msg}],
+        "temperature": temperature,
+    }
+    async with httpx.AsyncClient(timeout=60) as client:
+        resp = await client.post(
+            "https://api.deepseek.com/v1/chat/completions",
+            json=payload,
+            headers={"Authorization": f"Bearer {api_key}"},
+        )
+        resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"].strip()
+
+
 @admin.post("/prompts/nc-assist")
 async def prompts_nc_assist(notes: str = Form("")):
-    """Ask the LLM to formulate a prompt addition based on not-community reports + admin notes."""
+    """Ask DeepSeek to formulate a prompt addition based on not-community reports + admin notes."""
     if not app_state.db_path:
         return JSONResponse({"ok": False, "suggestion": ""})
     from ..extract import SYSTEM_PROMPT as _SP
@@ -1268,19 +1291,7 @@ async def prompts_nc_assist(notes: str = Form("")):
     )
 
     try:
-        import httpx
-        ollama_url = str(app_state.settings.get("ollama", {}).get("url", "http://localhost:11434")).rstrip("/")
-        model = str(app_state.settings.get("ollama", {}).get("model", "llama3.2:3b"))
-        payload = {
-            "model": model,
-            "messages": [{"role": "user", "content": user_msg}],
-            "stream": False,
-            "options": {"temperature": 0.3},
-        }
-        async with httpx.AsyncClient(timeout=120) as client:
-            resp = await client.post(f"{ollama_url}/api/chat", json=payload)
-            resp.raise_for_status()
-            suggestion = resp.json()["message"]["content"].strip()
+        suggestion = await _deepseek_chat(user_msg, temperature=0.3)
         return JSONResponse({"ok": True, "suggestion": suggestion})
     except Exception as exc:
         log.warning("nc_assist_failed", error=str(exc))
@@ -2063,7 +2074,7 @@ async def admin_not_community_dismiss(report_id: int):
 
 @admin.post("/not-community/ai-suggest")
 async def admin_not_community_ai_suggest():
-    """Ask the LLM to suggest prompt improvements based on flagged items."""
+    """Ask DeepSeek to suggest prompt improvements based on flagged items."""
     if not app_state.db_path:
         return JSONResponse({"ok": False, "suggestion": ""})
     from ..extract import SYSTEM_PROMPT
@@ -2088,19 +2099,7 @@ async def admin_not_community_ai_suggest():
     )
 
     try:
-        import httpx
-        ollama_url = str(app_state.settings.get("ollama", {}).get("url", "http://localhost:11434")).rstrip("/")
-        model = str(app_state.settings.get("ollama", {}).get("model", "llama3.2:3b"))
-        payload = {
-            "model": model,
-            "messages": [{"role": "user", "content": user_msg}],
-            "stream": False,
-            "options": {"temperature": 0.3},
-        }
-        async with httpx.AsyncClient(timeout=120) as client:
-            resp = await client.post(f"{ollama_url}/api/chat", json=payload)
-            resp.raise_for_status()
-            suggestion = resp.json()["message"]["content"].strip()
+        suggestion = await _deepseek_chat(user_msg, temperature=0.3)
         return JSONResponse({"ok": True, "suggestion": suggestion})
     except Exception as exc:
         log.warning("ai_suggest_failed", error=str(exc))
