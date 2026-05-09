@@ -1157,6 +1157,14 @@ async def dashboard(request: Request):
         ),
     }
 
+    revalidation_pending = 0
+    if app_state.db_path and app_state.db_path.exists():
+        try:
+            fp = _revalidation_fingerprint()
+            revalidation_pending = len(get_communities_needing_revalidation(_db(), fp, "", ""))
+        except Exception:
+            pass
+
     return templates.TemplateResponse(request, "dashboard.html", {
         "metadata": metadata,
         "is_running": app_state.is_running,
@@ -1174,6 +1182,8 @@ async def dashboard(request: Request):
         "total_venues": sum(venue_counts.values()),
         "total_persons": sum(person_counts.values()),
         "cost_stats": cost_stats,
+        "revalidation_pending": revalidation_pending,
+        "revalidate_state": _revalidate_state,
     })
 
 
@@ -1372,6 +1382,16 @@ async def prompts_nc_rule_remove(name: str = Form(...)):
 _revalidate_state: dict = {"running": False, "done": 0, "total": 0, "flagged": 0, "skipped": 0, "error": ""}
 
 
+def _revalidation_fingerprint() -> str:
+    fps = fp_load(_db())
+    rules_section = build_prompt_section(fps, fp_type="extraction")
+    rules_section += build_prompt_section(fps, fp_type="extraction_rule") if fps else ""
+    return _prompt_hash(
+        SYSTEM_PROMPT[:1500] + rules_section +
+        "Is this a GENUINE ongoing community group (not a business, event, or false positive)?"
+    )
+
+
 @admin.post("/revalidate/start")
 async def admin_revalidate_start(background_tasks: BackgroundTasks,
                                   city: str = Form(""), topic: str = Form("")):
@@ -1392,15 +1412,7 @@ async def admin_revalidate_status():
 async def _run_revalidate(city: str, topic: str) -> None:
     _revalidate_state.update({"running": True, "done": 0, "total": 0, "flagged": 0, "skipped": 0, "error": ""})
     try:
-        fps = fp_load(_db())
-        rules_section = build_prompt_section(fps, fp_type="extraction")
-        rules_section += build_prompt_section(fps, fp_type="extraction_rule") if fps else ""
-
-        # Fingerprint captures the prompt content + FP rules so we skip already-validated records
-        revalidate_fp = _prompt_hash(
-            SYSTEM_PROMPT[:1500] + rules_section +
-            "Is this a GENUINE ongoing community group (not a business, event, or false positive)?"
-        )
+        revalidate_fp = _revalidation_fingerprint()
 
         all_count = len(get_all_communities(_db()) if not city else
                         (get_communities(_db(), city, topic) if topic else
