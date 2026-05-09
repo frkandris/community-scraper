@@ -91,6 +91,15 @@ def init_db(db_path: Path) -> None:
             conn.execute("ALTER TABLE communities ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0")
         except sqlite3.OperationalError:
             pass
+        # Back-fill: hide communities already in not_community_reports
+        conn.execute("""
+            UPDATE communities SET hidden=1
+            WHERE hidden=0
+              AND community_id IN (
+                SELECT community_id FROM not_community_reports
+                WHERE community_id IS NOT NULL AND community_id != ''
+              )
+        """)
 
         # Cache pages — full JSON entry per scraped URL
         conn.execute("""
