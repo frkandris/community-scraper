@@ -1519,18 +1519,44 @@ async def _run_revalidate(city: str, topic: str) -> None:
             name = record.get("name", "")
             c = record.get("city", city)
             t = record.get("topic", topic)
-            desc = record.get("description", "") or ""
             src = record.get("source_url", "") or ""
 
             app_state.current_url = src or name
 
+            def _field(key: str) -> str:
+                v = record.get(key)
+                return str(v) if v not in (None, "", [], {}) else ""
+
+            record_lines = [
+                f"- Name: {name}",
+                f"- City: {c}, Topic: {t}",
+            ]
+            for key, label in [
+                ("description", "Description"),
+                ("website", "Website"),
+                ("source_url", "Source URL"),
+                ("tags", "Tags"),
+                ("joinable", "Joinable"),
+                ("join_process", "Join process"),
+                ("founding_year", "Founded"),
+                ("member_count", "Members"),
+                ("fee", "Fee"),
+                ("age_range", "Age range"),
+                ("skill_level", "Skill level"),
+                ("leader", "Leader"),
+                ("email", "Email"),
+                ("phone", "Phone"),
+                ("confidence", "Confidence"),
+            ]:
+                v = _field(key)
+                if v:
+                    record_lines.append(f"- {label}: {v}")
+
             prompt = (
                 f"Extraction rules:\n{SYSTEM_PROMPT[:1500]}{rules_section}\n\n"
                 f"Community record:\n"
-                f"- Name: {name}\n"
-                f"- City: {c}, Topic: {t}\n"
-                f"- Description: {desc[:300]}\n\n"
-                "Is this a GENUINE ongoing community group (not a business, event, or false positive)? "
+                + "\n".join(record_lines)
+                + "\n\nIs this a GENUINE ongoing community group (not a business, event, or false positive)? "
                 "Reply with exactly YES or NO, then a short reason (one sentence)."
             )
             try:
