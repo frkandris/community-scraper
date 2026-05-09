@@ -2,13 +2,13 @@
 {% block head %}{% if schema_json %}<script type="application/ld+json">{{ schema_json | safe }}</script>{% endif %}{% endblock %}
 {% block title %}
   {% if city and selected_topics %}
-    {{ city }} · {{ selected_topics | map('replace', '_', ' ') | join(', ') | title }} – CommUnity
+    {{ city }} · {{ selected_topics | map('replace', '_', ' ') | join(', ') | title }} – kozossegek.com
   {% elif city %}
-    {{ city }} – CommUnity
+    {{ city }} – kozossegek.com
   {% elif selected_topics %}
-    {{ selected_topics | map('replace', '_', ' ') | join(', ') | title }} – CommUnity
+    {{ selected_topics | map('replace', '_', ' ') | join(', ') | title }} – kozossegek.com
   {% else %}
-    Explore – CommUnity
+    Explore – kozossegek.com
   {% endif %}
 {% endblock %}
 {% block content %}
@@ -16,7 +16,7 @@
 <!-- Top bar -->
 <div class="bg-white/95 border-b border-slate-200 sticky top-[57px] z-10 backdrop-blur">
   <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-2 flex-wrap">
-    <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition-colors">CommUnity</a>
+    <a href="/" class="text-sm text-slate-500 hover:text-slate-900 transition-colors">kozossegek.com</a>
     {% if city %}
     <span class="text-slate-300">/</span>
     <a href="/{{ city | slugify }}" class="text-sm {% if not selected_topics %}font-semibold text-slate-950{% else %}text-slate-500 hover:text-slate-900{% endif %}">{{ city }}</a>
