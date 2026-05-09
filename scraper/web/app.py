@@ -1493,6 +1493,11 @@ async def admin_revalidate_status():
 
 async def _run_revalidate(city: str, topic: str) -> None:
     _revalidate_state.update({"running": True, "done": 0, "total": 0, "flagged": 0, "skipped": 0, "error": ""})
+    app_state.is_running = True
+    app_state.current_phase = "revalidate"
+    app_state.current_url = None
+    started = datetime.now(timezone.utc)
+    success = False
     try:
         fps = fp_load(_db())
         rules_section = build_prompt_section(fps, fp_type="extraction")
@@ -1504,8 +1509,10 @@ async def _run_revalidate(city: str, topic: str) -> None:
                          get_communities_for_city(_db(), city)))
         communities = get_communities_needing_revalidation(_db(), revalidate_fp, city, topic)
 
-        _revalidate_state["skipped"] = all_count - len(communities)
+        skipped = all_count - len(communities)
+        _revalidate_state["skipped"] = skipped
         _revalidate_state["total"] = len(communities)
+        log.info("revalidate_started", total=len(communities), skipped=skipped)
 
         for record in communities:
             name = record.get("name", "")
@@ -1513,6 +1520,8 @@ async def _run_revalidate(city: str, topic: str) -> None:
             t = record.get("topic", topic)
             desc = record.get("description", "") or ""
             src = record.get("source_url", "") or ""
+
+            app_state.current_url = src or name
 
             prompt = (
                 f"Extraction rules:\n{SYSTEM_PROMPT[:1500]}{rules_section}\n\n"
@@ -1525,7 +1534,9 @@ async def _run_revalidate(city: str, topic: str) -> None:
             )
             try:
                 answer = await _ai_chat(prompt, temperature=0.1)
-                if answer.upper().startswith("NO"):
+                verdict = "NO" if answer.upper().startswith("NO") else "YES"
+                log.info("revalidate_checked", name=name, city=c, verdict=verdict)
+                if verdict == "NO":
                     save_not_community_report(
                         _db(),
                         community_id=record.get("community_id", ""),
@@ -1542,11 +1553,21 @@ async def _run_revalidate(city: str, topic: str) -> None:
             except Exception as exc:
                 log.warning("revalidate_item_failed", name=name, error=str(exc))
             _revalidate_state["done"] += 1
+
+        success = True
+        log.info("revalidate_done", done=_revalidate_state["done"], flagged=_revalidate_state["flagged"])
     except Exception as exc:
         _revalidate_state["error"] = str(exc)
         log.warning("revalidate_failed", error=str(exc))
     finally:
         _revalidate_state["running"] = False
+        app_state.is_running = False
+        app_state.current_phase = None
+        app_state.current_url = None
+        if app_state.db_path:
+            from ..db import record_run
+            record_run(app_state.db_path, started, datetime.now(timezone.utc),
+                       "revalidate", success, None, 0)
 
 
 @admin.get("/config", response_class=HTMLResponse)
