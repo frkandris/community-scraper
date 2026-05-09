@@ -23,7 +23,7 @@
 </div>
 
 <!-- Stats cards -->
-<div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
   <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
     <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Communities</div>
     <div class="text-3xl font-bold text-gray-900">{{ metadata.get('total_records', 0) }}</div>
@@ -44,20 +44,6 @@
     <div class="text-3xl font-bold text-gray-900">{{ city_count }}</div>
     {% if test_mode %}<div class="text-xs text-amber-600 mt-0.5">test mode active</div>{% endif %}
   </div>
-  <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-    <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Topics</div>
-    <div class="text-3xl font-bold text-gray-900">{{ topic_count }}</div>
-  </div>
-  <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-    <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Last Run</div>
-    <div class="text-sm font-medium text-gray-900">
-      {% if metadata.get('last_run') %}
-        {{ metadata['last_run'][:16].replace('T',' ') }} UTC
-      {% else %}
-        Never
-      {% endif %}
-    </div>
-  </div>
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -65,31 +51,6 @@
   <!-- Run Now -->
   <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
     <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Run Now</h2>
-
-    <!-- Active provider strip -->
-    <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-3 py-2 mb-4 bg-gray-50 rounded-lg border border-gray-100 text-[10px]">
-      <div class="flex items-center gap-1.5">
-        <i class="ph ph-magnifying-glass text-gray-400" style="font-size:11px"></i>
-        <span class="text-gray-400 font-semibold uppercase tracking-wide">Search</span>
-        {% for p in active_providers.search %}
-        <span class="px-1.5 py-0.5 rounded font-semibold
-          {% if loop.first %}bg-blue-100 text-blue-700{% else %}bg-gray-200 text-gray-500{% endif %}">
-          {{ p }}{% if not loop.last %} <span class="font-normal opacity-60">→</span>{% endif %}
-        </span>
-        {% endfor %}
-      </div>
-      <div class="w-px h-3 bg-gray-200 hidden sm:block"></div>
-      <div class="flex items-center gap-1.5">
-        <i class="ph ph-brain text-gray-400" style="font-size:11px"></i>
-        <span class="text-gray-400 font-semibold uppercase tracking-wide">AI</span>
-        {% for p in active_providers.ai %}
-        <span class="px-1.5 py-0.5 rounded font-semibold
-          {% if loop.first %}bg-purple-100 text-purple-700{% else %}bg-gray-200 text-gray-500{% endif %}">
-          {{ p }}{% if not loop.last %} <span class="font-normal opacity-60">→</span>{% endif %}
-        </span>
-        {% endfor %}
-      </div>
-    </div>
 
     <form method="POST" action="/admin/api/run" id="run-form">
       <!-- Hidden actual fields set by JS -->
@@ -162,14 +123,41 @@
     </form>
   </div>
 
-  <!-- Cache stats -->
+  <!-- Infó -->
   <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
     <div class="flex items-center justify-between mb-3">
-      <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Cache</h2>
-      <a href="/admin/progress" class="text-xs text-blue-600 hover:text-blue-800">Manage →</a>
+      <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Infó</h2>
+      <a href="/admin/progress" class="text-xs text-blue-600 hover:text-blue-800">Cache →</a>
     </div>
+
+    <!-- Active providers -->
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-3 py-2 mb-4 bg-gray-50 rounded-lg border border-gray-100 text-[10px]">
+      <div class="flex items-center gap-1.5">
+        <i class="ph ph-magnifying-glass text-gray-400" style="font-size:11px"></i>
+        <span class="text-gray-400 font-semibold uppercase tracking-wide">Search</span>
+        {% for p in active_providers.search %}
+        <span class="px-1.5 py-0.5 rounded font-semibold
+          {% if loop.first %}bg-blue-100 text-blue-700{% else %}bg-gray-200 text-gray-500{% endif %}">
+          {{ p }}{% if not loop.last %} <span class="font-normal opacity-60">→</span>{% endif %}
+        </span>
+        {% endfor %}
+      </div>
+      <div class="w-px h-3 bg-gray-200 hidden sm:block"></div>
+      <div class="flex items-center gap-1.5">
+        <i class="ph ph-brain text-gray-400" style="font-size:11px"></i>
+        <span class="text-gray-400 font-semibold uppercase tracking-wide">AI</span>
+        {% for p in active_providers.ai %}
+        <span class="px-1.5 py-0.5 rounded font-semibold
+          {% if loop.first %}bg-purple-100 text-purple-700{% else %}bg-gray-200 text-gray-500{% endif %}">
+          {{ p }}{% if not loop.last %} <span class="font-normal opacity-60">→</span>{% endif %}
+        </span>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Cache stats -->
     {% if cache_stats and cache_stats.total %}
-    <div class="space-y-2">
+    <div class="space-y-2 mb-4">
       <div class="flex items-center justify-between text-xs">
         <span class="flex items-center gap-1.5 text-gray-500">
           <i class="ph ph-files text-gray-400" style="font-size:13px"></i> Total pages
@@ -196,11 +184,12 @@
       </div>
     </div>
     {% else %}
-    <p class="text-xs text-gray-400">Cache empty</p>
+    <p class="text-xs text-gray-400 mb-4">Cache empty</p>
     {% endif %}
 
-    {% if cost_stats and (cost_stats.search_queries or cost_stats.web_reads or cost_stats.ai_calls) %}
-    <div class="mt-4 pt-3 border-t border-gray-100">
+    <!-- Cost estimation -->
+    {% if cost_stats and (cost_stats.search_queries or cost_stats.ai_calls) %}
+    <div class="pt-3 border-t border-gray-100 mb-4">
       <div class="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-2">To reproduce from scratch</div>
       <div class="space-y-1.5">
         <div class="flex items-center justify-between text-xs">
@@ -226,11 +215,22 @@
           <span class="font-semibold text-gray-800">{{ "{:,}".format(cost_stats.ai_calls) }}</span>
         </div>
       </div>
-      {% set serper_cost = (cost_stats.search_queries / 1000 * 1.0) | round(2) %}
       {% set dataforseo_cost = (cost_stats.search_queries / 1000 * 0.6) | round(2) %}
+      {% set deepseek_cost = (cost_stats.ai_calls * 0.0016) | round(2) %}
       <div class="mt-2 text-[10px] text-gray-400 leading-relaxed">
-        Search cost est.: <span class="text-gray-600 font-medium">${{ "%.2f"|format(dataforseo_cost) }}</span> DataForSEO
-        · <span class="text-gray-600 font-medium">${{ "%.2f"|format(serper_cost) }}</span> Serper
+        Search: <span class="text-gray-600 font-medium">${{ "%.2f"|format(dataforseo_cost) }}</span> DataForSEO
+        · AI: <span class="text-gray-600 font-medium">${{ "%.2f"|format(deepseek_cost) }}</span> DeepSeek
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Schedule -->
+    {% if next_run %}
+    <div class="pt-3 border-t border-gray-100 space-y-1.5">
+      <div class="flex items-center gap-2">
+        <i class="ph ph-clock text-gray-400" style="font-size:13px"></i>
+        {% if schedule_cron %}<code class="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-700">{{ schedule_cron }}</code>{% endif %}
+        <span class="text-xs text-gray-500">Next: <span class="font-mono text-gray-800">{{ next_run }}</span></span>
       </div>
     </div>
     {% endif %}
@@ -238,76 +238,28 @@
 
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-  <!-- Schedule -->
-  <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Schedule</h2>
-    {% if next_run %}
-    <div class="space-y-2">
-      {% if schedule_cron %}
-      <div class="flex items-center gap-2">
-        <i class="ph ph-clock text-gray-400" style="font-size:14px"></i>
-        <code class="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-700">{{ schedule_cron }}</code>
-      </div>
-      {% endif %}
-      <div class="text-xs text-gray-500">
-        Next: <span class="font-mono text-gray-800">{{ next_run }}</span>
-      </div>
-      <div class="flex items-center gap-1.5 text-[10px] text-gray-400">
-        <i class="ph ph-shield-check text-green-400" style="font-size:12px"></i>
-        Skips automatically if already running
-      </div>
-    </div>
-    {% else %}
-    <p class="text-xs text-gray-400">No schedule configured</p>
-    {% endif %}
+<!-- Run History -->
+<div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 mt-6">
+  <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Run History</h2>
+  {% if run_history %}
+  <div class="space-y-1.5">
+    {% for r in run_history %}
+    <a href="/admin/runs/{{ r.id }}" class="flex items-center justify-between text-xs hover:bg-gray-50 rounded px-1 -mx-1 py-0.5 transition-colors">
+      <span class="text-gray-500 font-mono">{{ r.started_at[:16].replace('T',' ') }}</span>
+      <span class="px-1.5 py-0.5 rounded text-xs
+        {% if r.run_mode == 'ai_only' %}bg-purple-50 text-purple-700
+        {% else %}bg-blue-50 text-blue-700{% endif %}">
+        {% if r.run_mode == 'ai_only' %}Re-AI{% else %}Full{% endif %}
+      </span>
+      <span class="{% if r.success %}text-green-600{% else %}text-red-500{% endif %}">
+        {% if r.success %}✓{% else %}✗{% endif %}
+      </span>
+    </a>
+    {% endfor %}
   </div>
-
-  <!-- Run history -->
-  <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Run History</h2>
-    {% if run_history %}
-    <div class="space-y-1.5">
-      {% for r in run_history %}
-      <a href="/admin/runs/{{ r.id }}" class="flex items-center justify-between text-xs hover:bg-gray-50 rounded px-1 -mx-1 py-0.5 transition-colors">
-        <span class="text-gray-500 font-mono">{{ r.started_at[:16].replace('T',' ') }}</span>
-        <span class="px-1.5 py-0.5 rounded text-xs
-          {% if r.run_mode == 'ai_only' %}bg-purple-50 text-purple-700
-          {% else %}bg-blue-50 text-blue-700{% endif %}">
-          {% if r.run_mode == 'ai_only' %}Re-AI{% else %}Full{% endif %}
-        </span>
-        <span class="{% if r.success %}text-green-600{% else %}text-red-500{% endif %}">
-          {% if r.success %}✓{% else %}✗{% endif %}
-        </span>
-      </a>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="text-sm text-gray-400">No runs recorded yet</p>
-    {% endif %}
-  </div>
-
-  <!-- Records by city -->
-  {% if metadata.get('records_by_city_topic') %}
-  <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Records by City</h2>
-    <div class="space-y-3">
-      {% for city, topics in metadata['records_by_city_topic'].items() %}
-      <div>
-        <div class="text-sm font-semibold text-gray-700 mb-1">{{ city }}</div>
-        {% for topic, count in topics.items() %}
-        <div class="text-xs text-gray-500 flex justify-between">
-          <span>{{ topic.replace('_',' ') }}</span>
-          <span class="font-medium text-gray-700">{{ count }}</span>
-        </div>
-        {% endfor %}
-      </div>
-      {% endfor %}
-    </div>
-  </div>
+  {% else %}
+  <p class="text-sm text-gray-400">No runs recorded yet</p>
   {% endif %}
-
 </div>
 
 <script>

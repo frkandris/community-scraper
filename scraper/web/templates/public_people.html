@@ -1,0 +1,90 @@
+{% extends "public_base.html" %}
+{% block title %}Emberek – kozossegek.com{% endblock %}
+{% block content %}
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+
+  <div class="mb-6 border-b border-[#EAE5DB] pb-5">
+    <p class="text-xs font-semibold uppercase tracking-[0.08em] text-[#A8512F] mb-2">Emberek</p>
+    <h1 class="text-2xl sm:text-3xl font-bold text-[#1C1917]">Közösségi vezetők és oktatók</h1>
+    <p class="text-sm text-[#8C8478] mt-2">{{ persons | length }} személy</p>
+  </div>
+
+  <!-- City filter -->
+  <div class="mb-6 flex flex-wrap gap-2">
+    <a href="/people"
+       class="text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors
+         {% if not selected_city %}bg-[#FDF0EA] border-[#C2613A] text-[#4C2615]{% else %}bg-white border-[#EAE5DB] text-[#6A6259] hover:border-[#FAD9C7]{% endif %}">
+      Összes ({{ counts.values() | sum }})
+    </a>
+    {% for c in cities %}
+    <a href="/people?city={{ c | urlencode }}"
+       class="text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors
+         {% if c == selected_city %}bg-[#FDF0EA] border-[#C2613A] text-[#4C2615]{% else %}bg-white border-[#EAE5DB] text-[#6A6259] hover:border-[#FAD9C7]{% endif %}">
+      {{ c }} ({{ counts.get(c, 0) }})
+    </a>
+    {% endfor %}
+  </div>
+
+  {% if persons %}
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    {% for p in persons %}
+    <div class="bg-white rounded-xl border border-[#EAE5DB] p-4 flex flex-col gap-2 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/20 transition-colors">
+
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-full bg-[#F5F2EC] border border-[#EAE5DB] flex items-center justify-center shrink-0">
+          <i class="ph ph-person text-[#B5ADA0] text-lg"></i>
+        </div>
+        <div class="min-w-0">
+          <h2 class="font-semibold text-[#1C1917] text-sm leading-snug">{{ p.name }}</h2>
+          {% if p.role %}
+          <span class="text-[10px] font-medium text-[#A8512F]">{{ p.role }}</span>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if p.topic %}
+      <div class="flex items-center gap-1 text-[11px] text-[#8C8478]">
+        <i class="ph ph-{{ topic_icons.get(p.topic, 'circle') }} text-[#B5ADA0]"></i>
+        {{ topic_labels.get(p.topic, p.topic.replace('_',' ').title()) }}
+      </div>
+      {% endif %}
+
+      {% if p.community_name %}
+      <p class="text-xs text-[#6A6259] leading-tight">{{ p.community_name }}</p>
+      {% endif %}
+
+      <div class="mt-auto flex flex-col gap-1 text-xs text-[#8C8478]">
+        {% if p.city %}
+        <span class="flex items-center gap-1.5">
+          <i class="ph ph-buildings text-[#B5ADA0]"></i>
+          <a href="/{{ p.city | slugify }}" class="hover:text-[#A8512F] transition-colors">{{ p.city }}</a>
+        </span>
+        {% endif %}
+        {% if p.email %}
+        <span class="flex items-center gap-1.5">
+          <i class="ph ph-envelope text-[#B5ADA0]"></i>
+          <span class="truncate">{{ p.email }}</span>
+        </span>
+        {% endif %}
+        {% if p.website %}
+        <a href="{{ p.website }}" target="_blank" rel="noopener"
+           class="flex items-center gap-1.5 text-[#A8512F] hover:underline truncate">
+          <i class="ph ph-arrow-square-out text-[#B5ADA0] shrink-0"></i>
+          {{ p.website | replace('https://','') | replace('http://','') | truncate(30) }}
+        </a>
+        {% endif %}
+      </div>
+
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-center py-20 text-[#B5ADA0]">
+    <i class="ph ph-person text-5xl mb-4 block"></i>
+    <p class="text-base">Még nem gyűjtöttünk személyadatokat. Futtasd a pipeline-t!</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -2295,6 +2295,51 @@ async def admin_not_community_ai_suggest():
 _fastapi.include_router(admin)
 
 
+@_fastapi.get("/venues", response_class=HTMLResponse)
+async def public_venues(request: Request, city: str = ""):
+    if not app_state.db_path:
+        return RedirectResponse("/", status_code=302)
+    all_venues = get_all_venues(app_state.db_path)
+    counts = get_venue_counts(app_state.db_path)
+    all_cities = sorted(counts.keys())
+    if city:
+        venues = [v for v in all_venues if v.get("city", "").lower() == city.lower()]
+    else:
+        venues = all_venues
+    return templates.TemplateResponse(request, "public_venues.html", {
+        "venues": venues,
+        "counts": counts,
+        "cities": all_cities,
+        "selected_city": city,
+        "topic_icons": TOPIC_ICONS,
+        "topic_labels": TOPIC_LABELS,
+        **lang_context(request),
+    })
+
+
+@_fastapi.get("/people", response_class=HTMLResponse)
+async def public_people(request: Request, city: str = ""):
+    if not app_state.db_path:
+        return RedirectResponse("/", status_code=302)
+    counts = get_person_counts(app_state.db_path)
+    all_cities = sorted(counts.keys())
+    if city:
+        persons = get_persons(app_state.db_path, city)
+    else:
+        persons = []
+        for c in all_cities:
+            persons.extend(get_persons(app_state.db_path, c))
+    return templates.TemplateResponse(request, "public_people.html", {
+        "persons": persons,
+        "counts": counts,
+        "cities": all_cities,
+        "selected_city": city,
+        "topic_icons": TOPIC_ICONS,
+        "topic_labels": TOPIC_LABELS,
+        **lang_context(request),
+    })
+
+
 @_fastapi.get("/{city_slug}/{segment}", response_class=HTMLResponse)
 async def public_city_segment(
     request: Request, city_slug: str, segment: str, subscribed: str = ""

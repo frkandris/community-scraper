@@ -52,4 +52,4 @@ cache:
   search_ttl_days: 7
 
 schedule:
-  cron: "*/15 * * * *"
+  cron: "* * * * *"
