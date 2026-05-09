@@ -7,86 +7,160 @@
   <div class="mb-6 border-b border-[#EAE5DB] pb-5">
     <p class="text-xs font-semibold uppercase tracking-[0.08em] text-[#A8512F] mb-2">Helyszínek</p>
     <h1 class="text-2xl sm:text-3xl font-bold text-[#1C1917]">Közösségeknek otthont adó helyszínek</h1>
-    <p class="text-sm text-[#8C8478] mt-2">{{ venues | length }} helyszín</p>
+    <p class="text-sm text-[#8C8478] mt-2">
+      {{ venues | length }}{% if selected_country or selected_city or selected_topic %} / {{ total_all }}{% endif %} helyszín
+    </p>
   </div>
 
-  <!-- City filter -->
-  <div class="mb-6 flex flex-wrap gap-2">
-    <a href="/venues"
-       class="text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors
-         {% if not selected_city %}bg-[#FDF0EA] border-[#C2613A] text-[#4C2615]{% else %}bg-white border-[#EAE5DB] text-[#6A6259] hover:border-[#FAD9C7]{% endif %}">
-      Összes ({{ counts.values() | sum }})
+  <!-- Filters -->
+  <form method="GET" action="/venues" class="mb-6 flex flex-wrap gap-2 items-end">
+
+    <div class="flex flex-col gap-1">
+      <label class="text-[10px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">Ország</label>
+      <select name="country" onchange="this.form.submit()"
+        class="text-sm border border-[#D8D1C4] rounded-lg px-3 py-2 bg-white text-[#1C1917]
+               focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20">
+        <option value="">Összes ország</option>
+        {% for c in all_countries %}
+        <option value="{{ c }}" {% if c == selected_country %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label class="text-[10px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">Város</label>
+      <select name="city" onchange="this.form.submit()"
+        class="text-sm border border-[#D8D1C4] rounded-lg px-3 py-2 bg-white text-[#1C1917]
+               focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20">
+        <option value="">Összes város</option>
+        {% for c in all_cities %}
+        <option value="{{ c }}" {% if c == selected_city %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label class="text-[10px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">Kategória</label>
+      <select name="topic" onchange="this.form.submit()"
+        class="text-sm border border-[#D8D1C4] rounded-lg px-3 py-2 bg-white text-[#1C1917]
+               focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20">
+        <option value="">Összes kategória</option>
+        {% for t in all_topics %}
+        <option value="{{ t }}" {% if t == selected_topic %}selected{% endif %}>
+          {{ topic_labels.get(t, t.replace('_',' ').title()) }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    {% if selected_country or selected_city or selected_topic %}
+    <a href="/venues" class="text-xs text-[#A8512F] hover:text-[#8A4226] self-end pb-2.5 transition-colors">
+      Szűrők törlése
     </a>
-    {% for c in cities %}
-    <a href="/venues?city={{ c | urlencode }}"
-       class="text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors
-         {% if c == selected_city %}bg-[#FDF0EA] border-[#C2613A] text-[#4C2615]{% else %}bg-white border-[#EAE5DB] text-[#6A6259] hover:border-[#FAD9C7]{% endif %}">
-      {{ c }} ({{ counts.get(c, 0) }})
-    </a>
-    {% endfor %}
-  </div>
+    {% endif %}
+
+  </form>
 
   {% if venues %}
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    {% for v in venues %}
-    <div class="bg-white rounded-xl border border-[#EAE5DB] p-5 flex flex-col gap-3 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/20 transition-colors">
 
-      <div class="flex items-start justify-between gap-2">
-        <h2 class="font-semibold text-[#1C1917] text-base leading-snug">{{ v.name }}</h2>
-        {% if v.venue_type %}
-        <span class="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#F5F2EC] text-[#8C8478] border border-[#EAE5DB] whitespace-nowrap">
-          {{ v.venue_type.replace('_',' ') }}
-        </span>
-        {% endif %}
+  {# Group by country → city when no specific filter, else flat list #}
+  {% if not selected_city and not selected_country %}
+
+    {% for section in country_sections %}
+    <div class="mb-8">
+      <h2 class="text-xs font-bold uppercase tracking-[0.1em] text-[#8C8478] mb-4 flex items-center gap-2">
+        {{ section.country }}
+        <span class="font-normal text-[#B5ADA0]">{{ section.cities | map(attribute='venues') | map('length') | sum }}</span>
+      </h2>
+      {% for city_group in section.cities %}
+      <div class="mb-5">
+        <h3 class="text-sm font-semibold text-[#4A4441] mb-3 flex items-center gap-2">
+          <a href="/{{ city_group.name | slugify }}" class="hover:text-[#A8512F] transition-colors">{{ city_group.name }}</a>
+          <span class="text-xs font-normal text-[#B5ADA0]">{{ city_group.venues | length }}</span>
+        </h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {% for v in city_group.venues %}
+          {{ _venue_card(v) }}
+          {% endfor %}
+        </div>
       </div>
-
-      {% if v.description %}
-      <p class="text-sm text-[#6A6259] leading-relaxed line-clamp-3">{{ v.description }}</p>
-      {% endif %}
-
-      {% if v.welcomed_topics %}
-      <div class="flex flex-wrap gap-1">
-        {% for t in v.welcomed_topics %}
-        <a href="/{{ v.city | slugify }}/{{ t }}"
-           class="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded bg-[#FDF0EA] text-[#A8512F] border border-[#FAD9C7] whitespace-nowrap hover:bg-[#FAD9C7] transition-colors">
-          <i class="ph ph-{{ topic_icons.get(t, 'circle') }}" style="font-size:10px"></i>
-          {{ topic_labels.get(t, t.replace('_',' ').title()) }}
-        </a>
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      <div class="mt-auto flex flex-col gap-1 text-xs text-[#8C8478]">
-        {% if v.city %}
-        <span class="flex items-center gap-1.5">
-          <i class="ph ph-buildings text-[#B5ADA0]"></i>
-          <a href="/{{ v.city | slugify }}" class="hover:text-[#A8512F] transition-colors">{{ v.city }}</a>
-        </span>
-        {% endif %}
-        {% if v.address %}
-        <span class="flex items-start gap-1.5">
-          <i class="ph ph-map-pin text-[#B5ADA0] mt-0.5 shrink-0"></i>
-          <span>{{ v.address }}</span>
-        </span>
-        {% endif %}
-        {% if v.website %}
-        <a href="{{ v.website }}" target="_blank" rel="noopener"
-           class="flex items-center gap-1.5 text-[#A8512F] hover:text-[#8A4226] hover:underline truncate">
-          <i class="ph ph-arrow-square-out text-[#B5ADA0] shrink-0"></i>
-          {{ v.website | replace('https://','') | replace('http://','') | truncate(38) }}
-        </a>
-        {% endif %}
-      </div>
-
+      {% endfor %}
     </div>
     {% endfor %}
-  </div>
+
+  {% else %}
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {% for v in venues %}
+      {{ _venue_card(v) }}
+      {% endfor %}
+    </div>
+
+  {% endif %}
+
   {% else %}
   <div class="text-center py-20 text-[#B5ADA0]">
     <i class="ph ph-map-pin text-5xl mb-4 block"></i>
-    <p class="text-base">Még nem gyűjtöttünk helyszínadatokat. Futtasd a pipeline-t!</p>
+    <p class="text-base">Nincsenek helyszínek a megadott szűrőkre.</p>
+    {% if selected_country or selected_city or selected_topic %}
+    <a href="/venues" class="mt-3 inline-block text-sm text-[#A8512F] hover:underline">Szűrők törlése</a>
+    {% endif %}
   </div>
   {% endif %}
 
 </div>
+
+{% macro _venue_card(v) %}
+<div class="bg-white rounded-xl border border-[#EAE5DB] p-5 flex flex-col gap-3 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/20 transition-colors">
+
+  <div class="flex items-start justify-between gap-2">
+    <h2 class="font-semibold text-[#1C1917] text-base leading-snug">{{ v.name }}</h2>
+    {% if v.venue_type %}
+    <span class="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#F5F2EC] text-[#8C8478] border border-[#EAE5DB] whitespace-nowrap">
+      {{ v.venue_type.replace('_',' ') }}
+    </span>
+    {% endif %}
+  </div>
+
+  {% if v.description %}
+  <p class="text-sm text-[#6A6259] leading-relaxed line-clamp-3">{{ v.description }}</p>
+  {% endif %}
+
+  {% if v.welcomed_topics %}
+  <div class="flex flex-wrap gap-1">
+    {% for t in v.welcomed_topics %}
+    <a href="/venues?topic={{ t | urlencode }}"
+       class="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded bg-[#FDF0EA] text-[#A8512F] border border-[#FAD9C7] whitespace-nowrap hover:bg-[#FAD9C7] transition-colors">
+      <i class="ph ph-{{ topic_icons.get(t, 'circle') }}" style="font-size:10px"></i>
+      {{ topic_labels.get(t, t.replace('_',' ').title()) }}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="mt-auto flex flex-col gap-1 text-xs text-[#8C8478]">
+    {% if v.city %}
+    <span class="flex items-center gap-1.5">
+      <i class="ph ph-buildings text-[#B5ADA0]"></i>
+      <a href="/{{ v.city | slugify }}" class="hover:text-[#A8512F] transition-colors">{{ v.city }}</a>
+    </span>
+    {% endif %}
+    {% if v.address %}
+    <span class="flex items-start gap-1.5">
+      <i class="ph ph-map-pin text-[#B5ADA0] mt-0.5 shrink-0"></i>
+      <span>{{ v.address }}</span>
+    </span>
+    {% endif %}
+    {% if v.website %}
+    <a href="{{ v.website }}" target="_blank" rel="noopener"
+       class="flex items-center gap-1.5 text-[#A8512F] hover:text-[#8A4226] hover:underline truncate">
+      <i class="ph ph-arrow-square-out text-[#B5ADA0] shrink-0"></i>
+      {{ v.website | replace('https://','') | replace('http://','') | truncate(38) }}
+    </a>
+    {% endif %}
+  </div>
+
+</div>
+{% endmacro %}
+
 {% endblock %}

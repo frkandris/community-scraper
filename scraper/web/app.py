@@ -1494,6 +1494,9 @@ async def admin_revalidate_status():
 async def _run_revalidate(city: str, topic: str) -> None:
     _revalidate_state.update({"running": True, "done": 0, "total": 0, "flagged": 0, "skipped": 0, "error": ""})
     try:
+        fps = fp_load(_db())
+        rules_section = build_prompt_section(fps, fp_type="extraction")
+        rules_section += build_prompt_section(fps, fp_type="extraction_rule") if fps else ""
         revalidate_fp = _revalidation_fingerprint()
 
         all_count = len(get_all_communities(_db()) if not city else
@@ -2392,21 +2395,57 @@ _fastapi.include_router(admin)
 
 
 @_fastapi.get("/venues", response_class=HTMLResponse)
-async def public_venues(request: Request, city: str = ""):
+async def public_venues(request: Request, country: str = "", city: str = "", topic: str = ""):
     if not app_state.db_path:
         return RedirectResponse("/", status_code=302)
     all_venues = get_all_venues(app_state.db_path)
-    counts = get_venue_counts(app_state.db_path)
-    all_cities = sorted(counts.keys())
+    cities_map = {c.name: c.country for c in (app_state.cities or [])}
+
+    # Attach country to each venue
+    for v in all_venues:
+        v["country"] = cities_map.get(v.get("city", ""), "")
+
+    # Filter
+    filtered = all_venues
+    if country:
+        filtered = [v for v in filtered if v.get("country", "").lower() == country.lower()]
     if city:
-        venues = [v for v in all_venues if v.get("city", "").lower() == city.lower()]
-    else:
-        venues = all_venues
+        filtered = [v for v in filtered if v.get("city", "").lower() == city.lower()]
+    if topic:
+        filtered = [v for v in filtered if topic in (v.get("welcomed_topics") or [])]
+
+    # Build filter options from full dataset
+    all_countries = sorted({v.get("country", "") for v in all_venues if v.get("country")})
+    all_cities_for_country = sorted({
+        v.get("city", "") for v in all_venues
+        if v.get("city") and (not country or v.get("country", "").lower() == country.lower())
+    })
+    all_topics = sorted({
+        t for v in all_venues for t in (v.get("welcomed_topics") or []) if t
+    })
+
+    # Build country→city grouping for unfiltered view
+    from collections import defaultdict
+    country_map: dict = defaultdict(lambda: defaultdict(list))
+    for v in filtered:
+        c = v.get("country") or "—"
+        ci = v.get("city") or "—"
+        country_map[c][ci].append(v)
+    country_sections = [
+        {"country": c, "cities": [{"name": ci, "venues": vs} for ci, vs in sorted(cities.items())]}
+        for c, cities in sorted(country_map.items())
+    ]
+
     return templates.TemplateResponse(request, "public_venues.html", {
-        "venues": venues,
-        "counts": counts,
-        "cities": all_cities,
+        "venues": filtered,
+        "country_sections": country_sections,
+        "all_countries": all_countries,
+        "all_cities": all_cities_for_country,
+        "all_topics": all_topics,
+        "selected_country": country,
         "selected_city": city,
+        "selected_topic": topic,
+        "total_all": len(all_venues),
         "topic_icons": TOPIC_ICONS,
         "topic_labels": TOPIC_LABELS,
         **lang_context(request),
