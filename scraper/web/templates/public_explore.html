@@ -432,7 +432,7 @@
     sections.forEach(function(s) {
       var show = active.size === 0 || active.has(s.dataset.topic);
       s.style.display = show ? '' : 'none';
-      if (show) visible += parseInt(s.querySelectorAll('.grid > div').length);
+      if (show) visible += s.querySelectorAll('.grid > .relative').length;
     });
     var cnt = document.getElementById('visible-count');
     if (cnt) cnt.textContent = (cnt.dataset.tpl || '{n}').replace('COUNT', visible);
