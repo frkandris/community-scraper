@@ -499,6 +499,19 @@ class OllamaExtractor:
             log.debug("extract_persons_failed", url=source_url, error=str(exc))
         return []
 
+    async def chat(self, user_msg: str, temperature: float = 0.3) -> str:
+        """Free-form chat completion — returns raw text."""
+        payload = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": user_msg}],
+            "stream": False,
+            "options": {"temperature": temperature},
+        }
+        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+            resp = await client.post(f"{self.base_url}/api/chat", json=payload)
+            resp.raise_for_status()
+        return resp.json().get("message", {}).get("content", "").strip()
+
     async def enrich(self, record: CommunityRecord, page_text: str,
                      false_positive_examples: str = "") -> CommunityRecord:
         """Try to fill in missing contact fields from an additional page."""
@@ -710,6 +723,16 @@ class _ApiExtractor:
                       community=record.name, error=str(exc))
         return record
 
+    async def chat(self, user_msg: str, temperature: float = 0.3) -> str:
+        """Free-form chat completion — returns raw text."""
+        payload = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": user_msg}],
+            "temperature": temperature,
+        }
+        data = await self._post(payload, label="chat")
+        return data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+
 
 class DeepSeekExtractor(_ApiExtractor):
     _BASE_URL = "https://api.deepseek.com/v1"
@@ -841,3 +864,19 @@ class FallbackExtractor:
                 log.warning("extractor_quota_exhausted", provider=primary.__class__.__name__, reason=str(exc))
                 self._exhausted[i] = True
         return await self.fallback.extract_persons(text, city, topic, locale, source_url, community_names)
+
+    async def chat(self, user_msg: str, temperature: float = 0.3) -> str:
+        """Free-form chat completion with provider fallback."""
+        for i, primary in enumerate(self.primaries):
+            if not self._available(i):
+                continue
+            try:
+                return await primary.chat(user_msg, temperature)
+            except ExtractorRateLimitError as exc:
+                self._blocked_until[i] = time.monotonic() + exc.wait_seconds
+                log.warning("extractor_rate_limited", provider=primary.__class__.__name__,
+                            label="chat", wait_s=exc.wait_seconds)
+            except ExtractorQuotaError as exc:
+                log.warning("extractor_quota_exhausted", provider=primary.__class__.__name__, reason=str(exc))
+                self._exhausted[i] = True
+        return await self.fallback.chat(user_msg, temperature)
