@@ -19,26 +19,31 @@
 
       <!-- Stats strip -->
       <div class="grid grid-cols-3 sm:grid-cols-5 gap-3">
-        <div class="bg-white border border-[#EAE5DB] rounded-lg p-4">
+        <a href="/explore"
+           class="bg-white border border-[#EAE5DB] rounded-lg p-4 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
           <div class="text-2xl font-extrabold text-[#1C1917]">{{ total_records }}</div>
-          <div class="text-xs font-medium text-[#8C8478] mt-1">{{ t('about_communities') }}</div>
-        </div>
-        <div class="bg-white border border-[#EAE5DB] rounded-lg p-4">
+          <div class="text-xs font-medium text-[#8C8478] mt-1 group-hover:text-[#A8512F]">{{ t('about_communities') }}</div>
+        </a>
+        <a href="/about"
+           class="bg-white border border-[#EAE5DB] rounded-lg p-4 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
           <div class="text-2xl font-extrabold text-[#1C1917]">{{ total_venues }}</div>
-          <div class="text-xs font-medium text-[#8C8478] mt-1">{{ t('about_venues') }}</div>
-        </div>
-        <div class="bg-white border border-[#EAE5DB] rounded-lg p-4">
+          <div class="text-xs font-medium text-[#8C8478] mt-1 group-hover:text-[#A8512F]">{{ t('about_venues') }}</div>
+        </a>
+        <a href="/about"
+           class="bg-white border border-[#EAE5DB] rounded-lg p-4 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
           <div class="text-2xl font-extrabold text-[#1C1917]">{{ total_persons }}</div>
-          <div class="text-xs font-medium text-[#8C8478] mt-1">{{ t('about_people') }}</div>
-        </div>
-        <div class="bg-white border border-[#EAE5DB] rounded-lg p-4 hidden sm:block">
+          <div class="text-xs font-medium text-[#8C8478] mt-1 group-hover:text-[#A8512F]">{{ t('about_people') }}</div>
+        </a>
+        <a href="/map"
+           class="bg-white border border-[#EAE5DB] rounded-lg p-4 hidden sm:block hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
           <div class="text-2xl font-extrabold text-[#1C1917]">{{ cities|length }}</div>
-          <div class="text-xs font-medium text-[#8C8478] mt-1">{{ t('about_cities') }}</div>
-        </div>
-        <div class="bg-white border border-[#EAE5DB] rounded-lg p-4 hidden sm:block">
+          <div class="text-xs font-medium text-[#8C8478] mt-1 group-hover:text-[#A8512F]">{{ t('about_cities') }}</div>
+        </a>
+        <a href="/about"
+           class="bg-white border border-[#EAE5DB] rounded-lg p-4 hidden sm:block hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
           <div class="text-2xl font-extrabold text-[#1C1917]">{{ topics|length }}</div>
-          <div class="text-xs font-medium text-[#8C8478] mt-1">{{ t('about_topics') }}</div>
-        </div>
+          <div class="text-xs font-medium text-[#8C8478] mt-1 group-hover:text-[#A8512F]">{{ t('about_topics') }}</div>
+        </a>
       </div>
 
       <!-- Popular cities -->
@@ -88,20 +93,23 @@
           </div>
         </div>
         {% endfor %}
+
+        <div class="pt-2">
+          <a href="/explore"
+             class="inline-flex items-center gap-1.5 text-xs font-medium text-[#A8512F] hover:text-[#8A4226] transition-colors">
+            <i class="ph ph-list-bullets"></i>
+            {{ t('home_all_cities') }}
+          </a>
+        </div>
       </div>
       {% endif %}
     </section>
 
     <!-- Right: search form -->
     <section class="bg-white rounded-xl border border-[#EAE5DB] p-5 sm:p-6 lg:sticky lg:top-20 shadow-sm">
-      <div class="flex items-start justify-between gap-4 mb-6">
-        <div>
-          <h2 class="text-base font-bold text-[#1C1917]">{{ t('nav_discover') }}</h2>
-          <p class="text-xs text-[#8C8478] mt-1">{{ t('home_city_label') }} + {{ t('home_interests_label') }}</p>
-        </div>
-        <a href="/about" class="text-xs font-medium text-[#8C8478] hover:text-[#C2613A] transition-colors shrink-0">
-          {{ t('nav_about') }}
-        </a>
+      <div class="mb-6">
+        <h2 class="text-base font-bold text-[#1C1917]">{{ t('nav_discover') }}</h2>
+        <p class="text-xs text-[#8C8478] mt-1">{{ t('home_city_label') }} + {{ t('home_interests_label') }}</p>
       </div>
 
       <form action="/explore" method="GET" id="main-form">
