@@ -24,7 +24,7 @@ RUN pip install --no-cache-dir pytailwindcss && \
     pip uninstall -y pytailwindcss
 
 # Embed build timestamp so the version string works without git history
-RUN date -u '+%Y-%m-%d.%H:%M' > /app/VERSION
+RUN TZ=Europe/Budapest date '+%Y-%m-%d.%H:%M' > /app/VERSION
 
 # data/ and config/ can be mounted as persistent volumes.
 
