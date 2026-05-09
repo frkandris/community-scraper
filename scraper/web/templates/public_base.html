@@ -29,19 +29,21 @@
       <span>kozossegek.com</span>
     </a>
     {% set _p = request.url.path %}
-    <nav class="flex items-center gap-0.5 overflow-x-auto">
-      <a href="/" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
-        {% if _p == '/' or _p.startswith('/explore') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
-        {{ t('nav_discover') }}</a>
-      <a href="/map" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
-        {% if _p.startswith('/map') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
-        {{ t('nav_map') }}</a>
-      <a href="/about" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
-        {% if _p.startswith('/about') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
-        {{ t('nav_about') }}</a>
+    <nav class="flex items-center gap-0.5 shrink-0">
+      <div class="flex items-center gap-0.5 overflow-x-auto">
+        <a href="/" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
+          {% if _p == '/' or _p.startswith('/explore') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
+          {{ t('nav_discover') }}</a>
+        <a href="/map" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
+          {% if _p.startswith('/map') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
+          {{ t('nav_map') }}</a>
+        <a href="/about" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
+          {% if _p.startswith('/about') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
+          {{ t('nav_about') }}</a>
+      </div>
 
-      <!-- Language switcher -->
-      <details class="relative ml-1">
+      <!-- Language switcher — outside overflow-x-auto so dropdown isn't clipped -->
+      <details class="relative ml-1 shrink-0">
         <summary class="list-none cursor-pointer flex items-center gap-1 px-2 py-1.5 text-sm text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC] rounded-md transition-colors select-none">
           <span>{{ current_lang.flag }}</span>
           <i class="ph ph-caret-down text-xs"></i>
