@@ -228,4 +228,9 @@
     border-color: var(--color-accent-primary);
     color: var(--color-accent-primary-active);
   }
+
+  /* Brand gradient — terrakotta hero/strip background */
+  .brand-gradient {
+    background: linear-gradient(135deg, #8A4226 0%, #A8512F 30%, #C2613A 65%, #E88E6B 100%);
+  }
 }
