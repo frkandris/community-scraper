@@ -1146,6 +1146,30 @@ async def public_about(request: Request):
     })
 
 
+@_fastapi.get("/sitemap.xml")
+async def sitemap(request: Request):
+    from fastapi.responses import Response as _Response
+    base = str(request.base_url).rstrip("/")
+    urls: list[str] = [base + "/", base + "/about", base + "/explore", base + "/cities", base + "/map"]
+
+    if app_state.db_path:
+        counts = get_city_topic_counts(_db())
+        for city_name, topics in counts.items():
+            city_sl = _slugify(city_name)
+            urls.append(f"{base}/{city_sl}")
+            for topic_name in topics:
+                for record in get_communities(_db(), city_name, topic_name):
+                    name_sl = _slugify(record.get("name", ""))
+                    if name_sl:
+                        urls.append(f"{base}/{city_sl}/{name_sl}")
+
+    lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for url in dict.fromkeys(urls):  # deduplicate while preserving order
+        lines.append(f"  <url><loc>{url}</loc></url>")
+    lines.append("</urlset>")
+    return _Response("\n".join(lines), media_type="application/xml")
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # ADMIN ROUTES  (prefix: /admin, protected by _BasicAuth)
 # ═══════════════════════════════════════════════════════════════════════════════
