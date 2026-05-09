@@ -122,7 +122,8 @@
           <div class="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1.5">Témák</div>
           <div class="flex flex-wrap gap-1.5">
             {% for tag in r.tags %}
-            <span class="text-xs bg-emerald-50 text-emerald-800 border border-emerald-100 px-2 py-0.5 rounded-md">{{ tag }}</span>
+            <a href="/explore?topic={{ tag | urlencode }}"
+               class="text-xs bg-emerald-50 text-emerald-800 border border-emerald-100 px-2 py-0.5 rounded-md hover:bg-emerald-100 transition-colors">{{ tag }}</a>
             {% endfor %}
           </div>
         </div>
