@@ -73,6 +73,8 @@
             <div class="text-blue-500"><i class="ph ph-check"></i> Fetch <span class="opacity-60">(new only)</span></div>
             <div class="text-blue-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(new only)</span></div>
             <div class="text-blue-500"><i class="ph ph-check"></i> Enrich</div>
+            <div class="text-blue-500"><i class="ph ph-check"></i> Venues</div>
+            <div class="text-blue-500"><i class="ph ph-check"></i> People</div>
           </div>
         </button>
 
@@ -88,6 +90,8 @@
             <div class="text-gray-500"><i class="ph ph-check"></i> Fetch <span class="opacity-60">(all)</span></div>
             <div class="text-gray-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(all)</span></div>
             <div class="text-gray-500"><i class="ph ph-check"></i> Enrich</div>
+            <div class="text-gray-500"><i class="ph ph-check"></i> Venues</div>
+            <div class="text-gray-500"><i class="ph ph-check"></i> People</div>
           </div>
         </button>
 
@@ -103,6 +107,8 @@
             <div class="text-gray-300"><i class="ph ph-minus"></i> Fetch</div>
             <div class="text-gray-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(all cached)</span></div>
             <div class="text-gray-500"><i class="ph ph-check"></i> Enrich</div>
+            <div class="text-gray-500"><i class="ph ph-check"></i> Venues</div>
+            <div class="text-gray-500"><i class="ph ph-check"></i> People</div>
           </div>
         </button>
 
@@ -181,6 +187,18 @@
           <i class="ph ph-sparkle" style="font-size:13px"></i> Enriched
         </span>
         <span class="font-semibold text-gray-800">{{ cache_stats.with_enrich }}</span>
+      </div>
+      <div class="flex items-center justify-between text-xs">
+        <span class="flex items-center gap-1.5 text-orange-400">
+          <i class="ph ph-map-pin" style="font-size:13px"></i> Venues
+        </span>
+        <span class="font-semibold text-gray-800">{{ total_venues }}</span>
+      </div>
+      <div class="flex items-center justify-between text-xs">
+        <span class="flex items-center gap-1.5 text-teal-500">
+          <i class="ph ph-person" style="font-size:13px"></i> People
+        </span>
+        <span class="font-semibold text-gray-800">{{ total_persons }}</span>
       </div>
     </div>
     {% else %}

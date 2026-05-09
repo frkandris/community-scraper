@@ -7,27 +7,48 @@
 .diff-del { background: #fee2e2; color: #dc2626; display: inline; text-decoration: line-through; }
 </style>
 
-<h1 class="text-2xl font-bold text-gray-900 mb-6">Prompts</h1>
+<h1 class="text-2xl font-bold text-gray-900 mb-8">Prompts</h1>
 
-{# ── Editable prompt macro ────────────────────────────────────────────────────── #}
-{% macro edit_prompt(key, label, content, color='gray', extra_badge='') %}
+{# ── Shared macros ────────────────────────────────────────────────────────────── #}
+
+{# Collapsible details card — consistent across the whole page #}
+{% macro collapse_card(label, badge='', badge_color='gray', id='') %}
+<details class="card mb-2" {% if id %}id="{{ id }}"{% endif %}>
+  <summary class="list-none flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 select-none rounded-xl">
+    <span class="text-sm font-medium text-gray-700">{{ label }}</span>
+    {% if badge %}
+    <span class="text-xs font-semibold px-1.5 py-0.5 rounded-full
+      {% if badge_color == 'red' %}bg-red-50 text-red-600
+      {% elif badge_color == 'orange' %}bg-orange-50 text-orange-600
+      {% else %}bg-gray-100 text-gray-500{% endif %}">{{ badge }}</span>
+    {% endif %}
+    <i class="ph ph-caret-down ml-auto text-gray-400 text-xs transition-transform details-caret"></i>
+  </summary>
+  <div class="px-5 pb-4">
+    {{ caller() }}
+  </div>
+</details>
+{% endmacro %}
+
+{# Editable prompt card #}
+{% macro edit_prompt(key, label, content, badge='') %}
 {% set is_overridden = key in prompt_overrides %}
-<div class="bg-white rounded-xl shadow-sm border border-{{ color }}-100 overflow-hidden mb-4" id="card-{{ key }}">
-  <div class="flex items-center gap-3 px-5 py-3 bg-{{ color }}-50 border-b border-{{ color }}-100">
-    <span class="text-sm font-semibold text-{{ color }}-800">{{ label }}</span>
-    {% if extra_badge %}<span class="text-xs text-{{ color }}-500 ml-1">{{ extra_badge }}</span>{% endif %}
+<div class="card mb-2" id="card-{{ key }}">
+  <div class="flex items-center gap-3 px-5 py-3 border-b border-gray-100">
+    <span class="text-sm font-medium text-gray-700">{{ label }}</span>
+    {% if badge %}<span class="text-xs text-gray-400">{{ badge }}</span>{% endif %}
     {% if is_overridden %}
-    <span class="text-xs bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-medium">Módosított</span>
+    <span class="text-xs bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded font-medium">Módosított</span>
     {% endif %}
     <div class="ml-auto flex items-center gap-2">
       {% if is_overridden %}
       <button onclick="resetPrompt('{{ key }}')"
-        class="text-xs text-gray-400 hover:text-red-500 transition-colors" title="Visszaállítás alapértelmezettre">
+        class="text-xs text-gray-400 hover:text-red-500 transition-colors">
         <i class="ph ph-arrow-counter-clockwise"></i> Reset
       </button>
       {% endif %}
       <button onclick="toggleEdit('{{ key }}')"
-        class="flex items-center gap-1 text-xs font-semibold text-{{ color }}-700 bg-{{ color }}-100 hover:bg-{{ color }}-200 px-2 py-0.5 rounded transition-colors">
+        class="flex items-center gap-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition-colors">
         <i class="ph ph-pencil-simple" style="font-size:12px"></i> Szerkesztés
       </button>
     </div>
@@ -37,11 +58,11 @@
   </div>
   <div id="edit-{{ key }}" class="hidden px-5 py-4">
     <textarea id="ta-{{ key }}" rows="18"
-      class="w-full text-xs font-mono border border-gray-200 rounded-lg p-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-{{ color }}-200 resize-y"
+      class="w-full text-xs font-mono border border-gray-200 rounded-lg p-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200 resize-y"
     >{{ content }}</textarea>
     <div class="flex items-center gap-2 mt-2">
       <button onclick="savePrompt('{{ key }}')"
-        class="px-3 py-1.5 text-xs font-semibold bg-{{ color }}-600 text-white rounded-lg hover:bg-{{ color }}-700 transition-colors">
+        class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
         Mentés
       </button>
       <button onclick="toggleEdit('{{ key }}')" class="text-xs text-gray-400 hover:text-gray-600">Mégse</button>
@@ -51,72 +72,116 @@
 </div>
 {% endmacro %}
 
-{# ── Extraction prompt ───────────────────────────────────────────────────────── #}
-<h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Extraction prompt</h2>
-
-{{ edit_prompt('extraction_system', 'System prompt', prompt_defaults['extraction_system'], 'purple',
-   (false_positives | selectattr('fp_type', 'equalto', 'extraction') | list | length)|string + ' false positive(s) applied') }}
-
-{{ edit_prompt('extraction_user', 'User prompt template', prompt_defaults['extraction_user'], 'purple',
-   'Placeholders: {topic}, {city}, {source_url}, {page_text}') }}
-
-{# keep the "full effective prompt" collapsed details for reference #}
-<details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
-  <summary class="list-none flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 select-none">
-    <span class="text-sm font-semibold text-gray-600">Teljes aktív extraction prompt (FP-ekkel)</span>
-    <span class="ml-auto text-gray-400 text-xs">▾</span>
-  </summary>
-  <div class="px-5 py-4">
-    <pre class="text-xs text-gray-700 bg-gray-50 rounded-lg p-3 overflow-auto max-h-80 whitespace-pre-wrap leading-relaxed">{{ extraction_prompt }}</pre>
-  </div>
-</details>
-
-{% set extraction_fps = false_positives | selectattr('fp_type', 'equalto', 'extraction') | list %}
-{% if extraction_fps %}
-<details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
-  <summary class="list-none flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 select-none">
-    <span class="text-sm font-semibold text-gray-700">Extraction false positives</span>
-    <span class="text-xs text-red-500 font-medium">{{ extraction_fps | length }}</span>
-    <span class="ml-auto text-gray-400 text-xs">▾</span>
-  </summary>
-  <div class="px-5 py-4">
-    <div class="space-y-2">
-      {% for fp in extraction_fps %}
-      <div class="flex items-start gap-3 text-xs border-l-2 border-red-300 pl-3 py-1">
-        <div class="min-w-0">
-          <span class="font-semibold text-gray-800">{{ fp.name }}</span>
-          <span class="text-gray-400 mx-1">·</span>
-          <span class="text-gray-500">{{ fp.city }} / {{ fp.topic.replace('_',' ') }}</span>
-          <div class="text-gray-500 mt-0.5 italic">{{ fp.reason }}</div>
-        </div>
-        <form method="POST" action="/admin/false-positive/remove" class="shrink-0">
-          <input type="hidden" name="name" value="{{ fp.name }}">
-          <input type="hidden" name="city" value="{{ fp.city }}">
-          <input type="hidden" name="topic" value="{{ fp.topic }}">
-          <input type="hidden" name="fp_type" value="extraction">
-          <button type="submit" class="text-gray-300 hover:text-red-500 transition-colors" title="Remove">✕</button>
-        </form>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-</details>
-{% endif %}
-
-{# ── Not-community → Prompt assistant ────────────────────────────────────────── #}
-<div class="bg-white rounded-xl shadow-sm border border-orange-100 overflow-hidden mb-6">
-  <div class="flex items-center gap-3 px-5 py-3 bg-orange-50 border-b border-orange-100">
-    <i class="ph ph-flag text-orange-500" style="font-size:16px"></i>
-    <span class="text-sm font-semibold text-orange-800">Not-community bejelzések → prompt kiegészítés</span>
-    {% if nc_reports %}
-    <span class="text-xs bg-orange-200 text-orange-800 rounded-full px-2 py-0.5 font-medium">{{ nc_reports | length }} függő</span>
+{# Tool card — same structure, subtle left accent #}
+{% macro tool_card(label, icon, badge='') %}
+<div class="card border-l-4 border-l-indigo-200 mb-2">
+  <div class="flex items-center gap-3 px-5 py-3 border-b border-gray-100">
+    <i class="ph ph-{{ icon }} text-indigo-400" style="font-size:15px"></i>
+    <span class="text-sm font-medium text-gray-700">{{ label }}</span>
+    {% if badge %}
+    <span class="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600">{{ badge }}</span>
     {% endif %}
   </div>
   <div class="px-5 py-4">
+    {{ caller() }}
+  </div>
+</div>
+{% endmacro %}
+
+{# FP list (shared) #}
+{% macro fp_list(fps, accent_color) %}
+<div class="space-y-2">
+  {% for fp in fps %}
+  <div class="flex items-start gap-3 text-xs border-l-2 border-{{ accent_color }}-200 pl-3 py-1">
+    <div class="min-w-0 flex-1">
+      <span class="font-semibold text-gray-800">{{ fp.name }}</span>
+      <span class="text-gray-400 mx-1">·</span>
+      <span class="text-gray-500">{{ fp.city }} / {{ fp.topic.replace('_',' ') }}</span>
+      {% if fp.reason %}<div class="text-gray-500 mt-0.5 italic">{{ fp.reason }}</div>{% endif %}
+    </div>
+    <form method="POST" action="/admin/false-positive/remove" class="shrink-0">
+      <input type="hidden" name="name" value="{{ fp.name }}">
+      <input type="hidden" name="city" value="{{ fp.city }}">
+      <input type="hidden" name="topic" value="{{ fp.topic }}">
+      <input type="hidden" name="fp_type" value="{{ fp.fp_type }}">
+      <button type="submit" class="text-gray-300 hover:text-red-500 transition-colors" title="Remove">✕</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{# Version history entries #}
+{% macro version_history(history) %}
+{% if history %}
+<div class="space-y-2">
+  {% for v in history %}
+  <details class="border border-gray-100 rounded-lg overflow-hidden">
+    <summary class="list-none flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50 select-none">
+      <span class="text-xs font-mono text-gray-400 shrink-0">v{{ v.version }}</span>
+      <span class="text-sm font-medium text-gray-700">{{ v.timestamp[:16].replace('T',' ') }} UTC</span>
+      <span class="text-xs text-gray-400">{{ v.fp_count }} FP</span>
+      <i class="ph ph-caret-down ml-auto text-gray-400 text-xs"></i>
+    </summary>
+    <div class="px-4 pb-3">
+      <pre class="text-xs bg-gray-50 rounded-lg p-3 overflow-auto max-h-64 whitespace-pre-wrap leading-relaxed font-mono">{{ v.diff_html | safe }}</pre>
+    </div>
+  </details>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-xs text-gray-400">Még nincs verzióelőzmény.</p>
+{% endif %}
+{% endmacro %}
+
+
+{# ══════════════════════════════════════════════════════════════════
+   SECTION: Extraction
+   ══════════════════════════════════════════════════════════════════ #}
+
+{% set extraction_fps = false_positives | selectattr('fp_type', 'equalto', 'extraction') | list %}
+
+<div class="section-block mb-10">
+  <div class="section-heading">Extraction</div>
+
+  {# Editable prompts #}
+  {% set fp_badge = (extraction_fps | length ~ ' FP') if extraction_fps else '' %}
+  {{ edit_prompt('extraction_system', 'System prompt', prompt_defaults['extraction_system'], badge=fp_badge) }}
+  {{ edit_prompt('extraction_user', 'User prompt template', prompt_defaults['extraction_user'],
+     badge='Placeholders: {topic}, {city}, {source_url}, {page_text}') }}
+
+  {# Collapsibles #}
+  {% call collapse_card('Teljes aktív prompt (FP-ekkel beépítve)') %}
+    <pre class="text-xs text-gray-700 bg-gray-50 rounded-lg p-3 overflow-auto max-h-80 whitespace-pre-wrap leading-relaxed">{{ extraction_prompt }}</pre>
+  {% endcall %}
+
+  {% if extraction_fps %}
+  {% call collapse_card('False positives', badge=extraction_fps | length | string, badge_color='red') %}
+    {{ fp_list(extraction_fps, 'red') }}
+  {% endcall %}
+  {% endif %}
+
+  {% if extraction_rules %}
+  {% call collapse_card('AI-generált szabályok', badge=extraction_rules | length | string, badge_color='orange') %}
+    <div class="space-y-2">
+      {% for r in extraction_rules %}
+      <div class="flex items-start gap-3 text-xs border-l-2 border-orange-200 pl-3 py-1">
+        <div class="min-w-0 flex-1 text-gray-700 leading-relaxed">{{ r.reason }}</div>
+        <button onclick="removeRule(this, {{ r.name | tojson }})"
+          class="text-gray-300 hover:text-red-500 transition-colors shrink-0" title="Remove">✕</button>
+      </div>
+      {% endfor %}
+    </div>
+  {% endcall %}
+  {% endif %}
+
+  {# Tools #}
+  {% call tool_card('Not-community bejelzések → prompt kiegészítés', 'flag',
+      badge=(nc_reports | length | string ~ ' függő') if nc_reports else '') %}
     {% if nc_reports %}
     <div class="mb-3 space-y-1">
       {% for r in nc_reports[:10] %}
-      <div class="text-xs text-gray-600 border-l-2 border-orange-300 pl-2">
+      <div class="text-xs text-gray-600 border-l-2 border-gray-200 pl-2">
         <span class="font-medium text-gray-800">{{ r.community_name }}</span>
         <span class="text-gray-400 ml-1">{{ r.city }}{% if r.topic %} / {{ r.topic.replace('_',' ') }}{% endif %}</span>
       </div>
@@ -128,22 +193,20 @@
     {% else %}
     <p class="text-xs text-gray-400 mb-3">Nincs függő bejelzés. Jelölj meg elemeket a publikus oldalakon vagy a <a href="/admin/not-community" class="text-blue-500 hover:underline">Not-community</a> oldalon.</p>
     {% endif %}
-    <div class="mb-3">
-      <label class="block text-xs font-medium text-gray-600 mb-1">Kontextus / magyarázat (opcionális)</label>
-      <textarea id="nc-notes" rows="3"
-        class="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-200 resize-none"
-        placeholder="Pl. ezek mind bolt/vállalkozás hirdetések, nem valódi közösségek…"></textarea>
-    </div>
+    <label class="block text-xs font-medium text-gray-600 mb-1">Kontextus / magyarázat (opcionális)</label>
+    <textarea id="nc-notes" rows="3"
+      class="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none mb-3"
+      placeholder="Pl. ezek mind bolt/vállalkozás hirdetések, nem valódi közösségek…"></textarea>
     <div class="flex items-center gap-2">
       <button onclick="ncAssist()"
-        class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
+        class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
         <i class="ph ph-brain" style="font-size:13px"></i> AI fogalmazás
       </button>
       <span id="nc-loading" class="hidden text-xs text-gray-400 animate-pulse">Gondolkodom…</span>
     </div>
     <div id="nc-result" class="hidden mt-4">
       <div class="text-xs font-medium text-gray-500 mb-1">Generált prompt kiegészítés:</div>
-      <pre id="nc-text" class="text-xs text-gray-700 bg-slate-50 rounded-lg p-3 whitespace-pre-wrap leading-relaxed border border-slate-200 mb-3"></pre>
+      <pre id="nc-text" class="text-xs text-gray-700 bg-gray-50 rounded-lg p-3 whitespace-pre-wrap leading-relaxed border border-gray-200 mb-3"></pre>
       <div class="flex items-center gap-2">
         <button onclick="ncAccept()"
           class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
@@ -154,49 +217,23 @@
       </div>
       <p id="nc-accepted-msg" class="hidden text-xs text-green-600 mt-2 font-medium">✓ Mentve — az extraction prompt következő futástól tartalmazza.</p>
     </div>
-  </div>
-</div>
+  {% endcall %}
 
-{% if extraction_rules %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
-  <div class="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
-    <span class="text-sm font-semibold text-gray-700">AI-generált extraction szabályok</span>
-    <span class="text-xs text-orange-500 font-medium">{{ extraction_rules | length }}</span>
-  </div>
-  <div class="px-5 py-4 space-y-2">
-    {% for r in extraction_rules %}
-    <div class="flex items-start gap-3 text-xs border-l-2 border-orange-300 pl-3 py-1">
-      <div class="min-w-0 flex-1 text-gray-700 leading-relaxed">{{ r.reason }}</div>
-      <button onclick="removeRule(this, {{ r.name | tojson }})"
-        class="text-gray-300 hover:text-red-500 transition-colors shrink-0" title="Remove">✕</button>
-    </div>
-    {% endfor %}
-  </div>
-</div>
-{% endif %}
-
-{# ── Re-validate existing communities ────────────────────────────────────────── #}
-<div class="bg-white rounded-xl shadow-sm border border-yellow-100 overflow-hidden mb-6">
-  <div class="flex items-center gap-3 px-5 py-3 bg-yellow-50 border-b border-yellow-100">
-    <i class="ph ph-arrows-clockwise text-yellow-600" style="font-size:16px"></i>
-    <span class="text-sm font-semibold text-yellow-800">Meglévő közösségek újraértékelése</span>
-    <span class="text-xs text-yellow-600 ml-1">— lefuttatja az aktuális promptot a már kinyert adatokon</span>
-  </div>
-  <div class="px-5 py-4">
-    <p class="text-xs text-gray-500 mb-3">Ha a prompt szigorodott, lefuttathatod az AI-t a meglévő közösségeken. Amelyikre NO-t mond, bejelöli not-community reportként (majd az admin jóváhagyja/elveti).</p>
+  {% call tool_card('Meglévő közösségek újraértékelése', 'arrows-clockwise') %}
+    <p class="text-xs text-gray-500 mb-3">Ha a prompt szigorodott, lefuttathatod az AI-t a meglévő közösségeken. Amelyikre NO-t mond, bejelöli not-community reportként.</p>
     <div class="flex items-end gap-3 mb-3">
       <div>
         <label class="block text-xs font-medium text-gray-600 mb-1">Város (üres = összes)</label>
         <input id="rv-city" type="text" placeholder="pl. Budapest"
-          class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 w-36 focus:outline-none focus:ring-2 focus:ring-yellow-200">
+          class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 w-36 focus:outline-none focus:ring-2 focus:ring-indigo-200">
       </div>
       <div>
         <label class="block text-xs font-medium text-gray-600 mb-1">Téma (üres = összes)</label>
         <input id="rv-topic" type="text" placeholder="pl. running"
-          class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 w-36 focus:outline-none focus:ring-2 focus:ring-yellow-200">
+          class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 w-36 focus:outline-none focus:ring-2 focus:ring-indigo-200">
       </div>
       <button onclick="rvStart()" id="rv-btn"
-        class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors">
+        class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
         <i class="ph ph-play" style="font-size:13px"></i> Indítás
       </button>
     </div>
@@ -206,143 +243,106 @@
         <span class="ml-auto"><span id="rv-done">0</span> / <span id="rv-total">0</span> — <span id="rv-flagged" class="text-red-600 font-medium">0 jelölve</span></span>
       </div>
       <div class="w-full bg-gray-100 rounded-full h-1.5">
-        <div id="rv-bar" class="bg-yellow-500 h-1.5 rounded-full transition-all" style="width:0%"></div>
+        <div id="rv-bar" class="bg-indigo-500 h-1.5 rounded-full transition-all" style="width:0%"></div>
       </div>
       <p id="rv-done-msg" class="hidden text-xs text-green-600 mt-2 font-medium">✓ Kész — ellenőrizd a <a href="/admin/not-community" class="underline">Not-community</a> oldalt.</p>
       <p id="rv-err-msg" class="hidden text-xs text-red-600 mt-2"></p>
     </div>
-  </div>
+  {% endcall %}
+
+  {# Version history #}
+  {% call collapse_card('Verzióelőzmény', badge=extraction_history | length | string) %}
+    {{ version_history(extraction_history) }}
+  {% endcall %}
 </div>
 
-<h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Extraction version history</h3>
-{% if extraction_history %}
-<div class="space-y-2 mb-8">
-  {% for v in extraction_history %}
-  <details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-    <summary class="list-none flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 select-none">
-      <span class="text-xs font-mono text-gray-400 shrink-0">v{{ v.version }}</span>
-      <span class="text-sm font-medium text-gray-700">{{ v.timestamp[:16].replace('T',' ') }} UTC</span>
-      <span class="text-xs text-gray-400">{{ v.fp_count }} FP example(s)</span>
-      <span class="ml-auto text-gray-400 text-xs">▾</span>
-    </summary>
-    <div class="px-5 py-4">
-      <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">Diff from previous version</div>
-      <pre class="text-xs bg-gray-50 rounded-lg p-3 overflow-auto max-h-64 whitespace-pre-wrap leading-relaxed font-mono">{{ v.diff_html | safe }}</pre>
-    </div>
-  </details>
-  {% endfor %}
-</div>
-{% else %}
-<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-8 text-center text-sm text-gray-400 mb-8">
-  No extraction prompt history yet — mark a false positive on the audit page to create the first version.
-</div>
-{% endif %}
 
-{# ── Enrichment prompt ───────────────────────────────────────────────────────── #}
-<h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Enrichment prompt</h2>
-
-{{ edit_prompt('enrich_system', 'System prompt', prompt_defaults['enrich_system'], 'amber',
-   (false_positives | selectattr('fp_type', 'equalto', 'enrichment') | list | length)|string + ' false positive(s) applied') }}
-
-<details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
-  <summary class="list-none flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 select-none">
-    <span class="text-sm font-semibold text-gray-600">Teljes aktív enrichment prompt (FP-ekkel)</span>
-    <span class="ml-auto text-gray-400 text-xs">▾</span>
-  </summary>
-  <div class="px-5 py-4">
-    <pre class="text-xs text-gray-700 bg-gray-50 rounded-lg p-3 overflow-auto max-h-80 whitespace-pre-wrap leading-relaxed">{{ enrichment_prompt }}</pre>
-  </div>
-</details>
+{# ══════════════════════════════════════════════════════════════════
+   SECTION: Enrichment
+   ══════════════════════════════════════════════════════════════════ #}
 
 {% set enrichment_fps = false_positives | selectattr('fp_type', 'equalto', 'enrichment') | list %}
-{% if enrichment_fps %}
-<details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
-  <summary class="list-none flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 select-none">
-    <span class="text-sm font-semibold text-gray-700">Enrichment false positives</span>
-    <span class="text-xs text-red-500 font-medium">{{ enrichment_fps | length }}</span>
-    <span class="ml-auto text-gray-400 text-xs">▾</span>
-  </summary>
-  <div class="px-5 py-4">
-    <div class="space-y-2">
-      {% for fp in enrichment_fps %}
-      <div class="flex items-start gap-3 text-xs border-l-2 border-amber-300 pl-3 py-1">
-        <div class="min-w-0">
-          <span class="font-semibold text-gray-800">{{ fp.name }}</span>
-          <span class="text-gray-400 mx-1">·</span>
-          <span class="text-gray-500">{{ fp.city }} / {{ fp.topic.replace('_',' ') }}</span>
-          <div class="text-gray-500 mt-0.5 italic">{{ fp.reason }}</div>
-        </div>
-        <form method="POST" action="/admin/false-positive/remove" class="shrink-0">
-          <input type="hidden" name="name" value="{{ fp.name }}">
-          <input type="hidden" name="city" value="{{ fp.city }}">
-          <input type="hidden" name="topic" value="{{ fp.topic }}">
-          <input type="hidden" name="fp_type" value="enrichment">
-          <button type="submit" class="text-gray-300 hover:text-amber-500 transition-colors" title="Remove">✕</button>
-        </form>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-</details>
-{% endif %}
 
-<h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Enrichment version history</h3>
-{% if enrichment_history %}
-<div class="space-y-2">
-  {% for v in enrichment_history %}
-  <details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-    <summary class="list-none flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 select-none">
-      <span class="text-xs font-mono text-gray-400 shrink-0">v{{ v.version }}</span>
-      <span class="text-sm font-medium text-gray-700">{{ v.timestamp[:16].replace('T',' ') }} UTC</span>
-      <span class="text-xs text-gray-400">{{ v.fp_count }} FP example(s)</span>
-      <span class="ml-auto text-gray-400 text-xs">▾</span>
-    </summary>
-    <div class="px-5 py-4">
-      <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">Diff from previous version</div>
-      <pre class="text-xs bg-gray-50 rounded-lg p-3 overflow-auto max-h-64 whitespace-pre-wrap leading-relaxed font-mono">{{ v.diff_html | safe }}</pre>
-    </div>
-  </details>
-  {% endfor %}
+<div class="section-block mb-10">
+  <div class="section-heading">Enrichment</div>
+
+  {% set fp_badge_e = (enrichment_fps | length ~ ' FP') if enrichment_fps else '' %}
+  {{ edit_prompt('enrich_system', 'System prompt', prompt_defaults['enrich_system'], badge=fp_badge_e) }}
+
+  {% call collapse_card('Teljes aktív prompt (FP-ekkel beépítve)') %}
+    <pre class="text-xs text-gray-700 bg-gray-50 rounded-lg p-3 overflow-auto max-h-80 whitespace-pre-wrap leading-relaxed">{{ enrichment_prompt }}</pre>
+  {% endcall %}
+
+  {% if enrichment_fps %}
+  {% call collapse_card('False positives', badge=enrichment_fps | length | string, badge_color='red') %}
+    {{ fp_list(enrichment_fps, 'amber') }}
+  {% endcall %}
+  {% endif %}
+
+  {% call collapse_card('Verzióelőzmény', badge=enrichment_history | length | string) %}
+    {{ version_history(enrichment_history) }}
+  {% endcall %}
 </div>
-{% else %}
-<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-8 text-center text-sm text-gray-400">
-  No enrichment prompt history yet — mark an enrichment false positive on the audit page to create the first version.
-</div>
-{% endif %}
 
-{# ── Venue prompt ─────────────────────────────────────────────────────────────── #}
-<h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 mt-10">Venue extraction prompt</h2>
 
-{{ edit_prompt('venue_system', 'System prompt', prompt_defaults['venue_system'], 'green') }}
-{{ edit_prompt('venue_user', 'User prompt template', prompt_defaults['venue_user'], 'green',
-   'Placeholders: {city}, {source_url}, {page_text}') }}
+{# ══════════════════════════════════════════════════════════════════
+   SECTION: Venue extraction
+   ══════════════════════════════════════════════════════════════════ #}
 
-<details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
-  <summary class="list-none flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 select-none">
-    <span class="text-sm font-semibold text-gray-700">JSON schema</span>
-    <span class="ml-auto text-gray-400 text-xs">▾</span>
-  </summary>
-  <div class="px-5 py-4">
+<div class="section-block mb-10">
+  <div class="section-heading">Venue extraction</div>
+
+  {{ edit_prompt('venue_system', 'System prompt', prompt_defaults['venue_system']) }}
+  {{ edit_prompt('venue_user', 'User prompt template', prompt_defaults['venue_user'],
+     badge='Placeholders: {city}, {source_url}, {topics_hint}, {page_text}') }}
+
+  {% call collapse_card('JSON schema') %}
     <pre class="text-xs text-gray-700 bg-gray-50 rounded-lg p-3 overflow-auto max-h-64 whitespace-pre-wrap leading-relaxed">{{ venue_schema }}</pre>
-  </div>
-</details>
+  {% endcall %}
+</div>
 
-{# ── Person prompt ─────────────────────────────────────────────────────────────── #}
-<h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Person extraction prompt</h2>
 
-{{ edit_prompt('person_system', 'System prompt', prompt_defaults['person_system'], 'sky') }}
-{{ edit_prompt('person_user', 'User prompt template', prompt_defaults['person_user'], 'sky',
-   'Placeholders: {city}, {topic}, {source_url}, {community_names}, {page_text}') }}
+{# ══════════════════════════════════════════════════════════════════
+   SECTION: Person extraction
+   ══════════════════════════════════════════════════════════════════ #}
 
-<details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
-  <summary class="list-none flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 select-none">
-    <span class="text-sm font-semibold text-gray-700">JSON schema</span>
-    <span class="ml-auto text-gray-400 text-xs">▾</span>
-  </summary>
-  <div class="px-5 py-4">
+<div class="section-block mb-10">
+  <div class="section-heading">Person extraction</div>
+
+  {{ edit_prompt('person_system', 'System prompt', prompt_defaults['person_system']) }}
+  {{ edit_prompt('person_user', 'User prompt template', prompt_defaults['person_user'],
+     badge='Placeholders: {city}, {topic}, {source_url}, {community_names}, {page_text}') }}
+
+  {% call collapse_card('JSON schema') %}
     <pre class="text-xs text-gray-700 bg-gray-50 rounded-lg p-3 overflow-auto max-h-64 whitespace-pre-wrap leading-relaxed">{{ person_schema }}</pre>
-  </div>
-</details>
+  {% endcall %}
+</div>
+
+
+<style>
+.card {
+  background: white;
+  border-radius: 0.75rem;
+  border: 1px solid #f3f4f6;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  overflow: hidden;
+}
+.section-block {
+  border-top: 2px solid #f3f4f6;
+  padding-top: 1.5rem;
+}
+.section-heading {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  margin-bottom: 0.875rem;
+}
+details[open] > summary .details-caret {
+  transform: rotate(180deg);
+}
+</style>
 
 <script>
 function toggleEdit(key) {
@@ -363,7 +363,6 @@ async function savePrompt(key) {
     const d = await r.json();
     if (d.ok) {
       document.getElementById('save-msg-' + key).classList.remove('hidden');
-      // update the view pre
       const pre = document.querySelector('#view-' + key + ' pre');
       if (pre) pre.textContent = content;
     }
@@ -408,9 +407,7 @@ async function ncAccept() {
   try {
     const r = await fetch('/admin/prompts/nc-accept', { method: 'POST', body: fd });
     const d = await r.json();
-    if (d.ok) {
-      document.getElementById('nc-accepted-msg').classList.remove('hidden');
-    }
+    if (d.ok) document.getElementById('nc-accepted-msg').classList.remove('hidden');
   } catch (e) {}
 }
 
@@ -442,6 +439,7 @@ async function rvStart() {
     document.getElementById('rv-btn').disabled = false;
   }
 }
+
 async function rvPoll() {
   try {
     const d = await (await fetch('/admin/revalidate/status')).json();
