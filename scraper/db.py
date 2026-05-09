@@ -1078,6 +1078,20 @@ def _person_record_key(name: str, city: str, role: str, community_name: str) -> 
     return f"{_norm(name)}|{_norm(city)}|{_norm(role)}|{_norm(community_name)}"
 
 
+def delete_leader_persons_for_community(db_path: Path, community_name: str, city: str) -> int:
+    """Delete all role='leader' persons for a community before re-inserting clean parsed ones."""
+    if not db_path.exists():
+        return 0
+    with _connect(db_path) as conn:
+        cur = conn.execute(
+            "DELETE FROM persons WHERE city=? AND role='leader' "
+            "AND json_extract(data,'$.community_name')=?",
+            (city, community_name)
+        )
+        conn.commit()
+        return cur.rowcount
+
+
 def upsert_persons(db_path: Path, records: list[dict]) -> int:
     if not records:
         return 0

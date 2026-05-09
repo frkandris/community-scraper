@@ -1,4 +1,5 @@
 import asyncio
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,7 +12,7 @@ from .false_positives import build_prompt_section
 from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
 from .search import BraveSearchClient, DataForSEOClient, DuckDuckGoClient, FallbackSearchClient, SearXNGClient, SerperSearchClient, build_queries
-from .db import get_search_cache, save_search_cache, upsert_venues, upsert_persons
+from .db import get_search_cache, save_search_cache, upsert_venues, upsert_persons, delete_leader_persons_for_community
 from .store import save_results
 
 if TYPE_CHECKING:
@@ -25,6 +26,71 @@ def _needs_enrichment(record: "CommunityRecord") -> bool:
     return not record.website and not record.social_links and not record.contact
 
 
+_TITLE_PREFIXES = frozenset({"dr", "dr.", "prof", "prof.", "ifj", "ifj.", "id", "id."})
+
+
+def _is_name_segment(s: str) -> bool:
+    """Return True if s looks like a name (not a role/description)."""
+    s = s.strip()
+    if not s:
+        return False
+    first = s.split()[0].rstrip(".").lower()
+    if first in _TITLE_PREFIXES:
+        return True
+    return bool(re.match(r"^[A-ZÁÉÍÓÖŐÚÜŰ]", s))
+
+
+def _parse_leader_field(leader: str) -> list[tuple[str, str]]:
+    """
+    Parse a free-text leader field into (name, role_description) pairs.
+
+    Handles patterns like:
+    - "Name, role"                    → one person
+    - "Name1, Name2, Name3 (role)"   → multiple people, collective role
+    - "Name1, role1; Name2, role2"   → two people with individual roles
+    - "Name1, Name2"                  → multiple people, no role
+    """
+    leader = leader.strip()
+
+    # Extract collective role from trailing parentheses when it has no uppercase
+    # e.g. "Name1, Name2 (játékmesterek)" — but NOT "Name (Yang Yajian alias)"
+    collective_role = ""
+    m = re.search(r"\(([^)]+)\)\s*$", leader)
+    if m and not re.search(r"[A-ZÁÉÍÓÖŐÚÜŰ]", m.group(1)):
+        collective_role = m.group(1).strip()
+        leader = leader[: m.start()].strip().rstrip(",").strip()
+
+    results: list[tuple[str, str]] = []
+    for seg in re.split(r"\s*;\s*", leader):
+        seg = seg.strip()
+        if not seg:
+            continue
+
+        comma_parts = [p.strip() for p in seg.split(",")]
+        name_parts: list[str] = []
+        role_parts: list[str] = []
+
+        for part in comma_parts:
+            if not part:
+                continue
+            if role_parts or not _is_name_segment(part):
+                role_parts.append(part)
+            else:
+                name_parts.append(part)
+
+        role_desc = ", ".join(role_parts).strip() or collective_role
+        if not name_parts:
+            continue
+        if len(name_parts) == 1:
+            results.append((name_parts[0], role_desc))
+        else:
+            # Multiple names in one segment — collective role applies to each
+            for name in name_parts:
+                results.append((name, collective_role))
+
+    return results
+
+
 def _persons_from_leaders(records: "list[CommunityRecord]", city_name: str, topic_name: str) -> list:
     from .models import PersonRecord
     from datetime import datetime, timezone
@@ -33,16 +99,21 @@ def _persons_from_leaders(records: "list[CommunityRecord]", city_name: str, topi
     for rec in records:
         if not rec.leader:
             continue
-        persons.append(PersonRecord(
-            name=rec.leader,
-            role="leader",
-            city=city_name,
-            topic=topic_name,
-            community_name=rec.name,
-            community_id=rec.community_id or "",
-            source_url=rec.source_url,
-            extracted_at=extracted_at,
-        ))
+        for name, role_desc in _parse_leader_field(rec.leader):
+            name = name.strip()
+            if not name:
+                continue
+            persons.append(PersonRecord(
+                name=name,
+                role="leader",
+                bio=role_desc or None,
+                city=city_name,
+                topic=topic_name,
+                community_name=rec.name,
+                community_id=rec.community_id or "",
+                source_url=rec.source_url,
+                extracted_at=extracted_at,
+            ))
     return persons
 
 
@@ -474,6 +545,14 @@ async def _run_full(
             if run_persons:
                 leader_persons = _persons_from_leaders(records, city.name, topic.name)
                 if leader_persons:
+                    # Replace old leader persons community-by-community so stale
+                    # or multi-name entries don't accumulate across re-runs.
+                    seen_communities: set[str] = set()
+                    for p in leader_persons:
+                        if p.community_name not in seen_communities:
+                            delete_leader_persons_for_community(
+                                config.db_path, p.community_name, city.name)
+                            seen_communities.add(p.community_name)
                     upsert_persons(config.db_path, [p.model_dump() for p in leader_persons])
                     log.info("persons_from_leaders", city=city.name, topic=topic.name,
                              found=len(leader_persons))
@@ -624,6 +703,12 @@ async def _run_ai_only(
             if run_persons:
                 leader_persons = _persons_from_leaders(records, city.name, topic.name)
                 if leader_persons:
+                    seen_communities: set[str] = set()
+                    for p in leader_persons:
+                        if p.community_name not in seen_communities:
+                            delete_leader_persons_for_community(
+                                config.db_path, p.community_name, city.name)
+                            seen_communities.add(p.community_name)
                     upsert_persons(config.db_path, [p.model_dump() for p in leader_persons])
                     log.info("persons_from_leaders", city=city.name, topic=topic.name,
                              found=len(leader_persons))
