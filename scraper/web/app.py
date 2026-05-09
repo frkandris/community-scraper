@@ -61,7 +61,7 @@ from ..fetch import fetch_and_clean
 from ..models import CommunityRecord
 from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline
 from ..search import BraveSearchClient, SearXNGClient
-from ..store import save_results
+from ..store import patch_results, save_results
 from .i18n import get_topic_labels, lang_context
 from .log_stream import broadcaster
 from .schema import records_to_jsonld
@@ -1802,6 +1802,52 @@ async def cache_queue_extract_all():
 
     log.info("bulk_extract_queued", count=count)
     return RedirectResponse("/admin/progress", status_code=302)
+
+
+_fill_fields_state: dict = {"running": False, "done": 0, "total": 0, "patched": 0, "error": ""}
+
+
+@admin.post("/cache/fill-fields")
+async def cache_fill_fields(background_tasks: BackgroundTasks):
+    """Re-run AI on cached page texts and fill null fields on existing communities."""
+    if not app_state.cache_manager or not app_state.pipeline_cfg:
+        return JSONResponse({"ok": False, "error": "Not configured"})
+    if _fill_fields_state["running"]:
+        return JSONResponse({"ok": False, "error": "Already running"})
+    background_tasks.add_task(_run_fill_fields)
+    return JSONResponse({"ok": True})
+
+
+@admin.get("/cache/fill-fields/status")
+async def cache_fill_fields_status():
+    return JSONResponse(_fill_fields_state)
+
+
+async def _run_fill_fields() -> None:
+    _fill_fields_state.update({"running": True, "done": 0, "total": 0, "patched": 0, "error": ""})
+    try:
+        cfg = app_state.pipeline_cfg
+        fps = fp_load(_db())
+        fp_section = build_prompt_section(fps, fp_type="extraction")
+        all_pages = app_state.cache_manager.get_all_scraped()
+        _fill_fields_state["total"] = len(all_pages)
+
+        for url, raw_text, city, topic in all_pages:
+            locale = next((c.locale for c in (app_state.cities or []) if c.name == city), "en")
+            try:
+                extractor = _build_extractor(cfg)
+                extracted = await extractor.extract(raw_text, city, topic, locale, url, fp_section)
+                joinable = [r for r in extracted if r.joinable]
+                if joinable:
+                    _fill_fields_state["patched"] += patch_results(city, topic, joinable, _db())
+            except Exception as exc:
+                log.warning("fill_fields_item_failed", url=url, error=str(exc))
+            _fill_fields_state["done"] += 1
+    except Exception as exc:
+        _fill_fields_state["error"] = str(exc)
+        log.warning("fill_fields_failed", error=str(exc))
+    finally:
+        _fill_fields_state["running"] = False
 
 
 @admin.get("/cache")

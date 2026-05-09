@@ -50,6 +50,57 @@ def _dedup(records: list[CommunityRecord]) -> list[CommunityRecord]:
     return result
 
 
+_PATCHABLE_FIELDS = [
+    "description", "history", "tags", "meeting_schedule", "location",
+    "fee", "age_range", "skill_level", "join_process", "leader",
+    "language", "frequency", "founding_year", "member_count",
+    "email", "phone", "website", "contact",
+]
+
+
+def _patch_record(existing: CommunityRecord, new: CommunityRecord) -> CommunityRecord:
+    """Return existing with null fields filled from new. Non-null fields are never overwritten."""
+    data = existing.model_dump()
+    patch = new.model_dump()
+    for field in _PATCHABLE_FIELDS:
+        if not data.get(field) and patch.get(field):
+            data[field] = patch[field]
+    existing_links = set(data.get("social_links") or [])
+    for link in patch.get("social_links") or []:
+        existing_links.add(link)
+    data["social_links"] = sorted(existing_links)
+    return CommunityRecord.model_validate(data)
+
+
+def patch_results(
+    city: str,
+    topic: str,
+    new_records: list[CommunityRecord],
+    db_path: Path,
+) -> int:
+    """Fill in null fields on existing communities from new_records. Never overwrites non-null values."""
+    existing_data = get_communities(db_path, city, topic)
+    existing: dict[str, CommunityRecord] = {}
+    for item in existing_data:
+        try:
+            r = CommunityRecord.model_validate(item)
+            existing[_record_key(r)] = r
+        except Exception:
+            pass
+
+    patched = 0
+    for new in new_records:
+        key = _record_key(new)
+        if key in existing:
+            existing[key] = _patch_record(existing[key], new)
+            patched += 1
+
+    deduped = _dedup(sorted(existing.values(), key=lambda r: r.name))
+    replace_communities_for_topic(db_path, city, topic, [r.model_dump() for r in deduped])
+    log.info("patch_results", city=city, topic=topic, patched=patched)
+    return patched
+
+
 def save_results(
     city: str,
     topic: str,
