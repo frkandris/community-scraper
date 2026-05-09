@@ -220,6 +220,38 @@ def init_db(db_path: Path) -> None:
             "CREATE INDEX IF NOT EXISTS idx_history_community_id ON community_history(community_id)"
         )
 
+        # Field-level change history for venues
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS venue_history (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                venue_id   TEXT NOT NULL,
+                changed_at TEXT NOT NULL,
+                changed_by TEXT NOT NULL DEFAULT 'scraper',
+                field      TEXT NOT NULL,
+                old_value  TEXT,
+                new_value  TEXT
+            )
+        """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_venue_history_venue_id ON venue_history(venue_id)"
+        )
+
+        # Field-level change history for persons
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS person_history (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                person_id  TEXT NOT NULL,
+                changed_at TEXT NOT NULL,
+                changed_by TEXT NOT NULL DEFAULT 'scraper',
+                field      TEXT NOT NULL,
+                old_value  TEXT,
+                new_value  TEXT
+            )
+        """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_person_history_person_id ON person_history(person_id)"
+        )
+
         # User-submitted "not a community" flags — pending admin review
         conn.execute("""
             CREATE TABLE IF NOT EXISTS not_community_reports (
@@ -359,6 +391,51 @@ def get_subscriptions(db_path: Path) -> list[dict]:
         ).fetchall()
     return [{"id": r[0], "email": r[1], "city": r[2], "topic": r[3], "created_at": r[4]}
             for r in rows]
+
+
+# ── Shared history helpers ────────────────────────────────────────────────────
+
+def _log_changes(
+    conn: sqlite3.Connection,
+    table: str,
+    id_col: str,
+    record_id: str,
+    fields: list[str],
+    old_data: dict | None,
+    new_data: dict,
+    changed_by: str = "scraper",
+) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    if old_data is None:
+        conn.execute(
+            f"INSERT INTO {table} ({id_col}, changed_at, changed_by, field, old_value, new_value)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (record_id, now, changed_by, "__created__", None, new_data.get("name", "")),
+        )
+        return
+    for field in fields:
+        old_v = _val_str(old_data.get(field))
+        new_v = _val_str(new_data.get(field))
+        if old_v != new_v:
+            conn.execute(
+                f"INSERT INTO {table} ({id_col}, changed_at, changed_by, field, old_value, new_value)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (record_id, now, changed_by, field, old_v, new_v),
+            )
+
+
+def _get_history(db_path: Path, table: str, id_col: str, record_id: str, limit: int = 100) -> list[dict]:
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            f"SELECT changed_at, changed_by, field, old_value, new_value"
+            f" FROM {table} WHERE {id_col}=?"
+            f" ORDER BY changed_at DESC, id DESC LIMIT ?",
+            (record_id, limit),
+        ).fetchall()
+    return [{"changed_at": r[0], "changed_by": r[1], "field": r[2],
+             "old_value": r[3], "new_value": r[4]} for r in rows]
 
 
 # ── Communities ───────────────────────────────────────────────────────────────
@@ -589,6 +666,24 @@ def get_community_history(db_path: Path, community_id: str, limit: int = 100) ->
          "old_value": r[3], "new_value": r[4]}
         for r in rows
     ]
+
+
+_VENUE_HISTORY_FIELDS = [
+    "name", "description", "venue_type", "address", "website",
+    "social_links", "email", "phone", "contact", "welcomed_topics",
+]
+
+_PERSON_HISTORY_FIELDS = [
+    "name", "role", "bio", "email", "website", "social_links", "community_name",
+]
+
+
+def get_venue_history(db_path: Path, venue_id: str, limit: int = 100) -> list[dict]:
+    return _get_history(db_path, "venue_history", "venue_id", venue_id, limit)
+
+
+def get_person_history(db_path: Path, person_id: str, limit: int = 100) -> list[dict]:
+    return _get_history(db_path, "person_history", "person_id", person_id, limit)
 
 
 def set_community_hidden(db_path: Path, record_key: str, hidden: bool) -> None:
@@ -987,14 +1082,14 @@ def upsert_venues(db_path: Path, records: list[dict]) -> int:
             existing = conn.execute(
                 "SELECT data FROM venues WHERE record_key=?", (key,)
             ).fetchone()
-            if existing:
-                ex = json.loads(existing[0])
-                prev_urls: list[str] = ex.get("source_urls") or []
+            old_data = json.loads(existing[0]) if existing else None
+            if old_data:
+                prev_urls: list[str] = old_data.get("source_urls") or []
                 new_urls: list[str] = record.get("source_urls") or []
                 merged = list(dict.fromkeys(new_urls + prev_urls))
                 record = {**record, "source_urls": merged}
                 # Merge community_ids
-                prev_cids = ex.get("community_ids") or []
+                prev_cids = old_data.get("community_ids") or []
                 new_cids = record.get("community_ids") or []
                 record["community_ids"] = list(dict.fromkeys(new_cids + prev_cids))
             conn.execute("""
@@ -1004,6 +1099,8 @@ def upsert_venues(db_path: Path, records: list[dict]) -> int:
                     data=excluded.data, venue_id=excluded.venue_id, updated_at=excluded.updated_at
             """, (key, record.get("venue_id", ""), record["city"],
                   json.dumps(record, ensure_ascii=False), now))
+            _log_changes(conn, "venue_history", "venue_id",
+                         record.get("venue_id", ""), _VENUE_HISTORY_FIELDS, old_data, record)
             count += 1
         conn.commit()
     return count
@@ -1106,9 +1203,9 @@ def upsert_persons(db_path: Path, records: list[dict]) -> int:
             existing = conn.execute(
                 "SELECT data FROM persons WHERE record_key=?", (key,)
             ).fetchone()
-            if existing:
-                ex = json.loads(existing[0])
-                prev_urls = ex.get("source_urls") or []
+            old_data = json.loads(existing[0]) if existing else None
+            if old_data:
+                prev_urls = old_data.get("source_urls") or []
                 new_urls = record.get("source_urls") or []
                 record = {**record, "source_urls": list(dict.fromkeys(new_urls + prev_urls))}
             conn.execute("""
@@ -1119,6 +1216,8 @@ def upsert_persons(db_path: Path, records: list[dict]) -> int:
             """, (key, record.get("person_id", ""), record["city"],
                   record.get("topic", ""), record.get("role", "leader"),
                   json.dumps(record, ensure_ascii=False), now))
+            _log_changes(conn, "person_history", "person_id",
+                         record.get("person_id", ""), _PERSON_HISTORY_FIELDS, old_data, record)
             count += 1
         conn.commit()
     return count

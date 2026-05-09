@@ -47,8 +47,10 @@ from ..db import (
     get_venue_counts,
     get_venues_by_city_topic,
     get_venue_person_counts_by_url,
+    get_venue_history,
     get_persons,
     get_person_counts,
+    get_person_history,
     get_cache_cost_stats,
     get_scope_stats,
     get_prompt_overrides,
@@ -2452,6 +2454,10 @@ async def admin_venues(request: Request, city: str = ""):
     # Resolve topic labels for display
     _topic_labels = get_topic_labels("hu")
 
+    venue_histories = {
+        v.get("venue_id", ""): get_venue_history(app_state.db_path, v.get("venue_id", ""))
+        for v in venues if v.get("venue_id")
+    }
     return templates.TemplateResponse(request, "venues.html", {
         "venues": venues,
         "counts": counts,
@@ -2460,6 +2466,7 @@ async def admin_venues(request: Request, city: str = ""):
         "community_map": community_map,
         "topic_labels": _topic_labels,
         "topic_icons": TOPIC_ICONS,
+        "venue_histories": venue_histories,
     })
 
 
@@ -2475,12 +2482,17 @@ async def admin_persons(request: Request, city: str = "", topic: str = ""):
         persons = []
         for c in all_cities:
             persons.extend(get_persons(app_state.db_path, c, topic or None))
+    person_histories = {
+        p.get("person_id", ""): get_person_history(app_state.db_path, p.get("person_id", ""))
+        for p in persons if p.get("person_id")
+    }
     return templates.TemplateResponse(request, "persons.html", {
         "persons": persons,
         "counts": counts,
         "selected_city": city,
         "selected_topic": topic,
         "cities": all_cities,
+        "person_histories": person_histories,
     })
 
 
