@@ -36,15 +36,17 @@
         <h1 class="text-2xl font-bold text-[#1C1917] leading-tight">{{ r.name }}</h1>
         <div class="flex flex-wrap items-center gap-1.5 mt-2">
           {% if city %}
-          <span class="inline-flex items-center gap-1 text-xs text-[#6A6259] bg-[#F5F2EC] border border-[#EAE5DB] px-2 py-0.5 rounded-md">
+          <a href="/{{ city | slugify }}"
+             class="inline-flex items-center gap-1 text-xs text-[#6A6259] bg-[#F5F2EC] border border-[#EAE5DB] px-2 py-0.5 rounded-md hover:border-[#C2613A] hover:text-[#8A4226] transition-colors">
             <i class="ph ph-map-pin text-[#B5ADA0]"></i> {{ city }}
-          </span>
+          </a>
           {% endif %}
           {% if topic %}
-          <span class="inline-flex items-center gap-1 text-xs text-[#8A4226] bg-[#FDF0EA] border border-[#FAD9C7] px-2 py-0.5 rounded-md">
+          <a href="/{{ city | slugify }}/{{ topic }}"
+             class="inline-flex items-center gap-1 text-xs text-[#8A4226] bg-[#FDF0EA] border border-[#FAD9C7] px-2 py-0.5 rounded-md hover:bg-[#FAD9C7] transition-colors">
             <i class="ph ph-{{ topic_icons.get(topic, 'circle') }}"></i>
             {{ topic_labels.get(topic, topic.replace('_',' ').title()) }}
-          </span>
+          </a>
           {% endif %}
         </div>
       </div>
