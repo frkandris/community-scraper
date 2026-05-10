@@ -64,6 +64,10 @@ from ..db import (
     merge_community_into,
     get_community_by_record_key,
     save_community_data,
+    save_edit_request,
+    get_edit_requests,
+    resolve_edit_request,
+    apply_community_edit,
 )
 from ..false_positives import (add as fp_add, diff_html as fp_diff_html,
                                load as fp_load, load_history as fp_load_history,
@@ -1136,6 +1140,34 @@ async def public_report_not_community(
         _db(), community_id, community_name, city, topic, source_url, page_url
     )
     log.info("not_community_reported", name=community_name, city=city)
+    return JSONResponse({"ok": True})
+
+
+@_fastapi.post("/suggest-edit")
+async def public_suggest_edit(
+    entity_type: str = Form("community"),
+    entity_id: str = Form(""),
+    entity_name: str = Form(""),
+    entity_city: str = Form(""),
+    entity_topic: str = Form(""),
+    record_key: str = Form(""),
+    change_type: str = Form(""),
+    new_value: str = Form(""),
+    notes: str = Form(""),
+    email: str = Form(""),
+):
+    if not entity_name or not change_type or not notes.strip() or not email.strip():
+        return JSONResponse({"ok": False, "error": "missing_fields"})
+    if not app_state.db_path:
+        return JSONResponse({"ok": False})
+    valid_types = {"wrong_city", "wrong_topic", "name_correction", "archive", "delete"}
+    if change_type not in valid_types:
+        return JSONResponse({"ok": False, "error": "invalid_change_type"})
+    save_edit_request(
+        _db(), entity_type, entity_id, entity_name, entity_city, entity_topic,
+        record_key, change_type, new_value.strip() or None, notes.strip(), email.strip(),
+    )
+    log.info("edit_request_submitted", entity=entity_name, change_type=change_type)
     return JSONResponse({"ok": True})
 
 
@@ -2944,6 +2976,10 @@ async def public_city_segment(
             "topic_labels": TOPIC_LABELS,
             "community_history": history,
             "topic_url_slugs": topic_url_slugs,
+            "record_key": _community_record_key(record["name"], city_name, rec_topic),
+            "all_cities": sorted(c.name for c in (app_state.cities or [])),
+            "all_topic_names": [(t.name, TOPIC_LABELS.get(t.name, t.name.replace("_", " ").title()))
+                                for t in (app_state.topics or [])],
             **lang_context(request),
         })
     return RedirectResponse(f"/{city_slug}", status_code=302)

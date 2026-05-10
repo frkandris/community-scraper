@@ -241,6 +241,11 @@
           class="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-[#EAE5DB] rounded-lg text-[#6A6259] hover:border-[#C2613A] hover:text-[#8A4226] transition-colors">
           <i class="ph ph-warning"></i> {{ t('community_report_issue') }}
         </button>
+        <button
+          onclick="document.getElementById('feedback-prompt').classList.add('hidden'); document.getElementById('edit-request-form').classList.remove('hidden');"
+          class="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-[#EAE5DB] rounded-lg text-[#6A6259] hover:border-[#C2613A] hover:text-[#8A4226] transition-colors">
+          <i class="ph ph-pencil-simple"></i> Adatok javítása
+        </button>
       </div>
       <div id="not-community-thanks" class="hidden text-sm text-[#8C8478] flex items-center gap-2">
         <i class="ph ph-check-circle text-green-600"></i> Köszönjük a jelzést.
@@ -273,6 +278,77 @@
           </button>
         </div>
       </form>
+    </div>
+
+    <!-- Edit request form -->
+    <div id="edit-request-form" class="hidden">
+      <p class="text-sm font-medium text-[#2E2B29] mb-3">Módosítási javaslat: <strong>{{ r.name }}</strong></p>
+      <form onsubmit="submitEditRequest(event, this)">
+        <input type="hidden" name="entity_type" value="community">
+        <input type="hidden" name="entity_id" value="{{ r.community_id | default('') | e }}">
+        <input type="hidden" name="entity_name" value="{{ r.name | e }}">
+        <input type="hidden" name="entity_city" value="{{ city | e }}">
+        <input type="hidden" name="entity_topic" value="{{ topic | e }}">
+        <input type="hidden" name="record_key" value="{{ record_key | default('') | e }}">
+
+        <label class="block text-xs font-medium text-[#6A6259] mb-1">Mit szeretnél módosítani?</label>
+        <select name="change_type" required onchange="onChangeType(this.value)"
+          class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] mb-3 text-[#1C1917] bg-white">
+          <option value="">— válassz —</option>
+          <option value="wrong_city">Rossz városban van</option>
+          <option value="wrong_topic">Rossz érdeklődési körnél van</option>
+          <option value="name_correction">Névpontosítás</option>
+          <option value="archive">Megszűnt közösség</option>
+          <option value="delete">Hibás bejegyzés (törlés)</option>
+        </select>
+
+        <div id="edit-new-value-city" class="hidden mb-3">
+          <label class="block text-xs font-medium text-[#6A6259] mb-1">Helyes város</label>
+          <select name="new_value_city"
+            class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] text-[#1C1917] bg-white">
+            <option value="">— válassz várost —</option>
+            {% for c in all_cities %}<option value="{{ c }}"{% if c == city %} selected{% endif %}>{{ c }}</option>{% endfor %}
+          </select>
+        </div>
+
+        <div id="edit-new-value-topic" class="hidden mb-3">
+          <label class="block text-xs font-medium text-[#6A6259] mb-1">Helyes érdeklődési kör</label>
+          <select name="new_value_topic"
+            class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] text-[#1C1917] bg-white">
+            <option value="">— válassz kategóriát —</option>
+            {% for slug, label in all_topic_names %}<option value="{{ slug }}"{% if slug == topic %} selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+
+        <div id="edit-new-value-name" class="hidden mb-3">
+          <label class="block text-xs font-medium text-[#6A6259] mb-1">Helyes név</label>
+          <input type="text" name="new_value_name" value="{{ r.name | e }}"
+            class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] text-[#1C1917]">
+        </div>
+
+        <textarea name="notes" rows="2" required
+          placeholder="Megjegyzés / indoklás (kötelező)"
+          class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg resize-none focus:outline-none focus:border-[#C2613A] mb-3 text-[#1C1917] placeholder-[#B5ADA0]"></textarea>
+        <input type="email" name="email" required
+          placeholder="E-mail cím (kötelező)"
+          class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] mb-3 text-[#1C1917] placeholder-[#B5ADA0]">
+        <div class="flex items-center gap-3">
+          <button type="submit"
+            class="px-4 py-2 bg-[#A8512F] text-white text-xs font-semibold rounded-lg hover:bg-[#8A4226] transition-colors">
+            Javaslat beküldése
+          </button>
+          <button type="button"
+            onclick="document.getElementById('edit-request-form').classList.add('hidden'); document.getElementById('feedback-prompt').classList.remove('hidden');"
+            class="text-xs text-[#8C8478] hover:text-[#4A4441] transition-colors">
+            Mégsem
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Edit request thanks -->
+    <div id="edit-request-thanks" class="hidden text-sm text-green-700 flex items-center gap-2">
+      <i class="ph ph-check-circle"></i> Köszönjük, hamarosan átnézzük a javaslatot.
     </div>
 
     <!-- Thanks after form submit -->
@@ -409,6 +485,37 @@ async function reportNotCommunity() {
   try { await fetch('/report-not-community', { method: 'POST', body: fd }); } catch (_) {}
   document.getElementById('feedback-buttons').classList.add('hidden');
   document.getElementById('not-community-thanks').classList.remove('hidden');
+}
+
+function onChangeType(val) {
+  ['city', 'topic', 'name'].forEach(t =>
+    document.getElementById('edit-new-value-' + t).classList.add('hidden'));
+  if (val === 'wrong_city') document.getElementById('edit-new-value-city').classList.remove('hidden');
+  if (val === 'wrong_topic') document.getElementById('edit-new-value-topic').classList.remove('hidden');
+  if (val === 'name_correction') document.getElementById('edit-new-value-name').classList.remove('hidden');
+}
+
+async function submitEditRequest(event, form) {
+  event.preventDefault();
+  const fd = new FormData(form);
+  const changeType = fd.get('change_type');
+  // Merge the right new_value field into 'new_value'
+  if (changeType === 'wrong_city') fd.set('new_value', fd.get('new_value_city') || '');
+  else if (changeType === 'wrong_topic') fd.set('new_value', fd.get('new_value_topic') || '');
+  else if (changeType === 'name_correction') fd.set('new_value', fd.get('new_value_name') || '');
+  else fd.set('new_value', '');
+  try {
+    const res = await fetch('/suggest-edit', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.ok) {
+      document.getElementById('edit-request-form').classList.add('hidden');
+      document.getElementById('edit-request-thanks').classList.remove('hidden');
+    } else {
+      alert('Hiba: ' + (data.error || 'ismeretlen'));
+    }
+  } catch (e) {
+    alert('Hálózati hiba, próbáld újra.');
+  }
 }
 </script>
 
