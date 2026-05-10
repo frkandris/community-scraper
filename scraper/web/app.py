@@ -1160,9 +1160,13 @@ async def public_suggest_edit(
         return JSONResponse({"ok": False, "error": "missing_fields"})
     if not app_state.db_path:
         return JSONResponse({"ok": False})
+    if entity_type not in {"community"}:
+        return JSONResponse({"ok": False, "error": "invalid_entity_type"})
     valid_types = {"wrong_city", "wrong_topic", "name_correction", "archive", "delete"}
     if change_type not in valid_types:
         return JSONResponse({"ok": False, "error": "invalid_change_type"})
+    if change_type in {"wrong_city", "wrong_topic", "name_correction"} and not new_value.strip():
+        return JSONResponse({"ok": False, "error": "missing_new_value"})
     save_edit_request(
         _db(), entity_type, entity_id, entity_name, entity_city, entity_topic,
         record_key, change_type, new_value.strip() or None, notes.strip(), email.strip(),

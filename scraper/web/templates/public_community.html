@@ -307,7 +307,7 @@
           <select name="new_value_city"
             class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] text-[#1C1917] bg-white">
             <option value="">— válassz várost —</option>
-            {% for c in all_cities %}<option value="{{ c }}"{% if c == city %} selected{% endif %}>{{ c }}</option>{% endfor %}
+            {% for c in all_cities | default([]) %}<option value="{{ c }}"{% if c == city %} selected{% endif %}>{{ c }}</option>{% endfor %}
           </select>
         </div>
 
@@ -316,7 +316,7 @@
           <select name="new_value_topic"
             class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] text-[#1C1917] bg-white">
             <option value="">— válassz kategóriát —</option>
-            {% for slug, label in all_topic_names %}<option value="{{ slug }}"{% if slug == topic %} selected{% endif %}>{{ label }}</option>{% endfor %}
+            {% for slug, label in all_topic_names | default([]) %}<option value="{{ slug }}"{% if slug == topic %} selected{% endif %}>{{ label }}</option>{% endfor %}
           </select>
         </div>
 
