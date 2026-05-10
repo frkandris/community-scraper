@@ -188,9 +188,9 @@
   <!-- Results (city + optional topic filter) -->
   {% else %}
 
-  <div class="flex items-center justify-end mb-6 flex-wrap gap-2 border-b border-[#EAE5DB] pb-4">
+  <div class="{% if not selected_topics %}hidden{% else %}flex items-center justify-end mb-6 flex-wrap gap-2 border-b border-[#EAE5DB] pb-4{% endif %}">
 
-    <!-- Topic chips: URL-mode when topic active, JS-mode otherwise -->
+    <!-- Topic chips: URL-mode when topic active only -->
     {% if selected_topics %}
     <form action="/felfedezes" method="GET" class="flex items-center gap-1.5 flex-wrap">
       <input type="hidden" name="city" value="{{ city }}">
