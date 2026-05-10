@@ -24,8 +24,26 @@ def _strip_articles(name: str) -> str:
     return re.sub(r"^(a |az |the |die |le |la |el |los |las )", "", name.lower().strip())
 
 
+def _strip_city(name: str, city: str) -> str:
+    """Remove city name (and Hungarian adjective +i form) before similarity comparison.
+    Prevents 'Budapest Futók' vs 'Budapest Focisták' inflating similarity via shared prefix."""
+    city_l = city.lower()
+    # Match exact city OR adjective form (e.g. Pécs → Pécsi, Budapest → Budapesti)
+    result = re.sub(r"\b" + re.escape(city_l) + r"i?\b", "", name.lower()).strip(" –-/")
+    return result if len(result) > 2 else name.lower()
+
+
 def _similarity(a: str, b: str) -> float:
     return SequenceMatcher(None, _strip_articles(a), _strip_articles(b)).ratio()
+
+
+def _name_similarity(a: str, b: str, city: str) -> float:
+    """Similarity after stripping city; also catches substring containment (e.g. 'Futók' ⊂ 'Futók Kör')."""
+    na = _strip_articles(_strip_city(a, city))
+    nb = _strip_articles(_strip_city(b, city))
+    if len(na) > 3 and len(nb) > 3 and (na in nb or nb in na):
+        return 0.90
+    return SequenceMatcher(None, na, nb).ratio()
 
 
 def _richness(d: dict) -> int:
@@ -70,8 +88,8 @@ def detect_community_candidates(db_path: Path, city: str | None = None) -> int:
                     similarity = 1.0
 
                 if signal is None:
-                    similarity = _similarity(a["name"], b["name"])
-                    if similarity >= 0.80:
+                    similarity = _name_similarity(a["name"], b["name"], city_name)
+                    if similarity >= 0.85:
                         signal = "fuzzy_name"
 
                 if signal is None:

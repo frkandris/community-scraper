@@ -101,7 +101,7 @@ def test_merge_resolves_candidate_atomically(tmp_path):
     r1 = CommunityRecord(name="Budapest Futók", topic="running", city="Budapest",
                          locale="hu", source_url="https://a.test",
                          extracted_at="2026-01-01T00:00:00+00:00")
-    r2 = CommunityRecord(name="Budapest Futó Kör", topic="fitness", city="Budapest",
+    r2 = CommunityRecord(name="Budapest Futók Kör", topic="fitness", city="Budapest",
                          locale="hu", source_url="https://b.test",
                          extracted_at="2026-01-01T00:00:00+00:00")
     save_results("Budapest", "running", [r1], db)
