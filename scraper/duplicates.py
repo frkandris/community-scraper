@@ -58,7 +58,7 @@ def _richness(d: dict) -> int:
 
 # Generic community words that alone don't constitute a meaningful duplicate signal
 _GENERIC_WORDS: frozenset[str] = frozenset({
-    "csoport", "klub", "kör", "egyesület", "közösség", "társaság", "társulat",
+    "csoport", "klub", "kör", "egyesület", "közösség", "közösségi", "közössége", "társaság", "társulat",
     "csapat", "team", "szakkör", "műhely", "szervezet", "alapítvány",
     "group", "club", "community", "circle", "association", "society",
 })
