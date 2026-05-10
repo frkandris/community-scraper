@@ -59,6 +59,11 @@ from ..db import (
     delete_prompt_override,
     save_city_request,
     init_db,
+    get_duplicate_candidates,
+    resolve_duplicate_candidate,
+    merge_community_into,
+    get_community_by_record_key,
+    save_community_data,
 )
 from ..false_positives import (add as fp_add, diff_html as fp_diff_html,
                                load as fp_load, load_history as fp_load_history,
@@ -2688,6 +2693,147 @@ async def admin_not_community_ai_suggest():
     except Exception as exc:
         log.warning("ai_suggest_failed", error=str(exc))
         return JSONResponse({"ok": False, "suggestion": f"Error: {exc}"})
+
+
+@admin.get("/duplicates", response_class=HTMLResponse)
+async def admin_duplicates(request: Request):
+    if not app_state.db_path:
+        return RedirectResponse("/admin", status_code=302)
+    init_db(_db())
+    candidates = get_duplicate_candidates(_db())
+    enriched = []
+    for c in candidates:
+        winner_data = None
+        loser_data = None
+        if c["entity_type"] == "community":
+            winner_data = get_community_by_record_key(_db(), c["winner_key"])
+            loser_data = get_community_by_record_key(_db(), c["loser_key"])
+        enriched.append({**c, "winner_data": winner_data, "loser_data": loser_data})
+    return templates.TemplateResponse(request, "duplicates.html", {
+        "candidates": enriched,
+        "topic_labels": TOPIC_LABELS,
+        "topic_icons": TOPIC_ICONS,
+    })
+
+
+@admin.post("/duplicates/scan")
+async def admin_duplicates_scan():
+    if not app_state.db_path:
+        return JSONResponse({"ok": False})
+    from ..duplicates import detect_all
+    count = detect_all(_db())
+    return JSONResponse({"ok": True, "new_candidates": count})
+
+
+@admin.post("/duplicates/flag")
+async def admin_duplicates_flag(
+    winner_key: str = Form(...),
+    loser_key: str = Form(...),
+    entity_type: str = Form("community"),
+):
+    """Manually flag two records as duplicates."""
+    if not app_state.db_path:
+        return JSONResponse({"ok": False})
+    from ..db import insert_duplicate_candidate
+    if winner_key == loser_key:
+        return JSONResponse({"ok": False, "error": "same record"})
+    # Canonical order
+    k1, k2 = (winner_key, loser_key) if winner_key <= loser_key else (loser_key, winner_key)
+    inserted = insert_duplicate_candidate(_db(), entity_type, "", "", k1, k2, 1.0, "manual")
+    return JSONResponse({"ok": True, "inserted": inserted})
+
+
+@admin.get("/api/communities/search")
+async def admin_communities_search(q: str = ""):
+    """Return communities matching a name query (for manual duplicate flagging)."""
+    if not app_state.db_path or len(q) < 2:
+        return JSONResponse([])
+    q_lower = q.lower()
+    all_c = get_all_communities(_db())
+    matches = [
+        {"key": _community_record_key(r["name"], r["city"], r["topic"]),
+         "label": f"{r['name']} – {r['city']} ({r.get('topic', '')})",
+         "name": r["name"], "city": r["city"], "topic": r.get("topic", "")}
+        for r in all_c if q_lower in r["name"].lower()
+    ][:20]
+    return JSONResponse(matches)
+
+
+async def _ai_merge_communities(winner: dict, loser: dict) -> dict:
+    """Use LLM to intelligently merge two community records."""
+    fields = [
+        "description", "meeting_schedule", "location", "contact", "website",
+        "fee", "age_range", "skill_level", "join_process", "leader",
+        "language", "frequency", "founding_year", "member_count",
+        "email", "phone", "history", "tags", "social_links",
+    ]
+    w_summary = {k: winner.get(k) for k in ["name", "city", "topic"] + fields}
+    l_summary = {k: loser.get(k) for k in ["name", "city", "topic"] + fields}
+    prompt = (
+        "Merge these two duplicate community records into one best record.\n\n"
+        f"RECORD A:\n{json.dumps(w_summary, ensure_ascii=False, indent=2)}\n\n"
+        f"RECORD B:\n{json.dumps(l_summary, ensure_ascii=False, indent=2)}\n\n"
+        "Rules:\n"
+        "- Keep Record A's name, city, topic unchanged\n"
+        "- For text fields: pick the more informative/detailed value, or combine if both add unique info\n"
+        "- For lists (tags, social_links): union both, remove duplicates\n"
+        "- Omit fields that are null/empty in both records\n"
+        "Output ONLY a JSON object with keys: " + ", ".join(fields) + "\n"
+        "No explanation, just the JSON object."
+    )
+    merged_str = await _ai_chat(prompt, temperature=0.1)
+    try:
+        json_match = re.search(r'\{.*\}', merged_str, re.DOTALL)
+        merged_fields = json.loads(json_match.group() if json_match else merged_str)
+    except Exception:
+        merged_fields = {}
+    result = dict(winner)
+    for f in fields:
+        if f in merged_fields and merged_fields[f] is not None:
+            result[f] = merged_fields[f]
+    # Union source_urls
+    w_urls = list(result.get("source_urls") or [])
+    l_urls = list(loser.get("source_urls") or [])
+    if result.get("source_url") and result["source_url"] not in w_urls:
+        w_urls = [result["source_url"]] + w_urls
+    if loser.get("source_url") and loser["source_url"] not in l_urls:
+        l_urls = [loser["source_url"]] + l_urls
+    result["source_urls"] = list(dict.fromkeys(w_urls + l_urls))
+    return result
+
+
+@admin.post("/duplicates/{candidate_id}/merge")
+async def admin_duplicates_merge(candidate_id: int):
+    if not app_state.db_path:
+        return JSONResponse({"ok": False})
+    candidates = get_duplicate_candidates(_db())
+    c = next((x for x in candidates if x["id"] == candidate_id), None)
+    if not c:
+        return JSONResponse({"ok": False, "error": "not found"})
+    if c["entity_type"] == "community":
+        winner = get_community_by_record_key(_db(), c["winner_key"])
+        loser = get_community_by_record_key(_db(), c["loser_key"])
+        if winner and loser:
+            try:
+                merged = await _ai_merge_communities(winner, loser)
+                save_community_data(_db(), c["winner_key"], merged)
+                set_community_hidden(_db(), c["loser_key"], True)
+                log.info("ai_merge_done", winner=c["winner_key"], loser=c["loser_key"])
+            except Exception as exc:
+                log.warning("ai_merge_failed_fallback", error=str(exc))
+                merge_community_into(_db(), c["winner_key"], c["loser_key"])
+        else:
+            merge_community_into(_db(), c["winner_key"], c["loser_key"])
+    resolve_duplicate_candidate(_db(), candidate_id, "merged")
+    return JSONResponse({"ok": True})
+
+
+@admin.post("/duplicates/{candidate_id}/dismiss")
+async def admin_duplicates_dismiss(candidate_id: int):
+    if not app_state.db_path:
+        return JSONResponse({"ok": False})
+    resolve_duplicate_candidate(_db(), candidate_id, "dismissed")
+    return JSONResponse({"ok": True})
 
 
 _fastapi.include_router(admin)

@@ -628,6 +628,17 @@ def get_all_communities(db_path: Path) -> list[dict]:
     return [json.loads(r[0]) for r in rows]
 
 
+def get_community_by_record_key(db_path: Path, record_key: str) -> dict | None:
+    """Get a single community by record_key, including hidden records."""
+    if not db_path or not db_path.exists():
+        return None
+    with _connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT data FROM communities WHERE record_key=?", (record_key,)
+        ).fetchone()
+    return json.loads(row[0]) if row else None
+
+
 def get_communities_needing_revalidation(
     db_path: Path,
     fingerprint: str,
@@ -1517,4 +1528,15 @@ def merge_community_into(
                 "UPDATE duplicate_candidates SET resolution=?, resolved_at=? WHERE id=?",
                 ("merged", now2, candidate_id),
             )
+        conn.commit()
+
+
+def save_community_data(db_path: Path, record_key: str, data: dict) -> None:
+    """Overwrite the data blob for a community record."""
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect(db_path) as conn:
+        conn.execute(
+            "UPDATE communities SET data=?, updated_at=? WHERE record_key=?",
+            (json.dumps(data, ensure_ascii=False), now, record_key),
+        )
         conn.commit()
