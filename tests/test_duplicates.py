@@ -194,6 +194,25 @@ def test_detect_idempotent(tmp_path):
     assert len(candidates) == 1  # only one, not two
 
 
+def test_dismissed_pair_not_reinserted_on_rescan(tmp_path):
+    """Dismissed duplicate pair must not reappear after a new scan."""
+    db = _db(tmp_path)
+    r1 = CommunityRecord(name="Budapest Futók", topic="running", city="Budapest",
+                         locale="hu", source_url="https://a.test",
+                         extracted_at="2026-01-01T00:00:00+00:00")
+    r2 = CommunityRecord(name="Budapest Futók Kör", topic="fitness", city="Budapest",
+                         locale="hu", source_url="https://b.test",
+                         extracted_at="2026-01-01T00:00:00+00:00")
+    save_results("Budapest", "running", [r1], db)
+    save_results("Budapest", "fitness", [r2], db)
+    cid = get_duplicate_candidates(db, resolved=False)[0]["id"]
+    resolve_duplicate_candidate(db, cid, "dismissed")
+    # Re-scan should not bring it back
+    detect_community_candidates(db)
+    pending = get_duplicate_candidates(db, resolved=False)
+    assert len(pending) == 0
+
+
 def test_save_results_detects_cross_topic_duplicates(tmp_path):
     """After save_results, duplicates across topics in same city are auto-detected."""
     db = _db(tmp_path)

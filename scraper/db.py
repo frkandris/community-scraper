@@ -1461,8 +1461,15 @@ def insert_duplicate_candidate(
 ) -> bool:
     now = datetime.now(timezone.utc).isoformat()
     with _connect(db_path) as conn:
+        existing = conn.execute(
+            "SELECT id FROM duplicate_candidates"
+            " WHERE entity_type=? AND winner_key=? AND loser_key=?",
+            (entity_type, winner_key, loser_key),
+        ).fetchone()
+        if existing:
+            return False
         cursor = conn.execute("""
-            INSERT OR IGNORE INTO duplicate_candidates
+            INSERT INTO duplicate_candidates
               (entity_type, winner_id, loser_id, winner_key, loser_key, similarity, signal, detected_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (entity_type, winner_id, loser_id, winner_key, loser_key, similarity, signal, now))
