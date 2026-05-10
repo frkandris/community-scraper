@@ -102,18 +102,13 @@
   <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
     {% for r in tag_records %}
     <a href="{{ r.community_url }}" class="block bg-white rounded-lg border border-[#EAE5DB] p-4 flex flex-col gap-2 shadow-sm hover:border-[#E88E6B] hover:bg-[#FDF0EA]/40 hover:shadow-md transition-all">
-      <h4 class="font-semibold text-[#1C1917] text-sm leading-snug">{{ r.name }}</h4>
+      <h4 class="font-semibold text-[#1C1917] text-sm leading-snug flex items-baseline gap-1.5">
+        <i class="ph ph-{{ topic_icons.get(r.topic, 'circle') }} text-[#C2613A] text-sm shrink-0"></i>
+        <span>{{ r.name }}</span>
+      </h4>
       {% if r.description %}
       <p class="text-xs text-[#6A6259] leading-relaxed line-clamp-2">{{ r.description }}</p>
       {% endif %}
-      <div class="flex items-center gap-3 text-xs text-[#8C8478] mt-auto pt-1">
-        {% if r.location %}
-        <span class="flex items-center gap-1"><i class="ph ph-map-pin text-[#B5ADA0]"></i>{{ r.location }}</span>
-        {% endif %}
-        {% if r.city %}
-        <span class="flex items-center gap-1"><i class="ph ph-buildings text-[#B5ADA0]"></i>{{ r.city }}</span>
-        {% endif %}
-      </div>
     </a>
     {% endfor %}
   </div>
@@ -157,15 +152,12 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
         {% for r in city_sec.records %}
         <a href="{{ r.community_url }}" class="block bg-white rounded-lg border border-[#EAE5DB] p-3 flex flex-col gap-1.5 shadow-sm hover:border-[#E88E6B] hover:bg-[#FDF0EA]/40 hover:shadow-md transition-all">
-          <h4 class="font-semibold text-[#1C1917] text-xs leading-snug line-clamp-2">{{ r.name }}</h4>
+          <h4 class="font-semibold text-[#1C1917] text-xs leading-snug flex items-baseline gap-1">
+            <i class="ph ph-{{ topic_icons.get(r.topic, 'circle') }} text-[#C2613A] text-xs shrink-0"></i>
+            <span>{{ r.name }}</span>
+          </h4>
           {% if r.description %}
-          <p class="text-[11px] text-[#6A6259] leading-relaxed line-clamp-2 flex-1">{{ r.description }}</p>
-          {% endif %}
-          {% if r.location %}
-          <div class="flex items-center gap-1 text-[11px] text-[#8C8478] mt-auto">
-            <i class="ph ph-map-pin shrink-0 text-[#B5ADA0]"></i>
-            <span class="truncate">{{ r.location }}</span>
-          </div>
+          <p class="text-[11px] text-[#6A6259] leading-relaxed line-clamp-2">{{ r.description }}</p>
           {% endif %}
         </a>
         {% endfor %}
@@ -261,23 +253,6 @@
       {% if r.description %}
       <p class="text-sm text-[#6A6259] leading-relaxed line-clamp-2">{{ r.description }}</p>
       {% endif %}
-
-      <div class="grid grid-cols-1 gap-1 text-sm">
-        {% if r.location %}
-        <div class="flex items-start gap-2 text-[#6A6259]">
-          <i class="ph ph-map-pin text-base leading-5 shrink-0 text-[#B5ADA0]"></i>
-          <span>{{ r.location }}</span>
-        </div>
-        {% endif %}
-        {% if r.meeting_schedule %}
-        <div class="flex items-start gap-2 text-[#6A6259]">
-          <i class="ph ph-calendar text-base leading-5 shrink-0 text-[#B5ADA0]"></i>
-          <span>{{ r.meeting_schedule }}</span>
-        </div>
-        {% endif %}
-      </div>
-
-
 
     </div>
     {% endfor %}
