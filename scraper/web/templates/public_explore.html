@@ -1,5 +1,6 @@
 {% extends "public_base.html" %}
 {% block head %}{% if schema_json %}<script type="application/ld+json">{{ schema_json | safe }}</script>{% endif %}{% endblock %}
+{% block og_desc %}{% if city and total > 0 %}{{ total }} közösség {{ city }}-ban/-ben.{% elif city %}Közösségek {{ city }}-ban/-ben – fedezd fel az érdeklődési köröket.{% else %}Fedezd fel a helyi közösségeket Magyarországon.{% endif %}{% endblock %}
 {% block title %}
   {% if city and selected_topics %}
     {{ city }} · {{ selected_topics | map('replace', '_', ' ') | join(', ') | title }} – közösségek.com

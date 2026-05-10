@@ -12,6 +12,17 @@
   <style>
     .brand-gradient { background: linear-gradient(135deg, #8A4226 0%, #A8512F 30%, #C2613A 65%, #E88E6B 100%); }
   </style>
+  {% block og_meta %}
+  <meta property="og:site_name" content="közösségek.com">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ request.url }}">
+  <meta property="og:title" content="{{ self.title() | trim }}">
+  <meta property="og:description" content="{% block og_desc %}Helyi közösségek és érdeklődési körök Magyarországon.{% endblock %}">
+  <meta property="og:locale" content="hu_HU">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="{{ self.title() | trim }}">
+  <meta name="twitter:description" content="{{ self.og_desc() }}">
+  {% endblock %}
   {% block head %}{% endblock %}
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-XD0Z4FE8LX"></script>
   <script>
