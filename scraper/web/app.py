@@ -2878,6 +2878,40 @@ async def admin_duplicates_dismiss(candidate_id: int):
     return JSONResponse({"ok": True})
 
 
+@admin.get("/edit-requests", response_class=HTMLResponse)
+async def admin_edit_requests(request: Request):
+    if not app_state.db_path:
+        return RedirectResponse("/admin", status_code=302)
+    init_db(_db())
+    edit_requests_list = get_edit_requests(_db(), status="pending")
+    return templates.TemplateResponse(request, "edit_requests.html", {
+        "requests": edit_requests_list,
+        "topic_labels": TOPIC_LABELS,
+    })
+
+
+@admin.post("/edit-requests/{request_id}/approve")
+async def admin_edit_requests_approve(request_id: int):
+    if not app_state.db_path:
+        return JSONResponse({"ok": False})
+    edit_requests_list = get_edit_requests(_db(), status="pending")
+    r = next((x for x in edit_requests_list if x["id"] == request_id), None)
+    if not r:
+        return JSONResponse({"ok": False, "error": "not found"})
+    if r["entity_type"] == "community":
+        apply_community_edit(_db(), r["record_key"], r["change_type"], r["new_value"])
+    resolve_edit_request(_db(), request_id, "approved")
+    return JSONResponse({"ok": True})
+
+
+@admin.post("/edit-requests/{request_id}/reject")
+async def admin_edit_requests_reject(request_id: int):
+    if not app_state.db_path:
+        return JSONResponse({"ok": False})
+    resolve_edit_request(_db(), request_id, "rejected")
+    return JSONResponse({"ok": True})
+
+
 _fastapi.include_router(admin)
 
 
