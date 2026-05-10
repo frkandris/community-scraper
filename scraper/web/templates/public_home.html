@@ -103,8 +103,8 @@
                 bg-white placeholder-[#B5ADA0] text-[#1C1917]"
             >
             <button type="button" id="geo-btn" title="Helyzet meghatározása"
-              class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#B5ADA0] hover:text-[#C2613A] transition-colors">
-              <i id="geo-icon" class="ph ph-crosshair text-xl leading-none"></i>
+              class="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center justify-center w-6 h-6 text-[#B5ADA0] hover:text-[#C2613A] transition-colors">
+              <i id="geo-icon" class="ph ph-crosshair text-xl"></i>
             </button>
             <datalist id="cities-list">
               {% for city in cities %}
@@ -215,8 +215,8 @@ async function fetchCounts(city) {
       if (count > 0) total += count;
     });
     cityCountText.textContent = total > 0
-      ? total + ' közösség található ' + city + '-ban/-ben'
-      : 'Még nincs adat ' + city + '-hoz/-hez – nézz vissza a következő futás után.';
+      ? total + ' közösség itt: ' + city
+      : 'Még nincs adat – nézz vissza a következő futás után.';
   } catch (e) {}
 }
 
