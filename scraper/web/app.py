@@ -1236,6 +1236,8 @@ async def public_about(request: Request):
     hu_names = _hu_city_names()
     hu_topic_counts = _hu_topic_counts()
     city_totals = dict(get_city_totals(_db())) if app_state.db_path else {}
+    venue_counts = {k: v for k, v in (get_venue_counts(_db()) if app_state.db_path else {}).items() if k in hu_names}
+    person_counts = {k: v for k, v in (get_person_counts(_db()) if app_state.db_path else {}).items() if k in hu_names}
     all_hu_cities = sorted(
         [{"name": c.name, "slug": _slugify(c.name), "count": city_totals.get(c.name, 0)}
          for c in (app_state.cities or []) if c.country == "Hungary"],
@@ -1245,6 +1247,8 @@ async def public_about(request: Request):
         "city_count": len(hu_names),
         "topic_count": len(app_state.topics or []),
         "total_records": sum(hu_topic_counts.values()),
+        "total_venues": sum(venue_counts.values()),
+        "total_persons": sum(person_counts.values()),
         "topics": app_state.topics or [],
         "topic_icons": TOPIC_ICONS,
         "topic_labels": TOPIC_LABELS,

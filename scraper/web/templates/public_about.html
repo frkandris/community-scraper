@@ -21,19 +21,23 @@
   </div>
 
   <!-- Stats -->
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-    <div class="bg-white border border-[#EAE5DB] rounded-lg p-6 text-center">
-      <div class="text-4xl font-extrabold text-[#1C1917] mb-1">{{ city_count }}</div>
-      <div class="text-sm text-[#8C8478] font-medium">{{ t('about_cities') }}</div>
-    </div>
-    <div class="bg-white border border-[#EAE5DB] rounded-lg p-6 text-center">
-      <div class="text-4xl font-extrabold text-[#1C1917] mb-1">{{ topic_count }}</div>
-      <div class="text-sm text-[#8C8478] font-medium">{{ t('about_topics') }}</div>
-    </div>
-    <div class="bg-white border border-[#EAE5DB] rounded-lg p-6 text-center">
-      <div class="text-4xl font-extrabold text-[#1C1917] mb-1">{{ total_records }}</div>
-      <div class="text-sm text-[#8C8478] font-medium">{{ t('about_communities') }}</div>
-    </div>
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <a href="/felfedezes" class="bg-white border border-[#EAE5DB] rounded-lg p-4 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
+      <div class="text-2xl font-extrabold text-[#1C1917]">{{ total_records }}</div>
+      <div class="text-xs font-medium text-[#8C8478] mt-1 group-hover:text-[#A8512F]">{{ t('about_communities') }}</div>
+    </a>
+    <a href="/varosok" class="bg-white border border-[#EAE5DB] rounded-lg p-4 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
+      <div class="text-2xl font-extrabold text-[#1C1917]">{{ city_count }}</div>
+      <div class="text-xs font-medium text-[#8C8478] mt-1 group-hover:text-[#A8512F]">{{ t('about_cities') }}</div>
+    </a>
+    <a href="/emberek" class="bg-white border border-[#EAE5DB] rounded-lg p-4 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
+      <div class="text-2xl font-extrabold text-[#1C1917]">{{ total_persons }}</div>
+      <div class="text-xs font-medium text-[#8C8478] mt-1 group-hover:text-[#A8512F]">{{ t('about_people') }}</div>
+    </a>
+    <a href="/helyszinek" class="bg-white border border-[#EAE5DB] rounded-lg p-4 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
+      <div class="text-2xl font-extrabold text-[#1C1917]">{{ total_venues }}</div>
+      <div class="text-xs font-medium text-[#8C8478] mt-1 group-hover:text-[#A8512F]">{{ t('about_venues') }}</div>
+    </a>
   </div>
 
   <!-- Browse by interest -->
