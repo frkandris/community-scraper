@@ -188,9 +188,9 @@
   <!-- Results (city + optional topic filter) -->
   {% else %}
 
-  <div class="{% if not selected_topics %}hidden{% else %}flex items-center justify-end mb-6 flex-wrap gap-2 border-b border-[#EAE5DB] pb-4{% endif %}">
+  <div class="flex items-center justify-end mb-6 flex-wrap gap-2 border-b border-[#EAE5DB] pb-4">
 
-    <!-- Topic chips: URL-mode when topic active only -->
+    <!-- Topic chips: URL-mode when topic active, JS-mode otherwise -->
     {% if selected_topics %}
     <form action="/felfedezes" method="GET" class="flex items-center gap-1.5 flex-wrap">
       <input type="hidden" name="city" value="{{ city }}">
@@ -274,26 +274,6 @@
         {% endif %}
       </div>
 
-      {# Meta chips: fee, member_count, founding_year, skill_level #}
-      {% set chips = [] %}
-      {% if r.fee and r.fee | length <= 15 %}{% set _ = chips.append({'icon': 'currency-circle-dollar', 'text': r.fee, 'color': 'green' if r.fee | lower in ('ingyenes','free','gratis','kostenlos','gratuit') else 'amber'}) %}{% endif %}
-      {% if r.member_count and r.member_count | string | length <= 15 %}{% set _ = chips.append({'icon': 'users-three', 'text': r.member_count, 'color': 'blue'}) %}{% endif %}
-      {% if r.skill_level and r.skill_level | length <= 15 %}{% set _ = chips.append({'icon': 'star', 'text': r.skill_level, 'color': 'fuchsia'}) %}{% endif %}
-      {% if r.founding_year %}{% set _ = chips.append({'icon': 'flag', 'text': r.founding_year | string, 'color': 'neutral'}) %}{% endif %}
-      {% if chips %}
-      <div class="flex flex-wrap gap-1.5">
-        {% for chip in chips %}
-        <span class="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full
-          {% if chip.color == 'green' %}bg-green-50 text-green-700 border border-green-100
-          {% elif chip.color == 'amber' %}bg-amber-50 text-amber-700 border border-amber-100
-          {% elif chip.color == 'blue' %}bg-blue-50 text-blue-700 border border-blue-100
-          {% elif chip.color == 'fuchsia' %}bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-100
-          {% else %}bg-[#F5F2EC] text-[#6A6259] border border-[#EAE5DB]{% endif %}">
-          <i class="ph ph-{{ chip.icon }}"></i>{{ chip.text }}
-        </span>
-        {% endfor %}
-      </div>
-      {% endif %}
 
       {% set website_url = r.website if r.website and r.website.startswith('http') else ('https://' ~ r.website if r.website else '') %}
       {% if (website_url and website_url | valid_url) or r.social_links %}
