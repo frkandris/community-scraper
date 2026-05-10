@@ -862,7 +862,7 @@ _T: dict[str, dict[str, str]] = {
     "subscribe_desc": "E-mailben értesítünk, ha új közösségeket találunk {city} városban.",
     "subscribe_desc_topic": "E-mailben értesítünk, ha új {topic} közösségeket találunk {city} városban.",
     "explore_near_you": "A közeledben",
-    "about_description": "A közösségek.com 2026-ban jött létre, hogy ne kelljen órákat keresgélni: találd meg a közösségedet, és ismerd meg a hasonlóan gondolkodókat.",
+    "about_description": "A közösségek.com 2026-ban jött létre azzal a céllal, hogy segítsen helyi közösségeket és új, hasonló érdeklődésű barátokat találni.",
     "about_how_it_works": "Hogyan működik",
     "about_how_it_works_text": "Néhány óránként egy automatizált rendszer keres az interneten közösségi csoportokat minden város × érdeklődési kör kombináció alapján. Letölti a releváns oldalakat, és egy helyi AI nyelvi modellel strukturált adatokat nyer ki belőlük — találkozási időpontok, helyszínek, elérhetőségek, weboldalak —, majd kiszűri azokat az eredményeket, amelyek nem valódi, csatlakozható csoportok.",
     "footer_tagline": "Magyarország közösségei egy helyen",
