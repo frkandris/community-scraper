@@ -81,3 +81,36 @@ def test_merge_community_into_hides_loser_and_merges_urls(tmp_path):
     # The loser is hidden
     hidden_check = get_communities(db, "Budapest", "fitness")
     assert len(hidden_check) == 0
+
+
+def test_get_resolved_excludes_pending(tmp_path):
+    db = _db(tmp_path)
+    insert_duplicate_candidate(db, "community", "id_a", "id_b", "key_a", "key_b", 0.95, "fuzzy_name")
+    insert_duplicate_candidate(db, "community", "id_c", "id_d", "key_c", "key_d", 0.90, "fuzzy_name")
+    cid = get_duplicate_candidates(db)[0]["id"]
+    resolve_duplicate_candidate(db, cid, "dismissed")
+    resolved_rows = get_duplicate_candidates(db, resolved=True)
+    assert len(resolved_rows) == 1  # only the resolved one
+    assert resolved_rows[0]["resolution"] == "dismissed"
+    pending_rows = get_duplicate_candidates(db, resolved=False)
+    assert len(pending_rows) == 1  # only the pending one
+
+
+def test_merge_resolves_candidate_atomically(tmp_path):
+    db = _db(tmp_path)
+    insert_duplicate_candidate(db, "community", "id_a", "id_b", "key_a", "key_b", 0.95, "fuzzy_name")
+    cid = get_duplicate_candidates(db)[0]["id"]
+    r1 = CommunityRecord(name="Budapest Futók", topic="running", city="Budapest",
+                         locale="hu", source_url="https://a.test",
+                         extracted_at="2026-01-01T00:00:00+00:00")
+    r2 = CommunityRecord(name="Budapest Futó Kör", topic="fitness", city="Budapest",
+                         locale="hu", source_url="https://b.test",
+                         extracted_at="2026-01-01T00:00:00+00:00")
+    save_results("Budapest", "running", [r1], db)
+    save_results("Budapest", "fitness", [r2], db)
+    winner_key = _community_record_key(r1.name, r1.city, r1.topic)
+    loser_key = _community_record_key(r2.name, r2.city, r2.topic)
+    merge_community_into(db, winner_key, loser_key, candidate_id=cid)
+    # Candidate should be resolved atomically
+    pending = get_duplicate_candidates(db, resolved=False)
+    assert len(pending) == 0

@@ -1440,7 +1440,9 @@ def get_duplicate_candidates(
         return []
     clauses = []
     params: list = []
-    if not resolved:
+    if resolved:
+        clauses.append("resolution IS NOT NULL")
+    else:
         clauses.append("resolution IS NULL")
     if entity_type:
         clauses.append("entity_type = ?")
@@ -1465,7 +1467,12 @@ def resolve_duplicate_candidate(db_path: Path, candidate_id: int, resolution: st
         conn.commit()
 
 
-def merge_community_into(db_path: Path, winner_key: str, loser_key: str) -> None:
+def merge_community_into(
+    db_path: Path,
+    winner_key: str,
+    loser_key: str,
+    candidate_id: int | None = None,
+) -> None:
     with _connect(db_path) as conn:
         winner_row = conn.execute(
             "SELECT data FROM communities WHERE record_key=?", (winner_key,)
@@ -1495,4 +1502,10 @@ def merge_community_into(db_path: Path, winner_key: str, loser_key: str) -> None
             "UPDATE communities SET hidden=1 WHERE record_key=?",
             (loser_key,),
         )
+        if candidate_id is not None:
+            now2 = datetime.now(timezone.utc).isoformat()
+            conn.execute(
+                "UPDATE duplicate_candidates SET resolution=?, resolved_at=? WHERE id=?",
+                ("merged", now2, candidate_id),
+            )
         conn.commit()
