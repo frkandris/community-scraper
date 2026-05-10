@@ -68,9 +68,9 @@ def test_merge_community_into_hides_loser_and_merges_urls(tmp_path):
 
     merge_community_into(db, winner_key, loser_key)
 
-    # get_all_communities returns every row (no hidden filter); get_communities uses hidden=0
+    # get_all_communities now filters hidden=0; only the winner remains visible
     all_records = get_all_communities(db)
-    assert len(all_records) == 2  # both rows exist in DB
+    assert len(all_records) == 1  # loser is hidden, only winner visible
 
     # Only the winner is visible (hidden=0)
     visible = get_communities(db, "Budapest", "running")
@@ -174,3 +174,19 @@ def test_no_cross_city_false_positive(tmp_path):
 def test_detect_all_runs_without_error(tmp_path):
     db = _db(tmp_path)
     detect_all(db)  # should not raise
+
+
+def test_detect_idempotent(tmp_path):
+    db = _db(tmp_path)
+    r1 = CommunityRecord(name="Budapest Futók", topic="running", city="Budapest",
+                         locale="hu", source_url="https://a.test",
+                         extracted_at="2026-01-01T00:00:00+00:00")
+    r2 = CommunityRecord(name="Budapest Futók Kör", topic="fitness", city="Budapest",
+                         locale="hu", source_url="https://b.test",
+                         extracted_at="2026-01-01T00:00:00+00:00")
+    save_results("Budapest", "running", [r1], db)
+    save_results("Budapest", "fitness", [r2], db)
+    detect_community_candidates(db)
+    detect_community_candidates(db)  # second run
+    candidates = get_duplicate_candidates(db)
+    assert len(candidates) == 1  # only one, not two

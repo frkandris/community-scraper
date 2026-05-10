@@ -8,8 +8,12 @@ from pathlib import Path
 import structlog
 
 from .db import (
+    _community_record_key,
+    _venue_record_key,
+    _person_record_key,
     get_all_communities,
     get_all_venues,
+    get_all_persons,
     insert_duplicate_candidate,
 )
 
@@ -73,20 +77,24 @@ def detect_community_candidates(db_path: Path, city: str | None = None) -> int:
                 if signal is None:
                     continue
 
-                # Winner = richer record
+                # Compute canonical key pair before richness swap (for idempotent index)
+                key_a = _community_record_key(a["name"], a["city"], a["topic"])
+                key_b = _community_record_key(b["name"], b["city"], b["topic"])
+
+                # Winner = richer record (for display)
                 if _richness(b) > _richness(a):
                     a, b = b, a
 
-                from .db import _community_record_key
-                winner_key = _community_record_key(a["name"], a["city"], a["topic"])
-                loser_key = _community_record_key(b["name"], b["city"], b["topic"])
-                insert_duplicate_candidate(
+                # Canonical order for unique index
+                winner_key, loser_key = (key_a, key_b) if key_a <= key_b else (key_b, key_a)
+
+                if insert_duplicate_candidate(
                     db_path, "community",
                     a.get("community_id", ""), b.get("community_id", ""),
                     winner_key, loser_key,
                     round(similarity, 4), signal,
-                )
-                inserted += 1
+                ):
+                    inserted += 1
                 log.info("duplicate_candidate_found", entity="community",
                          winner=a["name"], loser=b["name"], city=city_name,
                          signal=signal, similarity=round(similarity, 3))
@@ -123,25 +131,29 @@ def detect_venue_candidates(db_path: Path) -> int:
                 if signal is None:
                     continue
 
+                # Compute canonical key pair before richness swap
+                key_a = _venue_record_key(a["name"], a["city"])
+                key_b = _venue_record_key(b["name"], b["city"])
+
                 if _richness(b) > _richness(a):
                     a, b = b, a
 
-                from .db import _venue_record_key
-                insert_duplicate_candidate(
+                # Canonical order for unique index
+                winner_key, loser_key = (key_a, key_b) if key_a <= key_b else (key_b, key_a)
+
+                if insert_duplicate_candidate(
                     db_path, "venue",
                     a.get("venue_id", ""), b.get("venue_id", ""),
-                    _venue_record_key(a["name"], a["city"]),
-                    _venue_record_key(b["name"], b["city"]),
+                    winner_key, loser_key,
                     round(similarity, 4), signal,
-                )
-                inserted += 1
+                ):
+                    inserted += 1
 
     return inserted
 
 
 def detect_person_candidates(db_path: Path) -> int:
     """Detect duplicate persons within the same city."""
-    from .db import get_all_persons
     all_persons = get_all_persons(db_path)
 
     by_city: dict[str, list[dict]] = {}
@@ -155,17 +167,24 @@ def detect_person_candidates(db_path: Path) -> int:
                 similarity = _similarity(a["name"], b["name"])
                 if similarity < 0.90:
                     continue
+
+                # Compute canonical key pair before richness swap
+                key_a = _person_record_key(a["name"], a["city"], a.get("role", ""), a.get("community_name", ""))
+                key_b = _person_record_key(b["name"], b["city"], b.get("role", ""), b.get("community_name", ""))
+
                 if _richness(b) > _richness(a):
                     a, b = b, a
-                from .db import _person_record_key
-                insert_duplicate_candidate(
+
+                # Canonical order for unique index
+                winner_key, loser_key = (key_a, key_b) if key_a <= key_b else (key_b, key_a)
+
+                if insert_duplicate_candidate(
                     db_path, "person",
                     a.get("person_id", ""), b.get("person_id", ""),
-                    _person_record_key(a["name"], a["city"], a.get("role", ""), a.get("community_name", "")),
-                    _person_record_key(b["name"], b["city"], b.get("role", ""), b.get("community_name", "")),
+                    winner_key, loser_key,
                     round(similarity, 4), "fuzzy_name",
-                )
-                inserted += 1
+                ):
+                    inserted += 1
 
     return inserted
 

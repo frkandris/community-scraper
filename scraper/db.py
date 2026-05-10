@@ -623,7 +623,7 @@ def get_all_communities(db_path: Path) -> list[dict]:
         return []
     with _connect(db_path) as conn:
         rows = conn.execute(
-            "SELECT data FROM communities ORDER BY city, topic, id"
+            "SELECT data FROM communities WHERE hidden=0 ORDER BY city, topic, id"
         ).fetchall()
     return [json.loads(r[0]) for r in rows]
 
@@ -1428,15 +1428,16 @@ def insert_duplicate_candidate(
     loser_key: str,
     similarity: float,
     signal: str,
-) -> None:
+) -> bool:
     now = datetime.now(timezone.utc).isoformat()
     with _connect(db_path) as conn:
-        conn.execute("""
+        cursor = conn.execute("""
             INSERT OR IGNORE INTO duplicate_candidates
               (entity_type, winner_id, loser_id, winner_key, loser_key, similarity, signal, detected_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (entity_type, winner_id, loser_id, winner_key, loser_key, similarity, signal, now))
         conn.commit()
+        return cursor.rowcount > 0
 
 
 def get_duplicate_candidates(
