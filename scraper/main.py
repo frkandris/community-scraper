@@ -155,6 +155,13 @@ async def main() -> None:
     app_state.scheduler = scheduler
     log.info("scheduler_started", cron=cron_expr, version=app_state.version)
 
+    async def _startup_run() -> None:
+        await asyncio.sleep(5)
+        log.info("startup_run_triggered")
+        await _scheduled_run()
+
+    asyncio.create_task(_startup_run())
+
     config = uvicorn.Config(
         web_app,
         host=os.environ.get("HOST", "127.0.0.1"),
