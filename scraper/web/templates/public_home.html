@@ -82,11 +82,6 @@
 
     <!-- Right: search form (order-1 on mobile so it appears before cities) -->
     <section class="bg-white rounded-xl border border-[#EAE5DB] p-5 sm:p-6 lg:sticky lg:top-20 shadow-sm order-1 lg:order-2">
-      <div class="mb-6">
-        <h2 class="text-base font-bold text-[#1C1917]">{{ t('nav_discover') }}</h2>
-        <p class="text-xs text-[#8C8478] mt-1">{{ t('home_city_label') }} + {{ t('home_interests_label') }}</p>
-      </div>
-
       <form action="/felfedezes" method="GET" id="main-form">
 
         <!-- City input -->
@@ -95,7 +90,6 @@
             {{ t('home_city_label') }}
           </label>
           <div class="relative">
-            <i class="ph ph-city absolute left-3 top-1/2 -translate-y-1/2 text-[#B5ADA0] text-lg pointer-events-none"></i>
             <input
               type="text"
               name="city"
@@ -104,10 +98,14 @@
               value="{{ selected_city }}"
               placeholder="{{ t('home_city_placeholder') }}"
               autocomplete="off"
-              class="w-full pl-10 pr-3 py-3 text-base border border-[#D8D1C4] rounded-lg
+              class="w-full pl-3 pr-10 py-3 text-base border border-[#D8D1C4] rounded-lg
                 focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 transition-colors
                 bg-white placeholder-[#B5ADA0] text-[#1C1917]"
             >
+            <button type="button" id="geo-btn" title="Helyzet meghatározása"
+              class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#B5ADA0] hover:text-[#C2613A] transition-colors">
+              <i id="geo-icon" class="ph ph-crosshair text-xl leading-none"></i>
+            </button>
             <datalist id="cities-list">
               {% for city in cities %}
               <option value="{{ city.name }}">{{ city.name }}</option>
@@ -228,6 +226,38 @@ cityInput.addEventListener('input', () => {
 });
 
 if (cityInput.value.trim()) fetchCounts(cityInput.value.trim());
+
+const geoBtn = document.getElementById('geo-btn');
+const geoIcon = document.getElementById('geo-icon');
+const cityOptions = [...document.querySelectorAll('#cities-list option')].map(o => o.value);
+
+geoBtn.addEventListener('click', function() {
+  if (!navigator.geolocation) return;
+  geoIcon.className = 'ph ph-spinner-gap text-xl leading-none animate-spin';
+  geoBtn.disabled = true;
+  navigator.geolocation.getCurrentPosition(async function(pos) {
+    try {
+      const { latitude: lat, longitude: lon } = pos.coords;
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+        { headers: { 'Accept-Language': 'hu' } }
+      );
+      const data = await res.json();
+      const addr = data.address || {};
+      const detected = addr.city || addr.town || addr.village || addr.county || '';
+      const match = cityOptions.find(c => c.toLowerCase() === detected.toLowerCase()) || detected;
+      if (match) {
+        cityInput.value = match;
+        fetchCounts(match);
+      }
+    } catch (_) {}
+    geoIcon.className = 'ph ph-crosshair text-xl leading-none';
+    geoBtn.disabled = false;
+  }, function() {
+    geoIcon.className = 'ph ph-crosshair text-xl leading-none';
+    geoBtn.disabled = false;
+  });
+});
 </script>
 
 {% endblock %}
