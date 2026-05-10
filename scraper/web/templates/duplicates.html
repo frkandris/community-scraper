@@ -1,29 +1,43 @@
 {% extends "base.html" %}
-{% block title %}Duplikátumok – Admin{% endblock %}
+{% block title %}Duplicates – Admin{% endblock %}
 {% block content %}
 
-<div class="flex items-center justify-between mb-6 gap-4 flex-wrap">
+<div class="flex items-center justify-between mb-4 gap-4 flex-wrap">
   <div>
-    <h1 class="text-xl font-bold text-gray-900">Duplikátumok</h1>
-    <p class="text-sm text-gray-500 mt-0.5">{{ candidates | length }} függőben lévő jelölt</p>
+    <h1 class="text-xl font-bold text-gray-900">Duplicates</h1>
+    <p class="text-sm text-gray-500 mt-0.5">{{ candidates | length }} pending</p>
   </div>
   <button onclick="scanNow(this)"
     class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-colors">
-    <i class="ph ph-magnifying-glass"></i> Scan futtatása
+    <i class="ph ph-magnifying-glass"></i> Scan now
   </button>
+</div>
+
+<!-- Bulk action bar (hidden until selection) -->
+<div id="bulk-bar" class="hidden sticky top-[57px] z-40 mb-4 bg-white border border-indigo-200 rounded-lg px-4 py-2.5 flex items-center gap-3 shadow-sm">
+  <span id="bulk-count" class="text-sm font-semibold text-gray-700"></span>
+  <button onclick="bulkAction('merge')"
+    class="flex items-center gap-1 px-3 py-1 rounded-md text-xs font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors">
+    <i class="ph ph-magic-wand"></i> Merge all selected
+  </button>
+  <button onclick="bulkAction('dismiss')"
+    class="px-3 py-1 rounded-md text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
+    Dismiss all selected
+  </button>
+  <button onclick="clearSelection()" class="ml-auto text-xs text-gray-400 hover:text-gray-600">✕ Clear</button>
 </div>
 
 <!-- Manual flag section -->
 <details class="mb-6 bg-white border border-gray-200 rounded-lg overflow-hidden">
   <summary class="px-4 py-3 text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-50 select-none flex items-center gap-2">
-    <i class="ph ph-flag text-gray-400"></i> Duplikátum jelölése kézzel
+    <i class="ph ph-flag text-gray-400"></i> Flag duplicate manually
   </summary>
   <div class="px-4 pb-4 pt-2 border-t border-gray-100">
-    <p class="text-xs text-gray-500 mb-3">Keress két közösséget, majd jelöld duplikátumként.</p>
+    <p class="text-xs text-gray-500 mb-3">Search for two communities and flag them as duplicates.</p>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
       <div>
-        <label class="text-xs font-medium text-gray-600 block mb-1">Közösség A (marad)</label>
-        <input type="text" id="flag-a-input" placeholder="Keresés névre..."
+        <label class="text-xs font-medium text-gray-600 block mb-1">Community A (keep)</label>
+        <input type="text" id="flag-a-input" placeholder="Search by name…"
           class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-indigo-400"
           oninput="searchCommunities('a', this.value)">
         <div id="flag-a-results" class="hidden mt-1 border border-gray-200 rounded-md bg-white shadow-sm max-h-36 overflow-y-auto text-sm"></div>
@@ -31,8 +45,8 @@
         <div id="flag-a-selected" class="hidden mt-1 text-xs text-indigo-600 font-medium"></div>
       </div>
       <div>
-        <label class="text-xs font-medium text-gray-600 block mb-1">Közösség B (duplikátum)</label>
-        <input type="text" id="flag-b-input" placeholder="Keresés névre..."
+        <label class="text-xs font-medium text-gray-600 block mb-1">Community B (duplicate)</label>
+        <input type="text" id="flag-b-input" placeholder="Search by name…"
           class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-indigo-400"
           oninput="searchCommunities('b', this.value)">
         <div id="flag-b-results" class="hidden mt-1 border border-gray-200 rounded-md bg-white shadow-sm max-h-36 overflow-y-auto text-sm"></div>
@@ -41,25 +55,37 @@
       </div>
     </div>
     <button onclick="flagManual(this)"
-      class="px-4 py-1.5 rounded-md text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50">
-      Jelölés duplikátumként
+      class="px-4 py-1.5 rounded-md text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
+      Flag as duplicate
     </button>
     <span id="flag-status" class="ml-3 text-xs text-gray-500"></span>
   </div>
 </details>
 
-<!-- Candidate list -->
 {% if not candidates %}
 <div class="bg-white rounded-lg border border-gray-200 p-12 text-center text-gray-400">
   <i class="ph ph-check-circle text-5xl mb-3 block"></i>
-  <p>Nincsenek függőben lévő duplikátum jelöltek.</p>
+  <p>No pending duplicate candidates.</p>
+</div>
+{% endif %}
+
+<!-- Select all row -->
+{% if candidates %}
+<div class="flex items-center gap-2 mb-2 px-1">
+  <input type="checkbox" id="select-all" onchange="toggleAll(this.checked)"
+    class="w-4 h-4 rounded border-gray-300 text-indigo-600 cursor-pointer">
+  <label for="select-all" class="text-xs text-gray-500 cursor-pointer select-none">Select all</label>
 </div>
 {% endif %}
 
 {% for c in candidates %}
-<div class="bg-white rounded-lg border border-gray-200 mb-4 overflow-hidden" id="cand-{{ c.id }}">
-  <div class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between gap-3 flex-wrap">
-    <div class="flex items-center gap-2 flex-wrap">
+<div class="bg-white rounded-lg border border-gray-200 mb-3 overflow-hidden transition-opacity" id="cand-{{ c.id }}">
+  <div class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex items-center gap-3 flex-wrap">
+    <!-- Checkbox -->
+    <input type="checkbox" value="{{ c.id }}" onchange="updateBulkBar()"
+      class="cand-checkbox w-4 h-4 rounded border-gray-300 text-indigo-600 cursor-pointer shrink-0">
+    <!-- Badges -->
+    <div class="flex items-center gap-2 flex-wrap flex-1 min-w-0">
       <span class="text-xs font-medium px-2 py-0.5 rounded-full
         {% if c.entity_type == 'community' %}bg-blue-100 text-blue-700
         {% elif c.entity_type == 'venue' %}bg-green-100 text-green-700
@@ -75,21 +101,22 @@
       <span class="text-sm font-bold text-gray-700">{{ (c.similarity * 100) | round(0) | int }}%</span>
       <span class="text-xs text-gray-400 font-mono hidden sm:inline">{{ c.detected_at[:10] }}</span>
     </div>
-    <div class="flex items-center gap-2">
+    <!-- Action buttons -->
+    <div class="flex items-center gap-2 shrink-0">
       <button onclick="resolve({{ c.id }}, 'merge', this)"
         class="flex items-center gap-1 px-3 py-1 rounded-md text-xs font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors">
-        <i class="ph ph-magic-wand"></i> AI összevonás
+        <i class="ph ph-magic-wand"></i> AI merge
       </button>
       <button onclick="resolve({{ c.id }}, 'dismiss', this)"
         class="px-3 py-1 rounded-md text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
-        Nem duplikátum
+        Not duplicate
       </button>
     </div>
   </div>
   <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-200">
     {% for side, data, key in [
-        ('Nyertes (marad)', c.winner_data, c.winner_key),
-        ('Vesztes (összevonódik)', c.loser_data, c.loser_key)
+        ('Winner (kept)', c.winner_data, c.winner_key),
+        ('Loser (merged in)', c.loser_data, c.loser_key)
     ] %}
     <div class="p-4">
       <div class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">{{ side }}</div>
@@ -99,43 +126,84 @@
       {% if data.description %}
       <p class="text-xs text-gray-600 line-clamp-3 mb-1">{{ data.description }}</p>
       {% endif %}
-      <div class="flex flex-wrap gap-2 mt-1 text-xs text-gray-400">
+      <div class="flex flex-wrap gap-3 mt-1 text-xs text-gray-400">
         {% if data.website %}<a href="{{ data.website }}" target="_blank" class="text-indigo-600 hover:underline truncate max-w-[180px]">{{ data.website }}</a>{% endif %}
         {% if data.meeting_schedule %}<span>📅 {{ data.meeting_schedule }}</span>{% endif %}
         {% if data.member_count %}<span>👥 {{ data.member_count }}</span>{% endif %}
       </div>
       {% else %}
-      <p class="text-xs text-gray-400 italic">Rekord nem található (lehet, hogy már rejtve van)</p>
+      <p class="text-xs text-gray-400 italic">Record not found</p>
       <p class="text-[10px] text-gray-300 font-mono mt-1 break-all">{{ key }}</p>
       {% endif %}
     </div>
     {% endfor %}
   </div>
-  <div id="cand-{{ c.id }}-status" class="hidden px-4 py-2 text-xs text-gray-500 border-t border-gray-100 bg-gray-50">
-    <i class="ph ph-spinner animate-spin"></i> AI összevonás folyamatban…
-  </div>
 </div>
 {% endfor %}
 
 <script>
+function updateBulkBar() {
+  const checked = document.querySelectorAll('.cand-checkbox:checked');
+  const bar = document.getElementById('bulk-bar');
+  const count = document.getElementById('bulk-count');
+  if (checked.length > 0) {
+    bar.classList.remove('hidden');
+    bar.classList.add('flex');
+    count.textContent = checked.length + ' selected';
+  } else {
+    bar.classList.add('hidden');
+    bar.classList.remove('flex');
+  }
+  const all = document.querySelectorAll('.cand-checkbox');
+  document.getElementById('select-all').checked = all.length > 0 && checked.length === all.length;
+  document.getElementById('select-all').indeterminate = checked.length > 0 && checked.length < all.length;
+}
+
+function toggleAll(checked) {
+  document.querySelectorAll('.cand-checkbox').forEach(cb => cb.checked = checked);
+  updateBulkBar();
+}
+
+function clearSelection() {
+  document.querySelectorAll('.cand-checkbox').forEach(cb => cb.checked = false);
+  updateBulkBar();
+}
+
 async function resolve(id, action, btn) {
   btn.disabled = true;
   const card = document.getElementById('cand-' + id);
-  const status = document.getElementById('cand-' + id + '-status');
-  if (action === 'merge' && status) {
-    status.classList.remove('hidden');
-  }
+  card.style.opacity = '0.4';
+  card.style.transition = 'opacity 0.25s';
   const res = await fetch(`/admin/duplicates/${id}/${action}`, {method: 'POST'});
   const data = await res.json();
   if (data.ok) {
-    card.style.opacity = '0.4';
-    card.style.transition = 'opacity 0.3s';
-    setTimeout(() => card.remove(), 350);
+    setTimeout(() => { card.remove(); updateBulkBar(); }, 250);
   } else {
     btn.disabled = false;
-    if (status) status.classList.add('hidden');
-    alert('Hiba: ' + (data.error || 'ismeretlen'));
+    card.style.opacity = '';
+    alert('Error: ' + (data.error || 'unknown'));
   }
+}
+
+async function bulkAction(action) {
+  const checked = [...document.querySelectorAll('.cand-checkbox:checked')];
+  if (!checked.length) return;
+  const bar = document.getElementById('bulk-bar');
+  bar.querySelectorAll('button').forEach(b => b.disabled = true);
+  // Fire all in parallel
+  await Promise.all(checked.map(async cb => {
+    const id = parseInt(cb.value);
+    const card = document.getElementById('cand-' + id);
+    card.style.opacity = '0.4';
+    card.style.transition = 'opacity 0.2s';
+    try {
+      const res = await fetch(`/admin/duplicates/${id}/${action}`, {method: 'POST'});
+      const data = await res.json();
+      if (data.ok) setTimeout(() => { card.remove(); }, 200);
+      else card.style.opacity = '';
+    } catch { card.style.opacity = ''; }
+  }));
+  updateBulkBar();
 }
 
 async function scanNow(btn) {
@@ -144,12 +212,9 @@ async function scanNow(btn) {
   const res = await fetch('/admin/duplicates/scan', {method: 'POST'});
   const data = await res.json();
   btn.disabled = false;
-  btn.innerHTML = '<i class="ph ph-magnifying-glass"></i> Scan futtatása';
+  btn.innerHTML = '<i class="ph ph-magnifying-glass"></i> Scan now';
   if (data.ok) {
-    const msg = data.new_candidates > 0
-      ? `${data.new_candidates} új jelölt találva. Oldal frissítése...`
-      : 'Nincs új duplikátum.';
-    alert(msg);
+    alert(data.new_candidates > 0 ? `${data.new_candidates} new candidates found.` : 'No new duplicates.');
     if (data.new_candidates > 0) location.reload();
   }
 }
@@ -164,9 +229,9 @@ async function searchCommunities(side, q) {
     const items = await res.json();
     results.innerHTML = items.map(it =>
       `<div class="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-0"
-        onclick="selectCommunity('${side}', '${it.key.replace(/'/g, "\\'")}', '${it.label.replace(/'/g, "\\'")}')"
+        onclick="selectCommunity('${side}', ${JSON.stringify(it.key)}, ${JSON.stringify(it.label)})"
       >${it.label}</div>`
-    ).join('') || '<div class="px-3 py-2 text-gray-400">Nincs találat</div>';
+    ).join('') || '<div class="px-3 py-2 text-gray-400">No results</div>';
     results.classList.remove('hidden');
   }, 250);
 }
@@ -184,7 +249,7 @@ async function flagManual(btn) {
   const keyA = document.getElementById('flag-a-key').value;
   const keyB = document.getElementById('flag-b-key').value;
   const status = document.getElementById('flag-status');
-  if (!keyA || !keyB) { status.textContent = 'Válassz ki két közösséget!'; return; }
+  if (!keyA || !keyB) { status.textContent = 'Select two communities first.'; return; }
   btn.disabled = true;
   status.textContent = '';
   const body = new FormData();
@@ -195,10 +260,10 @@ async function flagManual(btn) {
   const data = await res.json();
   btn.disabled = false;
   if (data.ok) {
-    status.textContent = data.inserted ? 'Jelölve! Oldal frissítése…' : 'Már létező jelölt.';
+    status.textContent = data.inserted ? 'Flagged! Reloading…' : 'Already exists.';
     if (data.inserted) setTimeout(() => location.reload(), 800);
   } else {
-    status.textContent = 'Hiba: ' + (data.error || 'ismeretlen');
+    status.textContent = 'Error: ' + (data.error || 'unknown');
   }
 }
 </script>

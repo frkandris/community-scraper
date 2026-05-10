@@ -2802,8 +2802,25 @@ async def _ai_merge_communities(winner: dict, loser: dict) -> dict:
     return result
 
 
+async def _bg_merge_community(db_path: Path, candidate_id: int, c: dict) -> None:
+    winner = get_community_by_record_key(db_path, c["winner_key"])
+    loser = get_community_by_record_key(db_path, c["loser_key"])
+    if winner and loser:
+        try:
+            merged = await _ai_merge_communities(winner, loser)
+            save_community_data(db_path, c["winner_key"], merged)
+            set_community_hidden(db_path, c["loser_key"], True)
+            log.info("ai_merge_done", winner=c["winner_key"], loser=c["loser_key"])
+        except Exception as exc:
+            log.warning("ai_merge_failed_fallback", error=str(exc))
+            merge_community_into(db_path, c["winner_key"], c["loser_key"])
+    else:
+        merge_community_into(db_path, c["winner_key"], c["loser_key"])
+    resolve_duplicate_candidate(db_path, candidate_id, "merged")
+
+
 @admin.post("/duplicates/{candidate_id}/merge")
-async def admin_duplicates_merge(candidate_id: int):
+async def admin_duplicates_merge(candidate_id: int, background_tasks: BackgroundTasks):
     if not app_state.db_path:
         return JSONResponse({"ok": False})
     candidates = get_duplicate_candidates(_db())
@@ -2811,20 +2828,9 @@ async def admin_duplicates_merge(candidate_id: int):
     if not c:
         return JSONResponse({"ok": False, "error": "not found"})
     if c["entity_type"] == "community":
-        winner = get_community_by_record_key(_db(), c["winner_key"])
-        loser = get_community_by_record_key(_db(), c["loser_key"])
-        if winner and loser:
-            try:
-                merged = await _ai_merge_communities(winner, loser)
-                save_community_data(_db(), c["winner_key"], merged)
-                set_community_hidden(_db(), c["loser_key"], True)
-                log.info("ai_merge_done", winner=c["winner_key"], loser=c["loser_key"])
-            except Exception as exc:
-                log.warning("ai_merge_failed_fallback", error=str(exc))
-                merge_community_into(_db(), c["winner_key"], c["loser_key"])
-        else:
-            merge_community_into(_db(), c["winner_key"], c["loser_key"])
-    resolve_duplicate_candidate(_db(), candidate_id, "merged")
+        background_tasks.add_task(_bg_merge_community, _db(), candidate_id, c)
+    else:
+        resolve_duplicate_candidate(_db(), candidate_id, "merged")
     return JSONResponse({"ok": True})
 
 
