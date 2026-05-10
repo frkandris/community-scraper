@@ -266,6 +266,28 @@ def init_db(db_path: Path) -> None:
             )
         """)
 
+        # Duplicate candidate pairs detected by fuzzy matching
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS duplicate_candidates (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                entity_type  TEXT NOT NULL,
+                winner_id    TEXT NOT NULL,
+                loser_id     TEXT NOT NULL,
+                winner_key   TEXT NOT NULL,
+                loser_key    TEXT NOT NULL,
+                similarity   REAL NOT NULL,
+                signal       TEXT NOT NULL,
+                detected_at  TEXT NOT NULL,
+                resolved_at  TEXT,
+                resolution   TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_dup_pair
+            ON duplicate_candidates(entity_type, winner_key, loser_key)
+            WHERE resolution IS NULL
+        """)
+
         conn.commit()
 
 
@@ -1385,3 +1407,92 @@ def get_city_requests(db_path: Path) -> list[dict]:
             "SELECT id, city_name, email, created_at FROM city_requests ORDER BY created_at DESC"
         ).fetchall()
     return [{"id": r[0], "city_name": r[1], "email": r[2], "created_at": r[3]} for r in rows]
+
+
+# ── Duplicate candidates ───────────────────────────────────────────────────────
+
+def insert_duplicate_candidate(
+    db_path: Path,
+    entity_type: str,
+    winner_id: str,
+    loser_id: str,
+    winner_key: str,
+    loser_key: str,
+    similarity: float,
+    signal: str,
+) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect(db_path) as conn:
+        conn.execute("""
+            INSERT OR IGNORE INTO duplicate_candidates
+              (entity_type, winner_id, loser_id, winner_key, loser_key, similarity, signal, detected_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (entity_type, winner_id, loser_id, winner_key, loser_key, similarity, signal, now))
+        conn.commit()
+
+
+def get_duplicate_candidates(
+    db_path: Path,
+    entity_type: str | None = None,
+    resolved: bool = False,
+) -> list[dict]:
+    if not db_path.exists():
+        return []
+    clauses = []
+    params: list = []
+    if not resolved:
+        clauses.append("resolution IS NULL")
+    if entity_type:
+        clauses.append("entity_type = ?")
+        params.append(entity_type)
+    where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+    with _connect(db_path) as conn:
+        cursor = conn.execute(
+            f"SELECT * FROM duplicate_candidates {where} ORDER BY similarity DESC, detected_at DESC",
+            params,
+        )
+        cols = [d[0] for d in cursor.description]
+        return [dict(zip(cols, row)) for row in cursor.fetchall()]
+
+
+def resolve_duplicate_candidate(db_path: Path, candidate_id: int, resolution: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect(db_path) as conn:
+        conn.execute(
+            "UPDATE duplicate_candidates SET resolution=?, resolved_at=? WHERE id=?",
+            (resolution, now, candidate_id),
+        )
+        conn.commit()
+
+
+def merge_community_into(db_path: Path, winner_key: str, loser_key: str) -> None:
+    with _connect(db_path) as conn:
+        winner_row = conn.execute(
+            "SELECT data FROM communities WHERE record_key=?", (winner_key,)
+        ).fetchone()
+        loser_row = conn.execute(
+            "SELECT data FROM communities WHERE record_key=?", (loser_key,)
+        ).fetchone()
+        if not winner_row or not loser_row:
+            return
+        winner_data = json.loads(winner_row[0])
+        loser_data = json.loads(loser_row[0])
+        # Merge source_urls
+        w_urls = list(winner_data.get("source_urls") or [])
+        if winner_data.get("source_url") and winner_data["source_url"] not in w_urls:
+            w_urls = [winner_data["source_url"]] + w_urls
+        l_urls = list(loser_data.get("source_urls") or [])
+        if loser_data.get("source_url") and loser_data["source_url"] not in l_urls:
+            l_urls = [loser_data["source_url"]] + l_urls
+        merged_urls = list(dict.fromkeys(w_urls + l_urls))
+        winner_data["source_urls"] = merged_urls
+        now = datetime.now(timezone.utc).isoformat()
+        conn.execute(
+            "UPDATE communities SET data=?, updated_at=? WHERE record_key=?",
+            (json.dumps(winner_data, ensure_ascii=False), now, winner_key),
+        )
+        conn.execute(
+            "UPDATE communities SET hidden=1 WHERE record_key=?",
+            (loser_key,),
+        )
+        conn.commit()
