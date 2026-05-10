@@ -1292,6 +1292,14 @@ def get_persons_for_community(db_path: Path, community_name: str, city: str) -> 
     return [json.loads(r[0]) for r in rows]
 
 
+def get_all_persons(db_path: Path) -> list[dict]:
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        rows = conn.execute("SELECT data FROM persons ORDER BY city, id").fetchall()
+    return [json.loads(r[0]) for r in rows]
+
+
 def get_person_counts(db_path: Path) -> dict[str, int]:
     if not db_path.exists():
         return {}

@@ -1,0 +1,180 @@
+"""Duplicate detection for communities, venues, and persons."""
+from __future__ import annotations
+
+import re
+from difflib import SequenceMatcher
+from pathlib import Path
+
+import structlog
+
+from .db import (
+    get_all_communities,
+    get_all_venues,
+    insert_duplicate_candidate,
+)
+
+log = structlog.get_logger()
+
+
+def _strip_articles(name: str) -> str:
+    return re.sub(r"^(a |az |the |die |le |la |el |los |las )", "", name.lower().strip())
+
+
+def _similarity(a: str, b: str) -> float:
+    return SequenceMatcher(None, _strip_articles(a), _strip_articles(b)).ratio()
+
+
+def _richness(d: dict) -> int:
+    return sum(1 for f in ["description", "meeting_schedule", "location", "contact", "website"]
+               if d.get(f)) + len(d.get("social_links") or [])
+
+
+def _norm_url(url: str | None) -> str:
+    return (url or "").rstrip("/").lower()
+
+
+def detect_community_candidates(db_path: Path, city: str | None = None) -> int:
+    """
+    Scan communities for duplicates within the same city across different topics.
+    Returns the number of new candidates inserted.
+    """
+    all_records = get_all_communities(db_path)
+    if city:
+        all_records = [r for r in all_records if r.get("city") == city]
+
+    # Group by city
+    by_city: dict[str, list[dict]] = {}
+    for r in all_records:
+        by_city.setdefault(r["city"], []).append(r)
+
+    inserted = 0
+    for city_name, records in by_city.items():
+        for i, a in enumerate(records):
+            for b in records[i + 1:]:
+                # Same topic → already deduplicated by store.py
+                if a.get("topic") == b.get("topic"):
+                    continue
+
+                signal: str | None = None
+                similarity = 0.0
+
+                # URL match → definite duplicate
+                url_a = _norm_url(a.get("website"))
+                url_b = _norm_url(b.get("website"))
+                if url_a and url_b and url_a == url_b:
+                    signal = "url_match"
+                    similarity = 1.0
+
+                if signal is None:
+                    similarity = _similarity(a["name"], b["name"])
+                    if similarity >= 0.80:
+                        signal = "fuzzy_name"
+
+                if signal is None:
+                    continue
+
+                # Winner = richer record
+                if _richness(b) > _richness(a):
+                    a, b = b, a
+
+                from .db import _community_record_key
+                winner_key = _community_record_key(a["name"], a["city"], a["topic"])
+                loser_key = _community_record_key(b["name"], b["city"], b["topic"])
+                insert_duplicate_candidate(
+                    db_path, "community",
+                    a.get("community_id", ""), b.get("community_id", ""),
+                    winner_key, loser_key,
+                    round(similarity, 4), signal,
+                )
+                inserted += 1
+                log.info("duplicate_candidate_found", entity="community",
+                         winner=a["name"], loser=b["name"], city=city_name,
+                         signal=signal, similarity=round(similarity, 3))
+
+    return inserted
+
+
+def detect_venue_candidates(db_path: Path) -> int:
+    """Detect duplicate venues within the same city."""
+    all_venues = get_all_venues(db_path)
+
+    by_city: dict[str, list[dict]] = {}
+    for v in all_venues:
+        by_city.setdefault(v["city"], []).append(v)
+
+    inserted = 0
+    for city_name, venues in by_city.items():
+        for i, a in enumerate(venues):
+            for b in venues[i + 1:]:
+                signal: str | None = None
+                similarity = 0.0
+
+                url_a = _norm_url(a.get("website"))
+                url_b = _norm_url(b.get("website"))
+                if url_a and url_b and url_a == url_b:
+                    signal = "url_match"
+                    similarity = 1.0
+
+                if signal is None:
+                    similarity = _similarity(a["name"], b["name"])
+                    if similarity >= 0.85:
+                        signal = "fuzzy_name"
+
+                if signal is None:
+                    continue
+
+                if _richness(b) > _richness(a):
+                    a, b = b, a
+
+                from .db import _venue_record_key
+                insert_duplicate_candidate(
+                    db_path, "venue",
+                    a.get("venue_id", ""), b.get("venue_id", ""),
+                    _venue_record_key(a["name"], a["city"]),
+                    _venue_record_key(b["name"], b["city"]),
+                    round(similarity, 4), signal,
+                )
+                inserted += 1
+
+    return inserted
+
+
+def detect_person_candidates(db_path: Path) -> int:
+    """Detect duplicate persons within the same city."""
+    from .db import get_all_persons
+    all_persons = get_all_persons(db_path)
+
+    by_city: dict[str, list[dict]] = {}
+    for p in all_persons:
+        by_city.setdefault(p["city"], []).append(p)
+
+    inserted = 0
+    for city_name, persons in by_city.items():
+        for i, a in enumerate(persons):
+            for b in persons[i + 1:]:
+                similarity = _similarity(a["name"], b["name"])
+                if similarity < 0.90:
+                    continue
+                if _richness(b) > _richness(a):
+                    a, b = b, a
+                from .db import _person_record_key
+                insert_duplicate_candidate(
+                    db_path, "person",
+                    a.get("person_id", ""), b.get("person_id", ""),
+                    _person_record_key(a["name"], a["city"], a.get("role", ""), a.get("community_name", "")),
+                    _person_record_key(b["name"], b["city"], b.get("role", ""), b.get("community_name", "")),
+                    round(similarity, 4), "fuzzy_name",
+                )
+                inserted += 1
+
+    return inserted
+
+
+def detect_all(db_path: Path) -> int:
+    """Run detection for all entity types. Returns total candidates inserted."""
+    c = detect_community_candidates(db_path)
+    v = detect_venue_candidates(db_path)
+    p = detect_person_candidates(db_path)
+    total = c + v + p
+    log.info("duplicate_scan_complete", communities=c, venues=v, persons=p)
+    return total

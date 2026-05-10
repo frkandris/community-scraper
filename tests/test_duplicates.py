@@ -114,3 +114,63 @@ def test_merge_resolves_candidate_atomically(tmp_path):
     # Candidate should be resolved atomically
     pending = get_duplicate_candidates(db, resolved=False)
     assert len(pending) == 0
+
+
+from scraper.duplicates import detect_community_candidates, detect_all
+
+
+def test_detect_cross_topic_duplicates(tmp_path):
+    db = _db(tmp_path)
+    r1 = CommunityRecord(name="Budapest Futók", topic="running", city="Budapest",
+                         locale="hu", source_url="https://a.test",
+                         extracted_at="2026-01-01T00:00:00+00:00")
+    r2 = CommunityRecord(name="Budapest Futók Kör", topic="fitness", city="Budapest",
+                         locale="hu", source_url="https://b.test",
+                         extracted_at="2026-01-01T00:00:00+00:00")
+    save_results("Budapest", "running", [r1], db)
+    save_results("Budapest", "fitness", [r2], db)
+
+    count = detect_community_candidates(db)
+    assert count >= 1
+    candidates = get_duplicate_candidates(db)
+    assert len(candidates) >= 1
+    assert candidates[0]["signal"] in ("fuzzy_name", "url_match")
+
+
+def test_detect_url_match(tmp_path):
+    db = _db(tmp_path)
+    r1 = CommunityRecord(name="Runners Club", topic="running", city="Budapest",
+                         locale="hu", source_url="https://a.test",
+                         website="https://runners.hu",
+                         extracted_at="2026-01-01T00:00:00+00:00")
+    r2 = CommunityRecord(name="Futók Egyesület", topic="fitness", city="Budapest",
+                         locale="hu", source_url="https://b.test",
+                         website="https://runners.hu/",
+                         extracted_at="2026-01-01T00:00:00+00:00")
+    save_results("Budapest", "running", [r1], db)
+    save_results("Budapest", "fitness", [r2], db)
+
+    count = detect_community_candidates(db)
+    assert count >= 1
+    candidates = get_duplicate_candidates(db)
+    assert any(c["signal"] == "url_match" for c in candidates)
+
+
+def test_no_cross_city_false_positive(tmp_path):
+    db = _db(tmp_path)
+    r1 = CommunityRecord(name="Futók Klub", topic="running", city="Budapest",
+                         locale="hu", source_url="https://a.test",
+                         extracted_at="2026-01-01T00:00:00+00:00")
+    r2 = CommunityRecord(name="Futók Klub", topic="running", city="Debrecen",
+                         locale="hu", source_url="https://b.test",
+                         extracted_at="2026-01-01T00:00:00+00:00")
+    save_results("Budapest", "running", [r1], db)
+    save_results("Debrecen", "running", [r2], db)
+
+    count = detect_community_candidates(db)
+    assert count == 0  # different cities → not duplicates
+
+
+def test_detect_all_runs_without_error(tmp_path):
+    db = _db(tmp_path)
+    detect_all(db)  # should not raise
