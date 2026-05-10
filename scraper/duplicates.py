@@ -38,10 +38,15 @@ def _similarity(a: str, b: str) -> float:
 
 
 def _name_similarity(a: str, b: str, city: str) -> float:
-    """Similarity after stripping city; also catches substring containment (e.g. 'Futók' ⊂ 'Futók Kör')."""
+    """Similarity after stripping city; also catches substring containment (e.g. 'Futók' ⊂ 'Futók Kör').
+    Returns 0.0 if the shorter stripped name is too short or a single generic word."""
     na = _strip_articles(_strip_city(a, city))
     nb = _strip_articles(_strip_city(b, city))
-    if len(na) > 3 and len(nb) > 3 and (na in nb or nb in na):
+    shorter = na if len(na) <= len(nb) else nb
+    # Skip: single generic word or too short to be meaningful
+    if len(shorter) < 5 or shorter.strip() in _GENERIC_WORDS:
+        return 0.0
+    if len(na) > 4 and len(nb) > 4 and (na in nb or nb in na):
         return 0.90
     return SequenceMatcher(None, na, nb).ratio()
 
@@ -49,6 +54,14 @@ def _name_similarity(a: str, b: str, city: str) -> float:
 def _richness(d: dict) -> int:
     return sum(1 for f in ["description", "meeting_schedule", "location", "contact", "website"]
                if d.get(f)) + len(d.get("social_links") or [])
+
+
+# Generic community words that alone don't constitute a meaningful duplicate signal
+_GENERIC_WORDS: frozenset[str] = frozenset({
+    "csoport", "klub", "kör", "egyesület", "közösség", "társaság", "társulat",
+    "csapat", "team", "szakkör", "műhely", "szervezet", "alapítvány",
+    "group", "club", "community", "circle", "association", "society",
+})
 
 
 def _norm_url(url: str | None) -> str:
