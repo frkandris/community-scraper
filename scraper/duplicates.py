@@ -64,11 +64,23 @@ _GENERIC_WORDS: frozenset[str] = frozenset({
     "csoport", "klub", "kör", "egyesület", "közösség", "közösségi", "közössége", "társaság", "társulat",
     "csapat", "team", "szakkör", "műhely", "szervezet", "alapítvány",
     "group", "club", "community", "circle", "association", "society",
+    # single-word suffixes that cause false substring matches
+    "színpad", "táncstúdió", "stúdió", "studio",
+    # multi-word generic phrases (matched as whole shorter name)
+    "idősek klubja", "nyugdíjasklub", "ifjúsági kör",
+})
+
+
+_INVALID_URLS: frozenset[str] = frozenset({
+    "n/a", "http://n/a", "https://n/a",
+    "empty", "http://empty", "https://empty",
+    "none", "null", "#", "/", "",
 })
 
 
 def _norm_url(url: str | None) -> str:
-    return (url or "").rstrip("/").lower()
+    u = (url or "").rstrip("/").lower().strip()
+    return "" if u in _INVALID_URLS else u
 
 
 def detect_community_candidates(db_path: Path, city: str | None = None) -> int:
@@ -201,6 +213,9 @@ def detect_person_candidates(db_path: Path) -> int:
                 similarity = _similarity(a["name"], b["name"])
                 if similarity < 0.90:
                     continue
+                # Same person leading different communities is not a duplicate person record
+                if _similarity(a.get("community_name", ""), b.get("community_name", "")) < 0.70:
+                    continue
 
                 # Compute canonical key pair before richness swap
                 key_a = _person_record_key(a["name"], a["city"], a.get("role", ""), a.get("community_name", ""))
@@ -231,6 +246,8 @@ def cleanup_stale_community_candidates(db_path: Path) -> int:
         winner = get_community_by_record_key(db_path, c["winner_key"])
         loser = get_community_by_record_key(db_path, c["loser_key"])
         if not winner or not loser:
+            resolve_duplicate_candidate(db_path, c["id"], "auto_dismissed")
+            dismissed += 1
             continue
         city = winner.get("city", "")
         still_valid = False
