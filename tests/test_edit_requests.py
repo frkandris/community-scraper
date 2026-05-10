@@ -81,3 +81,11 @@ def test_apply_community_edit_name_correction(tmp_path):
     apply_community_edit(db, key, "name_correction", "Budapest Futók")
     data = get_community_by_record_key(db, key)
     assert data["name"] == "Budapest Futók"
+
+
+def test_apply_community_edit_wrong_topic(tmp_path):
+    db, key = _community(tmp_path, topic="running")
+    result = apply_community_edit(db, key, "wrong_topic", "fitness")
+    assert result is True
+    data = get_community_by_record_key(db, key)
+    assert data["topic"] == "fitness"

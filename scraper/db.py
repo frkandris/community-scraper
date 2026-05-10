@@ -1650,5 +1650,7 @@ def apply_community_edit(
                 "UPDATE communities SET data=?, updated_at=? WHERE record_key=?",
                 (json.dumps(data, ensure_ascii=False), now, record_key),
             )
+        else:
+            return False
         conn.commit()
     return True
