@@ -253,10 +253,10 @@
     <div class="relative bg-white rounded-lg border border-[#EAE5DB] p-5 shadow-sm hover:border-[#E88E6B] hover:bg-[#FDF0EA]/30 hover:shadow-md transition-all flex flex-col gap-3">
       <a href="{{ r.community_url }}" class="absolute inset-0 rounded-lg" aria-label="{{ r.name }}"></a>
 
-      <div class="flex items-start gap-2">
-        <i class="ph ph-{{ section.icon }} text-[#C2613A] text-base leading-6 shrink-0 mt-0.5"></i>
-        <h3 class="font-semibold text-[#1C1917] text-base leading-snug">{{ r.name }}</h3>
-      </div>
+      <h3 class="font-semibold text-[#1C1917] text-base leading-snug flex items-baseline gap-1.5">
+        <i class="ph ph-{{ section.icon }} text-[#C2613A] text-sm shrink-0"></i>
+        <span>{{ r.name }}</span>
+      </h3>
 
       {% if r.description %}
       <p class="text-sm text-[#6A6259] leading-relaxed line-clamp-2">{{ r.description }}</p>
