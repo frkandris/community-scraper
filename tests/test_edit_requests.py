@@ -1,0 +1,83 @@
+from pathlib import Path
+from scraper.db import (
+    init_db,
+    save_edit_request,
+    get_edit_requests,
+    resolve_edit_request,
+    apply_community_edit,
+    _community_record_key,
+    get_community_by_record_key,
+    get_all_communities,
+)
+from scraper.store import save_results
+from scraper.models import CommunityRecord
+
+
+def _db(tmp_path: Path) -> Path:
+    p = tmp_path / "scraper.db"
+    init_db(p)
+    return p
+
+
+def _community(tmp_path, name="Budapest Futók", topic="running", city="Budapest") -> tuple[Path, str]:
+    db = _db(tmp_path)
+    r = CommunityRecord(
+        name=name, topic=topic, city=city, locale="hu",
+        source_url="https://a.test", extracted_at="2026-01-01T00:00:00+00:00"
+    )
+    save_results(city, topic, [r], db)
+    return db, _community_record_key(name, city, topic)
+
+
+def test_save_and_get_edit_request(tmp_path):
+    db = _db(tmp_path)
+    req_id = save_edit_request(
+        db, "community", "abc123", "Budapest Futók", "Budapest", "running",
+        "budapest_futok|budapest|running", "wrong_city", "Debrecen",
+        "Ez Debrecenben van, nem Budapesten", "test@example.com",
+    )
+    assert req_id > 0
+    rows = get_edit_requests(db, status="pending")
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["entity_name"] == "Budapest Futók"
+    assert r["change_type"] == "wrong_city"
+    assert r["new_value"] == "Debrecen"
+    assert r["email"] == "test@example.com"
+    assert r["status"] == "pending"
+    assert r["reviewed_at"] is None
+
+
+def test_resolve_edit_request(tmp_path):
+    db = _db(tmp_path)
+    req_id = save_edit_request(
+        db, "community", "abc", "Test", "Budapest", "running",
+        "test|budapest|running", "archive", None,
+        "Megszűnt 2024-ben", "u@example.com",
+    )
+    resolve_edit_request(db, req_id, "approved")
+    assert get_edit_requests(db, status="pending") == []
+    approved = get_edit_requests(db, status="approved")
+    assert approved[0]["status"] == "approved"
+    assert approved[0]["reviewed_at"] is not None
+
+
+def test_apply_community_edit_wrong_city(tmp_path):
+    db, key = _community(tmp_path)
+    assert apply_community_edit(db, key, "wrong_city", "Debrecen") is True
+    data = get_community_by_record_key(db, key)
+    assert data["city"] == "Debrecen"
+
+
+def test_apply_community_edit_archive(tmp_path):
+    db, key = _community(tmp_path)
+    apply_community_edit(db, key, "archive", None)
+    visible = get_all_communities(db)
+    assert not any(c["name"] == "Budapest Futók" for c in visible)
+
+
+def test_apply_community_edit_name_correction(tmp_path):
+    db, key = _community(tmp_path, name="Budpaest Futók")
+    apply_community_edit(db, key, "name_correction", "Budapest Futók")
+    data = get_community_by_record_key(db, key)
+    assert data["name"] == "Budapest Futók"

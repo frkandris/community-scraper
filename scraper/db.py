@@ -288,6 +288,25 @@ def init_db(db_path: Path) -> None:
             WHERE resolution IS NULL
         """)
 
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS edit_requests (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                entity_type  TEXT NOT NULL,
+                entity_id    TEXT NOT NULL,
+                entity_name  TEXT NOT NULL,
+                entity_city  TEXT NOT NULL,
+                entity_topic TEXT,
+                record_key   TEXT NOT NULL,
+                change_type  TEXT NOT NULL,
+                new_value    TEXT,
+                notes        TEXT NOT NULL,
+                email        TEXT NOT NULL,
+                status       TEXT NOT NULL DEFAULT 'pending',
+                submitted_at TEXT NOT NULL,
+                reviewed_at  TEXT
+            )
+        """)
+
         conn.commit()
 
 
@@ -1540,3 +1559,96 @@ def save_community_data(db_path: Path, record_key: str, data: dict) -> None:
             (json.dumps(data, ensure_ascii=False), now, record_key),
         )
         conn.commit()
+
+
+# ── Edit requests ──────────────────────────────────────────────────────────────
+
+def save_edit_request(
+    db_path: Path,
+    entity_type: str,
+    entity_id: str,
+    entity_name: str,
+    entity_city: str,
+    entity_topic: str,
+    record_key: str,
+    change_type: str,
+    new_value: str | None,
+    notes: str,
+    email: str,
+) -> int:
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect(db_path) as conn:
+        cur = conn.execute(
+            "INSERT INTO edit_requests"
+            " (entity_type, entity_id, entity_name, entity_city, entity_topic,"
+            "  record_key, change_type, new_value, notes, email, submitted_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (entity_type, entity_id, entity_name, entity_city, entity_topic,
+             record_key, change_type, new_value, notes, email, now),
+        )
+        conn.commit()
+        return cur.lastrowid
+
+
+def get_edit_requests(db_path: Path, status: str = "pending") -> list[dict]:
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        cursor = conn.execute(
+            "SELECT * FROM edit_requests WHERE status=? ORDER BY submitted_at DESC",
+            (status,),
+        )
+        cols = [d[0] for d in cursor.description]
+        return [dict(zip(cols, row)) for row in cursor.fetchall()]
+
+
+def resolve_edit_request(db_path: Path, request_id: int, status: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect(db_path) as conn:
+        conn.execute(
+            "UPDATE edit_requests SET status=?, reviewed_at=? WHERE id=?",
+            (status, now, request_id),
+        )
+        conn.commit()
+
+
+def apply_community_edit(
+    db_path: Path,
+    record_key: str,
+    change_type: str,
+    new_value: str | None,
+) -> bool:
+    """Apply an approved edit to a community record. Returns True if found and applied."""
+    with _connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT data FROM communities WHERE record_key=?", (record_key,)
+        ).fetchone()
+        if not row:
+            return False
+        data = json.loads(row[0])
+        now = datetime.now(timezone.utc).isoformat()
+        if change_type in ("archive", "delete"):
+            conn.execute(
+                "UPDATE communities SET hidden=1, updated_at=? WHERE record_key=?",
+                (now, record_key),
+            )
+        elif change_type == "wrong_city":
+            data["city"] = new_value
+            conn.execute(
+                "UPDATE communities SET city=?, data=?, updated_at=? WHERE record_key=?",
+                (new_value, json.dumps(data, ensure_ascii=False), now, record_key),
+            )
+        elif change_type == "wrong_topic":
+            data["topic"] = new_value
+            conn.execute(
+                "UPDATE communities SET topic=?, data=?, updated_at=? WHERE record_key=?",
+                (new_value, json.dumps(data, ensure_ascii=False), now, record_key),
+            )
+        elif change_type == "name_correction":
+            data["name"] = new_value
+            conn.execute(
+                "UPDATE communities SET data=?, updated_at=? WHERE record_key=?",
+                (json.dumps(data, ensure_ascii=False), now, record_key),
+            )
+        conn.commit()
+    return True
