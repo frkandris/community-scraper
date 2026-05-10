@@ -14,7 +14,10 @@ from .db import (
     get_all_communities,
     get_all_venues,
     get_all_persons,
+    get_community_by_record_key,
+    get_duplicate_candidates,
     insert_duplicate_candidate,
+    resolve_duplicate_candidate,
 )
 
 log = structlog.get_logger()
@@ -220,8 +223,32 @@ def detect_person_candidates(db_path: Path) -> int:
     return inserted
 
 
+def cleanup_stale_community_candidates(db_path: Path) -> int:
+    """Auto-dismiss pending community candidates that no longer meet current detection criteria.
+    Returns number of candidates dismissed."""
+    dismissed = 0
+    for c in get_duplicate_candidates(db_path, entity_type="community", resolved=False):
+        winner = get_community_by_record_key(db_path, c["winner_key"])
+        loser = get_community_by_record_key(db_path, c["loser_key"])
+        if not winner or not loser:
+            continue
+        city = winner.get("city", "")
+        still_valid = False
+        if c["signal"] == "url_match":
+            still_valid = (_norm_url(winner.get("website")) == _norm_url(loser.get("website"))
+                           and _norm_url(winner.get("website")))
+        else:
+            still_valid = _name_similarity(winner["name"], loser["name"], city) >= 0.85
+        if not still_valid:
+            resolve_duplicate_candidate(db_path, c["id"], "auto_dismissed")
+            dismissed += 1
+            log.info("stale_candidate_dismissed", winner=winner["name"], loser=loser["name"])
+    return dismissed
+
+
 def detect_all(db_path: Path) -> int:
     """Run detection for all entity types. Returns total candidates inserted."""
+    cleanup_stale_community_candidates(db_path)
     c = detect_community_candidates(db_path)
     v = detect_venue_candidates(db_path)
     p = detect_person_candidates(db_path)
