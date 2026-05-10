@@ -310,6 +310,11 @@ async def run_pipeline(
         )
 
     log.info("pipeline_complete", run_mode=run_mode, total_new_records=total_new)
+    try:
+        from .duplicates import detect_all
+        detect_all(config.db_path)
+    except Exception as exc:
+        log.warning("post_run_duplicate_scan_failed", error=str(exc))
     return pair_logs, total_new
 
 

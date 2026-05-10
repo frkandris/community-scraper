@@ -5,6 +5,7 @@ from pathlib import Path
 import structlog
 
 from .db import get_communities, replace_communities_for_topic
+from .duplicates import detect_community_candidates
 from .models import CommunityRecord
 
 log = structlog.get_logger()
@@ -126,4 +127,8 @@ def save_results(
     before = len(merged)
     log.info("saved_results", city=city, topic=topic, total=len(deduped),
              new=len(records), deduped=before - len(deduped))
+    try:
+        detect_community_candidates(db_path, city=city)
+    except Exception as exc:
+        log.warning("duplicate_detection_failed", error=str(exc))
     return len(deduped)

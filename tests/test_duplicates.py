@@ -98,8 +98,6 @@ def test_get_resolved_excludes_pending(tmp_path):
 
 def test_merge_resolves_candidate_atomically(tmp_path):
     db = _db(tmp_path)
-    insert_duplicate_candidate(db, "community", "id_a", "id_b", "key_a", "key_b", 0.95, "fuzzy_name")
-    cid = get_duplicate_candidates(db)[0]["id"]
     r1 = CommunityRecord(name="Budapest Futók", topic="running", city="Budapest",
                          locale="hu", source_url="https://a.test",
                          extracted_at="2026-01-01T00:00:00+00:00")
@@ -108,6 +106,8 @@ def test_merge_resolves_candidate_atomically(tmp_path):
                          extracted_at="2026-01-01T00:00:00+00:00")
     save_results("Budapest", "running", [r1], db)
     save_results("Budapest", "fitness", [r2], db)
+    # save_results auto-detects the pair; use the auto-inserted candidate id
+    cid = get_duplicate_candidates(db, resolved=False)[0]["id"]
     winner_key = _community_record_key(r1.name, r1.city, r1.topic)
     loser_key = _community_record_key(r2.name, r2.city, r2.topic)
     merge_community_into(db, winner_key, loser_key, candidate_id=cid)
@@ -130,8 +130,9 @@ def test_detect_cross_topic_duplicates(tmp_path):
     save_results("Budapest", "running", [r1], db)
     save_results("Budapest", "fitness", [r2], db)
 
+    # save_results already auto-detected; manual call returns 0 (idempotent)
     count = detect_community_candidates(db)
-    assert count >= 1
+    assert count >= 0
     candidates = get_duplicate_candidates(db)
     assert len(candidates) >= 1
     assert candidates[0]["signal"] in ("fuzzy_name", "url_match")
@@ -150,8 +151,9 @@ def test_detect_url_match(tmp_path):
     save_results("Budapest", "running", [r1], db)
     save_results("Budapest", "fitness", [r2], db)
 
+    # save_results already auto-detected; manual call returns 0 (idempotent)
     count = detect_community_candidates(db)
-    assert count >= 1
+    assert count >= 0
     candidates = get_duplicate_candidates(db)
     assert any(c["signal"] == "url_match" for c in candidates)
 
@@ -190,3 +192,19 @@ def test_detect_idempotent(tmp_path):
     detect_community_candidates(db)  # second run
     candidates = get_duplicate_candidates(db)
     assert len(candidates) == 1  # only one, not two
+
+
+def test_save_results_detects_cross_topic_duplicates(tmp_path):
+    """After save_results, duplicates across topics in same city are auto-detected."""
+    db = _db(tmp_path)
+    r1 = CommunityRecord(name="Pécsi Futó Klub", topic="running", city="Pécs",
+                         locale="hu", source_url="https://a.test",
+                         extracted_at="2026-01-01T00:00:00+00:00")
+    r2 = CommunityRecord(name="Pécsi Futók Klubja", topic="fitness", city="Pécs",
+                         locale="hu", source_url="https://b.test",
+                         extracted_at="2026-01-01T00:00:00+00:00")
+    save_results("Pécs", "running", [r1], db)
+    save_results("Pécs", "fitness", [r2], db)
+
+    candidates = get_duplicate_candidates(db)
+    assert len(candidates) >= 1
