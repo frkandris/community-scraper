@@ -142,7 +142,7 @@
           {{ t('explore_see_all', n=city_sec.total) }}
         </a>
       </div>
-      {% if city_sec.topic_chips %}
+      {% if city_sec.topic_chips and not selected_topics %}
       <div class="flex flex-wrap gap-1.5 mb-3">
         {% for chip in city_sec.topic_chips %}
         <a href="{{ chip.url }}"
@@ -240,7 +240,7 @@
   {% for section in sections %}
   {% if section.records %}
   <div id="section-{{ section.topic }}" data-topic="{{ section.topic }}">
-  {% if sections | length > 1 %}
+  {% if false %}
   <h2 class="text-base font-semibold text-[#2E2B29] mb-3 mt-6 flex items-center gap-2">
     <i class="ph ph-{{ section.icon }} text-[#C2613A]"></i>
     {{ section.label }}

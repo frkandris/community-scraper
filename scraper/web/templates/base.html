@@ -14,7 +14,7 @@
 
 <nav class="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
   <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-1">
-    <a href="/admin" class="font-bold text-gray-900 text-sm mr-4 shrink-0">🕷 Admin</a>
+    <a href="/admin" class="font-bold text-gray-900 text-sm mr-2 shrink-0">🕷 Admin</a>
     {% set _p = request.url.path %}
     {% macro navlink(href, label, active) %}
     <a href="{{ href }}" class="px-2.5 py-1 rounded-lg text-sm transition-colors
@@ -22,40 +22,44 @@
       {{ label }}
     </a>
     {% endmacro %}
-    {{ navlink('/admin',               'Dashboard',   _p == '/admin') }}
-    {# Results dropdown #}
-    {% set _res_active = _p.startswith('/admin/results') or _p.startswith('/admin/venues') or _p.startswith('/admin/persons') %}
-    <div class="relative" id="nav-results-wrap">
-      <button onclick="document.getElementById('nav-results-menu').classList.toggle('hidden')"
-        class="px-2.5 py-1 rounded-lg text-sm transition-colors flex items-center gap-1
-          {% if _res_active %}bg-gray-100 text-gray-900 font-semibold{% else %}text-gray-600 hover:text-gray-900 hover:bg-gray-50{% endif %}">
-        Results <i class="ph ph-caret-down" style="font-size:11px;margin-top:1px"></i>
-      </button>
-      <div id="nav-results-menu" class="hidden absolute left-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50">
-        <a href="/admin/results"
-          class="flex items-center gap-2 px-3 py-2 text-sm {% if _p.startswith('/admin/results') %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
-          <i class="ph ph-users-three" style="font-size:14px"></i> Communities
-        </a>
-        <a href="/admin/venues"
-          class="flex items-center gap-2 px-3 py-2 text-sm {% if _p.startswith('/admin/venues') %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
-          <i class="ph ph-map-pin" style="font-size:14px"></i> Venues
-        </a>
-        <a href="/admin/persons"
-          class="flex items-center gap-2 px-3 py-2 text-sm {% if _p.startswith('/admin/persons') %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
-          <i class="ph ph-person" style="font-size:14px"></i> People
-        </a>
+    <!-- Desktop nav links -->
+    <div class="hidden md:flex items-center gap-1 flex-1 min-w-0">
+      {{ navlink('/admin', 'Dashboard', _p == '/admin') }}
+      {# Results dropdown #}
+      {% set _res_active = _p.startswith('/admin/results') or _p.startswith('/admin/venues') or _p.startswith('/admin/persons') %}
+      <div class="relative" id="nav-results-wrap">
+        <button onclick="document.getElementById('nav-results-menu').classList.toggle('hidden')"
+          class="px-2.5 py-1 rounded-lg text-sm transition-colors flex items-center gap-1
+            {% if _res_active %}bg-gray-100 text-gray-900 font-semibold{% else %}text-gray-600 hover:text-gray-900 hover:bg-gray-50{% endif %}">
+          Results <i class="ph ph-caret-down" style="font-size:11px;margin-top:1px"></i>
+        </button>
+        <div id="nav-results-menu" class="hidden absolute left-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50">
+          <a href="/admin/results" class="flex items-center gap-2 px-3 py-2 text-sm {% if _p.startswith('/admin/results') %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+            <i class="ph ph-users-three" style="font-size:14px"></i> Communities
+          </a>
+          <a href="/admin/venues" class="flex items-center gap-2 px-3 py-2 text-sm {% if _p.startswith('/admin/venues') %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+            <i class="ph ph-map-pin" style="font-size:14px"></i> Venues
+          </a>
+          <a href="/admin/persons" class="flex items-center gap-2 px-3 py-2 text-sm {% if _p.startswith('/admin/persons') %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+            <i class="ph ph-person" style="font-size:14px"></i> People
+          </a>
+        </div>
       </div>
+      {{ navlink('/admin/progress',       'Progress',   _p.startswith('/admin/progress')) }}
+      {{ navlink('/admin/config',         'Config',     _p.startswith('/admin/config')) }}
+      {{ navlink('/admin/logs',           'Logs',       _p == '/admin/logs') }}
+      {{ navlink('/admin/prompts',        'Prompts',    _p == '/admin/prompts') }}
+      {{ navlink('/admin/not-community',  'Not comm.',  _p == '/admin/not-community') }}
+      {{ navlink('/admin/subscriptions',  'Subscribers', _p.startswith('/admin/subscriptions')) }}
+      <span class="w-px h-4 bg-gray-200 mx-1 shrink-0"></span>
+      <a href="/" class="text-sm text-indigo-500 hover:text-indigo-700 transition-colors">← Public</a>
     </div>
-    {{ navlink('/admin/progress',       'Progress',    _p.startswith('/admin/progress')) }}
-    {{ navlink('/admin/config',        'Config',      _p.startswith('/admin/config')) }}
-    {{ navlink('/admin/logs',          'Logs',        _p == '/admin/logs') }}
-    {{ navlink('/admin/prompts',       'Prompts',     _p == '/admin/prompts') }}
-    {{ navlink('/admin/not-community', 'Not community', _p == '/admin/not-community') }}
-    {{ navlink('/admin/subscriptions', 'Subscribers', _p.startswith('/admin/subscriptions')) }}
-    <span class="w-px h-4 bg-gray-200 mx-2 shrink-0"></span>
-    <a href="/" class="text-sm text-indigo-500 hover:text-indigo-700 transition-colors">← Public</a>
-    <div class="ml-auto flex items-center gap-3">
-      <span class="text-xs text-gray-400 font-mono">{{ app_version }}</span>
+    <!-- Mobile hamburger -->
+    <button id="admin-nav-toggle" class="md:hidden p-1.5 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors ml-1" aria-label="Menü">
+      <i id="admin-nav-icon" class="ph ph-list" style="font-size:18px"></i>
+    </button>
+    <div class="ml-auto flex items-center gap-2 shrink-0">
+      <span class="text-xs text-gray-400 font-mono hidden sm:inline">{{ app_version }}</span>
       <form id="nav-run-form" method="POST" action="/admin/api/run" class="flex">
         <input type="hidden" name="run_mode" value="full">
         <button type="submit" title="Start run"
@@ -73,7 +77,36 @@
       </form>
     </div>
   </div>
+  <!-- Mobile nav dropdown -->
+  <div id="admin-nav-mobile" class="hidden md:hidden border-t border-gray-200 bg-white">
+    <div class="max-w-6xl mx-auto px-4 py-2 flex flex-col gap-0.5">
+      {{ navlink('/admin', 'Dashboard', _p == '/admin') }}
+      <a href="/admin/results" class="px-2.5 py-2 rounded-lg text-sm transition-colors {% if _p.startswith('/admin/results') %}bg-gray-100 text-gray-900 font-semibold{% else %}text-gray-600 hover:text-gray-900 hover:bg-gray-50{% endif %}">Communities</a>
+      <a href="/admin/venues" class="px-2.5 py-2 rounded-lg text-sm transition-colors {% if _p.startswith('/admin/venues') %}bg-gray-100 text-gray-900 font-semibold{% else %}text-gray-600 hover:text-gray-900 hover:bg-gray-50{% endif %}">Venues</a>
+      <a href="/admin/persons" class="px-2.5 py-2 rounded-lg text-sm transition-colors {% if _p.startswith('/admin/persons') %}bg-gray-100 text-gray-900 font-semibold{% else %}text-gray-600 hover:text-gray-900 hover:bg-gray-50{% endif %}">People</a>
+      {{ navlink('/admin/progress',      'Progress',     _p.startswith('/admin/progress')) }}
+      {{ navlink('/admin/config',        'Config',       _p.startswith('/admin/config')) }}
+      {{ navlink('/admin/logs',          'Logs',         _p == '/admin/logs') }}
+      {{ navlink('/admin/prompts',       'Prompts',      _p == '/admin/prompts') }}
+      {{ navlink('/admin/not-community', 'Not community', _p == '/admin/not-community') }}
+      {{ navlink('/admin/subscriptions', 'Subscribers',  _p.startswith('/admin/subscriptions')) }}
+      <a href="/" class="px-2.5 py-2 rounded-lg text-sm text-indigo-500 hover:text-indigo-700 transition-colors">← Public</a>
+    </div>
+  </div>
 </nav>
+<script>
+(function() {
+  var btn = document.getElementById('admin-nav-toggle');
+  var menu = document.getElementById('admin-nav-mobile');
+  var icon = document.getElementById('admin-nav-icon');
+  if (btn) btn.addEventListener('click', function() {
+    var open = !menu.classList.contains('hidden');
+    menu.classList.toggle('hidden', open);
+    icon.className = open ? 'ph ph-list' : 'ph ph-x';
+    icon.style.fontSize = '18px';
+  });
+})();
+</script>
 <script>
 (function() {
   let _prevRunning = null;
