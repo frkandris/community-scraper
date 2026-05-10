@@ -2899,7 +2899,9 @@ async def admin_edit_requests_approve(request_id: int):
     if not r:
         return JSONResponse({"ok": False, "error": "not found"})
     if r["entity_type"] == "community":
-        apply_community_edit(_db(), r["record_key"], r["change_type"], r["new_value"])
+        applied = apply_community_edit(_db(), r["record_key"], r["change_type"], r["new_value"])
+        if not applied:
+            return JSONResponse({"ok": False, "error": "community not found or unsupported change type"})
     resolve_edit_request(_db(), request_id, "approved")
     return JSONResponse({"ok": True})
 

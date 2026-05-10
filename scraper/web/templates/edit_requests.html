@@ -81,9 +81,10 @@ async function approve(id) {
 
 async function reject(id) {
   const row = document.getElementById('row-' + id);
-  await fetch('/admin/edit-requests/' + id + '/reject', { method: 'POST' });
-  row.style.opacity = '0.4';
-  setTimeout(() => row.remove(), 350);
+  const res = await fetch('/admin/edit-requests/' + id + '/reject', { method: 'POST' });
+  const d = await res.json();
+  if (d.ok) { row.style.opacity = '0.4'; setTimeout(() => row.remove(), 350); }
+  else alert('Error: ' + (d.error || 'unknown'));
 }
 </script>
 
