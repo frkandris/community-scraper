@@ -95,9 +95,9 @@ def detect_community_candidates(db_path: Path, city: str | None = None) -> int:
                     round(similarity, 4), signal,
                 ):
                     inserted += 1
-                log.info("duplicate_candidate_found", entity="community",
-                         winner=a["name"], loser=b["name"], city=city_name,
-                         signal=signal, similarity=round(similarity, 3))
+                    log.info("duplicate_candidate_found", entity="community",
+                             winner=a["name"], loser=b["name"], city=city_name,
+                             signal=signal, similarity=round(similarity, 3))
 
     return inserted
 
