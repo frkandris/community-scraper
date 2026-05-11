@@ -1366,6 +1366,48 @@ def get_person_counts(db_path: Path) -> dict[str, int]:
     return {r[0]: r[1] for r in rows}
 
 
+def search_all(
+    db_path: Path,
+    query: str,
+    limit: int = 20,
+) -> dict[str, list[dict]]:
+    """Search communities, venues, and persons by name or description.
+
+    Returns a dict with lists of matching records from each table.
+    Empty query returns empty results. Hidden communities are excluded.
+    """
+    if not db_path.exists() or not query.strip():
+        return {"communities": [], "venues": [], "persons": []}
+
+    pattern = f"%{query}%"
+    with _connect(db_path) as conn:
+        community_rows = conn.execute(
+            "SELECT data FROM communities WHERE hidden=0 AND ("
+            "  json_extract(data,'$.name') LIKE ? OR"
+            "  json_extract(data,'$.description') LIKE ?"
+            ") ORDER BY city, id LIMIT ?",
+            (pattern, pattern, limit),
+        ).fetchall()
+        venue_rows = conn.execute(
+            "SELECT data FROM venues WHERE ("
+            "  json_extract(data,'$.name') LIKE ? OR"
+            "  json_extract(data,'$.description') LIKE ?"
+            ") ORDER BY city, id LIMIT ?",
+            (pattern, pattern, limit),
+        ).fetchall()
+        person_rows = conn.execute(
+            "SELECT data FROM persons WHERE"
+            "  json_extract(data,'$.name') LIKE ? ORDER BY city, id LIMIT ?",
+            (pattern, limit),
+        ).fetchall()
+
+    return {
+        "communities": [json.loads(r[0]) for r in community_rows],
+        "venues": [json.loads(r[0]) for r in venue_rows],
+        "persons": [json.loads(r[0]) for r in person_rows],
+    }
+
+
 # ── Not-community reports ─────────────────────────────────────────────────────
 
 def save_not_community_report(
