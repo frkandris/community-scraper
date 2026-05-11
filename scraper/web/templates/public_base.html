@@ -120,8 +120,32 @@
   {% block content %}{% endblock %}
 </main>
 
-<footer class="mt-16 border-t border-[#EAE5DB] bg-white py-8">
-  <div class="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+<footer class="mt-16 border-t border-[#EAE5DB] bg-white">
+  <!-- Site feedback form -->
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 border-b border-[#EAE5DB]">
+    <form id="site-feedback-form" onsubmit="submitSiteFeedback(event)">
+      <div id="sfb-success" class="hidden text-sm text-[#4A7C59] font-medium py-1">
+        <i class="ph ph-check-circle mr-1"></i>{{ t('footer_feedback_thanks') }}
+      </div>
+      <div id="sfb-fields">
+        <textarea id="sfb-message" name="message" rows="2"
+          placeholder="{{ t('footer_feedback_prompt') }}"
+          onfocus="document.getElementById('sfb-extra').classList.remove('hidden')"
+          class="w-full text-sm text-[#1C1917] placeholder-[#B5AFA7] bg-[#FAF8F5] border border-[#EAE5DB] rounded-lg px-3 py-2.5 resize-none focus:outline-none focus:border-[#C2613A] focus:ring-1 focus:ring-[#C2613A] transition-colors"></textarea>
+        <div id="sfb-extra" class="hidden mt-2 flex gap-2">
+          <input id="sfb-email" name="email" type="email"
+            placeholder="{{ t('footer_feedback_email_placeholder') }}"
+            class="flex-1 text-sm text-[#1C1917] placeholder-[#B5AFA7] bg-[#FAF8F5] border border-[#EAE5DB] rounded-lg px-3 py-2 focus:outline-none focus:border-[#C2613A] focus:ring-1 focus:ring-[#C2613A] transition-colors">
+          <button type="submit"
+            class="px-4 py-2 bg-[#C2613A] text-white text-sm font-semibold rounded-lg hover:bg-[#A8512F] transition-colors">
+            {{ t('footer_feedback_send') }}
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+  <!-- Footer links -->
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
     <div class="flex items-center gap-2">
       <span class="font-semibold text-[#1C1917] text-sm">közösségek.com</span>
       <span class="text-xs text-[#8C8478]">· {{ t('footer_tagline') }}</span>
@@ -134,6 +158,25 @@
     </div>
   </div>
 </footer>
+
+<script>
+async function submitSiteFeedback(e) {
+  e.preventDefault();
+  const msg = document.getElementById('sfb-message').value.trim();
+  if (!msg) return;
+  const email = document.getElementById('sfb-email').value.trim();
+  const body = new FormData();
+  body.append('message', msg);
+  body.append('user_email', email);
+  body.append('page_url', window.location.href);
+  body.append('community_name', '');
+  body.append('city', '');
+  body.append('topic', '');
+  await fetch('/feedback', { method: 'POST', body });
+  document.getElementById('sfb-fields').classList.add('hidden');
+  document.getElementById('sfb-success').classList.remove('hidden');
+}
+</script>
 
 </body>
 </html>
