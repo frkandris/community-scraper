@@ -1315,26 +1315,59 @@ async def public_map_en():
 @_fastapi.get("/sitemap.xml")
 async def sitemap(request: Request):
     from fastapi.responses import Response as _Response
-    base = str(request.base_url).rstrip("/")
-    urls: list[str] = [base + "/", base + "/rolunk", base + "/felfedezes", base + "/varosok", base + "/terkep"]
+    base = "https://kozossegek.com"
+
+    locs: list[str] = [
+        base + "/",
+        base + "/rolunk",
+        base + "/terkep",
+        base + "/varosok",
+        base + "/felfedezes",
+        base + "/helyszinek",
+        base + "/emberek",
+    ]
 
     if app_state.db_path:
+        init_db(app_state.db_path)
+
+        # City pages + city+topic pages + community detail pages
         counts = get_city_topic_counts(_db())
         for city_name, topics in counts.items():
             city_sl = _slugify(city_name)
             city_locale = _city_locale(city_name)
-            urls.append(f"{base}/{city_sl}")
+            locs.append(f"{base}/{city_sl}")
             for topic_name in topics:
                 topic_sl = _topic_url_slug(topic_name, city_locale)
-                urls.append(f"{base}/{city_sl}/{topic_sl}")
+                locs.append(f"{base}/{city_sl}/{topic_sl}")
                 for record in get_communities(_db(), city_name, topic_name):
                     name_sl = _slugify(record.get("name", ""))
                     if name_sl:
-                        urls.append(f"{base}/{city_sl}/{name_sl}")
+                        locs.append(f"{base}/{city_sl}/{name_sl}")
 
-    lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
-    for url in dict.fromkeys(urls):  # deduplicate while preserving order
-        lines.append(f"  <url><loc>{url}</loc></url>")
+        # Venue detail pages
+        for v in get_all_venues(app_state.db_path):
+            city_sl = _slugify(v.get("city", ""))
+            name_sl = _slugify(v.get("name", ""))
+            if city_sl and name_sl:
+                locs.append(f"{base}/{city_sl}/helyszin/{name_sl}")
+
+        # Person detail pages — deduplicated by name+city slug
+        seen_persons: set[tuple[str, str]] = set()
+        for p in get_all_persons(app_state.db_path):
+            city_sl = _slugify(p.get("city", ""))
+            name_sl = _slugify(p.get("name", ""))
+            if city_sl and name_sl and (city_sl, name_sl) not in seen_persons:
+                seen_persons.add((city_sl, name_sl))
+                locs.append(f"{base}/{city_sl}/ember/{name_sl}")
+
+    lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ]
+    for loc in dict.fromkeys(locs):  # deduplicate while preserving order
+        lines.append(
+            f"  <url><loc>{loc}</loc><changefreq>weekly</changefreq></url>"
+        )
     lines.append("</urlset>")
     return _Response("\n".join(lines), media_type="application/xml")
 
