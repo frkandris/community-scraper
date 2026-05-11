@@ -4,7 +4,7 @@
 {% block content %}
 
 {% macro _venue_card(v) %}
-<div class="bg-white rounded-xl border border-[#EAE5DB] p-5 flex flex-col gap-3 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/20 transition-colors">
+<div data-name="{{ v.name | lower }}" class="bg-white rounded-xl border border-[#EAE5DB] p-5 flex flex-col gap-3 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/20 transition-colors">
 
   <div class="flex items-start justify-between gap-2">
     <h2 class="font-semibold text-[#1C1917] text-base leading-snug">
@@ -71,7 +71,8 @@
 <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
 
   <!-- Filters -->
-  <form method="GET" action="/helyszinek" class="mb-6 flex flex-wrap gap-2 items-end">
+  <div class="mb-6 flex flex-wrap gap-3 items-end">
+  <form method="GET" action="/helyszinek" class="flex flex-wrap gap-2 items-end">
 
     <div class="flex flex-col gap-1">
       <label class="text-[10px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">Város</label>
@@ -106,6 +107,13 @@
     {% endif %}
 
   </form>
+  <div class="flex flex-col gap-1">
+    <label class="text-[10px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">Keresés</label>
+    <input id="venue-search" type="search" placeholder="Névre szűrés…"
+      class="text-sm border border-[#D8D1C4] rounded-lg px-3 py-2 bg-white text-[#1C1917]
+             focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 w-48">
+  </div>
+  </div>
 
   {% if venues %}
 
@@ -113,7 +121,7 @@
   {% if not selected_city %}
 
     {% for city_group in city_sections %}
-    <div class="mb-5">
+    <section data-city-section class="mb-5">
       <h3 class="text-sm font-semibold text-[#4A4441] mb-3 flex items-center gap-2">
         <a href="/{{ city_group.name | slugify }}" class="hover:text-[#A8512F] transition-colors">{{ city_group.name }}</a>
         <span class="text-xs font-normal text-[#B5ADA0]">{{ city_group.venues | length }}</span>
@@ -123,7 +131,7 @@
         {{ _venue_card(v) }}
         {% endfor %}
       </div>
-    </div>
+    </section>
     {% endfor %}
 
   {% else %}
@@ -147,5 +155,21 @@
   {% endif %}
 
 </div>
+
+<script>
+const vs = document.getElementById('venue-search');
+if (vs) {
+  vs.addEventListener('input', () => {
+    const q = vs.value.toLowerCase();
+    document.querySelectorAll('[data-name]').forEach(card => {
+      card.classList.toggle('hidden', !card.dataset.name.includes(q));
+    });
+    document.querySelectorAll('[data-city-section]').forEach(section => {
+      const allHidden = [...section.querySelectorAll('[data-name]')].every(c => c.classList.contains('hidden'));
+      section.classList.toggle('hidden', allHidden);
+    });
+  });
+}
+</script>
 
 {% endblock %}

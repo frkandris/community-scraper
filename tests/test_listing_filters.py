@@ -1,6 +1,6 @@
 from pathlib import Path
-from scraper.db import init_db, upsert_persons
-from scraper.models import PersonRecord
+from scraper.db import init_db, upsert_persons, upsert_venues
+from scraper.models import PersonRecord, VenueRecord
 from scraper.pipeline import CityConfig
 from scraper.web import app as web_app
 from scraper.web.state import app_state
@@ -108,6 +108,27 @@ def test_people_role_displayed_in_hungarian(tmp_path):
         resp = TestClient(web_app.app).get("/emberek")
         assert "vezető" in resp.text      # "leader" → "vezető"
         assert "szervező" in resp.text    # "organizer" → "szervező"
+    finally:
+        app_state.db_path = old_db
+        app_state.cities = old_cities
+
+
+def test_venues_page_has_name_search_structure(tmp_path):
+    db = _db(tmp_path)
+    upsert_venues(db, [
+        VenueRecord(name="Müpa Budapest", city="Budapest", locale="hu",
+                    source_url="https://mupa.hu", extracted_at="2026-01-01T00:00:00+00:00",
+                    welcomed_topics=["music"]).model_dump(),
+    ])
+    old_db, old_cities = app_state.db_path, app_state.cities
+    try:
+        app_state.db_path = db
+        app_state.cities = [CityConfig(name="Budapest", country="Hungary", locale="hu", search_variants=[])]
+        resp = TestClient(web_app.app).get("/helyszinek")
+        assert resp.status_code == 200
+        assert "venue-search" in resp.text
+        assert "data-name=" in resp.text
+        assert "data-city-section" in resp.text
     finally:
         app_state.db_path = old_db
         app_state.cities = old_cities
