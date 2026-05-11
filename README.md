@@ -1,65 +1,91 @@
-# Community Scraper
+# közösségek.com — Community Directory Scraper
 
-Searches the web for active community groups based on city lists and community topics, interprets results with a local LLM, and stores structured JSON data with full git history.
+A self-hosted scraper and public directory of local community groups in Hungary.
+The app continuously discovers running clubs, choirs, board-game nights, yoga circles, etc.
+by city and interest topic, then serves them at **közösségek.com**.
+
+## What it does
+
+For each `(city, topic)` pair it:
+
+1. Generates search queries in Hungarian/English.
+2. Searches the web — Serper → Brave → SearXNG fallback chain.
+3. Fetches and cleans pages (`httpx` + `trafilatura`; Playwright for JS-heavy sites like Reddit).
+4. Runs LLM extraction — DeepSeek → Groq → Ollama fallback chain.
+5. Saves structured community, venue, and person records to SQLite.
+6. Serves the data through a bilingual public website (HU/EN) and a password-protected admin UI.
 
 ## Architecture
 
 ```
-[scraper app :8001] → [SearXNG :8080]   # web search
-[scraper app :8001] → [Ollama  :11434]  # local LLM
+pipeline.py
+  └── search.py      (Serper / Brave / SearXNG)
+  └── fetch.py       (httpx + trafilatura / Playwright)
+  └── extract.py     (DeepSeek / Groq / Ollama)
+  └── store.py       (SQLite via db.py)
+
+web/app.py           (FastAPI — public site + /admin)
+main.py              (APScheduler + uvicorn)
 ```
 
-## Components
+## Public site
 
-- **SearXNG** – self-hosted meta-search engine
-- **Ollama** – local LLM inference (llama3.2:3b)
-- **FastAPI** – web admin interface (`:8001`)
-- **APScheduler** – scheduled runs (default: daily at 03:00 UTC)
+| Page | URL |
+|------|-----|
+| Home | `/` |
+| City directory | `/:city` |
+| Explore by tag | `/felfedezes` |
+| Community detail | `/:city/:slug` |
+| Venue detail | `/:city/helyszinek/:slug` |
+| Person detail | `/:city/emberek/:slug` |
 
-## Web Interface
+## Admin UI (`/admin`)
 
-| Page | URL | Description |
-|------|-----|-------------|
-| Dashboard | `/` | Status, run controls, software info |
-| Results | `/results` | Browse records by city and topic |
-| Cache | `/cache` | Manage the two-level page cache |
-| Config | `/config` | Edit YAML config in-browser |
-| Logs | `/logs` | Real-time log stream (SSE) |
-| History | `/history` | Git commit history |
-
-## Two-Level Cache
-
-Each scraped URL is stored in `data/cache/pages/` with two independent cache layers:
-
-- **Scrape cache** – raw page text fetched from the web. Skip re-fetching known URLs.
-- **Extract cache** – AI-interpreted community records. Skip re-running LLM on already-processed pages.
-
-**Run modes:**
-- **Full run** – search → fetch (respects scrape cache) → AI (respects extract cache)
-- **AI only** – skip search and fetching entirely; re-run AI on cached pages only (useful when switching models)
-
-Per-run overrides for both cache layers are available in the Dashboard.
+| Section | Purpose |
+|---------|---------|
+| Dashboard | Run controls, stats, Hungary/Global scope toggle |
+| Results → Communities / Venues / People | Browse and edit scraped records |
+| Moderation → Duplicates | Review and merge duplicate communities |
+| Moderation → Edit requests | User-submitted corrections |
+| Moderation → Not community | Mark false positives |
+| Moderation → Beküldések | User submissions |
+| Moderation → Recategorize | AI re-categorizes "other"-topic communities |
+| System → Progress | Per city/topic scrape progress |
+| System → Logs | Real-time log stream (SSE) |
+| System → Config | Edit YAML config in-browser |
+| System → Prompts | Edit LLM prompts live |
+| Subscribers | Newsletter subscriber list |
 
 ## Configuration
 
-`config/cities.yaml` – cities with their locale  
-`config/topics.yaml` – topics with locale-specific search terms  
-`config/settings.yaml` – Ollama / SearXNG / fetch / cache parameters
+| File | Purpose |
+|------|---------|
+| `config/cities.yaml` | City list: name, country, locale, search variants |
+| `config/topics.yaml` | Topic list: per-locale search terms |
+| `config/settings.yaml` | Model/API/cache/schedule config |
 
-## Environment Variables
+## Environment variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SEARXNG_URL` | `http://localhost:8080` | SearXNG base URL |
-| `OLLAMA_URL` | `http://localhost:11434` | Ollama base URL |
-| `HOST` | `127.0.0.1` | Uvicorn bind host (`0.0.0.0` in Docker) |
-| `ADMIN_USER` | `admin` | Admin basic-auth user |
-| `ADMIN_PASSWORD` | – | Required admin basic-auth password |
-| `SCHEDULE_CRON` | `0 3 * * *` | Run schedule (cron expression) |
-| `GIT_USER_NAME` | – | Git commit author name |
-| `GIT_USER_EMAIL` | – | Git commit author email |
-| `GIT_TOKEN` | – | GitHub PAT (optional, for push) |
+| Variable | Description |
+|----------|-------------|
+| `ADMIN_PASSWORD` | Required — gates the entire `/admin` UI |
+| `SEARXNG_URL` | SearXNG base URL |
+| `OLLAMA_URL` | Ollama base URL |
+| `DEEPSEEK_API_KEY` | Optional — faster/better extraction |
+| `GROQ_API_KEY` | Optional — fallback extraction |
+| `SERPER_DEV_API_KEY` | Optional — primary search |
+| `BRAVE_API_KEY` | Optional — secondary search |
 
-## Data Storage
+## Deployment
 
-Results are stored in SQLite at `data/scraper.db`. Runtime data should be persisted by mounting `/app/data`; if you edit config through the admin UI, persist `/app/config` as well.
+Runs on Coolify (Hetzner) via Docker. Persist `/app/data` (SQLite) and `/app/config` (YAML edits).
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+pytest                   # run tests
+ruff check scraper/      # lint
+```
+
+No local server needed — the app runs on Hetzner. Read templates and code directly for verification.
