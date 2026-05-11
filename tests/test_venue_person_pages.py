@@ -105,3 +105,58 @@ def test_venue_detail_page_404_redirects(tmp_path):
         assert resp.headers["location"] == "/helyszinek"
     finally:
         app_state.db_path = old_db
+
+
+def test_person_detail_page_returns_200(tmp_path):
+    db = _db(tmp_path)
+    p = PersonRecord(
+        name="Kovács János", role="leader", city="Budapest", topic="running",
+        community_name="Futók", source_url="https://a.test",
+        extracted_at="2026-01-01T00:00:00+00:00",
+    )
+    upsert_persons(db, [p.model_dump()])
+
+    old_db = app_state.db_path
+    try:
+        app_state.db_path = db
+        resp = TestClient(web_app.app).get("/budapest/ember/kovacs-janos")
+        assert resp.status_code == 200
+        assert "Kovács János" in resp.text
+        assert "Futók" in resp.text
+    finally:
+        app_state.db_path = old_db
+
+
+def test_person_detail_merges_multiple_communities(tmp_path):
+    db = _db(tmp_path)
+    for community in ["Futók", "Kerékpárosok"]:
+        p = PersonRecord(
+            name="Kovács János", role="leader", city="Budapest", topic="running",
+            community_name=community, source_url="https://a.test",
+            extracted_at="2026-01-01T00:00:00+00:00",
+        )
+        upsert_persons(db, [p.model_dump()])
+
+    old_db = app_state.db_path
+    try:
+        app_state.db_path = db
+        resp = TestClient(web_app.app).get("/budapest/ember/kovacs-janos")
+        assert resp.status_code == 200
+        assert "Futók" in resp.text
+        assert "Kerékpárosok" in resp.text
+    finally:
+        app_state.db_path = old_db
+
+
+def test_person_detail_404_redirects(tmp_path):
+    db = _db(tmp_path)
+    old_db = app_state.db_path
+    try:
+        app_state.db_path = db
+        resp = TestClient(web_app.app).get(
+            "/budapest/ember/nem-letezik", follow_redirects=False
+        )
+        assert resp.status_code == 302
+        assert resp.headers["location"] == "/emberek"
+    finally:
+        app_state.db_path = old_db

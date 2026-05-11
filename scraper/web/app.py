@@ -52,6 +52,7 @@ from ..db import (
     get_venue_person_counts_by_url,
     get_venue_history,
     get_persons,
+    get_all_persons,
     get_person_counts,
     get_person_history,
     get_cache_cost_stats,
@@ -3012,6 +3013,63 @@ async def public_venue_detail(request: Request, city_slug: str, venue_slug: str)
         "city_slug": city_slug,
         "communities": communities,
         "topic_url_slugs": topic_url_slugs,
+        "topic_icons": TOPIC_ICONS,
+        "topic_labels": TOPIC_LABELS,
+        **lang_context(request),
+    })
+
+
+@_fastapi.get("/{city_slug}/ember/{name_slug}", response_class=HTMLResponse)
+async def public_person_detail(request: Request, city_slug: str, name_slug: str):
+    if not app_state.db_path:
+        return RedirectResponse("/emberek", status_code=302)
+    city_name = _city_from_slug(city_slug)
+    if city_name:
+        all_persons = get_persons(app_state.db_path, city_name)
+    else:
+        # Cities not yet loaded (e.g. test env) — scan all persons and match by city slug
+        all_persons_all = get_all_persons(app_state.db_path)
+        all_persons = [p for p in all_persons_all if _slugify(p.get("city", "")) == city_slug]
+        if all_persons:
+            city_name = all_persons[0].get("city", city_slug)
+    if not city_name:
+        return RedirectResponse("/emberek", status_code=302)
+    merged = [p for p in all_persons if _slugify(p.get("name", "")) == name_slug]
+    if not merged:
+        return RedirectResponse("/emberek", status_code=302)
+    city_locale = _city_locale(city_name)
+    topic_url_slugs = {t.name: _topic_url_slug(t.name, city_locale) for t in (app_state.topics or [])}
+    community_entries = []
+    seen = set()
+    for p in merged:
+        key = (p.get("community_name", ""), p.get("topic", ""), p.get("role", ""))
+        if key in seen:
+            continue
+        seen.add(key)
+        community_name = p.get("community_name", "")
+        topic = p.get("topic", "")
+        community_entries.append({
+            "name": community_name,
+            "url": f"/{city_slug}/{_slugify(community_name)}",
+            "role": p.get("role", ""),
+            "topic": topic,
+            "topic_label": TOPIC_LABELS.get(topic, topic.replace("_", " ").title()),
+            "topic_icon": TOPIC_ICONS.get(topic, "circle"),
+        })
+    person = merged[0]
+    bio = next((p.get("bio") for p in merged if p.get("bio")), None)
+    website = next((p.get("website") for p in merged if p.get("website")), None)
+    social_links = list(dict.fromkeys(
+        lnk for p in merged for lnk in (p.get("social_links") or [])
+    ))
+    return templates.TemplateResponse(request, "public_person_detail.html", {
+        "person": person,
+        "bio": bio,
+        "website": website,
+        "social_links": social_links,
+        "community_entries": community_entries,
+        "city": city_name,
+        "city_slug": city_slug,
         "topic_icons": TOPIC_ICONS,
         "topic_labels": TOPIC_LABELS,
         **lang_context(request),

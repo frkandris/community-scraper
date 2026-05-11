@@ -1,0 +1,91 @@
+{% extends "public_base.html" %}
+{% block title %}{{ person.name }} – közösségek.com{% endblock %}
+{% block og_desc %}{{ bio or (person.name + ' közösségi ' + person.role + ' ' + city + 'ban.') }}{% endblock %}
+{% block content %}
+
+<div class="brand-gradient relative overflow-hidden">
+  <div class="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white opacity-[0.07] pointer-events-none"></div>
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 relative">
+    <p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">
+      <a href="/{{ city_slug }}" class="hover:text-white transition-colors">{{ city }}</a>
+      <span class="mx-1 opacity-60">›</span>
+      <a href="/emberek" class="hover:text-white transition-colors">Emberek</a>
+    </p>
+    <h1 class="text-xl sm:text-2xl font-black tracking-[-0.025em] text-white leading-tight">{{ person.name }}</h1>
+    <p class="text-sm text-white/75 mt-1">{{ city }}</p>
+  </div>
+</div>
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+  <!-- Main: communities -->
+  <div class="lg:col-span-2 flex flex-col gap-4">
+
+    {% if bio %}
+    <div class="bg-white rounded-xl border border-[#EAE5DB] p-5">
+      <p class="text-sm text-[#6A6259] leading-relaxed">{{ bio }}</p>
+    </div>
+    {% endif %}
+
+    <div class="bg-white rounded-xl border border-[#EAE5DB] p-5">
+      <h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-[#8C8478] mb-3 flex items-center gap-2">
+        <i class="ph ph-users-three text-[#C2613A]"></i>
+        Közösségek
+        <span class="font-normal text-[#B5ADA0]">{{ community_entries | length }}</span>
+      </h2>
+      <div class="flex flex-col gap-2">
+        {% for ce in community_entries %}
+        <a href="{{ ce.url }}"
+           class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-[#EAE5DB] hover:border-[#E88E6B] hover:bg-[#FDF0EA]/30 transition-colors">
+          <i class="ph ph-{{ ce.topic_icon }} text-[#C2613A] shrink-0" style="font-size:16px"></i>
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-medium text-[#1C1917] truncate">{{ ce.name }}</p>
+            <p class="text-xs text-[#8C8478]">{{ ce.topic_label }}</p>
+          </div>
+          {% if ce.role %}
+          <span class="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#F5F2EC] text-[#8C8478] border border-[#EAE5DB]">
+            {{ ce.role }}
+          </span>
+          {% endif %}
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Sidebar -->
+  <div class="flex flex-col gap-3">
+
+    {% if website or social_links %}
+    <div class="bg-white rounded-xl border border-[#EAE5DB] p-5 flex flex-col gap-3">
+      <h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-[#8C8478]">Elérhetőség</h2>
+
+      {% if website %}
+      <a href="{{ website }}" target="_blank" rel="noopener"
+         class="flex items-center gap-2 text-sm text-[#A8512F] hover:underline truncate">
+        <i class="ph ph-arrow-square-out text-[#B5ADA0] shrink-0"></i>
+        {{ website | replace('https://','') | replace('http://','') | truncate(36) }}
+      </a>
+      {% endif %}
+
+      {% for link in social_links %}
+      <a href="{{ link }}" target="_blank" rel="noopener"
+         class="flex items-center gap-2 text-xs text-[#A8512F] hover:underline truncate">
+        <i class="ph ph-link text-[#B5ADA0] shrink-0"></i>
+        {{ link | replace('https://','') | replace('http://','') | truncate(36) }}
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <a href="/{{ city_slug }}"
+       class="flex items-center gap-2 text-sm text-[#8C8478] hover:text-[#A8512F] transition-colors px-1">
+      <i class="ph ph-buildings"></i> Vissza: {{ city }}
+    </a>
+
+  </div>
+
+</div>
+
+{% endblock %}
