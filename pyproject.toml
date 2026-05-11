@@ -27,6 +27,7 @@ dev = [
     "pytest-asyncio>=0.23",
     "respx>=0.21",
     "ruff>=0.4",
+    "pillow>=10.1",
 ]
 
 [tool.setuptools.packages.find]
