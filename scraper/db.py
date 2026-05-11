@@ -810,6 +810,20 @@ def get_communities_for_venue(
     return [json.loads(r[0]) for r in rows]
 
 
+def get_venue_for_community(db_path: Path, community_id: str, city: str) -> dict | None:
+    """Return the first venue in city whose community_ids list contains community_id."""
+    if not db_path.exists() or not community_id:
+        return None
+    with _connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT data FROM venues WHERE city=? AND EXISTS ("
+            "  SELECT 1 FROM json_each(json_extract(data,'$.community_ids')) WHERE value=?"
+            ") LIMIT 1",
+            (city, community_id),
+        ).fetchone()
+    return json.loads(row[0]) if row else None
+
+
 def get_topic_counts(db_path: Path) -> dict[str, int]:
     if not db_path.exists():
         return {}
