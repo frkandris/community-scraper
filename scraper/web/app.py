@@ -74,6 +74,9 @@ from ..db import (
     search_all,
     get_venue_for_community,
     get_persons_for_community,
+    save_community_submission,
+    get_community_submissions,
+    resolve_community_submission,
 )
 from ..false_positives import (add as fp_add, diff_html as fp_diff_html,
                                load as fp_load, load_history as fp_load_history,
@@ -1347,6 +1350,45 @@ async def public_map_en():
     return RedirectResponse("/terkep", status_code=301)
 
 
+@_fastapi.get("/kozosseg-bekuldes", response_class=HTMLResponse)
+async def submit_community_get(request: Request, city: str = "", topic: str = ""):
+    init_db(_db())
+    submitted = request.query_params.get("submitted") == "1"
+    all_cities = sorted(c.name for c in (app_state.cities or []))
+    _topic_labels = get_topic_labels(lang_context(request)["lang"])
+    all_topics = [
+        {"name": t.name, "label": _topic_labels.get(t.name, t.name.replace("_", " ").title())}
+        for t in sorted(app_state.topics or [], key=lambda t: t.name)
+    ]
+    return templates.TemplateResponse(request, "public_submit_community.html", {
+        "submitted": submitted,
+        "city": city,
+        "topic": topic,
+        "all_cities": all_cities,
+        "all_topics": all_topics,
+        **lang_context(request),
+    })
+
+
+@_fastapi.post("/kozosseg-bekuldes")
+async def submit_community_post(
+    request: Request,
+    name: str = Form(""),
+    city: str = Form(""),
+    topic: str = Form(""),
+    source_url: str = Form(""),
+    submitter_email: str = Form(""),
+):
+    if not all([name.strip(), city.strip(), topic.strip(), source_url.strip()]):
+        return JSONResponse({"error": "missing_required_field"}, status_code=400)
+    init_db(_db())
+    save_community_submission(
+        _db(), name.strip(), city.strip(), topic.strip(),
+        source_url.strip(), submitter_email.strip() or None,
+    )
+    return RedirectResponse("/kozosseg-bekuldes?submitted=1", status_code=302)
+
+
 @_fastapi.get("/sitemap.xml")
 async def sitemap(request: Request):
     from fastapi.responses import Response as _Response
@@ -1360,6 +1402,7 @@ async def sitemap(request: Request):
         base + "/felfedezes",
         base + "/helyszinek",
         base + "/emberek",
+        base + "/kozosseg-bekuldes",
     ]
 
     if app_state.db_path:

@@ -1,0 +1,84 @@
+{% extends "public_base.html" %}
+{% block title %}Közösség beküldése – közösségek.com{% endblock %}
+{% block content %}
+
+<div class="max-w-2xl mx-auto px-4 sm:px-6 py-10">
+
+  <!-- Header -->
+  <div class="rounded-2xl bg-gradient-to-br from-[#A8512F] to-[#7A3A1E] px-8 py-10 mb-8 text-white">
+    <h1 class="text-2xl font-bold mb-1">Közösség beküldése</h1>
+    <p class="text-white/80 text-sm">Ismersz egy közösséget, ami még nem szerepel nálunk? Küldd be és mi hozzáadjuk!</p>
+  </div>
+
+  {% if submitted %}
+  <!-- Thank-you state -->
+  <div class="bg-white rounded-xl border border-[#EAE5DB] p-10 text-center">
+    <i class="ph ph-check-circle text-5xl text-[#A8512F] mb-4 block"></i>
+    <h2 class="text-lg font-bold text-[#1C1917] mb-2">Köszönjük a beküldést!</h2>
+    <p class="text-sm text-[#8C8478] mb-6">Hamarosan átnézzük és hozzáadjuk az adatbázishoz.</p>
+    <a href="/" class="inline-flex items-center gap-2 px-5 py-2.5 bg-[#A8512F] text-white text-sm font-semibold rounded-lg hover:bg-[#8A4226] transition-colors">
+      <i class="ph ph-house"></i> Vissza a főoldalra
+    </a>
+  </div>
+
+  {% else %}
+  <!-- Form -->
+  <div class="bg-white rounded-xl border border-[#EAE5DB] p-6 sm:p-8">
+    <form method="POST" action="/kozosseg-bekuldes" class="space-y-5">
+
+      <div>
+        <label class="block text-sm font-semibold text-[#1C1917] mb-1.5">Közösség neve <span class="text-red-500">*</span></label>
+        <input type="text" name="name" required
+          class="w-full px-4 py-2.5 border border-[#D8D1C4] rounded-lg text-sm focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 transition-colors placeholder-[#B5ADA0]"
+          placeholder="pl. Budapest Futók">
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-[#1C1917] mb-1.5">Város <span class="text-red-500">*</span></label>
+        <select name="city" required
+          class="w-full px-4 py-2.5 border border-[#D8D1C4] rounded-lg text-sm focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 bg-white transition-colors">
+          <option value="">— Válassz várost —</option>
+          {% for c in all_cities %}
+          <option value="{{ c }}" {% if c == city %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-[#1C1917] mb-1.5">Témakör <span class="text-red-500">*</span></label>
+        <select name="topic" required
+          class="w-full px-4 py-2.5 border border-[#D8D1C4] rounded-lg text-sm focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 bg-white transition-colors">
+          <option value="">— Válassz témakört —</option>
+          {% for tp in all_topics %}
+          <option value="{{ tp.name }}" {% if tp.name == topic %}selected{% endif %}>{{ tp.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-[#1C1917] mb-1.5">Weboldal / közösségi oldal link <span class="text-red-500">*</span></label>
+        <input type="url" name="source_url" required
+          class="w-full px-4 py-2.5 border border-[#D8D1C4] rounded-lg text-sm focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 transition-colors placeholder-[#B5ADA0]"
+          placeholder="https://...">
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-[#1C1917] mb-1.5">Kapcsolattartó email <span class="text-[#B5ADA0] font-normal">(opcionális)</span></label>
+        <input type="email" name="submitter_email"
+          class="w-full px-4 py-2.5 border border-[#D8D1C4] rounded-lg text-sm focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 transition-colors placeholder-[#B5ADA0]"
+          placeholder="your@email.com">
+      </div>
+
+      <div class="pt-2">
+        <button type="submit"
+          class="w-full sm:w-auto px-8 py-3 bg-[#A8512F] text-white text-sm font-semibold rounded-lg hover:bg-[#8A4226] transition-colors">
+          Beküldés
+        </button>
+      </div>
+
+    </form>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

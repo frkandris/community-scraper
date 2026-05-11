@@ -376,6 +376,15 @@
   </div>
   {% endif %}
 
+  {% if city and selected_topics | length == 1 %}
+  <div class="mt-6 text-center">
+    <a href="/kozosseg-bekuldes?city={{ city | urlencode }}&topic={{ selected_topics[0] | urlencode }}"
+       class="inline-flex items-center gap-2 text-sm text-[#A8512F] hover:text-[#8A4226] hover:underline transition-colors">
+      <i class="ph ph-plus-circle"></i> Hiányzik egy közösség? Küldd be →
+    </a>
+  </div>
+  {% endif %}
+
   <!-- Subscribe section -->
   <div class="mt-8 bg-white rounded-lg border border-[#EAE5DB] p-6 sm:p-8">
     <div class="max-w-lg">
