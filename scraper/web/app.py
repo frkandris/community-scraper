@@ -2984,6 +2984,40 @@ async def public_people_en():
     return RedirectResponse("/emberek", status_code=301)
 
 
+@_fastapi.get("/{city_slug}/helyszin/{venue_slug}", response_class=HTMLResponse)
+async def public_venue_detail(request: Request, city_slug: str, venue_slug: str):
+    if not app_state.db_path:
+        return RedirectResponse("/helyszinek", status_code=302)
+    city_name = _city_from_slug(city_slug)
+    if city_name:
+        venues = get_venues(app_state.db_path, city_name)
+    else:
+        # Cities not yet loaded (e.g. test env) — scan all venues and match by slug
+        all_venues = get_all_venues(app_state.db_path)
+        venues = [v for v in all_venues if _slugify(v.get("city", "")) == city_slug]
+        if venues:
+            city_name = venues[0].get("city", city_slug)
+    venue = next((v for v in venues if _slugify(v.get("name", "")) == venue_slug), None)
+    if not venue or not city_name:
+        return RedirectResponse("/helyszinek", status_code=302)
+    community_ids = venue.get("community_ids") or []
+    communities = get_communities_for_venue(
+        app_state.db_path, community_ids, venue.get("name", ""), city_name
+    )
+    city_locale = _city_locale(city_name)
+    topic_url_slugs = {t.name: _topic_url_slug(t.name, city_locale) for t in (app_state.topics or [])}
+    return templates.TemplateResponse(request, "public_venue_detail.html", {
+        "v": venue,
+        "city": city_name,
+        "city_slug": city_slug,
+        "communities": communities,
+        "topic_url_slugs": topic_url_slugs,
+        "topic_icons": TOPIC_ICONS,
+        "topic_labels": TOPIC_LABELS,
+        **lang_context(request),
+    })
+
+
 @_fastapi.get("/{city_slug}/{segment}", response_class=HTMLResponse)
 async def public_city_segment(
     request: Request, city_slug: str, segment: str, subscribed: str = ""

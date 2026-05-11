@@ -6,6 +6,9 @@ from scraper.db import (
 from scraper.models import VenueRecord, PersonRecord
 from scraper.store import save_results
 from scraper.models import CommunityRecord
+from scraper.web import app as web_app
+from scraper.web.state import app_state
+from fastapi.testclient import TestClient
 
 
 def _db(tmp_path: Path) -> Path:
@@ -73,3 +76,32 @@ def test_get_communities_for_venue_stale_ids_fallback(tmp_path):
     result = get_communities_for_venue(db, ["deadbeef1234"], "Müpa Budapest", "Budapest")
     assert len(result) == 1
     assert result[0]["name"] == "Tánc Csoport"
+
+
+def test_venue_detail_page_returns_200(tmp_path):
+    db = _db(tmp_path)
+    v = _venue(name="Müpa Budapest", city="Budapest")
+    upsert_venues(db, [v.model_dump()])
+
+    old_db = app_state.db_path
+    try:
+        app_state.db_path = db
+        resp = TestClient(web_app.app).get("/budapest/helyszin/mupa-budapest")
+        assert resp.status_code == 200
+        assert "Müpa Budapest" in resp.text
+    finally:
+        app_state.db_path = old_db
+
+
+def test_venue_detail_page_404_redirects(tmp_path):
+    db = _db(tmp_path)
+    old_db = app_state.db_path
+    try:
+        app_state.db_path = db
+        resp = TestClient(web_app.app).get(
+            "/budapest/helyszin/nem-letezik", follow_redirects=False
+        )
+        assert resp.status_code == 302
+        assert resp.headers["location"] == "/helyszinek"
+    finally:
+        app_state.db_path = old_db
