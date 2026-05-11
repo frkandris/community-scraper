@@ -73,11 +73,12 @@ def test_approve_submission_enqueues_scrape(tmp_path):
         app_state.db_path = db
         app_state.pipeline_cfg = _cfg(db)
         with patch("scraper.web.app._ADMIN_PASSWORD", "testpass"), \
-             patch("scraper.web.app.scrape_submitted_url", new_callable=AsyncMock):
+             patch("scraper.web.app.scrape_submitted_url", new_callable=AsyncMock) as mock_scrape:
             resp = TestClient(web_app.app).post(
                 f"/admin/submissions/{row_id}/approve",
                 headers=_ADMIN_HEADERS,
             )
+        assert mock_scrape.called
         assert resp.status_code == 200
         assert resp.json()["ok"] is True
         rows = get_community_submissions(db, status="approved")

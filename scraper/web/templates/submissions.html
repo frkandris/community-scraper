@@ -35,7 +35,11 @@
         <td class="px-4 py-3 text-gray-600">{{ s.city }}</td>
         <td class="px-4 py-3 text-gray-600">{{ s.topic.replace('_', ' ') }}</td>
         <td class="px-4 py-3 text-xs">
-          <a href="{{ s.source_url }}" target="_blank" class="text-blue-600 hover:underline truncate block max-w-xs">{{ s.source_url }}</a>
+          {% if s.source_url.startswith('http') %}
+          <a href="{{ s.source_url }}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline truncate block max-w-xs">{{ s.source_url }}</a>
+          {% else %}
+          <span class="text-gray-500 truncate block max-w-xs">{{ s.source_url }}</span>
+          {% endif %}
         </td>
         <td class="px-4 py-3 text-xs text-gray-500">{{ s.submitter_email or '—' }}</td>
         <td class="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{{ s.submitted_at[:10] }}</td>

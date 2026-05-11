@@ -770,8 +770,10 @@ async def scrape_submitted_url(
         log.warning("scrape_submitted_url_no_text", url=url)
         return False
 
+    all_fps = load_false_positives(db_path)
     records = await extractor.extract(
         text=text, city=city, topic=topic, locale="hu", source_url=url,
+        false_positive_examples=build_prompt_section(all_fps, city=city, topic=topic),
     )
     save_results(city, topic, records, db_path)
     log.info("scrape_submitted_url_done", city=city, topic=topic, url=url, found=len(records))
