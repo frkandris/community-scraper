@@ -102,3 +102,28 @@ def test_suggest_edit_venue_rejects_community_change_type(tmp_path):
         assert resp.json()["error"] == "invalid_change_type"
     finally:
         app_state.db_path = old_db
+
+
+def test_venue_detail_page_shows_edit_form(tmp_path):
+    db = _db(tmp_path)
+    v = VenueRecord(
+        name="Müpa Budapest", city="Budapest", locale="hu",
+        source_url="https://mupa.hu", extracted_at="2026-01-01T00:00:00+00:00",
+        welcomed_topics=["music"],
+    )
+    upsert_venues(db, [v.model_dump()])
+
+    old_db, old_cities = app_state.db_path, app_state.cities
+    try:
+        app_state.db_path = db
+        app_state.cities = [CityConfig(name="Budapest", country="Hungary", locale="hu", search_variants=[])]
+        resp = TestClient(web_app.app).get("/budapest/helyszin/mupa-budapest")
+        assert resp.status_code == 200
+        assert "venue-edit-form" in resp.text
+        assert "suggest-edit" in resp.text
+        assert "wrong_info" in resp.text
+        assert "closed" in resp.text
+        assert "name_correction" in resp.text
+    finally:
+        app_state.db_path = old_db
+        app_state.cities = old_cities

@@ -142,8 +142,88 @@
       <i class="ph ph-buildings"></i> Vissza: {{ city }}
     </a>
 
+    <!-- Edit request -->
+    <div class="bg-white rounded-xl border border-[#EAE5DB] p-4">
+      <div id="venue-edit-prompt">
+        <button
+          onclick="document.getElementById('venue-edit-prompt').classList.add('hidden'); document.getElementById('venue-edit-form').classList.remove('hidden');"
+          class="inline-flex items-center justify-center gap-1.5 text-xs px-3 py-1.5 border border-[#EAE5DB] rounded-lg text-[#6A6259] hover:border-[#C2613A] hover:text-[#8A4226] transition-colors w-full">
+          <i class="ph ph-pencil-simple"></i> Adatok javítása
+        </button>
+      </div>
+      <div id="venue-edit-form" class="hidden">
+        <p class="text-sm font-medium text-[#2E2B29] mb-3">Módosítási javaslat: <strong>{{ v.name }}</strong></p>
+        <form onsubmit="submitVenueEditRequest(event, this)">
+          <input type="hidden" name="entity_type" value="venue">
+          <input type="hidden" name="entity_id" value="{{ v.venue_id | default('') | e }}">
+          <input type="hidden" name="entity_name" value="{{ v.name | e }}">
+          <input type="hidden" name="entity_city" value="{{ city | e }}">
+          <input type="hidden" name="entity_topic" value="">
+          <input type="hidden" name="record_key" value="">
+          <label class="block text-xs font-medium text-[#6A6259] mb-1">Mit szeretnél módosítani?</label>
+          <select name="change_type" required onchange="onVenueChangeType(this.value)"
+            class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] mb-3 text-[#1C1917] bg-white">
+            <option value="">— válassz —</option>
+            <option value="wrong_info">Hibás / elavult adatok</option>
+            <option value="closed">Megszűnt helyszín</option>
+            <option value="name_correction">Névpontosítás</option>
+          </select>
+          <div id="venue-edit-new-name" class="hidden mb-3">
+            <label class="block text-xs font-medium text-[#6A6259] mb-1">Helyes név</label>
+            <input type="text" name="new_value_name" value="{{ v.name | e }}"
+              class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] text-[#1C1917]">
+          </div>
+          <textarea name="notes" rows="2" required
+            placeholder="Megjegyzés / indoklás (kötelező)"
+            class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg resize-none focus:outline-none focus:border-[#C2613A] mb-3 text-[#1C1917] placeholder-[#B5ADA0]"></textarea>
+          <input type="email" name="email" required
+            placeholder="E-mail cím (kötelező)"
+            class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] mb-3 text-[#1C1917] placeholder-[#B5ADA0]">
+          <div class="flex items-center gap-3">
+            <button type="submit"
+              class="px-4 py-2 bg-[#A8512F] text-white text-xs font-semibold rounded-lg hover:bg-[#8A4226] transition-colors">
+              Javaslat beküldése
+            </button>
+            <button type="button"
+              onclick="document.getElementById('venue-edit-form').classList.add('hidden'); document.getElementById('venue-edit-prompt').classList.remove('hidden');"
+              class="text-xs text-[#8C8478] hover:text-[#4A4441] transition-colors">
+              Mégsem
+            </button>
+          </div>
+        </form>
+      </div>
+      <div id="venue-edit-thanks" class="hidden text-sm text-green-700 flex items-center gap-2">
+        <i class="ph ph-check-circle"></i> Köszönjük, hamarosan átnézzük a javaslatot.
+      </div>
+    </div>
+
   </div>
 
 </div>
+
+<script>
+function onVenueChangeType(val) {
+  document.getElementById('venue-edit-new-name').classList.add('hidden');
+  if (val === 'name_correction') document.getElementById('venue-edit-new-name').classList.remove('hidden');
+}
+async function submitVenueEditRequest(event, form) {
+  event.preventDefault();
+  const fd = new FormData(form);
+  if (fd.get('change_type') === 'name_correction') fd.set('new_value', fd.get('new_value_name') || '');
+  else fd.set('new_value', '');
+  try {
+    const res = await fetch('/suggest-edit', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.ok) {
+      document.getElementById('venue-edit-form').classList.add('hidden');
+      document.getElementById('venue-edit-thanks').classList.remove('hidden');
+    } else {
+      alert('Hiba: ' + (data.error || 'ismeretlen'));
+    }
+  } catch (e) {
+    alert('Hálózati hiba, próbáld újra.');
+  }
+}
+</script>
 
 {% endblock %}
