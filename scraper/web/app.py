@@ -3037,8 +3037,6 @@ async def public_person_detail(request: Request, city_slug: str, name_slug: str)
     merged = [p for p in all_persons if _slugify(p.get("name", "")) == name_slug]
     if not merged:
         return RedirectResponse("/emberek", status_code=302)
-    city_locale = _city_locale(city_name)
-    topic_url_slugs = {t.name: _topic_url_slug(t.name, city_locale) for t in (app_state.topics or [])}
     community_entries = []
     seen = set()
     for p in merged:
