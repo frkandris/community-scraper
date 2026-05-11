@@ -794,6 +794,11 @@ _T: dict[str, dict[str, str]] = {
     "cities_request_email": "Your email (optional)",
     "cities_request_btn": "Request city",
     "cities_request_thanks": "Thanks! We've noted your request for {city} and will look into adding it.",
+    "nav_search_placeholder": "Search…",
+    "search_title": "Search",
+    "search_no_query": "Enter a search term to find communities, venues and people.",
+    "search_no_results": "No results for",
+    "search_results_for": "Results for",
 },
 "hu": {
     "nav_discover": "Felfedezés",
@@ -875,6 +880,11 @@ _T: dict[str, dict[str, str]] = {
     "cities_request_email": "E-mail cím (opcionális)",
     "cities_request_btn": "Beküldés",
     "cities_request_thanks": "Köszönjük! Megkaptuk a kérelmet: {city}.",
+    "nav_search_placeholder": "Keresés…",
+    "search_title": "Keresés",
+    "search_no_query": "Írj be egy kifejezést közösségek, helyszínek és emberek kereséséhez.",
+    "search_no_results": "Nincs találat erre:",
+    "search_results_for": "Találatok erre:",
 },
 "de": {
     "nav_discover": "Entdecken",
