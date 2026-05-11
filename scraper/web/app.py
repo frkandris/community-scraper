@@ -333,6 +333,8 @@ templates.env.filters["slugify"] = _slugify
 
 _ROLE_HU = {
     "leader": "vezető",
+    "instructor": "oktató",
+    "speaker": "előadó",
     "organizer": "szervező",
     "founder": "alapító",
     "coach": "edző",
