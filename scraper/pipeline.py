@@ -398,6 +398,7 @@ async def _run_full(
                 "records_extracted": 0,
             }
 
+            urls_to_fetch = []
             for url in urls:
                 if cache and skip_scraped:
                     cached_text = cache.get_scraped(url)
@@ -407,7 +408,9 @@ async def _run_full(
                         pair_log["cache_hits_scrape"] += 1
                         pair_log["fetched_urls"].append(url)
                         continue
+                urls_to_fetch.append(url)
 
+            async def _fetch_one(url: str) -> tuple[str, str | None, float]:
                 if on_progress:
                     on_progress("scrape", url)
                 t0 = time.monotonic()
@@ -416,9 +419,12 @@ async def _run_full(
                     config.fetch_timeout, config.fetch_min_text_length,
                     semaphore,
                 )
-                scrape_dur = time.monotonic() - t0
+                dur = time.monotonic() - t0
                 if on_progress:
                     on_progress(None, None)
+                return url, text, dur
+
+            for url, text, scrape_dur in await asyncio.gather(*[_fetch_one(u) for u in urls_to_fetch]):
                 if text:
                     if cache:
                         cache.save_scraped(url, text, city.name, topic.name,
@@ -479,7 +485,7 @@ async def _run_full(
                             "enriched": False,
                             "fields_added": [],
                         }
-                        if config.enrich_communities and _needs_enrichment(record):
+                        if config.enrich_communities and _needs_enrichment(record) and (record.confidence or 0.0) >= 0.7:
                             enrich_timing["needed"] = True
                             record = await _enrich_record(
                                 record, searxng, extractor, config, semaphore,
