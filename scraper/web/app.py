@@ -71,6 +71,7 @@ from ..db import (
     get_edit_requests,
     resolve_edit_request,
     apply_community_edit,
+    search_all,
 )
 from ..false_positives import (add as fp_add, diff_html as fp_diff_html,
                                load as fp_load, load_history as fp_load_history,
@@ -3033,6 +3034,28 @@ async def public_people(request: Request):
     return templates.TemplateResponse(request, "public_people.html", {
         "city_groups": city_groups,
         "total_persons": total,
+        **lang_context(request),
+    })
+
+
+@_fastapi.get("/kereses", response_class=HTMLResponse)
+async def public_search(request: Request):
+    q = request.query_params.get("q", "").strip()
+    results: dict = {"communities": [], "venues": [], "persons": []}
+    if app_state.db_path and len(q) >= 2:
+        init_db(app_state.db_path)
+        results = search_all(app_state.db_path, q)
+    communities = results["communities"]
+    venues = results["venues"]
+    persons = results["persons"]
+    total = len(communities) + len(venues) + len(persons)
+    return templates.TemplateResponse(request, "public_search.html", {
+        "q": q,
+        "communities": communities,
+        "venues": venues,
+        "persons": persons,
+        "total": total,
+        "topic_icons": TOPIC_ICONS,
         **lang_context(request),
     })
 
