@@ -179,3 +179,54 @@ def test_venues_list_contains_detail_links(tmp_path):
     finally:
         app_state.db_path = old_db
         app_state.cities = old_cities
+
+
+def test_community_page_links_leader(tmp_path):
+    from scraper.store import save_results as sr
+    db = _db(tmp_path)
+    r = CommunityRecord(
+        name="Budapest Futók", topic="running", city="Budapest", locale="hu",
+        source_url="https://a.test", extracted_at="2026-01-01T00:00:00+00:00",
+        leader="Kovács János",
+    )
+    sr("Budapest", "running", [r], db)
+
+    old_db = app_state.db_path
+    old_topics = app_state.topics
+    old_cities = app_state.cities
+    try:
+        app_state.db_path = db
+        app_state.topics = []
+        app_state.cities = [CityConfig(name="Budapest", country="Hungary", locale="hu", search_variants=[])]
+        resp = TestClient(web_app.app).get("/budapest/budapest-futok")
+        assert resp.status_code == 200
+        assert "/budapest/ember/kovacs-janos" in resp.text
+    finally:
+        app_state.db_path = old_db
+        app_state.topics = old_topics
+        app_state.cities = old_cities
+
+
+def test_emberek_page_lists_persons(tmp_path):
+    from scraper.web.state import app_state
+    from scraper.config import CityConfig
+    db = _db(tmp_path)
+    p = PersonRecord(
+        name="Kovács János", role="leader", city="Budapest", topic="running",
+        community_name="Futók", source_url="https://a.test",
+        extracted_at="2026-01-01T00:00:00+00:00",
+    )
+    upsert_persons(db, [p.model_dump()])
+
+    old_db = app_state.db_path
+    old_cities = app_state.cities
+    try:
+        app_state.db_path = db
+        app_state.cities = [CityConfig(name="Budapest", country="Hungary", locale="hu", search_variants=[])]
+        resp = TestClient(web_app.app).get("/emberek")
+        assert resp.status_code == 200
+        assert "Kovács János" in resp.text
+        assert "/budapest/ember/kovacs-janos" in resp.text
+    finally:
+        app_state.db_path = old_db
+        app_state.cities = old_cities

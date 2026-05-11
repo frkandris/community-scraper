@@ -2971,10 +2971,34 @@ async def public_venues_en():
 
 @_fastapi.get("/emberek", response_class=HTMLResponse)
 async def public_people(request: Request):
+    if not app_state.db_path:
+        return templates.TemplateResponse(request, "public_people.html", {
+            "city_groups": [], "total_persons": 0, **lang_context(request),
+        })
+    init_db(app_state.db_path)
     hu_names = _hu_city_names()
-    counts = get_person_counts(app_state.db_path) if app_state.db_path else {}
-    total = sum(v for k, v in counts.items() if k in hu_names)
+    all_persons = get_all_persons(app_state.db_path)
+    hu_persons = [p for p in all_persons if p.get("city", "") in hu_names]
+
+    # Deduplicate: one card per person (name+city slug), merged across communities
+    from collections import defaultdict
+    seen: dict[tuple, dict] = {}
+    for p in hu_persons:
+        key = (_slugify(p.get("name", "")), _slugify(p.get("city", "")))
+        if key not in seen:
+            seen[key] = p
+    unique = list(seen.values())
+
+    city_map: dict = defaultdict(list)
+    for p in unique:
+        city_map[p.get("city") or "—"].append(p)
+    city_groups = [
+        {"name": city, "persons": sorted(persons, key=lambda x: x.get("name", ""))}
+        for city, persons in sorted(city_map.items())
+    ]
+    total = sum(len(g["persons"]) for g in city_groups)
     return templates.TemplateResponse(request, "public_people.html", {
+        "city_groups": city_groups,
         "total_persons": total,
         **lang_context(request),
     })
