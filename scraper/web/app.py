@@ -931,7 +931,7 @@ async def public_home(request: Request, city: str = ""):
     city_totals = dict(get_city_totals(_db())) if app_state.db_path else {}
     hu_city_list = sorted(
         [{"name": c.name, "slug": _slugify(c.name), "count": city_totals.get(c.name, 0)} for c in hu_cities],
-        key=lambda x: (-x["count"], x["name"]),
+        key=lambda x: (-x["count"], _hu_sort_key(x["name"])),
     )
     topic_url_slugs = {t.name: _topic_url_slug(t.name, "hu") for t in topics}
     return templates.TemplateResponse(request, "public_home.html", {
@@ -1484,7 +1484,7 @@ async def public_map_en():
 async def submit_community_get(request: Request, city: str = "", topic: str = ""):
     init_db(_db())
     submitted = request.query_params.get("submitted") == "1"
-    all_cities = sorted(c.name for c in (app_state.cities or []))
+    all_cities = sorted((c.name for c in (app_state.cities or [])), key=_hu_sort_key)
     _topic_labels = get_topic_labels(lang_context(request)["lang"])
     all_topics = [
         {"name": t.name, "label": _topic_labels.get(t.name, t.name.replace("_", " ").title())}
@@ -3638,7 +3638,7 @@ async def public_city_segment(
             "record_key": _community_record_key(record["name"], city_name, rec_topic),
             "community_venue": community_venue,
             "community_persons": community_persons,
-            "all_cities": sorted(c.name for c in (app_state.cities or [])),
+            "all_cities": sorted((c.name for c in (app_state.cities or [])), key=_hu_sort_key),
             "all_topic_names": [(t.name, TOPIC_LABELS.get(t.name, t.name.replace("_", " ").title()))
                                 for t in (app_state.topics or [])],
             **lang_context(request),
