@@ -726,3 +726,53 @@ async def _run_ai_only(
             pair_logs.append(pair_log)
 
     return total_new, pair_logs
+
+
+async def scrape_submitted_url(
+    db_path: Path,
+    config: "PipelineConfig",
+    city: str,
+    topic: str,
+    url: str,
+) -> bool:
+    ollama = OllamaExtractor(
+        base_url=config.ollama_url,
+        model=config.ollama_model,
+        temperature=config.ollama_temperature,
+        timeout_seconds=config.ollama_timeout,
+        max_text_chars=config.ollama_max_text_chars,
+    )
+    primaries = []
+    if config.deepseek_api_key:
+        primaries.append(DeepSeekExtractor(
+            api_key=config.deepseek_api_key,
+            model=config.deepseek_model,
+            temperature=config.deepseek_temperature,
+            timeout_seconds=config.deepseek_timeout,
+            max_text_chars=config.deepseek_max_text_chars,
+            rate_limit_seconds=config.deepseek_rate_limit_seconds,
+        ))
+    if config.groq_api_key:
+        primaries.append(GroqExtractor(
+            api_key=config.groq_api_key,
+            model=config.groq_model,
+            temperature=config.groq_temperature,
+            timeout_seconds=config.groq_timeout,
+            max_text_chars=config.groq_max_text_chars,
+            rate_limit_seconds=config.groq_rate_limit_seconds,
+        ))
+    extractor: OllamaExtractor | FallbackExtractor = (
+        FallbackExtractor(primaries=primaries, fallback=ollama) if primaries else ollama
+    )
+
+    text = await fetch_and_clean(url, blocked_domains=[], timeout_seconds=15)
+    if not text:
+        log.warning("scrape_submitted_url_no_text", url=url)
+        return False
+
+    records = await extractor.extract(
+        text=text, city=city, topic=topic, locale="hu", source_url=url,
+    )
+    save_results(city, topic, records, db_path)
+    log.info("scrape_submitted_url_done", city=city, topic=topic, url=url, found=len(records))
+    return True

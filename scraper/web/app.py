@@ -89,7 +89,7 @@ from ..extract import (ENRICH_SCHEMA, ENRICH_SYSTEM_PROMPT, EXTRACTION_SCHEMA,
                        DeepSeekExtractor, FallbackExtractor, GroqExtractor, OllamaExtractor)
 from ..fetch import fetch_and_clean
 from ..models import CommunityRecord
-from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline
+from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline, scrape_submitted_url
 from ..search import BraveSearchClient, SearXNGClient
 from ..store import patch_results, save_results
 from .i18n import get_topic_labels, lang_context
@@ -1822,6 +1822,43 @@ async def prompts_nc_rule_remove(name: str = Form(...)):
         return JSONResponse({"ok": False})
     from ..false_positives import remove as fp_remove
     fp_remove(_db(), name=name, city="", topic="", fp_type="extraction_rule")
+    return JSONResponse({"ok": True})
+
+
+@admin.get("/submissions", response_class=HTMLResponse)
+async def admin_submissions_list(request: Request):
+    init_db(_db())
+    submissions = get_community_submissions(_db(), status="pending")
+    return templates.TemplateResponse(request, "submissions.html", {
+        "submissions": submissions,
+    })
+
+
+@admin.post("/submissions/{sub_id}/approve")
+async def admin_submission_approve(sub_id: int, background_tasks: BackgroundTasks):
+    if not app_state.db_path or not app_state.pipeline_cfg:
+        return JSONResponse({"ok": False, "error": "not_configured"})
+    sub_rows = get_community_submissions(_db(), status="pending")
+    sub = next((r for r in sub_rows if r["id"] == sub_id), None)
+    if not sub:
+        return JSONResponse({"ok": False, "error": "not_found"})
+    resolve_community_submission(_db(), sub_id, "approved")
+    background_tasks.add_task(
+        scrape_submitted_url,
+        app_state.db_path,
+        app_state.pipeline_cfg,
+        sub["city"],
+        sub["topic"],
+        sub["source_url"],
+    )
+    return JSONResponse({"ok": True})
+
+
+@admin.post("/submissions/{sub_id}/reject")
+async def admin_submission_reject(sub_id: int):
+    if not app_state.db_path:
+        return JSONResponse({"ok": False, "error": "not_configured"})
+    resolve_community_submission(_db(), sub_id, "rejected")
     return JSONResponse({"ok": True})
 
 
