@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import re
 import time
 from dataclasses import dataclass
@@ -12,7 +13,7 @@ from .false_positives import build_prompt_section
 from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
 from .search import BraveSearchClient, DataForSEOClient, DuckDuckGoClient, FallbackSearchClient, SearXNGClient, SerperSearchClient, build_queries
-from .db import get_search_cache, save_search_cache, upsert_venues, upsert_persons, delete_leader_persons_for_community, load_cache_page
+from .db import get_search_cache, save_search_cache, upsert_venues, upsert_persons, delete_leader_persons_for_community, load_cache_page, find_community_by_id
 from .store import save_results
 
 if TYPE_CHECKING:
@@ -785,20 +786,20 @@ async def reextract_community(
     config: "PipelineConfig",
     community_id: str,
 ) -> bool:
-    import hashlib as _hashlib
-    from .db import find_community_by_id
-    from .false_positives import load as _load_fps, build_prompt_section as _build_fp_section
-
     record = find_community_by_id(db_path, community_id)
     if not record:
         log.warning("reextract_community_not_found", community_id=community_id)
         return False
 
     source_url = record.get("source_url", "")
+    if not source_url:
+        log.warning("reextract_community_no_source_url", community_id=community_id)
+        return False
+
     city = record.get("city", "")
     topic = record.get("topic", "")
 
-    url_hash = _hashlib.sha256(source_url.encode()).hexdigest()[:16]
+    url_hash = hashlib.sha256(source_url.encode()).hexdigest()[:16]
     cached = load_cache_page(db_path, url_hash)
     text = cached.get("raw_text") if cached else None
 
@@ -838,10 +839,10 @@ async def reextract_community(
         FallbackExtractor(primaries=primaries, fallback=ollama) if primaries else ollama
     )
 
-    all_fps = _load_fps(db_path)
+    all_fps = load_false_positives(db_path)
     records = await extractor.extract(
-        text=text, city=city, topic=topic, locale="hu", source_url=source_url,
-        false_positive_examples=_build_fp_section(all_fps, city=city, topic=topic),
+        text=text, city=city, topic=topic, locale=record.get("locale", "hu"), source_url=source_url,
+        false_positive_examples=build_prompt_section(all_fps, city=city, topic=topic),
     )
     save_results(city, topic, records, db_path)
     log.info("reextract_community_done", community_id=community_id, found=len(records))

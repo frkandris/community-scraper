@@ -103,7 +103,8 @@ def test_reextract_community_uses_cached_text(tmp_path):
     save_cache_page(db, {"url": r.source_url, "url_hash": url_hash, "raw_text": "Futó klub szöveg"})
 
     cfg = _cfg(db)
-    with patch("scraper.pipeline.OllamaExtractor") as MockOllama:
+    with patch("scraper.pipeline.OllamaExtractor") as MockOllama, \
+         patch("scraper.pipeline.fetch_and_clean", new_callable=AsyncMock) as mock_fetch:
         mock_extractor = AsyncMock()
         mock_extractor.extract = AsyncMock(return_value=[])
         MockOllama.return_value = mock_extractor
@@ -113,3 +114,4 @@ def test_reextract_community_uses_cached_text(tmp_path):
     mock_extractor.extract.assert_called_once()
     call_kwargs = mock_extractor.extract.call_args
     assert "Futó klub szöveg" in str(call_kwargs)
+    mock_fetch.assert_not_called()
