@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Recategorize – Community Scraper{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900">Recategorize "Other"</h1>
+    <p class="text-sm text-gray-500 mt-1">
+      <strong>{{ other_count }}</strong> community van jelenleg "other" topicban.
+      Az AI javasol kategóriát — ≥ {{ (auto_threshold * 100) | int }}% konfidenciánál automatikusan alkalmazza.
+    </p>
+  </div>
+  <button id="runBtn" onclick="startRun()"
+    class="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50">
+    ▶ Futtatás
+  </button>
+</div>
+
+<!-- Progress -->
+<div id="progress-box" class="hidden mb-6 bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+  <div class="flex items-center justify-between mb-2">
+    <span class="text-sm font-semibold text-indigo-800">Feldolgozás…</span>
+    <span id="prog-text" class="text-xs text-indigo-600"></span>
+  </div>
+  <div class="w-full bg-indigo-100 rounded-full h-2">
+    <div id="prog-bar" class="bg-indigo-500 h-2 rounded-full transition-all" style="width:0%"></div>
+  </div>
+  <div class="flex gap-4 mt-3 text-xs text-indigo-700">
+    <span>Auto: <strong id="prog-auto">0</strong></span>
+    <span>Jóváhagyásra vár: <strong id="prog-pending">0</strong></span>
+    <span>Kihagyva: <strong id="prog-skipped">0</strong></span>
+  </div>
+</div>
+
+<!-- Error -->
+<div id="error-box" class="hidden mb-6 bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700"></div>
+
+<!-- Stats row -->
+<div class="grid grid-cols-3 gap-4 mb-6">
+  <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
+    <div class="text-2xl font-bold text-gray-900">{{ other_count }}</div>
+    <div class="text-xs text-gray-500 mt-1">Other kategóriában</div>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
+    <div class="text-2xl font-bold text-indigo-600">{{ pending | length }}</div>
+    <div class="text-xs text-gray-500 mt-1">Jóváhagyásra vár</div>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
+    <div class="text-2xl font-bold text-green-600">{{ applied_count }}</div>
+    <div class="text-xs text-gray-500 mt-1">Eddig alkalmazva</div>
+  </div>
+</div>
+
+<!-- Pending suggestions -->
+{% if pending %}
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+  <div class="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+    <h2 class="text-sm font-semibold text-gray-700">Jóváhagyásra váró javaslatok</h2>
+    <span class="text-xs text-gray-400">{{ pending | length }} db</span>
+  </div>
+  <div class="divide-y divide-gray-100">
+    {% for s in pending %}
+    <div class="px-5 py-4 flex items-start gap-4" id="row-{{ s.id }}">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-semibold text-gray-900 text-sm">{{ s.community_name }}</span>
+          <span class="text-xs text-gray-400">{{ s.city }}</span>
+        </div>
+        {% if s.description %}
+        <p class="text-xs text-gray-500 mt-1 line-clamp-2">{{ s.description }}</p>
+        {% endif %}
+        <div class="flex items-center gap-2 mt-2 flex-wrap">
+          <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">other → </span>
+          <span class="text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded">
+            {{ topic_labels.get(s.suggested_topic, s.suggested_topic) }}
+          </span>
+          <span class="text-xs px-2 py-0.5 rounded font-mono
+            {% if s.confidence >= 0.75 %}bg-amber-50 text-amber-700{% else %}bg-gray-50 text-gray-500{% endif %}">
+            {{ (s.confidence * 100) | int }}%
+          </span>
+        </div>
+        {% if s.reasoning %}
+        <p class="text-xs text-gray-400 mt-1 italic">{{ s.reasoning }}</p>
+        {% endif %}
+      </div>
+      <div class="flex gap-2 shrink-0 mt-1">
+        <button onclick="approve({{ s.id }})"
+          class="px-3 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+          Igen
+        </button>
+        <button onclick="reject({{ s.id }})"
+          class="px-3 py-1.5 text-xs text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+          Nem
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<div class="bg-white rounded-xl border border-gray-200 p-10 text-center text-gray-400">
+  <i class="ph ph-check-circle text-4xl mb-2 block text-green-400"></i>
+  Nincs jóváhagyásra váró javaslat.
+</div>
+{% endif %}
+
+<script>
+let polling = null;
+
+async function startRun() {
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  document.getElementById('error-box').classList.add('hidden');
+  const res = await fetch('/admin/recategorize/run', { method: 'POST' });
+  const data = await res.json();
+  if (!data.ok) {
+    document.getElementById('error-box').textContent = data.error || 'Hiba';
+    document.getElementById('error-box').classList.remove('hidden');
+    btn.disabled = false;
+    return;
+  }
+  document.getElementById('progress-box').classList.remove('hidden');
+  polling = setInterval(pollStatus, 1500);
+}
+
+async function pollStatus() {
+  const res = await fetch('/admin/recategorize/status');
+  const s = await res.json();
+  const pct = s.total > 0 ? Math.round(s.done / s.total * 100) : 0;
+  document.getElementById('prog-bar').style.width = pct + '%';
+  document.getElementById('prog-text').textContent = `${s.done} / ${s.total}`;
+  document.getElementById('prog-auto').textContent = s.auto_applied;
+  document.getElementById('prog-pending').textContent = s.pending;
+  document.getElementById('prog-skipped').textContent = s.skipped;
+  if (s.error) {
+    document.getElementById('error-box').textContent = s.error;
+    document.getElementById('error-box').classList.remove('hidden');
+  }
+  if (!s.running) {
+    clearInterval(polling);
+    document.getElementById('runBtn').disabled = false;
+    if (!s.error) location.reload();
+  }
+}
+
+async function approve(id) {
+  const res = await fetch(`/admin/recategorize/${id}/approve`, { method: 'POST' });
+  const data = await res.json();
+  if (data.ok) document.getElementById('row-' + id).remove();
+}
+
+async function reject(id) {
+  const res = await fetch(`/admin/recategorize/${id}/reject`, { method: 'POST' });
+  const data = await res.json();
+  if (data.ok) document.getElementById('row-' + id).remove();
+}
+
+// Resume polling if already running
+(async () => {
+  const res = await fetch('/admin/recategorize/status');
+  const s = await res.json();
+  if (s.running) {
+    document.getElementById('runBtn').disabled = true;
+    document.getElementById('progress-box').classList.remove('hidden');
+    polling = setInterval(pollStatus, 1500);
+  }
+})();
+</script>
+
+{% endblock %}

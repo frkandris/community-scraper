@@ -319,6 +319,20 @@ def init_db(db_path: Path) -> None:
                 status          TEXT NOT NULL DEFAULT 'pending'
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS recategorize_suggestions (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                record_key       TEXT NOT NULL UNIQUE,
+                community_name   TEXT,
+                city             TEXT,
+                description      TEXT,
+                suggested_topic  TEXT,
+                confidence       REAL,
+                reasoning        TEXT,
+                status           TEXT NOT NULL DEFAULT 'pending',
+                created_at       TEXT DEFAULT (datetime('now'))
+            )
+        """)
 
         conn.commit()
 
@@ -1799,5 +1813,97 @@ def resolve_community_submission(db_path: Path, sub_id: int, status: str) -> Non
         conn.execute(
             "UPDATE community_submissions SET status=? WHERE id=?",
             (status, sub_id),
+        )
+        conn.commit()
+
+
+# ── Recategorize suggestions ───────────────────────────────────────────────────
+
+def get_other_communities(db_path: Path) -> list[dict]:
+    """Return all non-hidden communities with topic='other'."""
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT record_key, data FROM communities "
+            "WHERE json_extract(data,'$.topic')='other' AND hidden=0 "
+            "ORDER BY json_extract(data,'$.city'), json_extract(data,'$.name')"
+        ).fetchall()
+    return [{"record_key": r[0], **json.loads(r[1])} for r in rows]
+
+
+def upsert_recategorize_suggestion(
+    db_path: Path,
+    record_key: str,
+    community_name: str,
+    city: str,
+    description: str,
+    suggested_topic: str,
+    confidence: float,
+    reasoning: str,
+    status: str,
+) -> None:
+    with _connect(db_path) as conn:
+        conn.execute(
+            """INSERT INTO recategorize_suggestions
+               (record_key, community_name, city, description,
+                suggested_topic, confidence, reasoning, status, created_at)
+               VALUES (?,?,?,?,?,?,?,?,datetime('now'))
+               ON CONFLICT(record_key) DO UPDATE SET
+                 suggested_topic=excluded.suggested_topic,
+                 confidence=excluded.confidence,
+                 reasoning=excluded.reasoning,
+                 status=excluded.status,
+                 created_at=excluded.created_at""",
+            (record_key, community_name, city, description or "",
+             suggested_topic, confidence, reasoning, status),
+        )
+        conn.commit()
+
+
+def get_recategorize_suggestions(db_path: Path, status: str = "pending") -> list[dict]:
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        cursor = conn.execute(
+            "SELECT id, record_key, community_name, city, description, "
+            "suggested_topic, confidence, reasoning, status, created_at "
+            "FROM recategorize_suggestions WHERE status=? "
+            "ORDER BY confidence DESC",
+            (status,),
+        )
+        cols = [d[0] for d in cursor.description]
+        return [dict(zip(cols, row)) for row in cursor.fetchall()]
+
+
+def apply_recategorize_suggestion(db_path: Path, record_key: str, new_topic: str) -> None:
+    """Update the community's topic and mark the suggestion as applied."""
+    with _connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT data FROM communities WHERE record_key=?", (record_key,)
+        ).fetchone()
+        if not row:
+            return
+        data = json.loads(row[0])
+        old_name = data.get("name", "")
+        old_city = data.get("city", "")
+        new_key = _community_record_key(old_name, old_city, new_topic)
+        data["topic"] = new_topic
+        conn.execute(
+            "UPDATE communities SET record_key=?, data=? WHERE record_key=?",
+            (new_key, json.dumps(data, ensure_ascii=False), record_key),
+        )
+        conn.execute(
+            "UPDATE recategorize_suggestions SET status='applied' WHERE record_key=?",
+            (record_key,),
+        )
+        conn.commit()
+
+
+def update_recategorize_status(db_path: Path, suggestion_id: int, status: str) -> None:
+    with _connect(db_path) as conn:
+        conn.execute(
+            "UPDATE recategorize_suggestions SET status=? WHERE id=?",
+            (status, suggestion_id),
         )
         conn.commit()

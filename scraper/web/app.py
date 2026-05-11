@@ -77,6 +77,11 @@ from ..db import (
     save_community_submission,
     get_community_submissions,
     resolve_community_submission,
+    get_other_communities,
+    upsert_recategorize_suggestion,
+    get_recategorize_suggestions,
+    apply_recategorize_suggestion,
+    update_recategorize_status,
 )
 from ..false_positives import (add as fp_add, diff_html as fp_diff_html,
                                load as fp_load, load_history as fp_load_history,
@@ -2153,6 +2158,143 @@ async def _run_revalidate(city: str, topic: str) -> None:
             from ..db import record_run
             record_run(app_state.db_path, started, datetime.now(timezone.utc),
                        "revalidate", success, None, 0)
+
+
+_RECATEGORIZE_AUTO_THRESHOLD = 0.85
+_RECATEGORIZE_MIN_THRESHOLD = 0.50
+_recategorize_state: dict = {"running": False, "done": 0, "total": 0, "auto_applied": 0, "pending": 0, "skipped": 0, "error": ""}
+
+_RECATEGORIZE_PROMPT = """You are an expert at classifying community groups into interest categories.
+
+Given a community name and description, select the single best matching category from this list:
+{topics}
+
+Respond with a JSON object only — no markdown, no explanation outside the JSON:
+{{"topic": "<slug>", "confidence": <0.0-1.0>, "reasoning": "<one sentence>"}}
+
+Rules:
+- confidence >= 0.85 means you are very sure
+- confidence 0.50-0.84 means you are fairly sure but not certain
+- confidence < 0.50 means it is unclear (you may still output your best guess)
+- If the community genuinely fits "other" better than any listed category, output "other" with high confidence
+
+Community name: {name}
+Description: {description}"""
+
+
+async def _ai_suggest_topic(name: str, description: str, topics: list[str]) -> tuple[str, float, str]:
+    import json as _json
+    prompt = _RECATEGORIZE_PROMPT.format(
+        topics=", ".join(topics),
+        name=name,
+        description=(description or "")[:500],
+    )
+    raw = await _ai_chat(prompt, temperature=0.1)
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    data = _json.loads(raw)
+    return str(data.get("topic", "other")), float(data.get("confidence", 0.0)), str(data.get("reasoning", ""))
+
+
+@admin.get("/recategorize", response_class=HTMLResponse)
+async def admin_recategorize_page(request: Request):
+    if not app_state.db_path:
+        return RedirectResponse("/admin", status_code=302)
+    init_db(app_state.db_path)
+    other_count = len(get_other_communities(app_state.db_path))
+    pending = get_recategorize_suggestions(app_state.db_path, "pending")
+    applied = get_recategorize_suggestions(app_state.db_path, "applied")
+    return templates.TemplateResponse(request, "recategorize.html", {
+        "request": request,
+        "other_count": other_count,
+        "pending": pending,
+        "applied_count": len(applied),
+        "state": _recategorize_state,
+        "topic_labels": TOPIC_LABELS,
+        "auto_threshold": _RECATEGORIZE_AUTO_THRESHOLD,
+    })
+
+
+@admin.post("/recategorize/run")
+async def admin_recategorize_run(background_tasks: BackgroundTasks):
+    if not app_state.db_path or not app_state.pipeline_cfg:
+        return JSONResponse({"ok": False, "error": "Not configured"})
+    if _recategorize_state["running"]:
+        return JSONResponse({"ok": False, "error": "Already running"})
+    background_tasks.add_task(_run_recategorize)
+    return JSONResponse({"ok": True})
+
+
+@admin.get("/recategorize/status")
+async def admin_recategorize_status():
+    return JSONResponse(_recategorize_state)
+
+
+@admin.post("/recategorize/{suggestion_id}/approve")
+async def admin_recategorize_approve(suggestion_id: int):
+    if not app_state.db_path:
+        return JSONResponse({"ok": False})
+    suggestions = get_recategorize_suggestions(app_state.db_path, "pending")
+    s = next((x for x in suggestions if x["id"] == suggestion_id), None)
+    if not s:
+        return JSONResponse({"ok": False, "error": "Not found"})
+    apply_recategorize_suggestion(app_state.db_path, s["record_key"], s["suggested_topic"])
+    log.info("recategorize_approved", name=s["community_name"], topic=s["suggested_topic"])
+    return JSONResponse({"ok": True})
+
+
+@admin.post("/recategorize/{suggestion_id}/reject")
+async def admin_recategorize_reject(suggestion_id: int):
+    if not app_state.db_path:
+        return JSONResponse({"ok": False})
+    update_recategorize_status(app_state.db_path, suggestion_id, "rejected")
+    return JSONResponse({"ok": True})
+
+
+async def _run_recategorize() -> None:
+    _recategorize_state.update({"running": True, "done": 0, "total": 0, "auto_applied": 0, "pending": 0, "skipped": 0, "error": ""})
+    known_topics = [t for t in TOPIC_LABELS if t != "other"]
+    try:
+        communities = get_other_communities(app_state.db_path)
+        _recategorize_state["total"] = len(communities)
+        log.info("recategorize_started", total=len(communities))
+        for c in communities:
+            rk = c.get("record_key", "")
+            name = c.get("name", "")
+            description = c.get("description", "") or ""
+            city = c.get("city", "")
+            try:
+                topic, confidence, reasoning = await _ai_suggest_topic(name, description, known_topics)
+                if topic not in known_topics:
+                    topic = "other"
+                if confidence < _RECATEGORIZE_MIN_THRESHOLD or topic == "other":
+                    _recategorize_state["skipped"] += 1
+                    log.info("recategorize_skip", name=name, confidence=confidence, topic=topic)
+                elif confidence >= _RECATEGORIZE_AUTO_THRESHOLD:
+                    apply_recategorize_suggestion(app_state.db_path, rk, topic)
+                    upsert_recategorize_suggestion(
+                        app_state.db_path, rk, name, city, description, topic, confidence, reasoning, "applied"
+                    )
+                    _recategorize_state["auto_applied"] += 1
+                    log.info("recategorize_auto", name=name, topic=topic, confidence=confidence)
+                else:
+                    upsert_recategorize_suggestion(
+                        app_state.db_path, rk, name, city, description, topic, confidence, reasoning, "pending"
+                    )
+                    _recategorize_state["pending"] += 1
+                    log.info("recategorize_pending", name=name, topic=topic, confidence=confidence)
+            except Exception as exc:
+                log.warning("recategorize_item_failed", name=name, error=str(exc))
+            _recategorize_state["done"] += 1
+        log.info("recategorize_done", **{k: _recategorize_state[k] for k in ("done", "auto_applied", "pending", "skipped")})
+    except Exception as exc:
+        _recategorize_state["error"] = str(exc)
+        log.warning("recategorize_failed", error=str(exc))
+    finally:
+        _recategorize_state["running"] = False
 
 
 @admin.get("/config", response_class=HTMLResponse)
