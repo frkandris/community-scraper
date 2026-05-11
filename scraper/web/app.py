@@ -138,6 +138,7 @@ TOPIC_ICONS: dict[str, str] = {
     "baby": "baby",
     "senior": "sun-horizon",
     "kisallat": "paw-print",
+    "vallalkozas": "briefcase",
     "other": "circles-four",
 }
 
@@ -173,6 +174,7 @@ TOPIC_LABELS: dict[str, str] = {
     "baby": "Baba & Szülő",
     "senior": "Seniors",
     "kisallat": "Kisállat",
+    "vallalkozas": "Entrepreneurship",
     "other": "Other",
 }
 
@@ -3397,22 +3399,27 @@ async def public_person_detail(request: Request, city_slug: str, name_slug: str)
     if not merged:
         return RedirectResponse("/emberek", status_code=302)
     community_entries = []
-    seen = set()
+    seen: dict = {}
     for p in merged:
-        key = (p.get("community_name", ""), p.get("topic", ""), p.get("role", ""))
-        if key in seen:
-            continue
-        seen.add(key)
         community_name = p.get("community_name", "")
         topic = p.get("topic", "")
-        community_entries.append({
+        key = (community_name, topic)
+        role = p.get("role", "")
+        if key in seen:
+            # accumulate extra roles on the existing entry
+            if role and role not in seen[key]["roles"]:
+                seen[key]["roles"].append(role)
+            continue
+        entry = {
             "name": community_name,
             "url": f"/{city_slug}/{_slugify(community_name)}",
-            "role": p.get("role", ""),
+            "roles": [role] if role else [],
             "topic": topic,
             "topic_label": TOPIC_LABELS.get(topic, topic.replace("_", " ").title()),
             "topic_icon": TOPIC_ICONS.get(topic, "circle"),
-        })
+        }
+        seen[key] = entry
+        community_entries.append(entry)
     person = merged[0]
     bio = next((p.get("bio") for p in merged if p.get("bio")), None)
     website = next((p.get("website") for p in merged if p.get("website")), None)

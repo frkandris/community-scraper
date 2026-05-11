@@ -613,3 +613,7 @@ topics:
       en: ["dog walking group", "pet owners community", "dog meetup", "pet club", "dog walkers group", "animal lovers club"]
       de: [Hundegruppe, Gassigruppe, Hundetreffen, Tierfreunde, Hundehaltergruppe]
       fr: ["groupe de promeneurs de chiens", "communauté d'animaux", "club animalier", "promenade canine"]
+  - name: vallalkozas
+    search_terms:
+      hu: ["vállalkozói közösség", "startup meetup", "vállalkozók klubja", "üzleti networking", "startup csoport", "vállalkozói kör", "kisvállalkozók találkozó", "üzleti közösség"]
+      en: ["entrepreneur community", "startup meetup", "business networking group", "founders club", "startup community", "entrepreneur club"]

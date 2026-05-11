@@ -118,11 +118,11 @@
             <p class="text-sm font-medium text-[#1C1917] truncate">{{ ce.name }}</p>
             <p class="text-xs text-[#8C8478]">{{ ce.topic_label }}</p>
           </div>
-          {% if ce.role %}
+          {% for role in ce.roles %}
           <span class="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#F5F2EC] text-[#8C8478] border border-[#EAE5DB]">
-            {{ ce.role | role_hu }}
+            {{ role | role_hu }}
           </span>
-          {% endif %}
+          {% endfor %}
         </a>
         {% endfor %}
       </div>
@@ -131,13 +131,6 @@
 
   </div>
 
-  <!-- Back link -->
-  <div class="mt-6 text-center">
-    <a href="/{{ city_slug }}"
-       class="inline-flex items-center gap-2 text-sm text-[#A8512F] hover:text-[#8A4226] transition-colors font-medium">
-      <i class="ph ph-arrow-left"></i> Vissza: {{ city }}
-    </a>
-  </div>
 
 </div>
 
