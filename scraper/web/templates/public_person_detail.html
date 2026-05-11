@@ -1,5 +1,6 @@
 {% extends "public_base.html" %}
 {% block title %}{{ person.name }} – közösségek.com{% endblock %}
+{% block og_image_url %}/static/img/og/{% if community_entries %}{{ community_entries[0].topic or 'default' }}{% else %}default{% endif %}.png{% endblock %}
 {% block og_desc %}{{ bio or (person.name ~ ' közösségi ' ~ (person.role or '') ~ ' ' ~ city ~ 'ban.') }}{% endblock %}
 {% block content %}
 

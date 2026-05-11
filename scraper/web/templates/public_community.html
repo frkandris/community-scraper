@@ -1,6 +1,7 @@
 {% extends "public_base.html" %}
 {% block head %}{% if schema_json %}<script type="application/ld+json">{{ schema_json | safe }}</script>{% endif %}{% endblock %}
 {% block title %}{{ r.name }} – közösségek.com{% endblock %}
+{% block og_image_url %}/static/img/og/{{ topic or 'default' }}.png{% endblock %}
 {% block og_desc %}{{ r.description | truncate(160, True, '...') if r.description else r.name + ' – helyi közösség Magyarországon.' }}{% endblock %}
 
 {% block content %}

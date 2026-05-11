@@ -12,6 +12,7 @@
     Explore – közösségek.com
   {% endif %}
 {% endblock %}
+{% block og_image_url %}/static/img/og/{% if selected_topics and selected_topics | length == 1 %}{{ selected_topics[0] }}{% else %}default{% endif %}.png{% endblock %}
 {% block content %}
 
 <!-- Sticky sub-bar -->

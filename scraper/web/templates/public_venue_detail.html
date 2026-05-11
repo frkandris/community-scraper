@@ -1,5 +1,6 @@
 {% extends "public_base.html" %}
 {% block title %}{{ v.name }} – közösségek.com{% endblock %}
+{% block og_image_url %}/static/img/og/{% if v.welcomed_topics %}{{ v.welcomed_topics[0] }}{% else %}default{% endif %}.png{% endblock %}
 {% block og_desc %}{{ v.description or (v.name + ' helyszín ' + city + 'ban.') }}{% endblock %}
 {% block content %}
 
