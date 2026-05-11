@@ -1,6 +1,6 @@
 {% extends "public_base.html" %}
 {% block title %}{{ person.name }} – közösségek.com{% endblock %}
-{% block og_desc %}{{ bio or (person.name + ' közösségi ' + person.role + ' ' + city + 'ban.') }}{% endblock %}
+{% block og_desc %}{{ bio or (person.name ~ ' közösségi ' ~ (person.role or '') ~ ' ' ~ city ~ 'ban.') }}{% endblock %}
 {% block content %}
 
 <div class="brand-gradient relative overflow-hidden">
@@ -61,7 +61,7 @@
     <div class="bg-white rounded-xl border border-[#EAE5DB] p-5 flex flex-col gap-3">
       <h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-[#8C8478]">Elérhetőség</h2>
 
-      {% if website %}
+      {% if website and website | valid_url %}
       <a href="{{ website }}" target="_blank" rel="noopener"
          class="flex items-center gap-2 text-sm text-[#A8512F] hover:underline truncate">
         <i class="ph ph-arrow-square-out text-[#B5ADA0] shrink-0"></i>
@@ -70,11 +70,13 @@
       {% endif %}
 
       {% for link in social_links %}
+      {% if link | valid_url %}
       <a href="{{ link }}" target="_blank" rel="noopener"
          class="flex items-center gap-2 text-xs text-[#A8512F] hover:underline truncate">
         <i class="ph ph-link text-[#B5ADA0] shrink-0"></i>
         {{ link | replace('https://','') | replace('http://','') | truncate(36) }}
       </a>
+      {% endif %}
       {% endfor %}
     </div>
     {% endif %}

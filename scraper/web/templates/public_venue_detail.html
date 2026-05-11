@@ -90,7 +90,7 @@
       </div>
       {% endif %}
 
-      {% if v.website %}
+      {% if v.website and v.website | valid_url %}
       <a href="{{ v.website }}" target="_blank" rel="noopener"
          class="flex items-center gap-2 text-sm text-[#A8512F] hover:text-[#8A4226] hover:underline truncate">
         <i class="ph ph-arrow-square-out text-[#B5ADA0] shrink-0"></i>
@@ -123,11 +123,13 @@
       {% if v.social_links %}
       <div class="flex flex-col gap-1.5 pt-1 border-t border-[#EAE5DB]">
         {% for link in v.social_links %}
+        {% if link | valid_url %}
         <a href="{{ link }}" target="_blank" rel="noopener"
            class="flex items-center gap-2 text-xs text-[#A8512F] hover:underline truncate">
           <i class="ph ph-link text-[#B5ADA0] shrink-0"></i>
           {{ link | replace('https://','') | replace('http://','') | truncate(36) }}
         </a>
+        {% endif %}
         {% endfor %}
       </div>
       {% endif %}
