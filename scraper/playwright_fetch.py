@@ -1,0 +1,89 @@
+import asyncio
+from urllib.parse import urlparse
+
+import structlog
+
+log = structlog.get_logger()
+
+_LOGIN_MARKERS = (
+    'id="loginbutton"',
+    'id="login_button"',
+    '"login_form"',
+    "Log in to Facebook",
+    "You must log in",
+    "Log In to Instagram",
+    "This page isn't available",
+)
+
+
+def _is_login_wall(html: str) -> bool:
+    return any(marker in html for marker in _LOGIN_MARKERS)
+
+
+class PlaywrightFetcher:
+    """Headless Chromium fetcher for JS-heavy / bot-blocking domains."""
+
+    def __init__(self, domains: list[str], timeout_seconds: int = 20):
+        self.domains = [d.lower() for d in domains]
+        self.timeout_seconds = timeout_seconds
+        self._browser = None
+        self._pw = None
+
+    def matches(self, url: str) -> bool:
+        try:
+            host = urlparse(url).netloc.lower()
+            return any(d in host for d in self.domains)
+        except Exception:
+            return False
+
+    async def start(self) -> None:
+        try:
+            from playwright.async_api import async_playwright
+            self._pw = await async_playwright().start()
+            self._browser = await self._pw.chromium.launch(headless=True)
+            log.info("playwright_browser_started")
+        except ImportError:
+            log.warning("playwright_not_installed", hint="pip install playwright && playwright install chromium")
+
+    async def stop(self) -> None:
+        try:
+            if self._browser:
+                await self._browser.close()
+            if self._pw:
+                await self._pw.stop()
+        except Exception as exc:
+            log.debug("playwright_stop_error", error=str(exc))
+
+    async def fetch(self, url: str, min_text_length: int = 100) -> str | None:
+        if not self._browser:
+            return None
+        page = None
+        try:
+            page = await self._browser.new_page()
+            await page.goto(
+                url,
+                timeout=self.timeout_seconds * 1000,
+                wait_until="domcontentloaded",
+            )
+            # Give JS a moment to render
+            await asyncio.sleep(1.5)
+            html = await page.content()
+        except Exception as exc:
+            log.debug("playwright_fetch_failed", url=url, error=str(exc))
+            return None
+        finally:
+            if page:
+                try:
+                    await page.close()
+                except Exception:
+                    pass
+
+        if _is_login_wall(html):
+            log.debug("playwright_login_wall", url=url)
+            return None
+
+        from .fetch import _extract_text
+        text = _extract_text(html, min_text_length=min_text_length)
+        if text:
+            log.info("playwright_fetch_ok", url=url, chars=len(text))
+        return text

@@ -28,9 +28,10 @@ fetch:
   min_text_length: 100
   max_concurrent: 3
   blocked_domains:
+    - twitter.com
+  playwright_domains:
     - facebook.com
     - instagram.com
-    - twitter.com
     - x.com
     - tiktok.com
     - youtube.com

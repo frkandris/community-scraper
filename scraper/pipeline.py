@@ -2,7 +2,7 @@ import asyncio
 import hashlib
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -224,6 +224,7 @@ class PipelineConfig:
     fetch_max_concurrent: int
     fetch_blocked_domains: list[str]
     db_path: Path
+    fetch_playwright_domains: list[str] = field(default_factory=list)
     brave_api_key: str = ""
     serper_api_key: str = ""
     dataforseo_login: str = ""
@@ -352,6 +353,13 @@ async def _run_full(
     )
     log.info("search_client", primaries=[type(p).__name__ for p in search_primaries], fallback="searxng")
     semaphore = asyncio.Semaphore(config.fetch_max_concurrent)
+
+    pw_fetcher = None
+    if config.fetch_playwright_domains:
+        from .playwright_fetch import PlaywrightFetcher
+        pw_fetcher = PlaywrightFetcher(config.fetch_playwright_domains)
+        await pw_fetcher.start()
+
     all_fps = load_false_positives(config.db_path)
     enrich_fp_section = build_prompt_section(all_fps, fp_type="enrichment")
     total_new = 0
@@ -418,6 +426,7 @@ async def _run_full(
                     url, config.fetch_blocked_domains,
                     config.fetch_timeout, config.fetch_min_text_length,
                     semaphore,
+                    playwright_fetcher=pw_fetcher,
                 )
                 dur = time.monotonic() - t0
                 if on_progress:
@@ -576,6 +585,8 @@ async def _run_full(
             run_stats[city.name][topic.name] = count
             pair_logs.append(pair_log)
 
+    if pw_fetcher:
+        await pw_fetcher.stop()
     return total_new, pair_logs
 
 

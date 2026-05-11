@@ -50,7 +50,16 @@ async def fetch_and_clean(
     timeout_seconds: int = 15,
     min_text_length: int = 100,
     semaphore: asyncio.Semaphore | None = None,
+    playwright_fetcher=None,
 ) -> str | None:
+    if playwright_fetcher and playwright_fetcher.matches(url):
+        async def _playwright_fetch() -> str | None:
+            return await playwright_fetcher.fetch(url, min_text_length=min_text_length)
+        if semaphore:
+            async with semaphore:
+                return await _playwright_fetch()
+        return await _playwright_fetch()
+
     if _is_blocked(url, blocked_domains):
         log.debug("fetch_blocked", url=url)
         return None
