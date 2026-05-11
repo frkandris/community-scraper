@@ -47,6 +47,8 @@ from ..db import (
     get_all_venues,
     get_venue_counts,
     get_venues_by_city_topic,
+    get_venues,
+    get_communities_for_venue,
     get_venue_person_counts_by_url,
     get_venue_history,
     get_persons,

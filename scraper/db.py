@@ -782,6 +782,33 @@ def get_communities_by_ids(db_path: Path, community_ids: list[str]) -> list[dict
     return [json.loads(r[0]) for r in rows]
 
 
+def get_communities_for_venue(
+    db_path: Path,
+    community_ids: list[str],
+    venue_name: str,
+    city: str,
+) -> list[dict]:
+    """Return communities associated with a venue.
+    Tries community_ids first; falls back to location-text match."""
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        if community_ids:
+            placeholders = ",".join("?" * len(community_ids))
+            rows = conn.execute(
+                f"SELECT data FROM communities WHERE community_id IN ({placeholders}) AND hidden=0",
+                community_ids,
+            ).fetchall()
+            if rows:
+                return [json.loads(r[0]) for r in rows]
+        rows = conn.execute(
+            "SELECT data FROM communities WHERE city=? AND hidden=0"
+            " AND json_extract(data,'$.location') LIKE ?",
+            (city, f"%{venue_name}%"),
+        ).fetchall()
+    return [json.loads(r[0]) for r in rows]
+
+
 def get_topic_counts(db_path: Path) -> dict[str, int]:
     if not db_path.exists():
         return {}
