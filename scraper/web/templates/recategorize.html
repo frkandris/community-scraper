@@ -104,6 +104,62 @@
 </div>
 {% endif %}
 
+<!-- Skipped suggestions -->
+{% if skipped %}
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden mt-6">
+  <div class="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+    <div>
+      <h2 class="text-sm font-semibold text-gray-700">Kihagyva — alacsony konfidencia vagy "other" maradt</h2>
+      <p class="text-xs text-gray-400 mt-0.5">Az AI &lt; {{ (min_threshold * 100) | int }}% konfidenciával javasolt, vagy nem talált jobb kategóriát. Te döntesz.</p>
+    </div>
+    <span class="text-xs text-gray-400">{{ skipped | length }} db</span>
+  </div>
+  <div class="divide-y divide-gray-100">
+    {% for s in skipped %}
+    <div class="px-5 py-4 flex items-start gap-4" id="row-{{ s.id }}">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-semibold text-gray-900 text-sm">{{ s.community_name }}</span>
+          <span class="text-xs text-gray-400">{{ s.city }}</span>
+        </div>
+        {% if s.description %}
+        <p class="text-xs text-gray-500 mt-1 line-clamp-2">{{ s.description }}</p>
+        {% endif %}
+        <div class="flex items-center gap-2 mt-2 flex-wrap">
+          {% if s.suggested_topic and s.suggested_topic != 'other' %}
+          <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">other → </span>
+          <span class="text-xs font-semibold bg-gray-50 text-gray-600 border border-gray-200 px-2 py-0.5 rounded">
+            {{ topic_labels.get(s.suggested_topic, s.suggested_topic) }}
+          </span>
+          {% else %}
+          <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded italic">nincs jobb kategória</span>
+          {% endif %}
+          <span class="text-xs px-2 py-0.5 rounded font-mono bg-gray-50 text-gray-400">
+            {{ (s.confidence * 100) | int }}%
+          </span>
+        </div>
+        {% if s.reasoning %}
+        <p class="text-xs text-gray-400 mt-1 italic">{{ s.reasoning }}</p>
+        {% endif %}
+      </div>
+      <div class="flex gap-2 shrink-0 mt-1">
+        {% if s.suggested_topic and s.suggested_topic != 'other' %}
+        <button onclick="approve({{ s.id }})"
+          class="px-3 py-1.5 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+          Alkalmaz
+        </button>
+        {% endif %}
+        <button onclick="reject({{ s.id }})"
+          class="px-3 py-1.5 text-xs text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+          Elvet
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 <script>
 let polling = null;
 

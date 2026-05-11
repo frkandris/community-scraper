@@ -2206,15 +2206,18 @@ async def admin_recategorize_page(request: Request):
     init_db(app_state.db_path)
     other_count = len(get_other_communities(app_state.db_path))
     pending = get_recategorize_suggestions(app_state.db_path, "pending")
+    skipped = get_recategorize_suggestions(app_state.db_path, "skipped")
     applied = get_recategorize_suggestions(app_state.db_path, "applied")
     return templates.TemplateResponse(request, "recategorize.html", {
         "request": request,
         "other_count": other_count,
         "pending": pending,
+        "skipped": skipped,
         "applied_count": len(applied),
         "state": _recategorize_state,
         "topic_labels": TOPIC_LABELS,
         "auto_threshold": _RECATEGORIZE_AUTO_THRESHOLD,
+        "min_threshold": _RECATEGORIZE_MIN_THRESHOLD,
     })
 
 
@@ -2237,7 +2240,10 @@ async def admin_recategorize_status():
 async def admin_recategorize_approve(suggestion_id: int):
     if not app_state.db_path:
         return JSONResponse({"ok": False})
-    suggestions = get_recategorize_suggestions(app_state.db_path, "pending")
+    suggestions = (
+        get_recategorize_suggestions(app_state.db_path, "pending") +
+        get_recategorize_suggestions(app_state.db_path, "skipped")
+    )
     s = next((x for x in suggestions if x["id"] == suggestion_id), None)
     if not s:
         return JSONResponse({"ok": False, "error": "Not found"})
@@ -2271,6 +2277,9 @@ async def _run_recategorize() -> None:
                 if topic not in known_topics:
                     topic = "other"
                 if confidence < _RECATEGORIZE_MIN_THRESHOLD or topic == "other":
+                    upsert_recategorize_suggestion(
+                        app_state.db_path, rk, name, city, description, topic, confidence, reasoning, "skipped"
+                    )
                     _recategorize_state["skipped"] += 1
                     log.info("recategorize_skip", name=name, confidence=confidence, topic=topic)
                 elif confidence >= _RECATEGORIZE_AUTO_THRESHOLD:
