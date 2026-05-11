@@ -89,7 +89,7 @@ from ..extract import (ENRICH_SCHEMA, ENRICH_SYSTEM_PROMPT, EXTRACTION_SCHEMA,
                        DeepSeekExtractor, FallbackExtractor, GroqExtractor, OllamaExtractor)
 from ..fetch import fetch_and_clean
 from ..models import CommunityRecord
-from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline, scrape_submitted_url
+from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline, scrape_submitted_url, reextract_community
 from ..search import BraveSearchClient, SearXNGClient
 from ..store import patch_results, save_results
 from .i18n import get_topic_labels, lang_context
@@ -1859,6 +1859,22 @@ async def admin_submission_reject(sub_id: int):
     if not app_state.db_path:
         return JSONResponse({"ok": False, "error": "not_configured"})
     resolve_community_submission(_db(), sub_id, "rejected")
+    return JSONResponse({"ok": True})
+
+
+@admin.post("/communities/{community_id}/reai")
+async def admin_community_reai(community_id: str, background_tasks: BackgroundTasks):
+    if not app_state.db_path or not app_state.pipeline_cfg:
+        return JSONResponse({"ok": False, "error": "not_configured"})
+    community = find_community_by_id(_db(), community_id)
+    if not community:
+        return JSONResponse({"ok": False, "error": "not_found"})
+    background_tasks.add_task(
+        reextract_community,
+        app_state.db_path,
+        app_state.pipeline_cfg,
+        community_id,
+    )
     return JSONResponse({"ok": True})
 
 

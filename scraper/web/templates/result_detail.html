@@ -110,6 +110,11 @@
         Pipeline →
       </a>
       {% endif %}
+      <button onclick="reai('{{ r.community_id }}')"
+        id="reai-{{ r.community_id }}"
+        class="text-indigo-400 hover:text-indigo-700 transition-colors flex items-center gap-1">
+        <i class="ph ph-robot" style="font-size:13px"></i> Re-AI
+      </button>
       <form method="POST" action="/admin/false-positive/add" class="ml-auto">
         <input type="hidden" name="name" value="{{ r.name }}">
         <input type="hidden" name="city" value="{{ city }}">
@@ -133,4 +138,19 @@
   <p class="text-gray-400">No records found for this combination.</p>
 </div>
 {% endif %}
+<script>
+async function reai(communityId) {
+  const btn = document.getElementById('reai-' + communityId);
+  btn.innerHTML = '<i class="ph ph-spinner ph-spin" style="font-size:13px"></i> Folyamatban…';
+  btn.disabled = true;
+  const res = await fetch('/admin/communities/' + communityId + '/reai', { method: 'POST' });
+  const d = await res.json();
+  if (d.ok) {
+    btn.innerHTML = '<i class="ph ph-check" style="font-size:13px"></i> Kész';
+  } else {
+    btn.innerHTML = '<i class="ph ph-warning" style="font-size:13px"></i> Hiba';
+    btn.disabled = false;
+  }
+}
+</script>
 {% endblock %}

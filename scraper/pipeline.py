@@ -12,7 +12,7 @@ from .false_positives import build_prompt_section
 from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
 from .search import BraveSearchClient, DataForSEOClient, DuckDuckGoClient, FallbackSearchClient, SearXNGClient, SerperSearchClient, build_queries
-from .db import get_search_cache, save_search_cache, upsert_venues, upsert_persons, delete_leader_persons_for_community
+from .db import get_search_cache, save_search_cache, upsert_venues, upsert_persons, delete_leader_persons_for_community, load_cache_page
 from .store import save_results
 
 if TYPE_CHECKING:
@@ -777,4 +777,72 @@ async def scrape_submitted_url(
     )
     save_results(city, topic, records, db_path)
     log.info("scrape_submitted_url_done", city=city, topic=topic, url=url, found=len(records))
+    return True
+
+
+async def reextract_community(
+    db_path: Path,
+    config: "PipelineConfig",
+    community_id: str,
+) -> bool:
+    import hashlib as _hashlib
+    from .db import find_community_by_id
+    from .false_positives import load as _load_fps, build_prompt_section as _build_fp_section
+
+    record = find_community_by_id(db_path, community_id)
+    if not record:
+        log.warning("reextract_community_not_found", community_id=community_id)
+        return False
+
+    source_url = record.get("source_url", "")
+    city = record.get("city", "")
+    topic = record.get("topic", "")
+
+    url_hash = _hashlib.sha256(source_url.encode()).hexdigest()[:16]
+    cached = load_cache_page(db_path, url_hash)
+    text = cached.get("raw_text") if cached else None
+
+    if not text:
+        text = await fetch_and_clean(source_url, blocked_domains=[], timeout_seconds=15)
+    if not text:
+        log.warning("reextract_community_no_text", community_id=community_id, url=source_url)
+        return False
+
+    ollama = OllamaExtractor(
+        base_url=config.ollama_url,
+        model=config.ollama_model,
+        temperature=config.ollama_temperature,
+        timeout_seconds=config.ollama_timeout,
+        max_text_chars=config.ollama_max_text_chars,
+    )
+    primaries = []
+    if config.deepseek_api_key:
+        primaries.append(DeepSeekExtractor(
+            api_key=config.deepseek_api_key,
+            model=config.deepseek_model,
+            temperature=config.deepseek_temperature,
+            timeout_seconds=config.deepseek_timeout,
+            max_text_chars=config.deepseek_max_text_chars,
+            rate_limit_seconds=config.deepseek_rate_limit_seconds,
+        ))
+    if config.groq_api_key:
+        primaries.append(GroqExtractor(
+            api_key=config.groq_api_key,
+            model=config.groq_model,
+            temperature=config.groq_temperature,
+            timeout_seconds=config.groq_timeout,
+            max_text_chars=config.groq_max_text_chars,
+            rate_limit_seconds=config.groq_rate_limit_seconds,
+        ))
+    extractor: OllamaExtractor | FallbackExtractor = (
+        FallbackExtractor(primaries=primaries, fallback=ollama) if primaries else ollama
+    )
+
+    all_fps = _load_fps(db_path)
+    records = await extractor.extract(
+        text=text, city=city, topic=topic, locale="hu", source_url=source_url,
+        false_positive_examples=_build_fp_section(all_fps, city=city, topic=topic),
+    )
+    save_results(city, topic, records, db_path)
+    log.info("reextract_community_done", community_id=community_id, found=len(records))
     return True
