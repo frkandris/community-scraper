@@ -2241,7 +2241,7 @@ async def admin_recategorize_status():
 
 
 @admin.post("/recategorize/{suggestion_id}/approve")
-async def admin_recategorize_approve(suggestion_id: int):
+async def admin_recategorize_approve(suggestion_id: int, topic: str = Form("")):
     if not app_state.db_path:
         return JSONResponse({"ok": False})
     suggestions = (
@@ -2251,8 +2251,9 @@ async def admin_recategorize_approve(suggestion_id: int):
     s = next((x for x in suggestions if x["id"] == suggestion_id), None)
     if not s:
         return JSONResponse({"ok": False, "error": "Not found"})
-    apply_recategorize_suggestion(app_state.db_path, s["record_key"], s["suggested_topic"])
-    log.info("recategorize_approved", name=s["community_name"], topic=s["suggested_topic"])
+    chosen = topic.strip() or s["suggested_topic"]
+    apply_recategorize_suggestion(app_state.db_path, s["record_key"], chosen)
+    log.info("recategorize_approved", name=s["community_name"], topic=chosen)
     return JSONResponse({"ok": True})
 
 

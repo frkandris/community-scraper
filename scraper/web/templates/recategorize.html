@@ -2,6 +2,17 @@
 {% block title %}Recategorize – Community Scraper{% endblock %}
 {% block content %}
 
+{% macro topic_select(sid, suggested) %}
+<select id="sel-{{ sid }}"
+  class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-700 bg-white focus:outline-none focus:border-indigo-400 min-w-[140px]">
+  {% for slug, label in topic_labels.items() %}
+  {% if slug != 'other' %}
+  <option value="{{ slug }}"{% if slug == suggested %} selected{% endif %}>{{ label }}</option>
+  {% endif %}
+  {% endfor %}
+</select>
+{% endmacro %}
+
 <div class="flex items-center justify-between mb-6">
   <div>
     <h1 class="text-2xl font-bold text-gray-900">Recategorize "Other"</h1>
@@ -83,15 +94,18 @@
         <p class="text-xs text-gray-400 mt-1 italic">{{ s.reasoning }}</p>
         {% endif %}
       </div>
-      <div class="flex gap-2 shrink-0 mt-1">
-        <button onclick="approve({{ s.id }})"
-          class="px-3 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-          Igen
-        </button>
-        <button onclick="reject({{ s.id }})"
-          class="px-3 py-1.5 text-xs text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-          Nem
-        </button>
+      <div class="flex flex-col gap-2 shrink-0 mt-1 items-end">
+        {{ topic_select(s.id, s.suggested_topic) }}
+        <div class="flex gap-1.5">
+          <button onclick="approveWithTopic({{ s.id }})"
+            class="px-3 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+            Mentés
+          </button>
+          <button onclick="reject({{ s.id }})"
+            class="px-3 py-1.5 text-xs text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            Elvet
+          </button>
+        </div>
       </div>
     </div>
     {% endfor %}
@@ -142,17 +156,18 @@
         <p class="text-xs text-gray-400 mt-1 italic">{{ s.reasoning }}</p>
         {% endif %}
       </div>
-      <div class="flex gap-2 shrink-0 mt-1">
-        {% if s.suggested_topic and s.suggested_topic != 'other' %}
-        <button onclick="approve({{ s.id }})"
-          class="px-3 py-1.5 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
-          Alkalmaz
-        </button>
-        {% endif %}
-        <button onclick="reject({{ s.id }})"
-          class="px-3 py-1.5 text-xs text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-          Elvet
-        </button>
+      <div class="flex flex-col gap-2 shrink-0 mt-1 items-end">
+        {{ topic_select(s.id, s.suggested_topic if s.suggested_topic and s.suggested_topic != 'other' else '') }}
+        <div class="flex gap-1.5">
+          <button onclick="approveWithTopic({{ s.id }})"
+            class="px-3 py-1.5 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+            Mentés
+          </button>
+          <button onclick="reject({{ s.id }})"
+            class="px-3 py-1.5 text-xs text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            Elvet
+          </button>
+        </div>
       </div>
     </div>
     {% endfor %}
@@ -199,8 +214,12 @@ async function pollStatus() {
   }
 }
 
-async function approve(id) {
-  const res = await fetch(`/admin/recategorize/${id}/approve`, { method: 'POST' });
+async function approveWithTopic(id) {
+  const sel = document.getElementById('sel-' + id);
+  const topic = sel ? sel.value : '';
+  const fd = new FormData();
+  if (topic) fd.append('topic', topic);
+  const res = await fetch(`/admin/recategorize/${id}/approve`, { method: 'POST', body: fd });
   const data = await res.json();
   if (data.ok) document.getElementById('row-' + id).remove();
 }
