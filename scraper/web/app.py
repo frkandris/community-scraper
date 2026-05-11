@@ -72,6 +72,8 @@ from ..db import (
     resolve_edit_request,
     apply_community_edit,
     search_all,
+    get_venue_for_community,
+    get_persons_for_community,
 )
 from ..false_positives import (add as fp_add, diff_html as fp_diff_html,
                                load as fp_load, load_history as fp_load_history,
@@ -3192,6 +3194,12 @@ async def public_city_segment(
         rec_topic = record.get("topic", "")
         city_locale = _city_locale(city_name)
         topic_url_slugs = {t.name: _topic_url_slug(t.name, city_locale) for t in (app_state.topics or [])}
+        community_venue = get_venue_for_community(
+            app_state.db_path, record.get("community_id", ""), city_name
+        ) if app_state.db_path else None
+        community_persons = get_persons_for_community(
+            app_state.db_path, record["name"], city_name
+        ) if app_state.db_path else []
         return templates.TemplateResponse(request, "public_community.html", {
             "r": record,
             "topic": rec_topic,
@@ -3203,6 +3211,8 @@ async def public_city_segment(
             "community_history": history,
             "topic_url_slugs": topic_url_slugs,
             "record_key": _community_record_key(record["name"], city_name, rec_topic),
+            "community_venue": community_venue,
+            "community_persons": community_persons,
             "all_cities": sorted(c.name for c in (app_state.cities or [])),
             "all_topic_names": [(t.name, TOPIC_LABELS.get(t.name, t.name.replace("_", " ").title()))
                                 for t in (app_state.topics or [])],

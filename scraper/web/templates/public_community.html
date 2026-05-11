@@ -233,6 +233,51 @@
 
   </div>
 
+  <!-- Venue card -->
+  {% if community_venue %}
+  <div class="mt-4 bg-white rounded-xl border border-[#EAE5DB] p-5">
+    <p class="text-[10px] font-semibold text-[#B5ADA0] uppercase tracking-[0.08em] mb-3">
+      <i class="ph ph-map-pin mr-1"></i>Helyszín
+    </p>
+    <a href="/{{ city | slugify }}/helyszin/{{ community_venue.name | slugify }}"
+       class="flex items-center gap-3 group">
+      <div class="w-9 h-9 rounded-lg bg-[#F5F2EC] border border-[#EAE5DB] flex items-center justify-center shrink-0">
+        <i class="ph ph-map-pin text-[#A8512F]" style="font-size:16px"></i>
+      </div>
+      <div class="min-w-0">
+        <div class="font-semibold text-[#1C1917] group-hover:text-[#A8512F] transition-colors">{{ community_venue.name }}</div>
+        {% if community_venue.address %}
+        <div class="text-xs text-[#8C8478] truncate">{{ community_venue.address }}</div>
+        {% endif %}
+      </div>
+      <i class="ph ph-arrow-right text-[#D8D1C4] group-hover:text-[#A8512F] transition-colors ml-auto shrink-0"></i>
+    </a>
+  </div>
+  {% endif %}
+
+  <!-- Community persons -->
+  {% if community_persons %}
+  <div class="mt-4 bg-white rounded-xl border border-[#EAE5DB] p-5">
+    <p class="text-[10px] font-semibold text-[#B5ADA0] uppercase tracking-[0.08em] mb-3">
+      <i class="ph ph-person-simple mr-1"></i>Emberek
+    </p>
+    <div class="space-y-2">
+      {% for p in community_persons %}
+      <a href="/{{ city | slugify }}/ember/{{ p.name | slugify }}"
+         class="flex items-center gap-2.5 group py-1 -mx-1 px-1 rounded-lg hover:bg-[#F5F2EC] transition-colors">
+        <i class="ph ph-person-simple text-[#B5ADA0] group-hover:text-[#A8512F] transition-colors shrink-0 text-base"></i>
+        <div class="min-w-0 flex items-center gap-2">
+          <span class="text-sm font-medium text-[#1C1917] group-hover:text-[#A8512F] transition-colors">{{ p.name }}</span>
+          {% if p.role %}
+          <span class="text-[10px] text-[#8C8478] bg-[#F5F2EC] border border-[#EAE5DB] px-1.5 py-0.5 rounded shrink-0">{{ p.role }}</span>
+          {% endif %}
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Feedback & validity box -->
   <div class="mt-4 bg-white border border-[#EAE5DB] rounded-xl p-5" id="feedback-section">
 
