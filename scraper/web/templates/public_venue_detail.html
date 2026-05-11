@@ -17,7 +17,7 @@
         <h1 class="text-xl sm:text-2xl font-black tracking-[-0.025em] text-white leading-tight">{{ v.name }}</h1>
         {% if v.venue_type %}
         <span class="inline-block mt-1.5 text-[11px] font-medium px-2 py-0.5 rounded bg-white/20 text-white/90 border border-white/30">
-          {{ v.venue_type.replace('_',' ') }}
+          {{ venue_type_labels.get(v.venue_type, v.venue_type.replace('_',' ')) }}
         </span>
         {% endif %}
       </div>

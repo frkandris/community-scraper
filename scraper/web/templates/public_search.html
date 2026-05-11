@@ -66,7 +66,7 @@
         <i class="ph ph-map-pin text-[#A8512F] text-lg shrink-0"></i>
         <div class="min-w-0">
           <div class="font-medium text-[#1C1917] group-hover:text-[#A8512F] transition-colors truncate">{{ v.name }}</div>
-          <div class="text-xs text-[#8C8478]">{{ v.city }}{% if v.venue_type %} · {{ v.venue_type }}{% endif %}</div>
+          <div class="text-xs text-[#8C8478]">{{ v.city }}{% if v.venue_type %} · {{ venue_type_labels.get(v.venue_type, v.venue_type.replace('_',' ')) }}{% endif %}</div>
         </div>
       </a>
       {% endfor %}

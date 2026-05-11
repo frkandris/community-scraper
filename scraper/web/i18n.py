@@ -705,6 +705,42 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
 }
 
 
+VENUE_TYPE_LABELS: dict[str, dict[str, str]] = {
+    "en": {
+        "café":            "Café",
+        "bar":             "Bar",
+        "park":            "Park",
+        "cultural_center": "Cultural center",
+        "library":         "Library",
+        "church":          "Church",
+        "sports_hall":     "Sports hall",
+        "studio":          "Studio",
+        "coworking":       "Coworking",
+        "restaurant":      "Restaurant",
+        "other":           "Other",
+    },
+    "hu": {
+        "café":            "Kávézó",
+        "bar":             "Bár",
+        "park":            "Park",
+        "cultural_center": "Művelődési ház",
+        "library":         "Könyvtár",
+        "church":          "Templom",
+        "sports_hall":     "Sportcsarnok",
+        "studio":          "Stúdió",
+        "coworking":       "Coworking",
+        "restaurant":      "Étterem",
+        "other":           "Egyéb",
+    },
+}
+
+
+def get_venue_type_labels(lang: str) -> dict[str, str]:
+    base = VENUE_TYPE_LABELS.get("en", {})
+    overrides = VENUE_TYPE_LABELS.get(lang, {})
+    return {**base, **overrides}
+
+
 def get_topic_labels(lang: str) -> dict[str, str]:
     base = TOPIC_LABELS_I18N.get("en", {})
     overrides = TOPIC_LABELS_I18N.get(lang, {})
@@ -2226,4 +2262,5 @@ def lang_context(request: Request) -> dict:
         "languages": dict(sorted(LANGUAGES.items(), key=lambda x: x[1]["name"])),
         "current_lang": LANGUAGES.get(lang, LANGUAGES["hu"]),
         "topic_labels": get_topic_labels(lang),
+        "venue_type_labels": get_venue_type_labels(lang),
     }

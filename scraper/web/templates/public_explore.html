@@ -287,7 +287,7 @@
           </h3>
           {% if v.venue_type %}
           <span class="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#F5F2EC] text-[#8C8478] border border-[#EAE5DB] whitespace-nowrap">
-            {{ v.venue_type.replace('_',' ') }}
+            {{ venue_type_labels.get(v.venue_type, v.venue_type.replace('_',' ')) }}
           </span>
           {% endif %}
         </div>
@@ -331,7 +331,7 @@
           </h3>
           {% if v.venue_type %}
           <span class="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#F5F2EC] text-[#8C8478] border border-[#EAE5DB] whitespace-nowrap">
-            {{ v.venue_type.replace('_',' ') }}
+            {{ venue_type_labels.get(v.venue_type, v.venue_type.replace('_',' ')) }}
           </span>
           {% endif %}
         </div>
