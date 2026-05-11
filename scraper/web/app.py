@@ -1180,9 +1180,11 @@ async def public_suggest_edit(
         return JSONResponse({"ok": False, "error": "missing_fields"})
     if not app_state.db_path:
         return JSONResponse({"ok": False})
-    if entity_type not in {"community"}:
+    if entity_type not in {"community", "venue"}:
         return JSONResponse({"ok": False, "error": "invalid_entity_type"})
-    valid_types = {"wrong_city", "wrong_topic", "name_correction", "archive", "delete"}
+    community_change_types = {"wrong_city", "wrong_topic", "name_correction", "archive", "delete"}
+    venue_change_types = {"wrong_info", "closed", "name_correction"}
+    valid_types = community_change_types if entity_type == "community" else venue_change_types
     if change_type not in valid_types:
         return JSONResponse({"ok": False, "error": "invalid_change_type"})
     if change_type in {"wrong_city", "wrong_topic", "name_correction"} and not new_value.strip():
