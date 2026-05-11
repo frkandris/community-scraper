@@ -28,6 +28,13 @@
   {% endfor %}
 </div>
 
+<div class="flex justify-end mt-2">
+  <button id="copyBtn2" onclick="copyLogs()"
+    class="px-3 py-1.5 text-xs text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+    Copy
+  </button>
+</div>
+
 <script>
 const box = document.getElementById('log-box');
 const autoScrollCb = document.getElementById('autoScroll');
@@ -66,9 +73,10 @@ es.onerror = () => {
 function copyLogs() {
   const lines = [...box.querySelectorAll('div')].map(d => d.textContent).join('\n');
   navigator.clipboard.writeText(lines).then(() => {
-    const btn = document.getElementById('copyBtn');
-    btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = 'Copy', 1500);
+    ['copyBtn', 'copyBtn2'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) { btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 1500); }
+    });
   });
 }
 </script>

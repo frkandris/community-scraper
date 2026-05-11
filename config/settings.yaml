@@ -36,6 +36,7 @@ fetch:
     - tiktok.com
     - youtube.com
     - linkedin.com
+    - reddit.com
 
 pipeline:
   commit_after_run: false

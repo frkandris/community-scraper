@@ -13,6 +13,9 @@ _LOGIN_MARKERS = (
     "You must log in",
     "Log In to Instagram",
     "This page isn't available",
+    # Reddit
+    "Log in to Reddit",
+    "reddit.com/login",
 )
 
 
@@ -59,14 +62,23 @@ class PlaywrightFetcher:
             return None
         page = None
         try:
-            page = await self._browser.new_page()
+            context = await self._browser.new_context(
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/124.0.0.0 Safari/537.36"
+                )
+            )
+            page = await context.new_page()
             await page.goto(
                 url,
                 timeout=self.timeout_seconds * 1000,
                 wait_until="domcontentloaded",
             )
-            # Give JS a moment to render
-            await asyncio.sleep(1.5)
+            # Reddit and other SPAs need extra time to hydrate
+            host = urlparse(url).netloc.lower()
+            wait = 3.0 if "reddit.com" in host else 1.5
+            await asyncio.sleep(wait)
             html = await page.content()
         except Exception as exc:
             log.debug("playwright_fetch_failed", url=url, error=str(exc))
@@ -75,6 +87,7 @@ class PlaywrightFetcher:
             if page:
                 try:
                     await page.close()
+                    await context.close()
                 except Exception:
                     pass
 
