@@ -278,149 +278,10 @@
   </div>
   {% endif %}
 
-  <!-- Feedback & validity box -->
-  <div class="mt-4 bg-white border border-[#EAE5DB] rounded-xl p-5" id="feedback-section">
-
-    <!-- Initial prompt state -->
-    <div id="feedback-prompt">
-      <p class="text-sm text-[#8C8478] mb-3">{{ t('community_feedback_prompt') }}</p>
-      <div id="feedback-buttons" class="flex flex-wrap items-center gap-2">
-        <button id="not-community-btn"
-          onclick="reportNotCommunity()"
-          data-community-id="{{ r.community_id | default('') | e }}"
-          data-community-name="{{ r.name | e }}"
-          data-city="{{ city | e }}"
-          data-topic="{{ topic | e }}"
-          data-source-url="{{ r.source_url | default('') | e }}"
-          class="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-[#EAE5DB] rounded-lg text-[#6A6259] hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-colors">
-          <i class="ph ph-flag"></i> Ez nem egy közösség
-        </button>
-        <button
-          onclick="document.getElementById('feedback-prompt').classList.add('hidden'); document.getElementById('feedback-form').classList.remove('hidden');"
-          class="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-[#EAE5DB] rounded-lg text-[#6A6259] hover:border-[#C2613A] hover:text-[#8A4226] transition-colors">
-          <i class="ph ph-warning"></i> {{ t('community_report_issue') }}
-        </button>
-        <button
-          onclick="document.getElementById('feedback-prompt').classList.add('hidden'); document.getElementById('edit-request-form').classList.remove('hidden');"
-          class="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-[#EAE5DB] rounded-lg text-[#6A6259] hover:border-[#C2613A] hover:text-[#8A4226] transition-colors">
-          <i class="ph ph-pencil-simple"></i> Adatok javítása
-        </button>
-      </div>
-      <div id="not-community-thanks" class="hidden text-sm text-[#8C8478] flex items-center gap-2">
-        <i class="ph ph-check-circle text-green-600"></i> Köszönjük a jelzést.
-      </div>
-    </div>
-
-    <!-- Feedback form -->
-    <div id="feedback-form" class="hidden">
-      <p class="text-sm font-medium text-[#2E2B29] mb-3">Visszajelzés: <strong>{{ r.name }}</strong></p>
-      <form action="/feedback" method="POST" onsubmit="submitFeedback(event, this)">
-        <input type="hidden" name="community_name" value="{{ r.name }}">
-        <input type="hidden" name="city" value="{{ city }}">
-        <input type="hidden" name="topic" value="{{ topic }}">
-        <input type="hidden" name="page_url" value="{{ request.url }}">
-        <textarea name="message" rows="3" required
-          placeholder="Mi a probléma? (pl. rossz időpont, megszűnt, duplikált bejegyzés…)"
-          class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg resize-none focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 mb-3 text-[#1C1917] placeholder-[#B5ADA0]"></textarea>
-        <input type="email" name="user_email"
-          placeholder="E-mail (opcionális — ha szeretnél választ kapni)"
-          class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 mb-3 text-[#1C1917] placeholder-[#B5ADA0]">
-        <div class="flex items-center gap-3">
-          <button type="submit"
-            class="px-4 py-2 bg-[#A8512F] text-white text-xs font-semibold rounded-lg hover:bg-[#8A4226] transition-colors">
-            {{ t('community_feedback_send') }}
-          </button>
-          <button type="button"
-            onclick="document.getElementById('feedback-form').classList.add('hidden'); document.getElementById('feedback-prompt').classList.remove('hidden');"
-            class="text-xs text-[#8C8478] hover:text-[#4A4441] transition-colors">
-            {{ t('community_feedback_cancel') }}
-          </button>
-        </div>
-      </form>
-    </div>
-
-    <!-- Edit request form -->
-    <div id="edit-request-form" class="hidden">
-      <p class="text-sm font-medium text-[#2E2B29] mb-3">Módosítási javaslat: <strong>{{ r.name }}</strong></p>
-      <form onsubmit="submitEditRequest(event, this)">
-        <input type="hidden" name="entity_type" value="community">
-        <input type="hidden" name="entity_id" value="{{ r.community_id | default('') | e }}">
-        <input type="hidden" name="entity_name" value="{{ r.name | e }}">
-        <input type="hidden" name="entity_city" value="{{ city | e }}">
-        <input type="hidden" name="entity_topic" value="{{ topic | e }}">
-        <input type="hidden" name="record_key" value="{{ record_key | default('') | e }}">
-
-        <label class="block text-xs font-medium text-[#6A6259] mb-1">Mit szeretnél módosítani?</label>
-        <select name="change_type" required onchange="onChangeType(this.value)"
-          class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] mb-3 text-[#1C1917] bg-white">
-          <option value="">— válassz —</option>
-          <option value="wrong_city">Rossz városban van</option>
-          <option value="wrong_topic">Rossz érdeklődési körnél van</option>
-          <option value="name_correction">Névpontosítás</option>
-          <option value="archive">Megszűnt közösség</option>
-          <option value="delete">Hibás bejegyzés (törlés)</option>
-        </select>
-
-        <div id="edit-new-value-city" class="hidden mb-3">
-          <label class="block text-xs font-medium text-[#6A6259] mb-1">Helyes város</label>
-          <select name="new_value_city"
-            class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] text-[#1C1917] bg-white">
-            <option value="">— válassz várost —</option>
-            {% for c in all_cities | default([]) %}<option value="{{ c }}"{% if c == city %} selected{% endif %}>{{ c }}</option>{% endfor %}
-          </select>
-        </div>
-
-        <div id="edit-new-value-topic" class="hidden mb-3">
-          <label class="block text-xs font-medium text-[#6A6259] mb-1">Helyes érdeklődési kör</label>
-          <select name="new_value_topic"
-            class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] text-[#1C1917] bg-white">
-            <option value="">— válassz kategóriát —</option>
-            {% for slug, label in all_topic_names | default([]) %}<option value="{{ slug }}"{% if slug == topic %} selected{% endif %}>{{ label }}</option>{% endfor %}
-          </select>
-        </div>
-
-        <div id="edit-new-value-name" class="hidden mb-3">
-          <label class="block text-xs font-medium text-[#6A6259] mb-1">Helyes név</label>
-          <input type="text" name="new_value_name" value="{{ r.name | e }}"
-            class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] text-[#1C1917]">
-        </div>
-
-        <textarea name="notes" rows="2" required
-          placeholder="Megjegyzés / indoklás (kötelező)"
-          class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg resize-none focus:outline-none focus:border-[#C2613A] mb-3 text-[#1C1917] placeholder-[#B5ADA0]"></textarea>
-        <input type="email" name="email" required
-          placeholder="E-mail cím (kötelező)"
-          class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] mb-3 text-[#1C1917] placeholder-[#B5ADA0]">
-        <div class="flex items-center gap-3">
-          <button type="submit"
-            class="px-4 py-2 bg-[#A8512F] text-white text-xs font-semibold rounded-lg hover:bg-[#8A4226] transition-colors">
-            Javaslat beküldése
-          </button>
-          <button type="button"
-            onclick="document.getElementById('edit-request-form').classList.add('hidden'); document.getElementById('feedback-prompt').classList.remove('hidden');"
-            class="text-xs text-[#8C8478] hover:text-[#4A4441] transition-colors">
-            Mégsem
-          </button>
-        </div>
-      </form>
-    </div>
-
-    <!-- Edit request thanks -->
-    <div id="edit-request-thanks" class="hidden text-sm text-green-700 flex items-center gap-2">
-      <i class="ph ph-check-circle"></i> Köszönjük, hamarosan átnézzük a javaslatot.
-    </div>
-
-    <!-- Thanks after form submit -->
-    <div id="feedback-thanks" class="hidden text-sm text-green-700 flex items-center gap-2">
-      <i class="ph ph-check-circle"></i> {{ t('community_feedback_thanks') }}
-    </div>
-
-  </div>
-
   <!-- Source attribution -->
   {% set all_sources = r.source_urls if r.get('source_urls') else ([r.source_url] if r.source_url else []) %}
   {% if all_sources %}
-  <div class="mt-6 border-t border-[#EAE5DB] pt-5">
+  <div class="mt-4 border-t border-[#EAE5DB] pt-5">
     <p class="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#B5ADA0] mb-2">{{ t('community_source_page') }}</p>
     <div class="flex flex-col gap-1.5">
       {% for url in all_sources %}
@@ -441,6 +302,114 @@
     </div>
   </div>
   {% endif %}
+
+  <!-- Unified report problem -->
+  <div class="mt-4 bg-white border border-[#EAE5DB] rounded-xl overflow-hidden" id="report-section">
+
+    <!-- Collapsed prompt -->
+    <div id="report-prompt" class="px-5 py-3">
+      <button onclick="openReport()"
+        class="inline-flex items-center gap-1.5 text-xs text-[#B5ADA0] hover:text-[#6A6259] transition-colors">
+        <i class="ph ph-flag"></i> Hibát találtál?
+      </button>
+    </div>
+
+    <!-- Expanded form -->
+    <div id="report-form" class="hidden px-5 pb-5 pt-4 border-t border-[#F5F2EC]">
+      <!-- Hidden community fields -->
+      <input type="hidden" id="rf-community-id"   value="{{ r.community_id | default('') | e }}">
+      <input type="hidden" id="rf-community-name" value="{{ r.name | e }}">
+      <input type="hidden" id="rf-city"            value="{{ city | e }}">
+      <input type="hidden" id="rf-topic"           value="{{ topic | e }}">
+      <input type="hidden" id="rf-source-url"      value="{{ r.source_url | default('') | e }}">
+      <input type="hidden" id="rf-record-key"      value="{{ record_key | default('') | e }}">
+      <input type="hidden" id="rf-entity-id"       value="{{ r.community_id | default('') | e }}">
+
+      <label class="block text-xs font-medium text-[#6A6259] mb-1.5">Mi a probléma?</label>
+      <select id="report-type" onchange="onReportType(this.value)"
+        class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] mb-4 text-[#1C1917] bg-white">
+        <option value="">— válassz —</option>
+        <option value="not_community">Ez nem egy közösség</option>
+        <option value="wrong_city">Rossz városban van</option>
+        <option value="wrong_topic">Rossz érdeklődési körnél van</option>
+        <option value="name_correction">Névpontosítás</option>
+        <option value="archive">Megszűnt közösség</option>
+        <option value="delete">Hibás bejegyzés (törlés)</option>
+        <option value="other">Egyéb visszajelzés</option>
+      </select>
+
+      <!-- Not community: no extra fields, just a note -->
+      <div id="rf-not-community" class="hidden mb-4 text-xs text-[#8C8478] bg-[#FFF8F5] border border-[#FAD9C7] rounded-lg px-3 py-2">
+        A jelzés után az admin felületen manuálisan ellenőrizzük.
+      </div>
+
+      <!-- Wrong city -->
+      <div id="rf-city-field" class="hidden mb-4">
+        <label class="block text-xs font-medium text-[#6A6259] mb-1">Helyes város</label>
+        <select id="rf-new-city"
+          class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] text-[#1C1917] bg-white">
+          <option value="">— válassz várost —</option>
+          {% for c in all_cities | default([]) %}<option value="{{ c }}"{% if c == city %} selected{% endif %}>{{ c }}</option>{% endfor %}
+        </select>
+      </div>
+
+      <!-- Wrong topic -->
+      <div id="rf-topic-field" class="hidden mb-4">
+        <label class="block text-xs font-medium text-[#6A6259] mb-1">Helyes érdeklődési kör</label>
+        <select id="rf-new-topic"
+          class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] text-[#1C1917] bg-white">
+          <option value="">— válassz kategóriát —</option>
+          {% for slug, label in all_topic_names | default([]) %}<option value="{{ slug }}"{% if slug == topic %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+
+      <!-- Name correction -->
+      <div id="rf-name-field" class="hidden mb-4">
+        <label class="block text-xs font-medium text-[#6A6259] mb-1">Helyes név</label>
+        <input type="text" id="rf-new-name" value="{{ r.name | e }}"
+          class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] text-[#1C1917]">
+      </div>
+
+      <!-- Notes (shown for most types) -->
+      <div id="rf-notes-field" class="hidden mb-3">
+        <textarea id="rf-notes" rows="2"
+          placeholder="Megjegyzés / indoklás (opcionális)"
+          class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg resize-none focus:outline-none focus:border-[#C2613A] text-[#1C1917] placeholder-[#B5ADA0]"></textarea>
+      </div>
+
+      <!-- Free text (for "other") -->
+      <div id="rf-message-field" class="hidden mb-3">
+        <textarea id="rf-message" rows="3"
+          placeholder="Miben tudnánk jobbak lenni? (pl. hiányzó adat, hibás leírás…)"
+          class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg resize-none focus:outline-none focus:border-[#C2613A] text-[#1C1917] placeholder-[#B5ADA0]"></textarea>
+      </div>
+
+      <!-- Email -->
+      <div id="rf-email-field" class="hidden mb-4">
+        <input type="email" id="rf-email"
+          placeholder="E-mail cím (opcionális)"
+          class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] text-[#1C1917] placeholder-[#B5ADA0]">
+      </div>
+
+      <!-- Actions -->
+      <div id="rf-actions" class="hidden flex items-center gap-3">
+        <button onclick="submitReport()"
+          class="px-4 py-2 bg-[#A8512F] text-white text-xs font-semibold rounded-lg hover:bg-[#8A4226] transition-colors">
+          Küldés
+        </button>
+        <button type="button" onclick="closeReport()"
+          class="text-xs text-[#8C8478] hover:text-[#4A4441] transition-colors">
+          Mégsem
+        </button>
+      </div>
+    </div>
+
+    <!-- Thanks -->
+    <div id="report-thanks" class="hidden px-5 py-3 text-sm text-green-700 flex items-center gap-2">
+      <i class="ph ph-check-circle"></i> Köszönjük a jelzést!
+    </div>
+
+  </div>
 
   <!-- History -->
   {% if community_history %}
@@ -523,58 +492,83 @@
 </div>
 
 <script>
-async function submitFeedback(e, form) {
-  e.preventDefault();
-  try { await fetch(form.action, { method: 'POST', body: new FormData(form) }); } catch (_) {}
-  document.getElementById('feedback-form').classList.add('hidden');
-  document.getElementById('feedback-thanks').classList.remove('hidden');
+function openReport() {
+  document.getElementById('report-prompt').classList.add('hidden');
+  document.getElementById('report-form').classList.remove('hidden');
+}
+function closeReport() {
+  document.getElementById('report-form').classList.add('hidden');
+  document.getElementById('report-prompt').classList.remove('hidden');
+  document.getElementById('report-type').value = '';
+  onReportType('');
 }
 
-async function reportNotCommunity() {
-  const btn = document.getElementById('not-community-btn');
-  btn.disabled = true;
-  const d = btn.dataset;
-  const fd = new FormData();
-  fd.append('community_id',   d.communityId   || '');
-  fd.append('community_name', d.communityName || '');
-  fd.append('city',           d.city          || '');
-  fd.append('topic',          d.topic         || '');
-  fd.append('source_url',     d.sourceUrl     || '');
-  fd.append('page_url',       location.href);
-  try { await fetch('/report-not-community', { method: 'POST', body: fd }); } catch (_) {}
-  document.getElementById('feedback-buttons').classList.add('hidden');
-  document.getElementById('not-community-thanks').classList.remove('hidden');
+function onReportType(val) {
+  const show = id => document.getElementById(id).classList.remove('hidden');
+  const hide = id => document.getElementById(id).classList.add('hidden');
+  ['rf-not-community','rf-city-field','rf-topic-field','rf-name-field',
+   'rf-notes-field','rf-message-field','rf-email-field','rf-actions'].forEach(hide);
+  if (!val) return;
+  if (val === 'not_community') { show('rf-not-community'); }
+  else if (val === 'wrong_city')       { show('rf-city-field');  show('rf-notes-field'); }
+  else if (val === 'wrong_topic')      { show('rf-topic-field'); show('rf-notes-field'); }
+  else if (val === 'name_correction')  { show('rf-name-field');  show('rf-notes-field'); }
+  else if (val === 'other')            { show('rf-message-field'); show('rf-email-field'); }
+  else                                 { show('rf-notes-field'); }
+  show('rf-email-field');
+  show('rf-actions');
 }
 
-function onChangeType(val) {
-  ['city', 'topic', 'name'].forEach(t =>
-    document.getElementById('edit-new-value-' + t).classList.add('hidden'));
-  if (val === 'wrong_city') document.getElementById('edit-new-value-city').classList.remove('hidden');
-  if (val === 'wrong_topic') document.getElementById('edit-new-value-topic').classList.remove('hidden');
-  if (val === 'name_correction') document.getElementById('edit-new-value-name').classList.remove('hidden');
-}
+async function submitReport() {
+  const val = document.getElementById('report-type').value;
+  if (!val) return;
+  const g = id => document.getElementById(id).value || '';
 
-async function submitEditRequest(event, form) {
-  event.preventDefault();
-  const fd = new FormData(form);
-  const changeType = fd.get('change_type');
-  // Merge the right new_value field into 'new_value'
-  if (changeType === 'wrong_city') fd.set('new_value', fd.get('new_value_city') || '');
-  else if (changeType === 'wrong_topic') fd.set('new_value', fd.get('new_value_topic') || '');
-  else if (changeType === 'name_correction') fd.set('new_value', fd.get('new_value_name') || '');
-  else fd.set('new_value', '');
-  try {
-    const res = await fetch('/suggest-edit', { method: 'POST', body: fd });
-    const data = await res.json();
-    if (data.ok) {
-      document.getElementById('edit-request-form').classList.add('hidden');
-      document.getElementById('edit-request-thanks').classList.remove('hidden');
-    } else {
-      alert('Hiba: ' + (data.error || 'ismeretlen'));
-    }
-  } catch (e) {
-    alert('Hálózati hiba, próbáld újra.');
+  if (val === 'not_community') {
+    const fd = new FormData();
+    fd.append('community_id',   g('rf-entity-id'));
+    fd.append('community_name', g('rf-community-name'));
+    fd.append('city',           g('rf-city'));
+    fd.append('topic',          g('rf-topic'));
+    fd.append('source_url',     g('rf-source-url'));
+    fd.append('page_url',       location.href);
+    try { await fetch('/report-not-community', { method: 'POST', body: fd }); } catch (_) {}
+  } else if (val === 'other') {
+    const msg = g('rf-message');
+    if (!msg.trim()) { document.getElementById('rf-message').focus(); return; }
+    const fd = new FormData();
+    fd.append('message',        msg);
+    fd.append('user_email',     g('rf-email'));
+    fd.append('community_name', g('rf-community-name'));
+    fd.append('city',           g('rf-city'));
+    fd.append('topic',          g('rf-topic'));
+    fd.append('page_url',       location.href);
+    try { await fetch('/feedback', { method: 'POST', body: fd }); } catch (_) {}
+  } else {
+    let newValue = '';
+    if (val === 'wrong_city')      newValue = g('rf-new-city');
+    else if (val === 'wrong_topic') newValue = g('rf-new-topic');
+    else if (val === 'name_correction') newValue = g('rf-new-name');
+    const fd = new FormData();
+    fd.append('entity_type',  'community');
+    fd.append('entity_id',    g('rf-entity-id'));
+    fd.append('entity_name',  g('rf-community-name'));
+    fd.append('entity_city',  g('rf-city'));
+    fd.append('entity_topic', g('rf-topic'));
+    fd.append('record_key',   g('rf-record-key'));
+    fd.append('change_type',  val);
+    fd.append('new_value',    newValue);
+    fd.append('notes',        g('rf-notes'));
+    fd.append('email',        g('rf-email'));
+    try {
+      const res = await fetch('/suggest-edit', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!data.ok) { alert('Hiba: ' + (data.error || 'ismeretlen')); return; }
+    } catch (_) {}
   }
+
+  document.getElementById('report-form').classList.add('hidden');
+  document.getElementById('report-thanks').classList.remove('hidden');
 }
 </script>
 
