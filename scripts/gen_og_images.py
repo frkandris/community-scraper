@@ -48,6 +48,8 @@ TOPIC_LABELS: dict[str, str] = {
     "senior":            "Seniors / Nyugdíjas",
     "kisallat":          "Kisállat",
     "vallalkozas":       "Vállalkozás",
+    "nok":               "Nők",
+    "fogyatekossag":     "Fogyatékkal élők",
     "other":             "Other / Egyéb",
     "default":           "közösségek.com",
 }
@@ -85,6 +87,8 @@ TOPIC_BG: dict[str, tuple[int, int, int]] = {
     "senior":            ( 95,  75,  55),
     "kisallat":          ( 55, 105,  85),
     "vallalkozas":       ( 30,  70, 120),
+    "nok":               (165,  65, 110),
+    "fogyatekossag":     ( 50,  95, 130),
     "other":             ( 95,  85,  75),
     "default":           _BRAND,
 }

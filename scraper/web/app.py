@@ -144,6 +144,8 @@ TOPIC_ICONS: dict[str, str] = {
     "senior": "sun-horizon",
     "kisallat": "paw-print",
     "vallalkozas": "briefcase",
+    "nok": "gender-female",
+    "fogyatekossag": "wheelchair",
     "other": "circles-four",
 }
 
@@ -180,6 +182,8 @@ TOPIC_LABELS: dict[str, str] = {
     "senior": "Seniors",
     "kisallat": "Kisállat",
     "vallalkozas": "Entrepreneurship",
+    "nok": "Women",
+    "fogyatekossag": "Disability",
     "other": "Other",
 }
 

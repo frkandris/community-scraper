@@ -617,3 +617,15 @@ topics:
     search_terms:
       hu: ["vállalkozói közösség", "startup meetup", "vállalkozók klubja", "üzleti networking", "startup csoport", "vállalkozói kör", "kisvállalkozók találkozó", "üzleti közösség"]
       en: ["entrepreneur community", "startup meetup", "business networking group", "founders club", "startup community", "entrepreneur club"]
+  - name: nok
+    search_terms:
+      hu: ["nők közössége", "nők klubja", "csak nőknek", "nők találkozó", "nők csoportja", "women's group budapest", "nők hálózat", "feminista csoport"]
+      en: ["women's group", "women's community", "women only group", "ladies club", "women's social group", "women's network", "girls meetup"]
+      de: [Frauengruppe, Frauenclub, Frauennetzwerk, "nur für Frauen", Frauenstammtisch]
+      fr: ["groupe de femmes", "club féminin", "cercle de femmes", "réseau féminin", "association de femmes"]
+  - name: fogyatekossag
+    search_terms:
+      hu: ["fogyatékkal élők közössége", "autista csoport", "autizmus közösség", "fogyatékos személyek klubja", "mozgáskorlátozott csoport", "látássérültek köre", "hallássérültek klubja", "speciális igényű csoport", "inkluzív közösség", "down szindróma csoport"]
+      en: ["disability group", "disabled community", "autism group", "special needs community", "living with disabilities", "inclusive community", "accessibility group", "neurodiversity group"]
+      de: [Behindertengruppe, Autismusgruppe, "Menschen mit Behinderung", Inklusionsgruppe, Selbsthilfegruppe]
+      fr: ["groupe handicap", "communauté handicapée", "groupe autisme", "association handicap", "groupe besoins spéciaux"]
