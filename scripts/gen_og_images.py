@@ -115,6 +115,26 @@ def _wrap(text: str, max_chars: int = 22) -> list[str]:
     return lines
 
 
+_FONT_CANDIDATES = [
+    "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+]
+
+
+def _load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    for path in _FONT_CANDIDATES:
+        try:
+            return ImageFont.truetype(path, size)
+        except (OSError, IOError):
+            continue
+    try:
+        return ImageFont.load_default(size=size)
+    except TypeError:
+        return ImageFont.load_default()
+
+
 def _make_image(topic: str, label: str) -> Image.Image:
     bg = TOPIC_BG.get(topic, _BRAND)
     img = Image.new("RGB", (W, H), color=bg)
@@ -122,15 +142,9 @@ def _make_image(topic: str, label: str) -> Image.Image:
     _gradient_fill(draw, bg)
     draw.ellipse([W - 230, -90, W + 90, 230], fill=(255, 255, 255, 18))
     draw.ellipse([-90, H - 190, 190, H + 90], fill=(255, 255, 255, 12))
-    try:
-        f_site = ImageFont.load_default(size=28)
-    except TypeError:
-        f_site = ImageFont.load_default()
+    f_site = _load_font(28)
     draw.text((52, 48), "közösségek.com", font=f_site, fill=(255, 255, 255, 160))
-    try:
-        f_topic = ImageFont.load_default(size=72)
-    except TypeError:
-        f_topic = ImageFont.load_default()
+    f_topic = _load_font(72)
     wrapped = _wrap(label, max_chars=22)
     line_h = 88
     y0 = (H - len(wrapped) * line_h) // 2 - 24
@@ -142,10 +156,7 @@ def _make_image(topic: str, label: str) -> Image.Image:
         draw.text((x + 3, y + 3), line, font=f_topic, fill=(0, 0, 0, 70))
         draw.text((x, y), line, font=f_topic, fill=(255, 255, 255, 255))
     draw.rectangle([0, H - 64, W, H], fill=(0, 0, 0, 70))
-    try:
-        f_bottom = ImageFont.load_default(size=22)
-    except TypeError:
-        f_bottom = ImageFont.load_default()
+    f_bottom = _load_font(22)
     draw.text(
         (52, H - 44),
         "Találd meg a közösséged Magyarországon",
