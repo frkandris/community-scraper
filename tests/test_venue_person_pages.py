@@ -59,3 +59,17 @@ def test_get_communities_for_venue_empty(tmp_path):
     upsert_venues(db, [_venue().model_dump()])
     result = get_communities_for_venue(db, [], "Müpa Budapest", "Budapest")
     assert result == []
+
+
+def test_get_communities_for_venue_stale_ids_fallback(tmp_path):
+    db = _db(tmp_path)
+    r = CommunityRecord(
+        name="Tánc Csoport", topic="dance", city="Budapest", locale="hu",
+        source_url="https://b.test", extracted_at="2026-01-01T00:00:00+00:00",
+        location="Müpa Budapest nagyszínpad",
+    )
+    save_results("Budapest", "dance", [r], db)
+    # Stale/non-existent ID — should fall through to LIKE fallback
+    result = get_communities_for_venue(db, ["deadbeef1234"], "Müpa Budapest", "Budapest")
+    assert len(result) == 1
+    assert result[0]["name"] == "Tánc Csoport"

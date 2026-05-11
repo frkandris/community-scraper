@@ -801,10 +801,11 @@ def get_communities_for_venue(
             ).fetchall()
             if rows:
                 return [json.loads(r[0]) for r in rows]
+        safe_name = venue_name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         rows = conn.execute(
             "SELECT data FROM communities WHERE city=? AND hidden=0"
-            " AND json_extract(data,'$.location') LIKE ?",
-            (city, f"%{venue_name}%"),
+            " AND json_extract(data,'$.location') LIKE ? ESCAPE '\\'",
+            (city, f"%{safe_name}%"),
         ).fetchall()
     return [json.loads(r[0]) for r in rows]
 
