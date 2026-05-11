@@ -1770,7 +1770,6 @@ def save_community_submission(
     source_url: str,
     submitter_email: str | None,
 ) -> int:
-    from datetime import datetime, timezone
     with _connect(db_path) as conn:
         cur = conn.execute(
             "INSERT INTO community_submissions (name, city, topic, source_url, submitter_email, submitted_at, status) "
@@ -1786,13 +1785,13 @@ def get_community_submissions(db_path: Path, status: str = "pending") -> list[di
     if not db_path.exists():
         return []
     with _connect(db_path) as conn:
-        rows = conn.execute(
+        cursor = conn.execute(
             "SELECT id, name, city, topic, source_url, submitter_email, submitted_at, status "
             "FROM community_submissions WHERE status=? ORDER BY submitted_at DESC",
             (status,),
-        ).fetchall()
-    cols = ("id", "name", "city", "topic", "source_url", "submitter_email", "submitted_at", "status")
-    return [dict(zip(cols, row)) for row in rows]
+        )
+        cols = [d[0] for d in cursor.description]
+        return [dict(zip(cols, row)) for row in cursor.fetchall()]
 
 
 def resolve_community_submission(db_path: Path, sub_id: int, status: str) -> None:
