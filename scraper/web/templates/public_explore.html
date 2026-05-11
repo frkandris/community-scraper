@@ -367,7 +367,7 @@
         <div class="min-w-0">
           <div class="text-sm font-medium text-[#1C1917] group-hover:text-[#A8512F] transition-colors truncate">{{ p.name }}</div>
           {% if p.role %}
-          <div class="text-[10px] text-[#8C8478] truncate">{{ p.role }}</div>
+          <div class="text-[10px] text-[#8C8478] truncate">{{ p.role | role_hu }}</div>
           {% endif %}
         </div>
       </a>

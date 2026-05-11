@@ -331,6 +331,20 @@ def _slugify(text: str) -> str:
 
 templates.env.filters["slugify"] = _slugify
 
+_ROLE_HU = {
+    "leader": "vezető",
+    "organizer": "szervező",
+    "founder": "alapító",
+    "coach": "edző",
+    "trainer": "tréner",
+    "moderator": "moderátor",
+    "admin": "adminisztrátor",
+    "member": "tag",
+    "volunteer": "önkéntes",
+    "coordinator": "koordinátor",
+}
+templates.env.filters["role_hu"] = lambda r: _ROLE_HU.get((r or "").lower(), r)
+
 
 def _safe_redirect_target(target: str, fallback: str) -> str:
     return target if target.startswith("/") and not target.startswith("//") else fallback

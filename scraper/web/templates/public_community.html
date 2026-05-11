@@ -269,7 +269,7 @@
         <div class="min-w-0 flex items-center gap-2">
           <span class="text-sm font-medium text-[#1C1917] group-hover:text-[#A8512F] transition-colors">{{ p.name }}</span>
           {% if p.role %}
-          <span class="text-[10px] text-[#8C8478] bg-[#F5F2EC] border border-[#EAE5DB] px-1.5 py-0.5 rounded shrink-0">{{ p.role }}</span>
+          <span class="text-[10px] text-[#8C8478] bg-[#F5F2EC] border border-[#EAE5DB] px-1.5 py-0.5 rounded shrink-0">{{ p.role | role_hu }}</span>
           {% endif %}
         </div>
       </a>
