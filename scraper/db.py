@@ -307,6 +307,19 @@ def init_db(db_path: Path) -> None:
             )
         """)
 
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS community_submissions (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                name            TEXT NOT NULL,
+                city            TEXT NOT NULL,
+                topic           TEXT NOT NULL,
+                source_url      TEXT NOT NULL,
+                submitter_email TEXT,
+                submitted_at    TEXT NOT NULL,
+                status          TEXT NOT NULL DEFAULT 'pending'
+            )
+        """)
+
         conn.commit()
 
 
@@ -1745,3 +1758,47 @@ def apply_community_edit(
             return False
         conn.commit()
     return True
+
+
+# ── Community Submissions ─────────────────────────────────────────────────────
+
+def save_community_submission(
+    db_path: Path,
+    name: str,
+    city: str,
+    topic: str,
+    source_url: str,
+    submitter_email: str | None,
+) -> int:
+    from datetime import datetime, timezone
+    with _connect(db_path) as conn:
+        cur = conn.execute(
+            "INSERT INTO community_submissions (name, city, topic, source_url, submitter_email, submitted_at, status) "
+            "VALUES (?, ?, ?, ?, ?, ?, 'pending')",
+            (name, city, topic, source_url, submitter_email,
+             datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+        return cur.lastrowid
+
+
+def get_community_submissions(db_path: Path, status: str = "pending") -> list[dict]:
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT id, name, city, topic, source_url, submitter_email, submitted_at, status "
+            "FROM community_submissions WHERE status=? ORDER BY submitted_at DESC",
+            (status,),
+        ).fetchall()
+    cols = ("id", "name", "city", "topic", "source_url", "submitter_email", "submitted_at", "status")
+    return [dict(zip(cols, row)) for row in rows]
+
+
+def resolve_community_submission(db_path: Path, sub_id: int, status: str) -> None:
+    with _connect(db_path) as conn:
+        conn.execute(
+            "UPDATE community_submissions SET status=? WHERE id=?",
+            (status, sub_id),
+        )
+        conn.commit()
