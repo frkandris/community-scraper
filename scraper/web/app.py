@@ -1508,6 +1508,20 @@ async def submit_community_post(
     return RedirectResponse("/kozosseg-bekuldes?submitted=1", status_code=302)
 
 
+@_fastapi.get("/robots.txt")
+async def robots_txt():
+    from fastapi.responses import PlainTextResponse
+    return PlainTextResponse(
+        "User-agent: *\n"
+        "Disallow: /admin\n"
+        "Disallow: /source/\n"
+        "Disallow: /api/\n"
+        "Disallow: /set-lang\n"
+        "Disallow: /unsubscribe\n"
+        "Sitemap: https://kozossegek.com/sitemap.xml\n"
+    )
+
+
 @_fastapi.get("/sitemap.xml")
 async def sitemap(request: Request):
     from fastapi.responses import Response as _Response

@@ -12,10 +12,11 @@
   <style>
     .brand-gradient { background: linear-gradient(135deg, #8A4226 0%, #A8512F 30%, #C2613A 65%, #E88E6B 100%); }
   </style>
+  <meta name="description" content="{{ self.og_desc() }}">
   {% block og_meta %}
   <meta property="og:site_name" content="közösségek.com">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="{{ request.url }}">
+  <meta property="og:url" content="https://kozossegek.com{{ request.url.path }}">
   <meta property="og:title" content="{{ self.title() | trim }}">
   <meta property="og:description" content="{% block og_desc %}Helyi közösségek és érdeklődési körök Magyarországon.{% endblock %}">
   <meta property="og:image" content="https://kozossegek.com{% block og_image_url %}/static/img/og/default.png{% endblock %}">
