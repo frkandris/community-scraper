@@ -6,6 +6,7 @@ from scraper.db import (
 from scraper.models import VenueRecord, PersonRecord
 from scraper.store import save_results
 from scraper.models import CommunityRecord
+from scraper.pipeline import CityConfig
 from scraper.web import app as web_app
 from scraper.web.state import app_state
 from fastapi.testclient import TestClient
@@ -160,3 +161,21 @@ def test_person_detail_404_redirects(tmp_path):
         assert resp.headers["location"] == "/emberek"
     finally:
         app_state.db_path = old_db
+
+
+def test_venues_list_contains_detail_links(tmp_path):
+    db = _db(tmp_path)
+    v = _venue(name="Müpa Budapest", city="Budapest")
+    upsert_venues(db, [v.model_dump()])
+
+    old_db = app_state.db_path
+    old_cities = app_state.cities
+    try:
+        app_state.db_path = db
+        app_state.cities = [CityConfig(name="Budapest", locale="hu", search_variants=[], country="Hungary")]
+        resp = TestClient(web_app.app).get("/helyszinek")
+        assert resp.status_code == 200
+        assert "/budapest/helyszin/mupa-budapest" in resp.text
+    finally:
+        app_state.db_path = old_db
+        app_state.cities = old_cities

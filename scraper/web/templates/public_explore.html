@@ -280,7 +280,10 @@
       {% for v in topic_venues %}
       <div class="bg-white rounded-lg border border-[#EAE5DB] p-4 flex flex-col gap-2">
         <div class="flex items-start justify-between gap-2">
-          <h3 class="font-semibold text-[#1C1917] text-sm leading-snug">{{ v.name }}</h3>
+          <h3 class="font-semibold text-[#1C1917] text-sm leading-snug">
+            <a href="/{{ v.city | slugify }}/helyszin/{{ v.name | slugify }}"
+               class="hover:text-[#A8512F] transition-colors">{{ v.name }}</a>
+          </h3>
           {% if v.venue_type %}
           <span class="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#F5F2EC] text-[#8C8478] border border-[#EAE5DB] whitespace-nowrap">
             {{ v.venue_type.replace('_',' ') }}

@@ -7,7 +7,10 @@
 <div class="bg-white rounded-xl border border-[#EAE5DB] p-5 flex flex-col gap-3 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/20 transition-colors">
 
   <div class="flex items-start justify-between gap-2">
-    <h2 class="font-semibold text-[#1C1917] text-base leading-snug">{{ v.name }}</h2>
+    <h2 class="font-semibold text-[#1C1917] text-base leading-snug">
+      <a href="/{{ v.city | slugify }}/helyszin/{{ v.name | slugify }}"
+         class="hover:text-[#A8512F] transition-colors">{{ v.name }}</a>
+    </h2>
     {% if v.venue_type %}
     <span class="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#F5F2EC] text-[#8C8478] border border-[#EAE5DB] whitespace-nowrap">
       {{ v.venue_type.replace('_',' ') }}
@@ -96,7 +99,7 @@
       </select>
     </div>
 
-    {% if selected_country or selected_city or selected_topic %}
+    {% if selected_city or selected_topic %}
     <a href="/helyszinek" class="text-xs text-[#A8512F] hover:text-[#8A4226] self-end pb-2.5 transition-colors">
       Szűrők törlése
     </a>
@@ -106,28 +109,20 @@
 
   {% if venues %}
 
-  {# Group by country → city when no specific filter, else flat list #}
-  {% if not selected_city and not selected_country %}
+  {# Group by city when no specific filter, else flat list #}
+  {% if not selected_city %}
 
-    {% for section in country_sections %}
-    <div class="mb-8">
-      <h2 class="text-xs font-bold uppercase tracking-[0.1em] text-[#8C8478] mb-4 flex items-center gap-2">
-        {{ section.country }}
-        <span class="font-normal text-[#B5ADA0]">{{ section.cities | map(attribute='venues') | map('length') | sum }}</span>
-      </h2>
-      {% for city_group in section.cities %}
-      <div class="mb-5">
-        <h3 class="text-sm font-semibold text-[#4A4441] mb-3 flex items-center gap-2">
-          <a href="/{{ city_group.name | slugify }}" class="hover:text-[#A8512F] transition-colors">{{ city_group.name }}</a>
-          <span class="text-xs font-normal text-[#B5ADA0]">{{ city_group.venues | length }}</span>
-        </h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {% for v in city_group.venues %}
-          {{ _venue_card(v) }}
-          {% endfor %}
-        </div>
+    {% for city_group in city_sections %}
+    <div class="mb-5">
+      <h3 class="text-sm font-semibold text-[#4A4441] mb-3 flex items-center gap-2">
+        <a href="/{{ city_group.name | slugify }}" class="hover:text-[#A8512F] transition-colors">{{ city_group.name }}</a>
+        <span class="text-xs font-normal text-[#B5ADA0]">{{ city_group.venues | length }}</span>
+      </h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {% for v in city_group.venues %}
+        {{ _venue_card(v) }}
+        {% endfor %}
       </div>
-      {% endfor %}
     </div>
     {% endfor %}
 
@@ -145,7 +140,7 @@
   <div class="text-center py-20 text-[#B5ADA0]">
     <i class="ph ph-map-pin text-5xl mb-4 block"></i>
     <p class="text-base">Nincsenek helyszínek a megadott szűrőkre.</p>
-    {% if selected_country or selected_city or selected_topic %}
+    {% if selected_city or selected_topic %}
     <a href="/helyszinek" class="mt-3 inline-block text-sm text-[#A8512F] hover:underline">Szűrők törlése</a>
     {% endif %}
   </div>
