@@ -14,9 +14,48 @@
 
 <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
 
+  <!-- Filters -->
+  <div class="mb-6 flex flex-wrap gap-3 items-end">
+    <form method="GET" action="/emberek" class="flex flex-wrap gap-2 items-end">
+      <div class="flex flex-col gap-1">
+        <label class="text-[10px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">Város</label>
+        <select name="city" onchange="this.form.submit()"
+          class="text-sm border border-[#D8D1C4] rounded-lg px-3 py-2 bg-white text-[#1C1917]
+                 focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20">
+          <option value="">Összes város</option>
+          {% for c in all_cities %}
+          <option value="{{ c }}" {% if c == selected_city %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="flex flex-col gap-1">
+        <label class="text-[10px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">Szerepkör</label>
+        <select name="role" onchange="this.form.submit()"
+          class="text-sm border border-[#D8D1C4] rounded-lg px-3 py-2 bg-white text-[#1C1917]
+                 focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20">
+          <option value="">Összes szerepkör</option>
+          {% for r in all_roles %}
+          <option value="{{ r }}" {% if r == selected_role %}selected{% endif %}>{{ r | role_hu }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if selected_city or selected_role %}
+      <a href="/emberek" class="text-xs text-[#A8512F] hover:text-[#8A4226] self-end pb-2.5 transition-colors">
+        Szűrők törlése
+      </a>
+      {% endif %}
+    </form>
+    <div class="flex flex-col gap-1">
+      <label class="text-[10px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">Keresés</label>
+      <input id="people-search" type="search" placeholder="Névre szűrés…"
+        class="text-sm border border-[#D8D1C4] rounded-lg px-3 py-2 bg-white text-[#1C1917]
+               focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 w-48">
+    </div>
+  </div>
+
   {% if city_groups %}
   {% for group in city_groups %}
-  <div class="mb-8">
+  <section data-city-section class="mb-8">
     <h2 class="text-xs font-bold uppercase tracking-[0.1em] text-[#8C8478] mb-4 flex items-center gap-2">
       <a href="/{{ group.name | slugify }}" class="hover:text-[#A8512F] transition-colors">{{ group.name }}</a>
       <span class="font-normal text-[#B5ADA0]">{{ group.persons | length }}</span>
@@ -24,6 +63,7 @@
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
       {% for p in group.persons %}
       <a href="/{{ p.city | slugify }}/ember/{{ p.name | slugify }}"
+         data-name="{{ p.name | lower }}"
          class="bg-white rounded-xl border border-[#EAE5DB] p-4 flex flex-col gap-1.5 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/20 transition-colors">
         <div class="flex items-center gap-2">
           <i class="ph ph-user-circle text-[#C2613A]" style="font-size:20px"></i>
@@ -33,12 +73,12 @@
         <p class="text-xs text-[#8C8478] truncate">{{ p.community_name }}</p>
         {% endif %}
         {% if p.role %}
-        <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#F5F2EC] text-[#8C8478] border border-[#EAE5DB] self-start">{{ p.role }}</span>
+        <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#F5F2EC] text-[#8C8478] border border-[#EAE5DB] self-start">{{ p.role | role_hu }}</span>
         {% endif %}
       </a>
       {% endfor %}
     </div>
-  </div>
+  </section>
   {% endfor %}
   {% else %}
   <div class="text-center py-20 text-[#B5ADA0]">
@@ -49,5 +89,23 @@
   {% endif %}
 
 </div>
+
+<script>
+const ps = document.getElementById('people-search');
+if (ps) {
+  ps.addEventListener('input', () => {
+    const q = ps.value.toLowerCase();
+    document.querySelectorAll('[data-city-section]').forEach(section => {
+      let visible = 0;
+      section.querySelectorAll('[data-name]').forEach(card => {
+        const show = card.dataset.name.includes(q);
+        card.classList.toggle('hidden', !show);
+        if (show) visible++;
+      });
+      section.classList.toggle('hidden', visible === 0);
+    });
+  });
+}
+</script>
 
 {% endblock %}

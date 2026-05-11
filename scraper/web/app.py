@@ -3036,10 +3036,13 @@ async def public_venues_en():
 
 
 @_fastapi.get("/emberek", response_class=HTMLResponse)
-async def public_people(request: Request):
+async def public_people(request: Request, city: str = "", role: str = ""):
     if not app_state.db_path:
         return templates.TemplateResponse(request, "public_people.html", {
-            "city_groups": [], "total_persons": 0, **lang_context(request),
+            "city_groups": [], "total_persons": 0,
+            "all_cities": [], "all_roles": [],
+            "selected_city": city, "selected_role": role,
+            **lang_context(request),
         })
     init_db(app_state.db_path)
     hu_names = _hu_city_names()
@@ -3055,17 +3058,30 @@ async def public_people(request: Request):
             seen[key] = p
     unique = list(seen.values())
 
+    all_cities = sorted({p.get("city", "") for p in unique if p.get("city")})
+    all_roles = sorted({p.get("role", "") for p in unique if p.get("role")})
+
+    filtered = unique
+    if city:
+        filtered = [p for p in filtered if p.get("city", "").lower() == city.lower()]
+    if role:
+        filtered = [p for p in filtered if p.get("role", "") == role]
+
     city_map: dict = defaultdict(list)
-    for p in unique:
+    for p in filtered:
         city_map[p.get("city") or "—"].append(p)
     city_groups = [
-        {"name": city, "persons": sorted(persons, key=lambda x: x.get("name", ""))}
-        for city, persons in sorted(city_map.items())
+        {"name": c, "persons": sorted(persons, key=lambda x: x.get("name", ""))}
+        for c, persons in sorted(city_map.items())
     ]
     total = sum(len(g["persons"]) for g in city_groups)
     return templates.TemplateResponse(request, "public_people.html", {
         "city_groups": city_groups,
         "total_persons": total,
+        "all_cities": all_cities,
+        "all_roles": all_roles,
+        "selected_city": city,
+        "selected_role": role,
         **lang_context(request),
     })
 

@@ -189,7 +189,11 @@ class VenueRecord(BaseModel):
         return self
 
 
-PERSON_ROLES = ("leader", "instructor", "speaker")
+PERSON_ROLES = (
+    "leader", "instructor", "speaker",
+    "organizer", "founder", "coach", "trainer",
+    "moderator", "admin", "member", "volunteer", "coordinator",
+)
 
 
 class PersonRecord(BaseModel):
