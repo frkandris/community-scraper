@@ -128,18 +128,20 @@
         <i class="ph ph-check-circle mr-1"></i>{{ t('footer_feedback_thanks') }}
       </div>
       <div id="sfb-fields">
-        <textarea id="sfb-message" name="message" rows="2"
-          placeholder="{{ t('footer_feedback_prompt') }}"
-          onfocus="document.getElementById('sfb-extra').classList.remove('hidden')"
-          class="w-full text-sm text-[#1C1917] placeholder-[#B5AFA7] bg-[#FAF8F5] border border-[#EAE5DB] rounded-lg px-3 py-2.5 resize-none focus:outline-none focus:border-[#C2613A] focus:ring-1 focus:ring-[#C2613A] transition-colors"></textarea>
-        <div id="sfb-extra" class="mt-2 flex gap-2">
-          <input id="sfb-email" name="email" type="email"
-            placeholder="{{ t('footer_feedback_email_placeholder') }}"
-            class="flex-1 text-sm text-[#1C1917] placeholder-[#B5AFA7] bg-[#FAF8F5] border border-[#EAE5DB] rounded-lg px-3 py-2 focus:outline-none focus:border-[#C2613A] focus:ring-1 focus:ring-[#C2613A] transition-colors">
+        <div class="flex gap-2">
+          <textarea id="sfb-message" name="message" rows="2"
+            placeholder="{{ t('footer_feedback_prompt') }}"
+            onfocus="document.getElementById('sfb-extra').classList.remove('hidden')"
+            class="flex-1 text-sm text-[#1C1917] placeholder-[#B5AFA7] bg-[#FAF8F5] border border-[#EAE5DB] rounded-lg px-3 py-2.5 resize-none focus:outline-none focus:border-[#C2613A] focus:ring-1 focus:ring-[#C2613A] transition-colors"></textarea>
           <button type="submit"
-            class="px-4 py-2 bg-[#C2613A] text-white text-sm font-semibold rounded-lg hover:bg-[#A8512F] transition-colors">
+            class="self-stretch px-4 bg-[#C2613A] text-white text-sm font-semibold rounded-lg hover:bg-[#A8512F] transition-colors shrink-0">
             {{ t('footer_feedback_send') }}
           </button>
+        </div>
+        <div id="sfb-extra" class="hidden mt-2">
+          <input id="sfb-email" name="email" type="email"
+            placeholder="{{ t('footer_feedback_email_placeholder') }}"
+            class="w-full text-sm text-[#1C1917] placeholder-[#B5AFA7] bg-[#FAF8F5] border border-[#EAE5DB] rounded-lg px-3 py-2 focus:outline-none focus:border-[#C2613A] focus:ring-1 focus:ring-[#C2613A] transition-colors">
         </div>
       </div>
     </form>
