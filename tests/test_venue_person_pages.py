@@ -182,14 +182,13 @@ def test_venues_list_contains_detail_links(tmp_path):
 
 
 def test_community_page_links_leader(tmp_path):
-    from scraper.store import save_results as sr
     db = _db(tmp_path)
     r = CommunityRecord(
         name="Budapest Futók", topic="running", city="Budapest", locale="hu",
         source_url="https://a.test", extracted_at="2026-01-01T00:00:00+00:00",
         leader="Kovács János",
     )
-    sr("Budapest", "running", [r], db)
+    save_results("Budapest", "running", [r], db)
 
     old_db = app_state.db_path
     old_topics = app_state.topics
@@ -208,8 +207,6 @@ def test_community_page_links_leader(tmp_path):
 
 
 def test_emberek_page_lists_persons(tmp_path):
-    from scraper.web.state import app_state
-    from scraper.config import CityConfig
     db = _db(tmp_path)
     p = PersonRecord(
         name="Kovács János", role="leader", city="Budapest", topic="running",
