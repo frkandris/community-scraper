@@ -299,7 +299,7 @@ function setDashScope(scope) {
   const stopForm = document.getElementById('stop-form');
   const runningBadge = document.getElementById('running-badge');
   const runningLabel = document.getElementById('running-label');
-  const modeLabels = { full: 'Full run', ai_only: 'Re-AI', revalidate: 'Revalidating' };
+  const modeLabels = { smart: 'Smart', full: 'Full rebuild', ai_only: 'Re-AI', revalidate: 'Revalidating' };
   setInterval(async () => {
     try {
       const d = await fetch('/admin/api/status').then(r => r.json());
@@ -386,7 +386,7 @@ function setDashScope(scope) {
   document.getElementById('run-form').addEventListener('submit', async function(e) {
     e.preventDefault();
     if (selected === 'revalidate') {
-      const res = await fetch('/admin/revalidate/start', { method: 'POST', body: new FormData() });
+      const res = await fetch('/admin/revalidate/start', { method: 'POST', body: new FormData(this) });
       const data = await res.json();
       if (!data.ok) { alert(data.error); return; }
       rvPollTimer = setInterval(pollRevalidate, 1500);

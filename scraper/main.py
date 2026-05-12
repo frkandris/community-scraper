@@ -122,7 +122,7 @@ async def main() -> None:
             log.info("scheduled_run_skipped", reason="already_running")
             return
         app_state.is_running = True
-        app_state.current_run_mode = "full"
+        app_state.current_run_mode = "smart"
         app_state._run_task = asyncio.current_task()
         started = datetime.now(timezone.utc)
         success = False

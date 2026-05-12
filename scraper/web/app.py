@@ -2034,13 +2034,20 @@ def _revalidation_fingerprint() -> str:
 
 
 @admin.post("/revalidate/start")
-async def admin_revalidate_start(city: str = Form(""), topic: str = Form("")):
+async def admin_revalidate_start(
+    city: str = Form(""),
+    topic: str = Form(""),
+    filter_city: str = Form(""),
+    filter_country: str = Form(""),
+):
     """Start a background re-validation of existing communities against the current prompt."""
     if not app_state.db_path or not app_state.pipeline_cfg:
         return JSONResponse({"ok": False, "error": "Not configured"})
     if _revalidate_state["running"]:
         return JSONResponse({"ok": False, "error": "Already running"})
-    app_state._run_task = asyncio.create_task(_run_revalidate(city.strip(), topic.strip()))
+    _city = (city or filter_city).strip()
+    _country = filter_country.strip()
+    app_state._run_task = asyncio.create_task(_run_revalidate(_city, topic.strip(), _country))
     return JSONResponse({"ok": True})
 
 
@@ -2049,7 +2056,7 @@ async def admin_revalidate_status():
     return JSONResponse(_revalidate_state)
 
 
-async def _run_revalidate(city: str, topic: str) -> None:
+async def _run_revalidate(city: str, topic: str, country: str = "") -> None:
     _revalidate_state.update({"running": True, "done": 0, "total": 0, "flagged": 0, "skipped": 0, "error": ""})
     app_state.is_running = True
     app_state.current_run_mode = "revalidate"
@@ -2057,16 +2064,29 @@ async def _run_revalidate(city: str, topic: str) -> None:
     app_state.current_url = None
     started = datetime.now(timezone.utc)
     success = False
+
+    # Resolve city list from country scope when no specific city given
+    country_cities: list[str] = []
+    if country and not city:
+        country_cities = [c.name for c in (app_state.cities or []) if c.country == country]
+
     try:
         fps = fp_load(_db())
         rules_section = build_prompt_section(fps, fp_type="extraction")
         rules_section += build_prompt_section(fps, fp_type="extraction_rule") if fps else ""
         revalidate_fp = _revalidation_fingerprint()
 
-        all_count = len(get_all_communities(_db()) if not city else
-                        (get_communities(_db(), city, topic) if topic else
-                         get_communities_for_city(_db(), city)))
-        communities = get_communities_needing_revalidation(_db(), revalidate_fp, city, topic)
+        if country_cities:
+            all_count = sum(len(get_communities_for_city(_db(), c)) for c in country_cities)
+            communities = [
+                rec for c in country_cities
+                for rec in get_communities_needing_revalidation(_db(), revalidate_fp, c, topic)
+            ]
+        else:
+            all_count = len(get_all_communities(_db()) if not city else
+                            (get_communities(_db(), city, topic) if topic else
+                             get_communities_for_city(_db(), city)))
+            communities = get_communities_needing_revalidation(_db(), revalidate_fp, city, topic)
 
         skipped = all_count - len(communities)
         _revalidate_state["skipped"] = skipped
