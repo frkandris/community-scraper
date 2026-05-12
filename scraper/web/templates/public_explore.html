@@ -3,13 +3,13 @@
 {% block og_desc %}{% if city and total > 0 %}{{ total }} közösség {{ city }}-ban/-ben.{% elif city %}Közösségek {{ city }}-ban/-ben – fedezd fel az érdeklődési köröket.{% else %}Fedezd fel a helyi közösségeket Magyarországon.{% endif %}{% endblock %}
 {% block title %}
   {% if city and selected_topics %}
-    {{ city }} · {{ selected_topics | map('replace', '_', ' ') | join(', ') | title }} – közösségek.com
+    {{ city }} · {% for t in selected_topics %}{{ topic_labels.get(t, t.replace('_', ' ').title()) }}{% if not loop.last %}, {% endif %}{% endfor %} – közösségek.com
   {% elif city %}
     {{ city }} – közösségek.com
   {% elif selected_topics %}
-    {{ selected_topics | map('replace', '_', ' ') | join(', ') | title }} – közösségek.com
+    {% for t in selected_topics %}{{ topic_labels.get(t, t.replace('_', ' ').title()) }}{% if not loop.last %}, {% endif %}{% endfor %} – közösségek.com
   {% else %}
-    Explore – közösségek.com
+    Felfedezés – közösségek.com
   {% endif %}
 {% endblock %}
 {% block og_image_url %}/static/img/og/{% if selected_topics and selected_topics | length == 1 %}{{ selected_topics[0] }}{% else %}default{% endif %}.png{% endblock %}
