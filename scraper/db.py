@@ -691,28 +691,28 @@ def get_communities_needing_revalidation(
     city: str = "",
     topic: str = "",
 ) -> list[dict]:
-    """Return communities whose revalidate_fingerprint doesn't match the current fingerprint."""
+    """Return communities previously revalidated but with a now-stale fingerprint."""
     if not db_path.exists():
         return []
     with _connect(db_path) as conn:
         if city and topic:
             rows = conn.execute(
                 "SELECT data FROM communities WHERE city=? AND topic=?"
-                " AND (revalidate_fingerprint IS NULL OR revalidate_fingerprint != ?)"
+                " AND revalidate_fingerprint IS NOT NULL AND revalidate_fingerprint != ?"
                 " ORDER BY id",
                 (city, topic, fingerprint),
             ).fetchall()
         elif city:
             rows = conn.execute(
                 "SELECT data FROM communities WHERE city=?"
-                " AND (revalidate_fingerprint IS NULL OR revalidate_fingerprint != ?)"
+                " AND revalidate_fingerprint IS NOT NULL AND revalidate_fingerprint != ?"
                 " ORDER BY topic, id",
                 (city, fingerprint),
             ).fetchall()
         else:
             rows = conn.execute(
                 "SELECT data FROM communities"
-                " WHERE revalidate_fingerprint IS NULL OR revalidate_fingerprint != ?"
+                " WHERE revalidate_fingerprint IS NOT NULL AND revalidate_fingerprint != ?"
                 " ORDER BY city, topic, id",
                 (fingerprint,),
             ).fetchall()
@@ -724,7 +724,7 @@ def count_communities_needing_revalidation(
     fingerprint: str,
     cities: list[str] | None = None,
 ) -> int:
-    """COUNT of communities whose revalidate_fingerprint doesn't match, optionally filtered by city list."""
+    """COUNT of communities previously revalidated but with a now-stale fingerprint."""
     if not db_path.exists():
         return 0
     with _connect(db_path) as conn:
@@ -733,13 +733,13 @@ def count_communities_needing_revalidation(
             row = conn.execute(
                 f"SELECT COUNT(*) FROM communities"
                 f" WHERE city IN ({placeholders})"
-                f" AND (revalidate_fingerprint IS NULL OR revalidate_fingerprint != ?)",
+                f" AND revalidate_fingerprint IS NOT NULL AND revalidate_fingerprint != ?",
                 (*cities, fingerprint),
             ).fetchone()
         else:
             row = conn.execute(
                 "SELECT COUNT(*) FROM communities"
-                " WHERE revalidate_fingerprint IS NULL OR revalidate_fingerprint != ?",
+                " WHERE revalidate_fingerprint IS NOT NULL AND revalidate_fingerprint != ?",
                 (fingerprint,),
             ).fetchone()
     return row[0] if row else 0
