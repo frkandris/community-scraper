@@ -13,7 +13,7 @@ from .false_positives import build_prompt_section
 from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
 from .search import BraveSearchClient, DataForSEOClient, DuckDuckGoClient, FallbackSearchClient, SearXNGClient, SerperSearchClient, build_queries
-from .db import get_search_cache, save_search_cache, upsert_venues, upsert_persons, delete_leader_persons_for_community, load_cache_page, find_community_by_id
+from .db import get_search_cache, save_search_cache, get_covered_pairs, upsert_venues, upsert_persons, delete_leader_persons_for_community, load_cache_page, find_community_by_id
 from .store import save_results
 
 if TYPE_CHECKING:
@@ -311,6 +311,22 @@ async def run_pipeline(
             run_communities=run_communities, run_venues=run_venues, run_persons=run_persons,
         )
 
+    if run_mode == "full":
+        covered = get_covered_pairs(config.db_path)
+        all_pairs = {(c.name, t.name) for c in cities for t in topics}
+        uncovered = all_pairs - covered
+        if uncovered:
+            log.info("catchup_pass_start", pairs=len(uncovered))
+            catchup_new, catchup_logs = await _run_full(
+                cities, topics, config, extractor, cache,
+                _skip_scraped, _skip_extracted, run_stats, on_progress,
+                run_communities=run_communities, run_venues=run_venues,
+                run_persons=run_persons, pairs_filter=uncovered,
+            )
+            total_new += catchup_new
+            pair_logs += catchup_logs
+            log.info("catchup_pass_complete", new_records=catchup_new, pairs=len(uncovered))
+
     log.info("pipeline_complete", run_mode=run_mode, total_new_records=total_new)
     try:
         from .duplicates import detect_all
@@ -333,6 +349,7 @@ async def _run_full(
     run_communities: bool = True,
     run_venues: bool = True,
     run_persons: bool = True,
+    pairs_filter: set[tuple[str, str]] | None = None,
 ) -> tuple[int, list[dict]]:
     _searxng = SearXNGClient(config.searxng_url, rate_limit_seconds=config.search_rate_limit)
     _ddg = DuckDuckGoClient(rate_limit_seconds=max(config.search_rate_limit, 2.0))
@@ -368,6 +385,8 @@ async def _run_full(
     for city in cities:
         run_stats[city.name] = {}
         for topic in topics:
+            if pairs_filter is not None and (city.name, topic.name) not in pairs_filter:
+                continue
             log.info("processing_pair", city=city.name, topic=topic.name)
 
             terms = topic.search_terms.get(city.locale) or topic.search_terms.get("en", [])

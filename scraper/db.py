@@ -1175,6 +1175,15 @@ def get_search_cache(db_path: Path, city: str, topic: str,
     return json.loads(row[0]) if row else None
 
 
+def get_covered_pairs(db_path: Path) -> set[tuple[str, str]]:
+    """Return all (city, topic) pairs that have a search cache entry."""
+    if not db_path.exists():
+        return set()
+    with _connect(db_path) as conn:
+        rows = conn.execute("SELECT city, topic FROM search_cache").fetchall()
+    return {(r[0], r[1]) for r in rows}
+
+
 def get_cache_cost_stats(db_path: Path) -> dict:
     """Return counts of work done: search queries issued, pages fetched, AI extractions run."""
     empty = {"search_queries": 0, "web_reads": 0, "ai_calls": 0, "search_pairs": 0}
