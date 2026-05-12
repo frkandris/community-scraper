@@ -357,6 +357,33 @@ def init_db(db_path: Path) -> None:
 
 # ── Runs ──────────────────────────────────────────────────────────────────────
 
+def start_run(db_path: Path, started_at: datetime, run_mode: str) -> int:
+    """Insert a run row immediately (finished_at=NULL). Call finish_run when done."""
+    with _connect(db_path) as conn:
+        cur = conn.execute(
+            "INSERT INTO runs (started_at, run_mode, success) VALUES (?, ?, 0)",
+            (started_at.isoformat(), run_mode),
+        )
+        conn.commit()
+        return cur.lastrowid
+
+
+def finish_run(
+    db_path: Path,
+    run_id: int,
+    finished_at: datetime,
+    success: bool,
+    search_log: str | None = None,
+    new_records: int = 0,
+) -> None:
+    with _connect(db_path) as conn:
+        conn.execute(
+            "UPDATE runs SET finished_at=?, success=?, search_log=?, new_records=? WHERE id=?",
+            (finished_at.isoformat(), int(success), search_log, new_records, run_id),
+        )
+        conn.commit()
+
+
 def record_run(
     db_path: Path,
     started_at: datetime,
@@ -375,6 +402,22 @@ def record_run(
         )
         conn.commit()
         return cur.lastrowid
+
+
+def get_last_run_row(db_path: Path) -> dict | None:
+    """Return the most recent run row regardless of success/completion."""
+    if not db_path.exists():
+        return None
+    try:
+        with _connect(db_path) as conn:
+            row = conn.execute(
+                "SELECT id, run_mode, finished_at, success FROM runs ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            if row:
+                return {"id": row[0], "run_mode": row[1], "finished_at": row[2], "success": bool(row[3])}
+    except Exception:
+        return None
+    return None
 
 
 def get_last_run_mode(db_path: Path) -> str | None:

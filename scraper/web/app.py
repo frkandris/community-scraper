@@ -2063,6 +2063,8 @@ async def _run_revalidate(city: str, topic: str, country: str = "") -> None:
     app_state.current_phase = "revalidate"
     app_state.current_url = None
     started = datetime.now(timezone.utc)
+    from ..db import start_run as _start_run
+    _revalidate_run_id = _start_run(app_state.db_path, started, "revalidate") if app_state.db_path else None
     success = False
 
     # Resolve city list from country scope when no specific city given
@@ -2175,10 +2177,10 @@ async def _run_revalidate(city: str, topic: str, country: str = "") -> None:
         app_state.current_phase = None
         app_state.current_url = None
         app_state.current_run_mode = None
-        if app_state.db_path:
-            from ..db import record_run
-            record_run(app_state.db_path, started, datetime.now(timezone.utc),
-                       "revalidate", success, None, 0)
+        if app_state.db_path and _revalidate_run_id:
+            from ..db import finish_run
+            finish_run(app_state.db_path, _revalidate_run_id, datetime.now(timezone.utc),
+                       success, None, 0)
 
 
 _RECATEGORIZE_AUTO_THRESHOLD = 0.85
@@ -2464,6 +2466,8 @@ async def trigger_run(
 
     async def _run() -> None:
         started = datetime.now(timezone.utc)
+        from ..db import finish_run as _finish_run, start_run as _start_run
+        _run_id = _start_run(app_state.db_path, started, run_mode) if app_state.db_path else None
         success = False
         pair_logs: list = []
         total_new = 0
@@ -2492,12 +2496,11 @@ async def trigger_run(
             app_state.current_run_mode = None
             global _home_stats_cache
             _home_stats_cache = None
-            if app_state.db_path:
-                from ..db import record_run
-                record_run(app_state.db_path, started, datetime.now(timezone.utc),
-                           run_mode, success,
-                           json.dumps(pair_logs) if pair_logs else None,
-                           total_new)
+            if app_state.db_path and _run_id:
+                _finish_run(app_state.db_path, _run_id, datetime.now(timezone.utc),
+                            success,
+                            json.dumps(pair_logs) if pair_logs else None,
+                            total_new)
 
     def _clear_cancelled_run(task: asyncio.Task) -> None:
         if task.cancelled():

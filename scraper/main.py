@@ -13,7 +13,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from .cache import CacheManager
 from .config import CONFIG_DIR, load_config
-from .db import get_last_run, get_last_run_mode, init_db, record_run
+from .db import finish_run, get_last_run, get_last_run_row, init_db, start_run
 from .pipeline import run_pipeline
 from .web.app import app as web_app, templates
 from .web.log_stream import broadcaster
@@ -125,6 +125,7 @@ async def main() -> None:
         app_state.current_run_mode = "smart"
         app_state._run_task = asyncio.current_task()
         started = datetime.now(timezone.utc)
+        run_id = start_run(db_path, started, "full")
         success = False
         pair_logs: list = []
         try:
@@ -144,7 +145,7 @@ async def main() -> None:
             app_state.current_phase = None
             app_state.current_url = None
             app_state.current_run_mode = None
-            record_run(db_path, started, datetime.now(timezone.utc), "full", success,
+            finish_run(db_path, run_id, datetime.now(timezone.utc), success,
                        json.dumps(pair_logs) if pair_logs else None)
 
     scheduler = AsyncIOScheduler()
@@ -160,10 +161,19 @@ async def main() -> None:
 
     async def _startup_run() -> None:
         await asyncio.sleep(5)
-        last_mode = get_last_run_mode(db_path)
-        # Progress: revalidate → ai_only → full → full
-        startup_mode = {"revalidate": "ai_only", "ai_only": "full"}.get(last_mode or "full", "full")
-        log.info("startup_run_triggered", last_mode=last_mode, startup_mode=startup_mode)
+
+        last_row = get_last_run_row(db_path)
+        if last_row and last_row["finished_at"] is None:
+            # Previous run was interrupted (redeploy mid-run) → re-run same mode
+            # Revalidate can't run from here, so fall through to ai_only
+            interrupted_mode = last_row["run_mode"]
+            startup_mode = interrupted_mode if interrupted_mode in ("full", "ai_only") else "ai_only"
+            log.info("startup_run_resuming_interrupted", interrupted_mode=interrupted_mode, startup_mode=startup_mode)
+        else:
+            last_mode = last_row["run_mode"] if last_row else None
+            # Completed run → progress: revalidate → ai_only → full → full
+            startup_mode = {"revalidate": "ai_only", "ai_only": "full"}.get(last_mode or "full", "full")
+            log.info("startup_run_triggered", last_mode=last_mode, startup_mode=startup_mode)
 
         if app_state.is_running:
             log.info("startup_run_skipped", reason="already_running")
@@ -172,6 +182,7 @@ async def main() -> None:
         app_state.current_run_mode = "re-ai" if startup_mode == "ai_only" else "smart"
         app_state._run_task = asyncio.current_task()
         started = datetime.now(timezone.utc)
+        run_id = start_run(db_path, started, startup_mode)
         success = False
         pair_logs: list = []
         try:
@@ -192,7 +203,7 @@ async def main() -> None:
             app_state.current_phase = None
             app_state.current_url = None
             app_state.current_run_mode = None
-            record_run(db_path, started, datetime.now(timezone.utc), startup_mode, success,
+            finish_run(db_path, run_id, datetime.now(timezone.utc), success,
                        json.dumps(pair_logs) if pair_logs else None)
 
     asyncio.create_task(_startup_run())
