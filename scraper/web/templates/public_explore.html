@@ -159,7 +159,7 @@
         {% endfor %}
       </div>
       {% endif %}
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {% for r in city_sec.records %}
         <a href="{{ r.community_url }}" class="block bg-white rounded-lg border border-[#EAE5DB] p-3 flex flex-col gap-1.5 shadow-sm hover:border-[#E88E6B] hover:bg-[#FDF0EA]/40 hover:shadow-md transition-all">
           <h4 class="font-semibold text-[#1C1917] text-xs leading-snug flex items-baseline gap-1">
@@ -320,69 +320,6 @@
   </div>
   {% endif %}
 
-  <!-- City venues section (city page, no topic filter) -->
-  {% if city_venues %}
-  <div class="mt-8 pt-6 border-t border-[#EAE5DB]">
-    <h2 class="text-base font-semibold text-[#1C1917] mb-4 flex items-center gap-2">
-      <i class="ph ph-map-pin text-[#C2613A]"></i>
-      Helyszínek
-      <span class="text-xs text-[#8C8478] font-normal">{{ city_venues | length }}</span>
-      <a href="/helyszinek" class="ml-auto text-xs text-[#A8512F] hover:underline font-normal">Összes →</a>
-    </h2>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      {% for v in city_venues %}
-      <div class="bg-white rounded-lg border border-[#EAE5DB] p-4 flex flex-col gap-2">
-        <div class="flex items-start justify-between gap-2">
-          <h3 class="font-semibold text-[#1C1917] text-sm leading-snug">
-            <a href="/{{ city | slugify }}/helyszin/{{ v.name | slugify }}"
-               class="hover:text-[#A8512F] transition-colors">{{ v.name }}</a>
-          </h3>
-          {% if v.venue_type %}
-          <span class="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#F5F2EC] text-[#8C8478] border border-[#EAE5DB] whitespace-nowrap">
-            {{ venue_type_labels.get(v.venue_type, v.venue_type.replace('_',' ')) }}
-          </span>
-          {% endif %}
-        </div>
-        {% if v.description %}
-        <p class="text-xs text-[#6A6259] leading-relaxed line-clamp-3">{{ v.description }}</p>
-        {% endif %}
-        {% if v.address %}
-        <div class="flex items-start gap-1.5 text-xs text-[#8C8478] mt-auto">
-          <i class="ph ph-map-pin shrink-0 text-[#B5ADA0] mt-0.5"></i>
-          <span>{{ v.address }}</span>
-        </div>
-        {% endif %}
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- City persons section (city page, no topic filter) -->
-  {% if city_persons %}
-  <div class="mt-8 pt-6 border-t border-[#EAE5DB]">
-    <h2 class="text-base font-semibold text-[#1C1917] mb-4 flex items-center gap-2">
-      <i class="ph ph-person-simple text-[#C2613A]"></i>
-      Emberek
-      <span class="text-xs text-[#8C8478] font-normal">{{ city_persons | length }}</span>
-      <a href="/emberek" class="ml-auto text-xs text-[#A8512F] hover:underline font-normal">Összes →</a>
-    </h2>
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-      {% for p in city_persons %}
-      <a href="/{{ city | slugify }}/ember/{{ p.name | slugify }}"
-         class="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-[#EAE5DB] hover:border-[#A8512F] hover:shadow-sm transition-all group">
-        <i class="ph ph-person-simple text-[#B5ADA0] group-hover:text-[#A8512F] transition-colors shrink-0"></i>
-        <div class="min-w-0">
-          <div class="text-sm font-medium text-[#1C1917] group-hover:text-[#A8512F] transition-colors truncate">{{ p.name }}</div>
-          {% if p.role %}
-          <div class="text-[10px] text-[#8C8478] truncate">{{ p.role | role_hu }}</div>
-          {% endif %}
-        </div>
-      </a>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
 
   {% if city and selected_topics | length == 1 %}
   <div class="mt-6 text-center">

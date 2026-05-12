@@ -921,19 +921,29 @@ def _cities_by_country(
 
 @_fastapi.get("/", response_class=HTMLResponse)
 async def public_home(request: Request, city: str = ""):
+    global _home_stats_cache
     hu_names = _hu_city_names()
     hu_cities = [c for c in (app_state.cities or []) if c.name in hu_names]
     topics = app_state.topics or []
-    topic_counts = _hu_topic_counts()
-    venue_counts = {k: v for k, v in (get_venue_counts(_db()) if app_state.db_path else {}).items() if k in hu_names}
-    person_counts = {k: v for k, v in (get_person_counts(_db()) if app_state.db_path else {}).items() if k in hu_names}
-    # Build flat HU city list sorted by community count desc
-    city_totals = dict(get_city_totals(_db())) if app_state.db_path else {}
-    hu_city_list = sorted(
-        [{"name": c.name, "slug": _slugify(c.name), "count": city_totals.get(c.name, 0)} for c in hu_cities],
-        key=lambda x: (-x["count"], _hu_sort_key(x["name"])),
-    )
     topic_url_slugs = {t.name: _topic_url_slug(t.name, "hu") for t in topics}
+    if _home_stats_cache is None:
+        topic_counts = _hu_topic_counts()
+        venue_counts = {k: v for k, v in (get_venue_counts(_db()) if app_state.db_path else {}).items() if k in hu_names}
+        person_counts = {k: v for k, v in (get_person_counts(_db()) if app_state.db_path else {}).items() if k in hu_names}
+        city_totals = dict(get_city_totals(_db())) if app_state.db_path else {}
+        hu_city_list = sorted(
+            [{"name": c.name, "slug": _slugify(c.name), "count": city_totals.get(c.name, 0)} for c in hu_cities],
+            key=lambda x: (-x["count"], _hu_sort_key(x["name"])),
+        )
+        _home_stats_cache = {
+            "topic_counts": topic_counts,
+            "total_records": sum(topic_counts.values()),
+            "total_venues": sum(venue_counts.values()),
+            "total_persons": sum(person_counts.values()),
+            "hu_city_list": hu_city_list,
+        }
+    topic_counts = _home_stats_cache["topic_counts"]
+    hu_city_list = _home_stats_cache["hu_city_list"]
     return templates.TemplateResponse(request, "public_home.html", {
         "cities": hu_cities,
         "topics": topics,
@@ -942,9 +952,9 @@ async def public_home(request: Request, city: str = ""):
         "selected_city": city,
         "topic_counts": topic_counts,
         "topic_url_slugs": topic_url_slugs,
-        "total_records": sum(topic_counts.values()),
-        "total_venues": sum(venue_counts.values()),
-        "total_persons": sum(person_counts.values()),
+        "total_records": _home_stats_cache["total_records"],
+        "total_venues": _home_stats_cache["total_venues"],
+        "total_persons": _home_stats_cache["total_persons"],
         "hu_city_list": hu_city_list,
         **lang_context(request),
     })
@@ -2024,6 +2034,8 @@ async def admin_community_reai(community_id: str, background_tasks: BackgroundTa
 
 # ── Re-validate existing communities ─────────────────────────────────────────
 
+_home_stats_cache: dict | None = None  # invalidated after each pipeline run
+
 _revalidate_state: dict = {"running": False, "done": 0, "total": 0, "flagged": 0, "skipped": 0, "error": ""}
 
 
@@ -2470,6 +2482,8 @@ async def trigger_run(
             app_state.is_running = False
             app_state.current_phase = None
             app_state.current_url = None
+            global _home_stats_cache
+            _home_stats_cache = None
             if app_state.db_path:
                 from ..db import record_run
                 record_run(app_state.db_path, started, datetime.now(timezone.utc),
