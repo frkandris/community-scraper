@@ -1706,12 +1706,43 @@ async def dashboard(request: Request):
 
     revalidation_pending = 0
     revalidation_pending_hu = 0
+    reai_pending = 0
+    reai_pending_hu = 0
     if app_state.db_path and app_state.db_path.exists():
         try:
             fp = _revalidation_fingerprint()
             revalidation_pending = count_communities_needing_revalidation(_db(), fp)
             hu_names = _hu_city_names()
             revalidation_pending_hu = count_communities_needing_revalidation(_db(), fp, list(hu_names))
+        except Exception:
+            pass
+        try:
+            from ..extract import _prompt_hash, get_prompt as _ep
+            cfg = app_state.pipeline_cfg
+            if cfg:
+                if cfg.deepseek_api_key:
+                    _model = cfg.deepseek_model or "deepseek-chat"
+                elif cfg.groq_api_key:
+                    _model = cfg.groq_model or "llama-3.1-70b-versatile"
+                else:
+                    _model = cfg.ollama_model or "llama3"
+                extract_fp = _prompt_hash(_ep("extraction_system") + _model)
+                venue_fp   = _prompt_hash(_ep("venue_system") + _model)
+                person_fp  = _prompt_hash(_ep("person_system") + _model)
+                _stats = get_scope_stats(app_state.db_path, extract_fp, venue_fp, person_fp)
+                reai_pending = (
+                    (_stats["with_text"] - _stats["extract_match"]) +
+                    (_stats["with_text"] - _stats["venue_match"]) +
+                    (_stats["with_text"] - _stats["person_match"])
+                )
+                _hu = list(_hu_city_names())
+                if _hu:
+                    _stats_hu = get_scope_stats(app_state.db_path, extract_fp, venue_fp, person_fp, cities=_hu)
+                    reai_pending_hu = (
+                        (_stats_hu["with_text"] - _stats_hu["extract_match"]) +
+                        (_stats_hu["with_text"] - _stats_hu["venue_match"]) +
+                        (_stats_hu["with_text"] - _stats_hu["person_match"])
+                    )
         except Exception:
             pass
 
@@ -1731,7 +1762,10 @@ async def dashboard(request: Request):
         "test_cities": test_cities,
         "revalidation_pending": revalidation_pending,
         "revalidation_pending_hu": revalidation_pending_hu,
+        "reai_pending": reai_pending,
+        "reai_pending_hu": reai_pending_hu,
         "revalidate_state": _revalidate_state,
+        "current_run_mode": app_state.current_run_mode,
         "run_countries": run_countries,
         "run_cities": run_cities,
     })
@@ -2016,6 +2050,7 @@ async def admin_revalidate_status():
 async def _run_revalidate(city: str, topic: str) -> None:
     _revalidate_state.update({"running": True, "done": 0, "total": 0, "flagged": 0, "skipped": 0, "error": ""})
     app_state.is_running = True
+    app_state.current_run_mode = "revalidate"
     app_state.current_phase = "revalidate"
     app_state.current_url = None
     started = datetime.now(timezone.utc)
@@ -2117,6 +2152,7 @@ async def _run_revalidate(city: str, topic: str) -> None:
         app_state.is_running = False
         app_state.current_phase = None
         app_state.current_url = None
+        app_state.current_run_mode = None
         if app_state.db_path:
             from ..db import record_run
             record_run(app_state.db_path, started, datetime.now(timezone.utc),
@@ -2386,6 +2422,7 @@ async def trigger_run(
     if run_mode not in ("full", "ai_only"):
         run_mode = "full"
     app_state.is_running = True
+    app_state.current_run_mode = run_mode
     _skip_scraped = (skip_scraped == "on")
     _skip_extracted = (skip_extracted == "on")
     _run_communities = (run_communities == "on")
@@ -2429,6 +2466,7 @@ async def trigger_run(
             app_state.is_running = False
             app_state.current_phase = None
             app_state.current_url = None
+            app_state.current_run_mode = None
             global _home_stats_cache
             _home_stats_cache = None
             if app_state.db_path:
@@ -2462,6 +2500,7 @@ async def stop_run():
 async def status():
     return {
         "is_running": app_state.is_running,
+        "current_run_mode": app_state.current_run_mode,
         "last_run_at": app_state.last_run_at.isoformat() if app_state.last_run_at else None,
     }
 

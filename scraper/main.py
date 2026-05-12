@@ -122,6 +122,7 @@ async def main() -> None:
             log.info("scheduled_run_skipped", reason="already_running")
             return
         app_state.is_running = True
+        app_state.current_run_mode = "full"
         app_state._run_task = asyncio.current_task()
         started = datetime.now(timezone.utc)
         success = False
@@ -142,6 +143,7 @@ async def main() -> None:
             app_state.is_running = False
             app_state.current_phase = None
             app_state.current_url = None
+            app_state.current_run_mode = None
             record_run(db_path, started, datetime.now(timezone.utc), "full", success,
                        json.dumps(pair_logs) if pair_logs else None)
 

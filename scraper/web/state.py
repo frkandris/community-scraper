@@ -15,8 +15,9 @@ class AppState:
     cache_manager: Any = None
     db_path: Path | None = None
     version: str = "v.unknown"
-    current_phase: str | None = None  # "scrape" | "extract" | "enrich_scrape" | "enrich_extract"
-    current_url: str | None = None    # source URL of the cache row being processed
+    current_phase: str | None = None     # "scrape" | "extract" | "enrich_scrape" | "enrich_extract"
+    current_url: str | None = None       # source URL of the cache row being processed
+    current_run_mode: str | None = None  # "full" | "ai_only" | "revalidate"
     _run_task: Any = None
     # Task queue — queue_items is the authoritative ordered list
     queue_items: list = field(default_factory=list)   # list of item dicts (pending/running/done)

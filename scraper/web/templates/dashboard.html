@@ -24,8 +24,8 @@
       </button>
     </div>
     {% if is_running %}
-    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm bg-yellow-100 text-yellow-800 font-medium">
-      <span class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>Running…
+    <span id="running-badge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm bg-yellow-100 text-yellow-800 font-medium">
+      <span class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span><span id="running-label">{% if current_run_mode == "ai_only" %}Re-AI{% elif current_run_mode == "revalidate" %}Revalidating{% elif current_run_mode %}Full run{% else %}Running{% endif %}…</span>
     </span>
     {% else %}
     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm bg-green-100 text-green-800 font-medium">
@@ -97,11 +97,19 @@
                 <i class="ph ph-brain text-gray-500" style="font-size:13px"></i>
                 <span class="text-xs font-bold text-gray-700">Re-AI</span>
               </div>
-              <p class="text-[9px] text-gray-400 leading-snug mb-1">Re-run AI on all cached pages</p>
+              <p class="text-[9px] text-gray-400 leading-snug mb-1">Re-run AI on stale cached pages</p>
               <div class="space-y-0.5 text-[9px] font-medium">
                 <div class="text-gray-300"><i class="ph ph-minus"></i> Search / Fetch</div>
-                <div class="text-gray-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(all cached)</span> + Enrich</div>
+                <div class="text-gray-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(fingerprint stale)</span> + Enrich</div>
               </div>
+              {% if reai_pending > 0 or reai_pending_hu > 0 %}
+              <div class="flex gap-2 mt-1.5 text-[9px] font-semibold">
+                <span class="flex items-center gap-0.5 text-purple-600"
+                      data-global="{{ reai_pending }}" data-hu="{{ reai_pending_hu }}">
+                  <i class="ph ph-cpu"></i><span class="rs-num">{{ reai_pending_hu }}</span>
+                </span>
+              </div>
+              {% endif %}
             </button>
 
             <button type="button" data-preset="revalidate"
@@ -289,11 +297,16 @@ function setDashScope(scope) {
   // Status polling
   const runBtn   = document.getElementById('run-btn');
   const stopForm = document.getElementById('stop-form');
+  const runningBadge = document.getElementById('running-badge');
+  const runningLabel = document.getElementById('running-label');
+  const modeLabels = { full: 'Full run', ai_only: 'Re-AI', revalidate: 'Revalidating' };
   setInterval(async () => {
     try {
       const d = await fetch('/admin/api/status').then(r => r.json());
       runBtn.disabled = d.is_running;
       stopForm.classList.toggle('hidden', !d.is_running);
+      if (runningBadge) runningBadge.classList.toggle('hidden', !d.is_running);
+      if (runningLabel && d.current_run_mode) runningLabel.textContent = (modeLabels[d.current_run_mode] || 'Running') + '…';
     } catch (_) {}
   }, 2000);
 
