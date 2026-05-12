@@ -719,6 +719,32 @@ def get_communities_needing_revalidation(
     return [json.loads(r[0]) for r in rows]
 
 
+def count_communities_needing_revalidation(
+    db_path: Path,
+    fingerprint: str,
+    cities: list[str] | None = None,
+) -> int:
+    """COUNT of communities whose revalidate_fingerprint doesn't match, optionally filtered by city list."""
+    if not db_path.exists():
+        return 0
+    with _connect(db_path) as conn:
+        if cities:
+            placeholders = ",".join("?" * len(cities))
+            row = conn.execute(
+                f"SELECT COUNT(*) FROM communities"
+                f" WHERE city IN ({placeholders})"
+                f" AND (revalidate_fingerprint IS NULL OR revalidate_fingerprint != ?)",
+                (*cities, fingerprint),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM communities"
+                " WHERE revalidate_fingerprint IS NULL OR revalidate_fingerprint != ?",
+                (fingerprint,),
+            ).fetchone()
+    return row[0] if row else 0
+
+
 def set_community_revalidate_fingerprint(
     db_path: Path, record_key: str, fingerprint: str
 ) -> None:

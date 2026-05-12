@@ -38,6 +38,7 @@ from ..db import (
     get_not_community_reports,
     delete_not_community_report,
     get_communities_needing_revalidation,
+    count_communities_needing_revalidation,
     set_community_revalidate_fingerprint,
     set_community_hidden,
     _community_record_key,
@@ -1673,16 +1674,6 @@ def _get_run_scopes() -> dict:
 
 @admin.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
-    city_topic_counts = get_city_topic_counts(_db())
-    total_records = get_total_community_count(_db())
-    venue_counts = get_venue_counts(_db())
-    person_counts = get_person_counts(_db())
-    cost_stats = get_cache_cost_stats(_db())
-    metadata = {
-        "total_records": total_records,
-        "records_by_city_topic": city_topic_counts,
-    }
-
     next_run = None
     schedule_cron = None
     if app_state.scheduler:
@@ -1699,16 +1690,6 @@ async def dashboard(request: Request):
             "skip_extracted": app_state.pipeline_cfg.cache_skip_extracted,
         }
 
-    cache_stats = {}
-    if app_state.cache_manager:
-        idx = app_state.cache_manager.get_index()
-        cache_stats = {
-            "total": len(idx),
-            "with_text": sum(1 for e in idx if e["has_text"]),
-            "with_extract": sum(1 for e in idx if e["extracted_at"]),
-            "with_enrich": sum(1 for e in idx if e["enrich_extracted_at"]),
-        }
-
     run_history = []
     if app_state.db_path:
         from ..db import get_run_history
@@ -1723,26 +1704,14 @@ async def dashboard(request: Request):
         test_mode = False
         test_cities = []
 
-    cfg = app_state.pipeline_cfg
-    active_providers = {
-        "search": (
-            (["DataForSEO"] if cfg and cfg.dataforseo_login and cfg.dataforseo_password else []) +
-            (["Serper"] if cfg and cfg.serper_api_key else []) +
-            (["Brave"] if cfg and cfg.brave_api_key else []) +
-            ["DDG", "SearXNG"]
-        ),
-        "ai": (
-            (["DeepSeek"] if cfg and cfg.deepseek_api_key else []) +
-            (["Groq"] if cfg and cfg.groq_api_key else []) +
-            ["Ollama"]
-        ),
-    }
-
     revalidation_pending = 0
+    revalidation_pending_hu = 0
     if app_state.db_path and app_state.db_path.exists():
         try:
             fp = _revalidation_fingerprint()
-            revalidation_pending = len(get_communities_needing_revalidation(_db(), fp, "", ""))
+            revalidation_pending = count_communities_needing_revalidation(_db(), fp)
+            hu_names = _hu_city_names()
+            revalidation_pending_hu = count_communities_needing_revalidation(_db(), fp, list(hu_names))
         except Exception:
             pass
 
@@ -1751,41 +1720,21 @@ async def dashboard(request: Request):
     run_cities = sorted([{"name": c.name, "country": c.country} for c in all_cities],
                         key=lambda c: (c["country"], c["name"]))
 
-    # Hungary-scoped stats
-    hu_names = _hu_city_names()
-    hu_topic_counts = get_topic_counts_for_cities(_db(), hu_names) if hu_names else {}
-    hu_total_records = sum(hu_topic_counts.values())
-    hu_total_venues = sum(v for k, v in venue_counts.items() if k in hu_names)
-    hu_total_persons = sum(v for k, v in person_counts.items() if k in hu_names)
-    hu_city_count = len(hu_names)
-
     return templates.TemplateResponse(request, "dashboard.html", {
-        "metadata": metadata,
         "is_running": app_state.is_running,
         "last_run_at": app_state.last_run_at,
         "next_run": next_run,
         "schedule_cron": schedule_cron,
-        "city_count": len(app_state.cities),
-        "topic_count": len(app_state.topics),
         "cache_defaults": cache_defaults,
-        "cache_stats": cache_stats,
         "run_history": run_history,
         "test_mode": test_mode,
         "test_cities": test_cities,
-        "active_providers": active_providers,
-        "total_venues": sum(venue_counts.values()),
-        "total_persons": sum(person_counts.values()),
-        "total_records": total_records,
-        "cost_stats": cost_stats,
         "revalidation_pending": revalidation_pending,
+        "revalidation_pending_hu": revalidation_pending_hu,
         "revalidate_state": _revalidate_state,
         "run_scopes": _get_run_scopes(),
         "run_countries": run_countries,
         "run_cities": run_cities,
-        "hu_total_records": hu_total_records,
-        "hu_total_venues": hu_total_venues,
-        "hu_total_persons": hu_total_persons,
-        "hu_city_count": hu_city_count,
     })
 
 
