@@ -1732,7 +1732,6 @@ async def dashboard(request: Request):
         "revalidation_pending": revalidation_pending,
         "revalidation_pending_hu": revalidation_pending_hu,
         "revalidate_state": _revalidate_state,
-        "run_scopes": _get_run_scopes(),
         "run_countries": run_countries,
         "run_cities": run_cities,
     })
