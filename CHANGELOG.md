@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-05-12
+
+- **Stop gomb javítás**: a scheduler és revalidate futásokat most már a stop gomb le tudja állítani — `asyncio.create_task()` + `app_state._run_task` minta; `BackgroundTasks` lecserélve
+- **Revalidate logika**: csak azokat validálja újra, ahol `revalidate_fingerprint` elavult (NULL rekordokat kihagyja)
+- **Revalidate scope**: Hungary/város szűrő most ténylegesen átadódik a revalidate indításnál
+- **Re-AI folyamatban lévő szám**: dashboard kártyán megjelenik, hány rekorden fog lefutni (fingerprint alapján)
+- **Futtatási mód badge**: "Running: Smart" / "Running: Re-AI" / "Running: Revalidate" / "Running: Full rebuild" formátum
+- **Tech téma**: új érdeklődési kategória programozós/tech meetupokhoz (16 nyelvű keresési kifejezések)
+- **Admin dark mode**: hold/nap gomb a navigációban, localStorage perzisztencia, Tailwind CDN `darkMode: 'class'` konfig
+- **Dashboard gyorsítás**: `get_scope_stats` lekérdezés nem deszializál JSON blob-okat — `scraped_at IS NOT NULL` + valódi fingerprint oszlopok
+- **Run gomb UX**: form POST → `fetch()` AJAX, az oldal a dashboardon marad navigáció nélkül
+- **Logs oldal gyorsítás**: a history JSON endpoint-ról töltődik be `DocumentFragment`-tel, nem szerveroldalon renderelve
+
 ## 2026-05-11
 
 - **AI recategorize**: új admin menüpont — az AI végigmegy az "other" kategóriás közösségeken, ≥85% konfidenciánál automatikusan átsorolja, 50–85% között jóváhagyásra teszi
