@@ -75,7 +75,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "religion": "Religion & Faith", "baby": "Baby & Parents",
     "senior": "Seniors", "kisallat": "Pets", "vallalkozas": "Entrepreneurship",
     "nok": "Women", "fogyatekossag": "Living with Disabilities",
-    "tech": "Tech & Coding", "other": "Other",
+    "tech": "Tech", "other": "Other",
 },
 "hu": {
     "running": "Futás", "board_games": "Társasjáték", "choir": "Kórus",
@@ -91,7 +91,7 @@ TOPIC_LABELS_I18N: dict[str, dict[str, str]] = {
     "religion": "Vallás", "baby": "Baba & Szülő",
     "senior": "Nyugdíjas", "kisallat": "Kisállat", "vallalkozas": "Vállalkozás",
     "nok": "Nők", "fogyatekossag": "Fogyatékkal élők",
-    "tech": "Tech & Kódolás", "other": "Egyéb",
+    "tech": "Tech", "other": "Egyéb",
 },
 "de": {
     "running": "Laufen", "board_games": "Brettspiele", "choir": "Chor",

@@ -186,7 +186,7 @@ TOPIC_LABELS: dict[str, str] = {
     "vallalkozas": "Entrepreneurship",
     "nok": "Women",
     "fogyatekossag": "Disability",
-    "tech": "Tech & Coding",
+    "tech": "Tech",
     "other": "Other",
 }
 
