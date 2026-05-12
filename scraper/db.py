@@ -122,6 +122,24 @@ def init_db(db_path: Path) -> None:
             conn.execute("ALTER TABLE cache_pages ADD COLUMN extract_fingerprint TEXT")
         except sqlite3.OperationalError:
             pass
+        try:
+            conn.execute("ALTER TABLE cache_pages ADD COLUMN venue_fingerprint TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE cache_pages ADD COLUMN person_fingerprint TEXT")
+        except sqlite3.OperationalError:
+            pass
+        # Backfill fingerprint columns from JSON blob (runs once, skips already-set rows)
+        conn.execute("""
+            UPDATE cache_pages
+            SET venue_fingerprint  = json_extract(data, '$.venue_fingerprint'),
+                person_fingerprint = json_extract(data, '$.person_fingerprint')
+            WHERE venue_fingerprint IS NULL AND person_fingerprint IS NULL
+              AND (json_extract(data, '$.venue_fingerprint') IS NOT NULL
+                OR json_extract(data, '$.person_fingerprint') IS NOT NULL)
+        """)
+        conn.commit()
 
         # False positives
         conn.execute("""
@@ -944,8 +962,9 @@ def save_cache_page(db_path: Path, entry: dict) -> None:
     with _connect(db_path) as conn:
         conn.execute("""
             INSERT INTO cache_pages
-                (url_hash, url, city, topic, domain, scraped_at, extracted_at, extract_fingerprint, data)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (url_hash, url, city, topic, domain, scraped_at, extracted_at,
+                 extract_fingerprint, venue_fingerprint, person_fingerprint, data)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(url_hash) DO UPDATE SET
                 city=excluded.city,
                 topic=excluded.topic,
@@ -953,6 +972,8 @@ def save_cache_page(db_path: Path, entry: dict) -> None:
                 scraped_at=excluded.scraped_at,
                 extracted_at=excluded.extracted_at,
                 extract_fingerprint=excluded.extract_fingerprint,
+                venue_fingerprint=excluded.venue_fingerprint,
+                person_fingerprint=excluded.person_fingerprint,
                 data=excluded.data
         """, (
             entry["url_hash"],
@@ -963,6 +984,8 @@ def save_cache_page(db_path: Path, entry: dict) -> None:
             entry.get("scraped_at"),
             entry.get("extracted_at"),
             entry.get("extract_fingerprint"),
+            entry.get("venue_fingerprint"),
+            entry.get("person_fingerprint"),
             json.dumps(entry, ensure_ascii=False),
         ))
         conn.commit()
@@ -1552,17 +1575,13 @@ def get_scope_stats(
     with _connect(db_path) as conn:
         row = conn.execute(f"""
             SELECT
-                SUM(CASE WHEN json_extract(data,'$.raw_text') IS NOT NULL
-                         AND json_extract(data,'$.raw_text') != '' THEN 1 ELSE 0 END),
-                SUM(CASE WHEN json_extract(data,'$.raw_text') IS NOT NULL
-                         AND json_extract(data,'$.raw_text') != ''
-                         AND json_extract(data,'$.extract_fingerprint') = ? THEN 1 ELSE 0 END),
-                SUM(CASE WHEN json_extract(data,'$.raw_text') IS NOT NULL
-                         AND json_extract(data,'$.raw_text') != ''
-                         AND json_extract(data,'$.venue_fingerprint') = ? THEN 1 ELSE 0 END),
-                SUM(CASE WHEN json_extract(data,'$.raw_text') IS NOT NULL
-                         AND json_extract(data,'$.raw_text') != ''
-                         AND json_extract(data,'$.person_fingerprint') = ? THEN 1 ELSE 0 END)
+                SUM(CASE WHEN scraped_at IS NOT NULL THEN 1 ELSE 0 END),
+                SUM(CASE WHEN scraped_at IS NOT NULL
+                         AND extract_fingerprint = ? THEN 1 ELSE 0 END),
+                SUM(CASE WHEN scraped_at IS NOT NULL
+                         AND venue_fingerprint = ? THEN 1 ELSE 0 END),
+                SUM(CASE WHEN scraped_at IS NOT NULL
+                         AND person_fingerprint = ? THEN 1 ELSE 0 END)
             FROM cache_pages{city_filter}
         """, (extract_fp, venue_fp, person_fp, *city_params)).fetchone()
     return {
