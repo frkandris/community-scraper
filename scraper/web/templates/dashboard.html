@@ -25,7 +25,7 @@
     </div>
     {% if is_running %}
     <span id="running-badge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm bg-yellow-100 text-yellow-800 font-medium">
-      <span class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span><span id="running-label">{% if current_run_mode == "ai_only" %}Re-AI{% elif current_run_mode == "revalidate" %}Revalidating{% elif current_run_mode %}Full run{% else %}Running{% endif %}…</span>
+      <span class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span><span id="running-label">Running: {% if current_run_mode == "ai_only" %}Re-AI{% elif current_run_mode == "revalidate" %}Revalidate{% elif current_run_mode == "smart" %}Smart{% elif current_run_mode %}Full rebuild{% else %}…{% endif %}</span>
     </span>
     {% else %}
     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm bg-green-100 text-green-800 font-medium">
@@ -299,7 +299,7 @@ function setDashScope(scope) {
   const stopForm = document.getElementById('stop-form');
   const runningBadge = document.getElementById('running-badge');
   const runningLabel = document.getElementById('running-label');
-  const modeLabels = { smart: 'Smart', full: 'Full rebuild', ai_only: 'Re-AI', revalidate: 'Revalidating' };
+  const modeLabels = { smart: 'Running: Smart', full: 'Running: Full rebuild', ai_only: 'Running: Re-AI', revalidate: 'Running: Revalidate' };
   setInterval(async () => {
     try {
       const d = await fetch('/admin/api/status').then(r => r.json());
