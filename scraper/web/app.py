@@ -1998,14 +1998,13 @@ def _revalidation_fingerprint() -> str:
 
 
 @admin.post("/revalidate/start")
-async def admin_revalidate_start(background_tasks: BackgroundTasks,
-                                  city: str = Form(""), topic: str = Form("")):
+async def admin_revalidate_start(city: str = Form(""), topic: str = Form("")):
     """Start a background re-validation of existing communities against the current prompt."""
     if not app_state.db_path or not app_state.pipeline_cfg:
         return JSONResponse({"ok": False, "error": "Not configured"})
     if _revalidate_state["running"]:
         return JSONResponse({"ok": False, "error": "Already running"})
-    background_tasks.add_task(_run_revalidate, city.strip(), topic.strip())
+    app_state._run_task = asyncio.create_task(_run_revalidate(city.strip(), topic.strip()))
     return JSONResponse({"ok": True})
 
 
