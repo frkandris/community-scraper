@@ -572,6 +572,26 @@ topics:
       ko: ["육아 모임", "엄마 모임", "베이비 클래스", "부모 그룹"]
       zh: [亲子群, 妈妈群, 婴儿班, 家长群]
 
+  - name: tech
+    search_terms:
+      hu: ["tech meetup", "programozó közösség", "fejlesztői meetup", "IT közösség", "szoftverfejlesztő csoport", "kódolás klub", "technológiai közösség", "hackathon", "programozó klub"]
+      en: ["tech meetup", "programming club", "developer community", "coding group", "software meetup", "hackathon", "developer meetup", "tech community", "coding bootcamp community"]
+      de: [Tech-Meetup, Programmierclub, Entwicklergruppe, "Coding-Gruppe", Hackathon, Technologie-Treff, Softwareentwickler-Gruppe]
+      fr: ["meetup tech", "club de programmation", "communauté développeurs", "groupe de codage", "hackathon", "meetup développeurs"]
+      es: ["meetup tecnológico", "club de programación", "comunidad de desarrolladores", "grupo de coding", "hackathon"]
+      pt: ["meetup de tecnologia", "clube de programação", "comunidade de desenvolvedores", "grupo de coding", "hackathon"]
+      it: ["meetup tech", "club di programmazione", "comunità sviluppatori", "gruppo coding", "hackathon"]
+      nl: [tech-meetup, programmeerclub, ontwikkelaarsgroep, codeergroep, hackathon]
+      pl: ["meetup technologiczny", "klub programistów", "społeczność developerów", "grupa programistyczna", hackathon]
+      cs: ["tech meetup", "programátorský klub", "vývojářská komunita", "coding skupina", hackathon]
+      da: [tech-meetup, programmeringsklub, udviklergruppe, kodningsgruppe, hackathon]
+      sv: [tech-meetup, programmeringsklubb, utvecklargrupp, kodningsgrupp, hackathon]
+      fi: [tech-meetup, ohjelmointikerho, kehittäjäyhteisö, koodausryhmä, hackathon]
+      tr: ["tech meetup", "programlama kulübü", "yazılımcı topluluğu", "kodlama grubu", hackathon]
+      ja: ["テックコミュニティ", "プログラミングサークル", "エンジニア勉強会", "ハッカソン", "開発者コミュニティ"]
+      ko: ["테크 밋업", "프로그래밍 클럽", "개발자 커뮤니티", "코딩 그룹", 해커톤]
+      zh: ["技术社区", "编程俱乐部", "开发者社区", "编程学习群", 黑客马拉松]
+
   - name: other
     search_terms:
       hu: ["közösségi csoport", "helyi közösség", "egyéb közösség", "szabadidős csoport", "hobby csoport"]
