@@ -21,11 +21,6 @@
 
 <div id="log-box"
   class="bg-gray-900 rounded-xl p-4 h-[70vh] overflow-y-auto font-mono text-xs leading-relaxed">
-  {% for line in history %}
-  <div class="{{ 'text-yellow-400' if line.level == 'warning' else ('text-red-400' if line.level in ('error','critical') else 'text-green-400') }}">
-    <span class="text-gray-500">{{ line.ts }}</span>  {{ line.text }}
-  </div>
-  {% endfor %}
 </div>
 
 <div class="flex justify-end mt-2">
@@ -42,7 +37,6 @@ const autoScrollCb = document.getElementById('autoScroll');
 function scroll() {
   if (autoScrollCb.checked) box.scrollTop = box.scrollHeight;
 }
-scroll();
 
 function levelClass(level) {
   if (level === 'warning') return 'text-yellow-400';
@@ -50,9 +44,7 @@ function levelClass(level) {
   return 'text-green-400';
 }
 
-const es = new EventSource('/admin/api/logs/stream?last_seq={{ last_seq }}');
-es.onmessage = (e) => {
-  const line = JSON.parse(e.data);
+function appendLine(line) {
   const div = document.createElement('div');
   div.className = levelClass(line.level);
   const ts = document.createElement('span');
@@ -61,14 +53,43 @@ es.onmessage = (e) => {
   div.appendChild(ts);
   div.appendChild(document.createTextNode('  ' + line.text));
   box.appendChild(div);
+}
+
+let lastSeq = 0;
+
+fetch('/admin/api/logs/history').then(r => r.json()).then(lines => {
+  const frag = document.createDocumentFragment();
+  lines.forEach(line => {
+    const div = document.createElement('div');
+    div.className = levelClass(line.level);
+    const ts = document.createElement('span');
+    ts.className = 'text-gray-500';
+    ts.textContent = line.ts;
+    div.appendChild(ts);
+    div.appendChild(document.createTextNode('  ' + line.text));
+    frag.appendChild(div);
+    lastSeq = line.seq;
+  });
+  box.appendChild(frag);
   scroll();
-};
-es.onerror = () => {
-  const div = document.createElement('div');
-  div.className = 'text-gray-600';
-  div.textContent = '-- connection closed --';
-  box.appendChild(div);
-};
+  startStream();
+});
+
+function startStream() {
+  const es = new EventSource('/admin/api/logs/stream?last_seq=' + lastSeq);
+  es.onmessage = (e) => {
+    const line = JSON.parse(e.data);
+    lastSeq = line.seq;
+    appendLine(line);
+    scroll();
+  };
+  es.onerror = () => {
+    const div = document.createElement('div');
+    div.className = 'text-gray-600';
+    div.textContent = '-- connection closed --';
+    box.appendChild(div);
+  };
+}
 
 function copyLogs() {
   const lines = [...box.querySelectorAll('div')].map(d => d.textContent).join('\n');

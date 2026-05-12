@@ -2396,12 +2396,13 @@ async def subscriptions_page(request: Request):
 
 @admin.get("/logs", response_class=HTMLResponse)
 async def logs_page(request: Request):
+    return templates.TemplateResponse(request, "logs.html", {})
+
+
+@admin.get("/api/logs/history")
+async def log_history():
     history = broadcaster.get_all()
-    last_seq = history[-1]["seq"] if history else 0
-    return templates.TemplateResponse(request, "logs.html", {
-        "history": history,
-        "last_seq": last_seq,
-    })
+    return JSONResponse(history)
 
 
 @admin.get("/api/logs/stream")
