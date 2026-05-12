@@ -2419,7 +2419,7 @@ async def trigger_run(
     filter_city: str = Form(""),
 ):
     if app_state.is_running:
-        return RedirectResponse("/admin/logs", status_code=302)
+        return JSONResponse({"ok": False, "error": "already running"})
 
     if run_mode not in ("full", "ai_only"):
         run_mode = "full"
@@ -2486,7 +2486,7 @@ async def trigger_run(
 
     app_state._run_task = asyncio.create_task(_run())
     app_state._run_task.add_done_callback(_clear_cancelled_run)
-    return RedirectResponse("/admin/logs", status_code=302)
+    return JSONResponse({"ok": True})
 
 
 @admin.post("/api/stop")

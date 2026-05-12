@@ -384,12 +384,18 @@ function setDashScope(scope) {
   scopeCity.addEventListener('change', updateScope);
 
   document.getElementById('run-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
     if (selected === 'revalidate') {
-      e.preventDefault();
       const res = await fetch('/admin/revalidate/start', { method: 'POST', body: new FormData() });
       const data = await res.json();
       if (!data.ok) { alert(data.error); return; }
       rvPollTimer = setInterval(pollRevalidate, 1500);
+    } else {
+      runBtn.disabled = true;
+      stopForm.classList.remove('hidden');
+      const res = await fetch('/admin/api/run', { method: 'POST', body: new FormData(this) });
+      const data = await res.json();
+      if (!data.ok) { runBtn.disabled = false; stopForm.classList.add('hidden'); alert(data.error || 'Failed to start run'); }
     }
   });
 
