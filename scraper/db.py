@@ -377,6 +377,19 @@ def record_run(
         return cur.lastrowid
 
 
+def get_last_run_mode(db_path: Path) -> str | None:
+    if not db_path.exists():
+        return None
+    try:
+        with _connect(db_path) as conn:
+            row = conn.execute(
+                "SELECT run_mode FROM runs WHERE success=1 ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            return row[0] if row else None
+    except Exception:
+        return None
+
+
 def get_last_run(db_path: Path) -> datetime | None:
     if not db_path.exists():
         return None

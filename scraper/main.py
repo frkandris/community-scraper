@@ -13,7 +13,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from .cache import CacheManager
 from .config import CONFIG_DIR, load_config
-from .db import get_last_run, init_db, record_run
+from .db import get_last_run, get_last_run_mode, init_db, record_run
 from .pipeline import run_pipeline
 from .web.app import app as web_app, templates
 from .web.log_stream import broadcaster
@@ -160,8 +160,40 @@ async def main() -> None:
 
     async def _startup_run() -> None:
         await asyncio.sleep(5)
-        log.info("startup_run_triggered")
-        await _scheduled_run()
+        last_mode = get_last_run_mode(db_path)
+        # Progress: revalidate → ai_only → full → full
+        startup_mode = {"revalidate": "ai_only", "ai_only": "full"}.get(last_mode or "full", "full")
+        log.info("startup_run_triggered", last_mode=last_mode, startup_mode=startup_mode)
+
+        if app_state.is_running:
+            log.info("startup_run_skipped", reason="already_running")
+            return
+        app_state.is_running = True
+        app_state.current_run_mode = "re-ai" if startup_mode == "ai_only" else "smart"
+        app_state._run_task = asyncio.current_task()
+        started = datetime.now(timezone.utc)
+        success = False
+        pair_logs: list = []
+        try:
+            pair_logs = await run_pipeline(
+                app_state.cities,
+                app_state.topics,
+                app_state.pipeline_cfg,
+                cache=app_state.cache_manager,
+                on_progress=_on_progress,
+                run_mode=startup_mode,
+            )
+            app_state.last_run_at = datetime.now(timezone.utc)
+            success = True
+        except Exception as exc:
+            log.error("startup_run_failed", error=str(exc))
+        finally:
+            app_state.is_running = False
+            app_state.current_phase = None
+            app_state.current_url = None
+            app_state.current_run_mode = None
+            record_run(db_path, started, datetime.now(timezone.utc), startup_mode, success,
+                       json.dumps(pair_logs) if pair_logs else None)
 
     asyncio.create_task(_startup_run())
 
