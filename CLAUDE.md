@@ -29,9 +29,10 @@ The scraper discovers community groups for each `(city, topic)` pair:
 3. **Extract** (`extract.py`): DeepSeek → Groq → Ollama fallback chain. All three classes share `_ApiExtractor` base (for API providers) or `OllamaExtractor`. The `FallbackExtractor` wraps them with per-provider `_exhausted` and `_blocked_until` state.
 4. **Store** (`store.py` → `db.py`): Upsert to SQLite `communities` table, merging `source_urls` on conflict.
 
-The full run is orchestrated by `pipeline.py:run_pipeline()`. Two modes:
-- `full`: search → fetch → extract → enrich
+The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
+- `full`: search → fetch → extract → enrich (default; also what the scheduler runs — labelled "Smart" in the UI)
 - `ai_only`: re-extract from cached page texts, no web requests
+- `revalidate`: re-validates communities whose `revalidate_fingerprint` is stale (separate flow via `_run_revalidate`, not `run_pipeline`)
 
 **Cache**: everything goes through `cache.py` (a thin facade over `db.py`). Each scraped URL gets a row in `cache_pages`. The extraction cache is fingerprint-keyed: SHA-256[:12] of `SYSTEM_PROMPT + model_name`. Changing either invalidates all cached extractions automatically.
 
@@ -46,7 +47,11 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Two modes:
 | `scraper/extract.py` | LLM prompts, schemas, extractors |
 | `scraper/db.py` | All SQLite access; `init_db()` is safe to call repeatedly |
 | `scraper/models.py` | `CommunityRecord` pydantic model with auto-cleanup validator |
-| `scraper/web/app.py` | All HTTP routes (~2500 lines) |
+| `scraper/web/app.py` | All HTTP routes (~3700 lines) |
+| `scraper/duplicates.py` | Duplicate detection; admin UI at `/admin/duplicates` |
+| `scraper/playwright_fetch.py` | Playwright-based fetcher for JS-heavy sites; activated via `fetch_playwright_domains` in `settings.yaml` |
+| `scraper/false_positives.py` | CRUD + prompt injection for false positive rules |
+| `scraper/web/schema.py` | JSON-LD schema generation for public pages |
 | `scraper/web/i18n.py` | Translations; `lang_context(request)` injects `t`, `lang`, `topic_labels` etc. into every public template |
 | `config/cities.yaml` | City list: `name`, `country`, `locale`, `search_variants` |
 | `config/topics.yaml` | Topic list: `name`, per-locale `search_terms` |
@@ -67,6 +72,8 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Two modes:
 **False positives**: stored in `false_positives` table. `build_prompt_section(all_fps, city, topic)` appends them to the extraction system prompt. Call `get_false_positives(_db())` to load them.
 
 **Community identity**: `community_id` = SHA-256[:12] of `name.lower()|city.lower()`. Stable across re-runs. `record_key` = `norm(name)|norm(city)|norm(topic)` (unique DB key).
+
+**Stop/cancel pattern**: long-running routes (pipeline, revalidate) must use `asyncio.create_task()` and store the task in `app_state._run_task`. `BackgroundTasks` (FastAPI) cannot be cancelled. `asyncio.CancelledError` is a `BaseException` in Python 3.8+, so `except Exception` will NOT catch it — always use `finally` for cleanup.
 
 **CSS build**: `scraper/web/static/css/app.css` is gitignored. Docker builds it from `input.css` via `pytailwindcss` at image build time. For local dev, maintain `app.css` manually. Committing `input.css` changes is sufficient for production.
 
