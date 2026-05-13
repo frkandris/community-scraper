@@ -1753,6 +1753,10 @@ async def dashboard(request: Request):
     run_cities = sorted([{"name": c.name, "country": c.country} for c in all_cities],
                         key=lambda c: (c["country"], c["name"]))
 
+    _hu_names = list(_hu_city_names())
+    smart_pairs_hu = len(_hu_names) * len(app_state.topics or [])
+    smart_pairs_global = len(all_cities) * len(app_state.topics or [])
+
     return templates.TemplateResponse(request, "dashboard.html", {
         "is_running": app_state.is_running,
         "last_run_at": app_state.last_run_at,
@@ -1766,6 +1770,8 @@ async def dashboard(request: Request):
         "revalidation_pending_hu": revalidation_pending_hu,
         "reai_pending": reai_pending,
         "reai_pending_hu": reai_pending_hu,
+        "smart_pairs_hu": smart_pairs_hu,
+        "smart_pairs_global": smart_pairs_global,
         "revalidate_state": _revalidate_state,
         "current_run_mode": app_state.current_run_mode,
         "run_countries": run_countries,

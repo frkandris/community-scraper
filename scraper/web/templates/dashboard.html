@@ -69,6 +69,14 @@
                 <div class="text-blue-500"><i class="ph ph-check"></i> Search + Fetch <span class="opacity-60">(new)</span></div>
                 <div class="text-blue-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(new)</span> + Enrich</div>
               </div>
+              {% if smart_pairs_hu > 0 %}
+              <div class="flex gap-2 mt-1.5 text-[9px] font-semibold">
+                <span class="flex items-center gap-0.5 text-blue-600"
+                      data-global="{{ smart_pairs_global }}" data-hu="{{ smart_pairs_hu }}">
+                  <i class="ph ph-magnifying-glass"></i><span class="rs-num">{{ smart_pairs_hu }}</span>
+                </span>
+              </div>
+              {% endif %}
             </button>
 
             <button type="button" data-preset="refresh"
@@ -235,9 +243,15 @@
       <span class="text-gray-400 font-mono shrink-0">{{ r.started_at[:16].replace('T',' ') }}</span>
       <span class="px-1.5 py-0.5 rounded shrink-0
         {% if r.run_mode == 'ai_only' %}bg-purple-50 text-purple-700
+        {% elif r.run_mode == 'revalidate' %}bg-amber-50 text-amber-700
         {% else %}bg-blue-50 text-blue-700{% endif %}">
-        {% if r.run_mode == 'ai_only' %}Re-AI{% else %}Discover{% endif %}
+        {% if r.run_mode == 'ai_only' %}Re-AI
+        {% elif r.run_mode == 'revalidate' %}Revalidate
+        {% else %}Smart{% endif %}
       </span>
+      {% if not r.finished_at %}
+      <span class="text-[9px] text-gray-400 italic">interrupted</span>
+      {% endif %}
       {% if r.new_records %}
       <span class="font-semibold text-gray-700">+{{ r.new_records }}</span>
       {% endif %}
