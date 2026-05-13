@@ -1295,6 +1295,23 @@ def count_cached_search_pairs(db_path: Path, cities: list[str], ttl_days: int) -
     return row[0] if row else 0
 
 
+def count_cities_with_pending_search(db_path: Path, cities: list[str], topics_count: int, ttl_days: int) -> int:
+    """Count cities that have at least one (city, topic) pair with no valid search cache."""
+    if not db_path.exists() or not cities or topics_count == 0:
+        return len(cities)
+    from datetime import timedelta
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=ttl_days)).isoformat()
+    placeholders = ",".join("?" * len(cities))
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            f"SELECT city, COUNT(DISTINCT topic) FROM search_cache"
+            f" WHERE city IN ({placeholders}) AND cached_at>=? GROUP BY city",
+            (*cities, cutoff),
+        ).fetchall()
+    fully_cached = sum(1 for _, cnt in rows if cnt >= topics_count)
+    return len(cities) - fully_cached
+
+
 def get_covered_pairs(db_path: Path) -> set[tuple[str, str]]:
     """Return all (city, topic) pairs that have a search cache entry."""
     if not db_path.exists():

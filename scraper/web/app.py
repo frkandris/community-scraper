@@ -1771,10 +1771,13 @@ async def dashboard(request: Request):
     if app_state.db_path and app_state.db_path.exists() and _hu_names:
         try:
             from ..db import count_cached_search_pairs as _count_cached
+            from ..db import count_cities_with_pending_search as _count_cities_pending
             _ttl = (app_state.pipeline_cfg.search_cache_ttl_days
                     if app_state.pipeline_cfg else 7)
+            _topics_count = len(app_state.topics or [])
             _cached = _count_cached(app_state.db_path, _hu_names, _ttl)
             smart_search_hu = max(0, smart_pairs_hu - _cached)
+            smart_cities_hu = _count_cities_pending(app_state.db_path, _hu_names, _topics_count, _ttl)
         except Exception:
             pass
         try:
