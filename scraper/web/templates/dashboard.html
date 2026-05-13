@@ -69,12 +69,21 @@
                 <div class="text-blue-500"><i class="ph ph-check"></i> Search + Fetch <span class="opacity-60">(new)</span></div>
                 <div class="text-blue-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(new)</span> + Enrich</div>
               </div>
-              {% if smart_pairs_hu > 0 %}
-              <div class="flex gap-2 mt-1.5 text-[9px] font-semibold">
-                <span class="flex items-center gap-0.5 text-blue-600"
-                      data-global="{{ smart_pairs_global }}" data-hu="{{ smart_pairs_hu }}">
-                  <i class="ph ph-magnifying-glass"></i><span class="rs-num">{{ smart_pairs_hu }}</span>
+              {% if smart_cities_hu > 0 %}
+              <div class="flex gap-2 mt-1.5 text-[9px] font-semibold flex-wrap">
+                <span class="flex items-center gap-0.5 text-blue-700" title="városok">
+                  <i class="ph ph-map-pin"></i>{{ smart_cities_hu }}
                 </span>
+                {% if smart_search_hu > 0 %}
+                <span class="flex items-center gap-0.5 text-blue-600" title="keresések">
+                  <i class="ph ph-magnifying-glass"></i>{{ smart_search_hu }}
+                </span>
+                {% endif %}
+                {% if smart_ai_hu > 0 %}
+                <span class="flex items-center gap-0.5 text-blue-500" title="AI hívás">
+                  <i class="ph ph-robot"></i>{{ smart_ai_hu }}
+                </span>
+                {% endif %}
               </div>
               {% endif %}
             </button>

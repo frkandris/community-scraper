@@ -1280,6 +1280,21 @@ def get_search_cache(db_path: Path, city: str, topic: str,
     return json.loads(row[0]) if row else None
 
 
+def count_cached_search_pairs(db_path: Path, cities: list[str], ttl_days: int) -> int:
+    """Count (city, topic) pairs that have a non-expired search cache entry."""
+    if not db_path.exists() or not cities:
+        return 0
+    from datetime import timedelta
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=ttl_days)).isoformat()
+    placeholders = ",".join("?" * len(cities))
+    with _connect(db_path) as conn:
+        row = conn.execute(
+            f"SELECT COUNT(*) FROM search_cache WHERE city IN ({placeholders}) AND cached_at>=?",
+            (*cities, cutoff),
+        ).fetchone()
+    return row[0] if row else 0
+
+
 def get_covered_pairs(db_path: Path) -> set[tuple[str, str]]:
     """Return all (city, topic) pairs that have a search cache entry."""
     if not db_path.exists():

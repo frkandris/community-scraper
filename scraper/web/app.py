@@ -1765,6 +1765,23 @@ async def dashboard(request: Request):
     smart_pairs_hu = len(_hu_names) * len(app_state.topics or [])
     smart_pairs_global = len(all_cities) * len(app_state.topics or [])
 
+    smart_cities_hu = len(_hu_names)
+    smart_search_hu = 0
+    smart_ai_hu = 0
+    if app_state.db_path and app_state.db_path.exists() and _hu_names:
+        try:
+            from ..db import count_cached_search_pairs as _count_cached
+            _ttl = (app_state.pipeline_cfg.search_cache_ttl_days
+                    if app_state.pipeline_cfg else 7)
+            _cached = _count_cached(app_state.db_path, _hu_names, _ttl)
+            smart_search_hu = max(0, smart_pairs_hu - _cached)
+        except Exception:
+            pass
+        try:
+            smart_ai_hu = max(0, _stats_hu["with_text"] - _stats_hu["extract_match"])
+        except Exception:
+            pass
+
     return templates.TemplateResponse(request, "dashboard.html", {
         "is_running": app_state.is_running,
         "last_run_at": app_state.last_run_at,
@@ -1780,6 +1797,9 @@ async def dashboard(request: Request):
         "reai_pending_hu": reai_pending_hu,
         "smart_pairs_hu": smart_pairs_hu,
         "smart_pairs_global": smart_pairs_global,
+        "smart_cities_hu": smart_cities_hu,
+        "smart_search_hu": smart_search_hu,
+        "smart_ai_hu": smart_ai_hu,
         "revalidate_state": _revalidate_state,
         "current_run_mode": app_state.current_run_mode,
         "run_countries": run_countries,
