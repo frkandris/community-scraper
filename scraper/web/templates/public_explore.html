@@ -133,9 +133,9 @@
   {% elif country_sections %}
 
   {% for country_sec in country_sections %}
-  <div class="mb-10">
+  <div class="mb-10" data-country-container>
     {% for city_sec in country_sec.cities %}
-    <div class="mb-6">
+    <div class="mb-6" data-city="{{ city_sec.city }}">
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-base font-semibold text-[#4A4441] flex items-center gap-1.5">
           <i class="ph ph-map-pin text-[#C2613A] text-sm"></i>
@@ -370,6 +370,49 @@
   {% endif %}
 
 </div>
+{% if city_coords_for_js %}
+<script id="city-coords" type="application/json">{{ city_coords_for_js | tojson }}</script>
+<script>
+(function() {
+  function haversine(lat1, lon1, lat2, lon2) {
+    var R = 6371, r = Math.PI / 180;
+    var dLat = (lat2 - lat1) * r, dLon = (lon2 - lon1) * r;
+    var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+            Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dLon/2)*Math.sin(dLon/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+  function reorderByProximity(lat, lon) {
+    var coords = JSON.parse(document.getElementById('city-coords').textContent);
+    document.querySelectorAll('[data-country-container]').forEach(function(container) {
+      var divs = Array.from(container.querySelectorAll('[data-city]'));
+      if (divs.length <= 3) return;
+      var scored = divs.map(function(div) {
+        var c = coords[div.dataset.city];
+        return { div: div, dist: c ? haversine(lat, lon, c[0], c[1]) : Infinity };
+      });
+      scored.sort(function(a, b) { return a.dist - b.dist; });
+      var top3 = new Set(scored.slice(0, 3).map(function(x) { return x.div; }));
+      var ordered = scored.slice(0, 3).map(function(x) { return x.div; })
+                    .concat(divs.filter(function(d) { return !top3.has(d); }));
+      ordered.forEach(function(d) { container.appendChild(d); });
+    });
+  }
+  try {
+    var cached = localStorage.getItem('userLatLon');
+    if (cached) {
+      var p = JSON.parse(cached);
+      reorderByProximity(p.lat, p.lon);
+    } else if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        var lat = pos.coords.latitude, lon = pos.coords.longitude;
+        try { localStorage.setItem('userLatLon', JSON.stringify({lat: lat, lon: lon})); } catch(e) {}
+        reorderByProximity(lat, lon);
+      }, function() {});
+    }
+  } catch(e) {}
+})();
+</script>
+{% endif %}
 <script>
 (function() {
   var active = new Set();

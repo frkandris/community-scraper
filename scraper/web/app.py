@@ -1140,6 +1140,13 @@ async def _render_explore(
     city_locale = _city_locale(city) if city else "en"
     topic_url_slugs = {t.name: _topic_url_slug(t.name, city_locale) for t in (app_state.topics or [])}
 
+    city_coords_for_js: dict[str, list[float]] = {}
+    for cs in country_sections:
+        for cs_city in cs["cities"]:
+            coords = CITY_COORDS.get(cs_city["city"])
+            if coords:
+                city_coords_for_js[cs_city["city"]] = [coords[0], coords[1]]
+
     return templates.TemplateResponse(request, "public_explore.html", {
         "city": city,
         "topics": topics,
@@ -1159,6 +1166,7 @@ async def _render_explore(
         "city_venues": city_venues,
         "city_persons": city_persons,
         "topic_url_slugs": topic_url_slugs,
+        "city_coords_for_js": city_coords_for_js,
         **lang_context(request),
     })
 
