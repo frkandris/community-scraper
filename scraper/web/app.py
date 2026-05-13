@@ -1740,19 +1740,11 @@ async def dashboard(request: Request):
                 venue_fp   = _prompt_hash(_ep("venue_system") + _model)
                 person_fp  = _prompt_hash(_ep("person_system") + _model)
                 _stats = get_scope_stats(app_state.db_path, extract_fp, venue_fp, person_fp)
-                reai_pending = (
-                    (_stats["with_text"] - _stats["extract_match"]) +
-                    (_stats["with_text"] - _stats["venue_match"]) +
-                    (_stats["with_text"] - _stats["person_match"])
-                )
+                reai_pending = _stats["with_text"] - _stats["fully_matched"]
                 _hu = list(_hu_city_names())
                 if _hu:
                     _stats_hu = get_scope_stats(app_state.db_path, extract_fp, venue_fp, person_fp, cities=_hu)
-                    reai_pending_hu = (
-                        (_stats_hu["with_text"] - _stats_hu["extract_match"]) +
-                        (_stats_hu["with_text"] - _stats_hu["venue_match"]) +
-                        (_stats_hu["with_text"] - _stats_hu["person_match"])
-                    )
+                    reai_pending_hu = _stats_hu["with_text"] - _stats_hu["fully_matched"]
         except Exception:
             pass
 
@@ -1781,7 +1773,7 @@ async def dashboard(request: Request):
         except Exception:
             pass
         try:
-            smart_ai_hu = max(0, _stats_hu["with_text"] - _stats_hu["extract_match"])
+            smart_ai_hu = max(0, _stats_hu["with_text"] - _stats_hu["fully_matched"])
         except Exception:
             pass
 

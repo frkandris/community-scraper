@@ -1669,14 +1669,19 @@ def get_scope_stats(
                 SUM(CASE WHEN scraped_at IS NOT NULL
                          AND venue_fingerprint = ? THEN 1 ELSE 0 END),
                 SUM(CASE WHEN scraped_at IS NOT NULL
+                         AND person_fingerprint = ? THEN 1 ELSE 0 END),
+                SUM(CASE WHEN scraped_at IS NOT NULL
+                         AND extract_fingerprint = ?
+                         AND venue_fingerprint = ?
                          AND person_fingerprint = ? THEN 1 ELSE 0 END)
             FROM cache_pages{city_filter}
-        """, (extract_fp, venue_fp, person_fp, *city_params)).fetchone()
+        """, (extract_fp, venue_fp, person_fp, extract_fp, venue_fp, person_fp, *city_params)).fetchone()
     return {
         "with_text":     int(row[0] or 0),
         "extract_match": int(row[1] or 0),
         "venue_match":   int(row[2] or 0),
         "person_match":  int(row[3] or 0),
+        "fully_matched": int(row[4] or 0),
     }
 
 
