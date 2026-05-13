@@ -163,15 +163,16 @@ async def main() -> None:
         await asyncio.sleep(5)
 
         last_row = get_last_run_row(db_path)
-        if last_row and last_row["finished_at"] is None:
-            # Previous run was interrupted (redeploy mid-run) → re-run same mode
-            # Revalidate can't run from here, so fall through to ai_only
-            interrupted_mode = last_row["run_mode"]
-            startup_mode = interrupted_mode if interrupted_mode in ("full", "ai_only") else "ai_only"
-            log.info("startup_run_resuming_interrupted", interrupted_mode=interrupted_mode, startup_mode=startup_mode)
+        if last_row and (last_row["finished_at"] is None or not last_row["success"]):
+            # Interrupted (redeploy) or failed → re-run same mode until it succeeds
+            # Revalidate can't run from here, fall back to ai_only
+            prev_mode = last_row["run_mode"]
+            startup_mode = prev_mode if prev_mode in ("full", "ai_only") else "ai_only"
+            reason = "interrupted" if last_row["finished_at"] is None else "failed"
+            log.info("startup_run_retry", reason=reason, prev_mode=prev_mode, startup_mode=startup_mode)
         else:
             last_mode = last_row["run_mode"] if last_row else None
-            # Completed run → progress: revalidate → ai_only → full → full
+            # Completed successfully → progress: revalidate → ai_only → full → full
             startup_mode = {"revalidate": "ai_only", "ai_only": "full"}.get(last_mode or "full", "full")
             log.info("startup_run_triggered", last_mode=last_mode, startup_mode=startup_mode)
 
