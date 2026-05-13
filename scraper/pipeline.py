@@ -330,7 +330,7 @@ async def run_pipeline(
     log.info("pipeline_complete", run_mode=run_mode, total_new_records=total_new)
     try:
         from .duplicates import detect_all
-        detect_all(config.db_path)
+        await asyncio.to_thread(detect_all, config.db_path)
     except Exception as exc:
         log.warning("post_run_duplicate_scan_failed", error=str(exc))
     return pair_logs, total_new
@@ -387,6 +387,7 @@ async def _run_full(
         for topic in topics:
             if pairs_filter is not None and (city.name, topic.name) not in pairs_filter:
                 continue
+            await asyncio.sleep(0)
             log.info("processing_pair", city=city.name, topic=topic.name)
 
             terms = topic.search_terms.get(city.locale) or topic.search_terms.get("en", [])
@@ -626,7 +627,7 @@ async def _run_ai_only(
         log.warning("ai_only_mode_no_cache")
         return 0, []
 
-    all_scraped = cache.get_all_scraped()
+    all_scraped = await asyncio.to_thread(cache.get_all_scraped)
     log.info("ai_only_start", cached_pages=len(all_scraped),
              run_communities=run_communities, run_venues=run_venues, run_persons=run_persons)
 
@@ -640,6 +641,7 @@ async def _run_ai_only(
     for city in cities:
         run_stats[city.name] = {}
         for topic in topics:
+            await asyncio.sleep(0)
             pages = city_topic_pages.get((city.name, topic.name), [])
             pair_log: dict = {
                 "city": city.name,
@@ -661,6 +663,7 @@ async def _run_ai_only(
             log.info("ai_only_processing", city=city.name, topic=topic.name, pages=len(pages))
             records = []
             for url, text in pages:
+                await asyncio.sleep(0)
                 community_names: list[str] = []
 
                 # ── Community extraction (with fingerprint cache) ────────────
