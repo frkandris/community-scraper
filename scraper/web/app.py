@@ -2461,7 +2461,7 @@ async def trigger_run(
     if run_mode not in ("full", "ai_only"):
         run_mode = "full"
     app_state.is_running = True
-    app_state.current_run_mode = run_mode
+    app_state.current_run_mode = "re-ai" if run_mode == "ai_only" else "smart"
     _skip_scraped = (skip_scraped == "on")
     _skip_extracted = (skip_extracted == "on")
     _run_communities = (run_communities == "on")
