@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-14
+
+- **Smart run fázis-alapú sorrend**: a Smart futás (`run_mode="full"`) először az összes városra lefuttatja az AI-újrafeldolgozást (stale fingerprint esetén), csak ezután kerülnek sorra az új keresések — a lista elején lévő nagy városok adatai frissülnek legelőbb
+
 ## 2026-05-12
 
 - **Stop gomb javítás**: a scheduler és revalidate futásokat most már a stop gomb le tudja állítani — `asyncio.create_task()` + `app_state._run_task` minta; `BackgroundTasks` lecserélve

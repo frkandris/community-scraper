@@ -15,6 +15,10 @@ For each `(city, topic)` pair it:
 5. Saves structured community, venue, and person records to SQLite.
 6. Serves the data through a bilingual public website (HU/EN) and a password-protected admin UI.
 
+The scheduled **Smart run** works in two phases, both city-ordered (largest cities first):
+1. **Re-AI phase** — re-extracts all cached pages where the extraction fingerprint is stale (prompt or model changed).
+2. **Search phase** — searches for new `(city, topic)` pairs not yet covered.
+
 ## Architecture
 
 ```
