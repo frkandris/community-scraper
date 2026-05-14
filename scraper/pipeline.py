@@ -306,10 +306,16 @@ async def run_pipeline(
             run_communities=run_communities, run_venues=run_venues, run_persons=run_persons,
         )
     else:
-        total_new, pair_logs = await _run_full(
+        reai_new, reai_logs = await _run_ai_only(
+            cities, topics, config, extractor, cache, _skip_extracted, run_stats, on_progress,
+            run_communities=run_communities, run_venues=run_venues, run_persons=run_persons,
+        )
+        full_new, full_logs = await _run_full(
             cities, topics, config, extractor, cache, _skip_scraped, _skip_extracted, run_stats, on_progress,
             run_communities=run_communities, run_venues=run_venues, run_persons=run_persons,
         )
+        total_new = reai_new + full_new
+        pair_logs = reai_logs + full_logs
 
     if run_mode == "full":
         covered = get_covered_pairs(config.db_path)
