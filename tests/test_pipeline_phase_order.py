@@ -10,7 +10,14 @@ from scraper.pipeline import (
 )
 
 
-def _cfg(tmp_path: Path) -> PipelineConfig:
+def _db(tmp_path: Path) -> Path:
+    from scraper.db import init_db
+    p = tmp_path / "scraper.db"
+    init_db(p)
+    return p
+
+
+def _cfg(db: Path) -> PipelineConfig:
     return PipelineConfig(
         searxng_url="http://localhost:8888",
         ollama_url="http://localhost:11434",
@@ -25,19 +32,16 @@ def _cfg(tmp_path: Path) -> PipelineConfig:
         fetch_min_text_length=100,
         fetch_max_concurrent=3,
         fetch_blocked_domains=[],
-        db_path=tmp_path / "scraper.db",
+        db_path=db,
     )
 
 
 def test_full_mode_runs_reai_before_search(tmp_path):
     """Smart mode must run re-ai phase first, then full search phase."""
-    from scraper.db import init_db
-    db = tmp_path / "scraper.db"
-    init_db(db)
-
+    db = _db(tmp_path)
     cities = [CityConfig(name="Budapest", locale="hu", search_variants=[])]
     topics = [TopicConfig(name="running", search_terms={"hu": ["futás"]})]
-    cfg = _cfg(tmp_path)
+    cfg = _cfg(db)
 
     call_order = []
 
@@ -62,13 +66,10 @@ def test_full_mode_runs_reai_before_search(tmp_path):
 
 def test_ai_only_mode_does_not_run_full(tmp_path):
     """ai_only mode must not trigger the full search phase."""
-    from scraper.db import init_db
-    db = tmp_path / "scraper.db"
-    init_db(db)
-
+    db = _db(tmp_path)
     cities = [CityConfig(name="Budapest", locale="hu", search_variants=[])]
     topics = [TopicConfig(name="running", search_terms={"hu": ["futás"]})]
-    cfg = _cfg(tmp_path)
+    cfg = _cfg(db)
 
     call_order = []
 
