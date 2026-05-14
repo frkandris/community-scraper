@@ -52,7 +52,8 @@ def test_full_mode_runs_reai_before_search(tmp_path):
     with patch("scraper.pipeline._run_ai_only", side_effect=fake_ai_only), \
          patch("scraper.pipeline._run_full", side_effect=fake_full), \
          patch("scraper.pipeline.get_covered_pairs", return_value=set()), \
-         patch("scraper.pipeline.OllamaExtractor"):
+         patch("scraper.pipeline.OllamaExtractor"), \
+         patch("scraper.duplicates.detect_all"):
         asyncio.run(run_pipeline(cities, topics, cfg, cache=None, run_mode="full"))
 
     assert call_order[0] == "ai_only", f"Expected ai_only first, got: {call_order}"
@@ -81,7 +82,8 @@ def test_ai_only_mode_does_not_run_full(tmp_path):
 
     with patch("scraper.pipeline._run_ai_only", side_effect=fake_ai_only), \
          patch("scraper.pipeline._run_full", side_effect=fake_full), \
-         patch("scraper.pipeline.OllamaExtractor"):
+         patch("scraper.pipeline.OllamaExtractor"), \
+         patch("scraper.duplicates.detect_all"):
         asyncio.run(run_pipeline(cities, topics, cfg, cache=None, run_mode="ai_only"))
 
     assert call_order == ["ai_only"], f"Expected only ai_only, got: {call_order}"
