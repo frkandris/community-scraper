@@ -128,9 +128,10 @@ async def main() -> None:
         run_id = start_run(db_path, started, "full")
         success = False
         pair_logs: list = []
+        hu_cities = [c for c in (app_state.cities or []) if c.country == "Hungary"]
         try:
             pair_logs = await run_pipeline(
-                app_state.cities,
+                hu_cities,
                 app_state.topics,
                 app_state.pipeline_cfg,
                 cache=app_state.cache_manager,
@@ -186,9 +187,10 @@ async def main() -> None:
         run_id = start_run(db_path, started, startup_mode)
         success = False
         pair_logs: list = []
+        hu_cities = [c for c in (app_state.cities or []) if c.country == "Hungary"]
         try:
             pair_logs = await run_pipeline(
-                app_state.cities,
+                hu_cities,
                 app_state.topics,
                 app_state.pipeline_cfg,
                 cache=app_state.cache_manager,
