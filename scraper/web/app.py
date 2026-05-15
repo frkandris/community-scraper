@@ -937,7 +937,7 @@ async def public_home(request: Request, city: str = ""):
     hu_cities = [c for c in (app_state.cities or []) if c.name in hu_names]
     topics = app_state.topics or []
     topic_url_slugs = {t.name: _topic_url_slug(t.name, "hu") for t in topics}
-    if _home_stats_cache is None:
+    if not _home_stats_cache:
         topic_counts = _hu_topic_counts()
         venue_counts = {k: v for k, v in (get_venue_counts(_db()) if app_state.db_path else {}).items() if k in hu_names}
         person_counts = {k: v for k, v in (get_person_counts(_db()) if app_state.db_path else {}).items() if k in hu_names}
