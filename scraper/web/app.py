@@ -1383,7 +1383,7 @@ async def public_unsubscribe(request: Request, token: str = ""):
     if token and app_state.db_path:
         from ..db import delete_subscription
         removed = delete_subscription(app_state.db_path, token)
-    return templates.TemplateResponse(request, "public_unsubscribe.html", {"removed": removed})
+    return templates.TemplateResponse(request, "public_unsubscribe.html", {"removed": removed, **lang_context(request)})
 
 
 @_fastapi.get("/api/city-topics")
