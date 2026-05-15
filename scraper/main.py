@@ -129,6 +129,7 @@ async def main() -> None:
         success = False
         pair_logs: list = []
         hu_cities = [c for c in (app_state.cities or []) if c.country == "Hungary"]
+        intl_cities = [c for c in (app_state.cities or []) if c.country != "Hungary"]
         try:
             pair_logs = await run_pipeline(
                 hu_cities,
@@ -137,6 +138,15 @@ async def main() -> None:
                 cache=app_state.cache_manager,
                 on_progress=_on_progress,
             )
+            if intl_cities:
+                intl_logs = await run_pipeline(
+                    intl_cities,
+                    app_state.topics,
+                    app_state.pipeline_cfg,
+                    cache=app_state.cache_manager,
+                    on_progress=_on_progress,
+                )
+                pair_logs += intl_logs
             app_state.last_run_at = datetime.now(timezone.utc)
             success = True
         except Exception as exc:
@@ -188,6 +198,7 @@ async def main() -> None:
         success = False
         pair_logs: list = []
         hu_cities = [c for c in (app_state.cities or []) if c.country == "Hungary"]
+        intl_cities = [c for c in (app_state.cities or []) if c.country != "Hungary"]
         try:
             pair_logs = await run_pipeline(
                 hu_cities,
@@ -197,6 +208,16 @@ async def main() -> None:
                 on_progress=_on_progress,
                 run_mode=startup_mode,
             )
+            if intl_cities:
+                intl_logs = await run_pipeline(
+                    intl_cities,
+                    app_state.topics,
+                    app_state.pipeline_cfg,
+                    cache=app_state.cache_manager,
+                    on_progress=_on_progress,
+                    run_mode=startup_mode,
+                )
+                pair_logs += intl_logs
             app_state.last_run_at = datetime.now(timezone.utc)
             success = True
         except Exception as exc:
