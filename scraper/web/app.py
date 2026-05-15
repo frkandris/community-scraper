@@ -1573,6 +1573,9 @@ async def robots_txt(request: Request):
     site = _detect_site(request)
     site_url = "https://meetapedia.com" if site == "meetapedia" else "https://kozossegek.com"
     return PlainTextResponse(
+        "User-agent: facebookexternalhit\n"
+        "Allow: /\n"
+        "\n"
         "User-agent: *\n"
         "Disallow: /admin\n"
         "Disallow: /source/\n"
@@ -1590,16 +1593,17 @@ async def sitemap(request: Request):
     base = ctx["site_url"]
     site_city_names = {c.name for c in _site_cities(request)}
 
-    locs: list[str] = [
-        base + "/",
-        base + "/rolunk",
-        base + "/terkep",
-        base + "/varosok",
-        base + "/felfedezes",
-        base + "/helyszinek",
-        base + "/emberek",
-        base + "/kozosseg-bekuldes",
-    ]
+    is_meetapedia = ctx.get("site") == "meetapedia"
+    if is_meetapedia:
+        static_paths = ["/", "/about", "/map", "/cities", "/explore", "/venues", "/people", "/submit-community"]
+        venue_prefix = "/venue/"
+        person_prefix = "/person/"
+    else:
+        static_paths = ["/", "/rolunk", "/terkep", "/varosok", "/felfedezes", "/helyszinek", "/emberek", "/kozosseg-bekuldes"]
+        venue_prefix = "/helyszin/"
+        person_prefix = "/ember/"
+
+    locs: list[str] = [base + p for p in static_paths]
 
     if app_state.db_path:
         init_db(app_state.db_path)
@@ -1619,23 +1623,24 @@ async def sitemap(request: Request):
                     if name_sl:
                         locs.append(f"{base}/{city_sl}/{name_sl}")
 
-        for v in get_all_venues(app_state.db_path):
-            if v.get("city", "") not in site_city_names:
-                continue
-            city_sl = _slugify(v.get("city", ""))
-            name_sl = _slugify(v.get("name", ""))
-            if city_sl and name_sl:
-                locs.append(f"{base}/{city_sl}/helyszin/{name_sl}")
+        if not is_meetapedia:
+            for v in get_all_venues(app_state.db_path):
+                if v.get("city", "") not in site_city_names:
+                    continue
+                city_sl = _slugify(v.get("city", ""))
+                name_sl = _slugify(v.get("name", ""))
+                if city_sl and name_sl:
+                    locs.append(f"{base}/{city_sl}{venue_prefix}{name_sl}")
 
-        seen_persons: set[tuple[str, str]] = set()
-        for p in get_all_persons(app_state.db_path):
-            if p.get("city", "") not in site_city_names:
-                continue
-            city_sl = _slugify(p.get("city", ""))
-            name_sl = _slugify(p.get("name", ""))
-            if city_sl and name_sl and (city_sl, name_sl) not in seen_persons:
-                seen_persons.add((city_sl, name_sl))
-                locs.append(f"{base}/{city_sl}/ember/{name_sl}")
+            seen_persons: set[tuple[str, str]] = set()
+            for p in get_all_persons(app_state.db_path):
+                if p.get("city", "") not in site_city_names:
+                    continue
+                city_sl = _slugify(p.get("city", ""))
+                name_sl = _slugify(p.get("name", ""))
+                if city_sl and name_sl and (city_sl, name_sl) not in seen_persons:
+                    seen_persons.add((city_sl, name_sl))
+                    locs.append(f"{base}/{city_sl}{person_prefix}{name_sl}")
 
     lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
