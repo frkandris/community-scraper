@@ -57,11 +57,6 @@ def load_config_from_docs(
     groq_cfg = settings.get("groq", {})
     pipeline_cfg = PipelineConfig(
         searxng_url=os.environ.get("SEARXNG_URL", "http://localhost:8080"),
-        ollama_url=os.environ.get("OLLAMA_URL", "http://localhost:11434"),
-        ollama_model=settings["ollama"]["model"],
-        ollama_temperature=settings["ollama"]["temperature"],
-        ollama_timeout=settings["ollama"]["timeout_seconds"],
-        ollama_max_text_chars=settings["ollama"].get("max_text_chars", 3000),
         search_results_per_query=settings["search"]["results_per_query"],
         search_max_pages=settings["search"]["max_pages_per_topic"],
         search_rate_limit=settings["search"]["rate_limit_seconds"],

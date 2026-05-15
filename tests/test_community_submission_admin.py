@@ -25,11 +25,6 @@ def _db(tmp_path: Path) -> Path:
 def _cfg(db: Path) -> PipelineConfig:
     return PipelineConfig(
         searxng_url="http://localhost:8888",
-        ollama_url="http://localhost:11434",
-        ollama_model="llama3",
-        ollama_temperature=0.1,
-        ollama_timeout=30,
-        ollama_max_text_chars=6000,
         search_results_per_query=5,
         search_max_pages=2,
         search_rate_limit=1.0,

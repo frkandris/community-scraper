@@ -1,9 +1,3 @@
-ollama:
-  model: gemma3:4b
-  temperature: 0.1
-  timeout_seconds: 180
-  max_text_chars: 6000
-
 deepseek:
   model: deepseek-chat
   temperature: 0.1

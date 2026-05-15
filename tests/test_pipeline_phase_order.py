@@ -20,11 +20,6 @@ def _db(tmp_path: Path) -> Path:
 def _cfg(db: Path) -> PipelineConfig:
     return PipelineConfig(
         searxng_url="http://localhost:8888",
-        ollama_url="http://localhost:11434",
-        ollama_model="llama3",
-        ollama_temperature=0.1,
-        ollama_timeout=30,
-        ollama_max_text_chars=6000,
         search_results_per_query=5,
         search_max_pages=2,
         search_rate_limit=1.0,
@@ -56,7 +51,6 @@ def test_full_mode_runs_reai_before_search(tmp_path):
     with patch("scraper.pipeline._run_ai_only", side_effect=fake_ai_only), \
          patch("scraper.pipeline._run_full", side_effect=fake_full), \
          patch("scraper.pipeline.get_covered_pairs", return_value=set()), \
-         patch("scraper.pipeline.OllamaExtractor"), \
          patch("scraper.duplicates.detect_all"):
         asyncio.run(run_pipeline(cities, topics, cfg, cache=None, run_mode="full"))
 
@@ -83,7 +77,6 @@ def test_ai_only_mode_does_not_run_full(tmp_path):
 
     with patch("scraper.pipeline._run_ai_only", side_effect=fake_ai_only), \
          patch("scraper.pipeline._run_full", side_effect=fake_full), \
-         patch("scraper.pipeline.OllamaExtractor"), \
          patch("scraper.duplicates.detect_all"):
         asyncio.run(run_pipeline(cities, topics, cfg, cache=None, run_mode="ai_only"))
 

@@ -92,7 +92,7 @@ from ..extract import (ENRICH_SCHEMA, ENRICH_SYSTEM_PROMPT, EXTRACTION_SCHEMA,
                        VENUE_SCHEMA, VENUE_SYSTEM_PROMPT, VENUE_USER_PROMPT_TEMPLATE,
                        PERSON_SCHEMA, PERSON_SYSTEM_PROMPT, PERSON_USER_PROMPT_TEMPLATE,
                        PROMPT_KEYS, get_prompt, set_prompt_override,
-                       DeepSeekExtractor, FallbackExtractor, GroqExtractor, OllamaExtractor)
+                       DeepSeekExtractor, FallbackExtractor, GroqExtractor)
 from ..fetch import fetch_and_clean
 from ..models import CommunityRecord
 from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline, scrape_submitted_url, reextract_community
@@ -422,15 +422,6 @@ def _lib_version(name: str) -> str:
         return "?"
 
 
-async def _ollama_version(base_url: str) -> str:
-    try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.get(f"{base_url.rstrip('/')}/api/version")
-            return resp.json().get("version", "?")
-    except Exception:
-        return "unreachable"
-
-
 async def _searxng_status(base_url: str) -> str:
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
@@ -443,22 +434,15 @@ async def _searxng_status(base_url: str) -> str:
 
 async def _build_software_info() -> dict:
     cfg = app_state.pipeline_cfg
-    ollama_url = cfg.ollama_url if cfg else "http://localhost:11434"
-    ollama_model = cfg.ollama_model if cfg else "?"
     brave_key = cfg.brave_api_key if cfg else ""
     if brave_key:
         search_info = {"label": "Brave Search", "status": "ok", "backend": "brave"}
-        ollama_ver = await _ollama_version(ollama_url)
     else:
         searxng_url = cfg.searxng_url if cfg else "http://localhost:8080"
-        ollama_ver, searxng_st = await asyncio.gather(
-            _ollama_version(ollama_url),
-            _searxng_status(searxng_url),
-        )
+        searxng_st = await _searxng_status(searxng_url)
         search_info = {"label": "SearXNG", "status": searxng_st, "backend": "searxng"}
     return {
         "searxng": search_info,
-        "ollama": {"label": "Ollama", "version": ollama_ver, "model": ollama_model},
         "python": {"label": "Python", "version": sys.version.split()[0]},
         "libs": {
             "httpx": _lib_version("httpx"),
@@ -1234,7 +1218,7 @@ async def public_source_page(request: Request, url_hash: str):
         return RedirectResponse("/", status_code=302)
 
     cfg = app_state.pipeline_cfg
-    max_text_chars = cfg.ollama_max_text_chars if cfg else 6000
+    max_text_chars = cfg.groq_max_text_chars if cfg else 6000
 
     extract_user_prompt = ""
     if entry.get("raw_text") and entry.get("topic") and entry.get("city"):
@@ -1651,7 +1635,7 @@ def _get_run_scopes() -> dict:
     elif cfg.groq_api_key:
         model = cfg.groq_model or "llama-3.1-70b-versatile"
     else:
-        model = cfg.ollama_model or "llama3"
+        return {}
     try:
         extract_fp = _prompt_hash(_ep("extraction_system") + model)
         venue_fp   = _prompt_hash(_ep("venue_system") + model)
@@ -1755,16 +1739,17 @@ async def dashboard(request: Request):
                 elif cfg.groq_api_key:
                     _model = cfg.groq_model or "llama-3.1-70b-versatile"
                 else:
-                    _model = cfg.ollama_model or "llama3"
-                extract_fp = _prompt_hash(_ep("extraction_system") + _model)
-                venue_fp   = _prompt_hash(_ep("venue_system") + _model)
-                person_fp  = _prompt_hash(_ep("person_system") + _model)
-                _stats = get_scope_stats(app_state.db_path, extract_fp, venue_fp, person_fp)
-                reai_pending = _stats["with_text"] - _stats["fully_matched"]
-                _hu = list(_hu_city_names())
-                if _hu:
-                    _stats_hu = get_scope_stats(app_state.db_path, extract_fp, venue_fp, person_fp, cities=_hu)
-                    reai_pending_hu = _stats_hu["with_text"] - _stats_hu["fully_matched"]
+                    _model = ""
+                if _model:
+                    extract_fp = _prompt_hash(_ep("extraction_system") + _model)
+                    venue_fp   = _prompt_hash(_ep("venue_system") + _model)
+                    person_fp  = _prompt_hash(_ep("person_system") + _model)
+                    _stats = get_scope_stats(app_state.db_path, extract_fp, venue_fp, person_fp)
+                    reai_pending = _stats["with_text"] - _stats["fully_matched"]
+                    _hu = list(_hu_city_names())
+                    if _hu:
+                        _stats_hu = get_scope_stats(app_state.db_path, extract_fp, venue_fp, person_fp, cities=_hu)
+                        reai_pending_hu = _stats_hu["with_text"] - _stats_hu["fully_matched"]
         except Exception:
             pass
 
@@ -2603,12 +2588,7 @@ async def test_searxng(q: str = "running club Budapest"):
 
 
 def _build_extractor(cfg):
-    """Build the extractor chain (DeepSeek → Groq → Ollama) from PipelineConfig."""
-    ollama = OllamaExtractor(
-        base_url=cfg.ollama_url, model=cfg.ollama_model,
-        temperature=cfg.ollama_temperature, timeout_seconds=cfg.ollama_timeout,
-        max_text_chars=cfg.ollama_max_text_chars,
-    )
+    """Build the extractor chain (DeepSeek → Groq) from PipelineConfig."""
     primaries = []
     if cfg.deepseek_api_key:
         primaries.append(DeepSeekExtractor(
@@ -2624,7 +2604,7 @@ def _build_extractor(cfg):
             max_text_chars=cfg.groq_max_text_chars,
             rate_limit_seconds=cfg.groq_rate_limit_seconds,
         ))
-    return FallbackExtractor(primaries=primaries, fallback=ollama) if primaries else ollama
+    return FallbackExtractor(primaries=primaries)
 
 
 async def _queue_worker() -> None:
@@ -2882,8 +2862,7 @@ async def cache_detail(request: Request, url_hash: str):
     schema_records = store_records or (entry.get("records") or [])
     schema_json = records_to_jsonld(schema_records)
 
-    ollama_model = app_state.pipeline_cfg.ollama_model if app_state.pipeline_cfg else "?"
-    max_text_chars = app_state.pipeline_cfg.ollama_max_text_chars if app_state.pipeline_cfg else 6000
+    max_text_chars = app_state.pipeline_cfg.groq_max_text_chars if app_state.pipeline_cfg else 6000
 
     extract_user_prompt = ""
     if entry.get("raw_text") and entry.get("topic") and entry.get("city"):
@@ -2917,7 +2896,6 @@ async def cache_detail(request: Request, url_hash: str):
         "extract_schema": json.dumps(EXTRACTION_SCHEMA, indent=2),
         "enrich_system_prompt": ENRICH_SYSTEM_PROMPT,
         "enrich_schema": json.dumps(ENRICH_SCHEMA, indent=2),
-        "ollama_model": ollama_model,
         "related_entries": related_entries,
         "fp_extraction": fp_extraction,
         "fp_enrichment": fp_enrichment,

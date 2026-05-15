@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 import structlog
 
-from .extract import DeepSeekExtractor, FallbackExtractor, GroqExtractor, OllamaExtractor
+from .extract import DeepSeekExtractor, FallbackExtractor, GroqExtractor
 from .false_positives import build_prompt_section
 from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
@@ -211,11 +211,6 @@ class TopicConfig:
 @dataclass
 class PipelineConfig:
     searxng_url: str
-    ollama_url: str
-    ollama_model: str
-    ollama_temperature: float
-    ollama_timeout: int
-    ollama_max_text_chars: int
     search_results_per_query: int
     search_max_pages: int
     search_rate_limit: float
@@ -263,13 +258,6 @@ async def run_pipeline(
     _skip_scraped = skip_scraped if skip_scraped is not None else config.cache_skip_scraped
     _skip_extracted = skip_extracted if skip_extracted is not None else config.cache_skip_extracted
 
-    ollama = OllamaExtractor(
-        base_url=config.ollama_url,
-        model=config.ollama_model,
-        temperature=config.ollama_temperature,
-        timeout_seconds=config.ollama_timeout,
-        max_text_chars=config.ollama_max_text_chars,
-    )
     primaries = []
     if config.deepseek_api_key:
         primaries.append(DeepSeekExtractor(
@@ -289,12 +277,8 @@ async def run_pipeline(
             max_text_chars=config.groq_max_text_chars,
             rate_limit_seconds=config.groq_rate_limit_seconds,
         ))
-    if primaries:
-        extractor: OllamaExtractor | FallbackExtractor = FallbackExtractor(primaries=primaries, fallback=ollama)
-        log.info("extractor", primaries=[p.model for p in primaries], fallback=config.ollama_model)
-    else:
-        extractor = ollama
-        log.info("extractor", backend="ollama", model=config.ollama_model)
+    extractor: FallbackExtractor = FallbackExtractor(primaries=primaries)
+    log.info("extractor", primaries=[p.model for p in primaries])
 
     run_stats: dict[str, dict[str, int]] = {}
     total_new = 0
@@ -781,13 +765,6 @@ async def scrape_submitted_url(
     topic: str,
     url: str,
 ) -> bool:
-    ollama = OllamaExtractor(
-        base_url=config.ollama_url,
-        model=config.ollama_model,
-        temperature=config.ollama_temperature,
-        timeout_seconds=config.ollama_timeout,
-        max_text_chars=config.ollama_max_text_chars,
-    )
     primaries = []
     if config.deepseek_api_key:
         primaries.append(DeepSeekExtractor(
@@ -807,9 +784,7 @@ async def scrape_submitted_url(
             max_text_chars=config.groq_max_text_chars,
             rate_limit_seconds=config.groq_rate_limit_seconds,
         ))
-    extractor: OllamaExtractor | FallbackExtractor = (
-        FallbackExtractor(primaries=primaries, fallback=ollama) if primaries else ollama
-    )
+    extractor: FallbackExtractor = FallbackExtractor(primaries=primaries)
 
     text = await fetch_and_clean(url, blocked_domains=[], timeout_seconds=15)
     if not text:
@@ -854,13 +829,6 @@ async def reextract_community(
         log.warning("reextract_community_no_text", community_id=community_id, url=source_url)
         return False
 
-    ollama = OllamaExtractor(
-        base_url=config.ollama_url,
-        model=config.ollama_model,
-        temperature=config.ollama_temperature,
-        timeout_seconds=config.ollama_timeout,
-        max_text_chars=config.ollama_max_text_chars,
-    )
     primaries = []
     if config.deepseek_api_key:
         primaries.append(DeepSeekExtractor(
@@ -880,9 +848,7 @@ async def reextract_community(
             max_text_chars=config.groq_max_text_chars,
             rate_limit_seconds=config.groq_rate_limit_seconds,
         ))
-    extractor: OllamaExtractor | FallbackExtractor = (
-        FallbackExtractor(primaries=primaries, fallback=ollama) if primaries else ollama
-    )
+    extractor: FallbackExtractor = FallbackExtractor(primaries=primaries)
 
     all_fps = load_false_positives(db_path)
     records = await extractor.extract(

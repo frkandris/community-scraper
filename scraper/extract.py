@@ -419,183 +419,6 @@ def _parse_communities(
     return records
 
 
-class OllamaExtractor:
-    def __init__(
-        self,
-        base_url: str,
-        model: str = "qwen2.5:7b",
-        temperature: float = 0.1,
-        timeout_seconds: int = 180,
-        max_text_chars: int = 6000,
-    ):
-        self.base_url = base_url.rstrip("/")
-        self.model = model
-        self.temperature = temperature
-        self.timeout_seconds = timeout_seconds
-        self.max_text_chars = max_text_chars
-
-    @property
-    def model_fingerprint(self) -> str:
-        return _prompt_hash(get_prompt("extraction_system") + self.model)
-
-    @property
-    def venue_fingerprint(self) -> str:
-        return _prompt_hash(get_prompt("venue_system") + self.model)
-
-    @property
-    def person_fingerprint(self) -> str:
-        return _prompt_hash(get_prompt("person_system") + self.model)
-
-    @property
-    def enrich_fingerprint(self) -> str:
-        return _prompt_hash(get_prompt("enrich_system") + self.model)
-
-    async def extract(
-        self,
-        text: str,
-        city: str,
-        topic: str,
-        locale: str,
-        source_url: str,
-        false_positive_examples: str = "",
-    ) -> list[CommunityRecord]:
-        truncated = text[: self.max_text_chars]
-        user_message = get_prompt("extraction_user").format(
-            topic=topic,
-            city=city,
-            source_url=source_url,
-            page_text=truncated,
-        )
-        system = get_prompt("extraction_system") + false_positive_examples
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user_message},
-            ],
-            "stream": False,
-            "format": EXTRACTION_SCHEMA,
-            "options": {"temperature": self.temperature},
-        }
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-                resp = await client.post(f"{self.base_url}/api/chat", json=payload)
-                resp.raise_for_status()
-                data = resp.json()
-        except Exception as exc:
-            log.warning("ollama_request_failed", url=source_url, error=str(exc))
-            return []
-
-        raw = data.get("message", {}).get("content", "")
-        return _parse_communities(raw, city, topic, locale, source_url)
-
-    async def extract_venues(
-        self, text: str, city: str, locale: str, source_url: str,
-        valid_topics: list[str] | None = None,
-    ) -> list[VenueRecord]:
-        topics_hint = (
-            f"\nValid topic slugs for 'welcomed_topics' (use these exact values): "
-            f"{', '.join(valid_topics)}\n"
-            if valid_topics else ""
-        )
-        user_message = get_prompt("venue_user").format(
-            city=city, source_url=source_url, page_text=text[:self.max_text_chars],
-            topics_hint=topics_hint,
-        )
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": get_prompt("venue_system")},
-                {"role": "user", "content": user_message},
-            ],
-            "stream": False,
-            "format": VENUE_SCHEMA,
-            "options": {"temperature": 0.0},
-        }
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-                resp = await client.post(f"{self.base_url}/api/chat", json=payload)
-                resp.raise_for_status()
-                data = resp.json()
-            raw = data.get("message", {}).get("content", "")
-            return _parse_venues(raw, city, locale, source_url)
-        except Exception as exc:
-            log.debug("extract_venues_failed", url=source_url, error=str(exc))
-        return []
-
-    async def extract_persons(
-        self, text: str, city: str, topic: str, locale: str, source_url: str,
-        community_names: list[str] | None = None,
-    ) -> list[PersonRecord]:
-        names_str = "\n".join(f"- {n}" for n in (community_names or [])) or "(none known)"
-        user_message = get_prompt("person_user").format(
-            city=city, topic=topic, source_url=source_url,
-            community_names=names_str,
-            page_text=text[:self.max_text_chars],
-        )
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": get_prompt("person_system")},
-                {"role": "user", "content": user_message},
-            ],
-            "stream": False,
-            "format": PERSON_SCHEMA,
-            "options": {"temperature": 0.0},
-        }
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-                resp = await client.post(f"{self.base_url}/api/chat", json=payload)
-                resp.raise_for_status()
-                data = resp.json()
-            raw = data.get("message", {}).get("content", "")
-            return _parse_persons(raw, city, topic, locale, source_url)
-        except Exception as exc:
-            log.warning("extract_persons_failed", url=source_url, error=str(exc))
-        return []
-
-    async def chat(self, user_msg: str, temperature: float = 0.3) -> str:
-        """Free-form chat completion — returns raw text."""
-        payload = {
-            "model": self.model,
-            "messages": [{"role": "user", "content": user_msg}],
-            "stream": False,
-            "options": {"temperature": temperature},
-        }
-        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-            resp = await client.post(f"{self.base_url}/api/chat", json=payload)
-            resp.raise_for_status()
-        return resp.json().get("message", {}).get("content", "").strip()
-
-    async def enrich(self, record: CommunityRecord, page_text: str,
-                     false_positive_examples: str = "") -> CommunityRecord:
-        """Try to fill in missing contact fields from an additional page."""
-        user_message = (
-            f"Community group: '{record.name}' in {record.city}\n\n"
-            f"--- PAGE TEXT ---\n{page_text[:self.max_text_chars]}"
-        )
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": get_prompt("enrich_system") + false_positive_examples},
-                {"role": "user", "content": user_message},
-            ],
-            "stream": False,
-            "format": ENRICH_SCHEMA,
-            "options": {"temperature": 0.0},
-        }
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-                resp = await client.post(f"{self.base_url}/api/chat", json=payload)
-                resp.raise_for_status()
-                data = resp.json()
-            raw = data.get("message", {}).get("content", "")
-            enrichment = json.loads(raw)
-            return _apply_enrich(record, enrichment)
-        except Exception as exc:
-            log.debug("enrich_failed", community=record.name, error=str(exc))
-        return record
-
 
 _API_EXTRACT_SUFFIX = (
     "\n\nRespond ONLY with a valid JSON object: "
@@ -842,16 +665,15 @@ _GROQ_RETRY_DEFAULT_WAIT = _API_RETRY_DEFAULT_WAIT
 
 
 class FallbackExtractor:
-    """Chain of API extractors with OllamaExtractor as final fallback.
+    """Chain of API extractors (DeepSeek → Groq).
 
-    Tries primaries left-to-right (e.g. DeepSeek → Groq) then Ollama.
+    Tries primaries left-to-right.
     - ExtractorQuotaError  → permanent skip for that provider
     - ExtractorRateLimitError → temporary skip; retried after wait_seconds
     """
 
-    def __init__(self, primaries: list, fallback: OllamaExtractor):
+    def __init__(self, primaries: list):
         self.primaries = primaries
-        self.fallback = fallback
         self._exhausted = [False] * len(primaries)
         self._blocked_until = [0.0] * len(primaries)
 
@@ -867,27 +689,27 @@ class FallbackExtractor:
     @property
     def model_fingerprint(self) -> str:
         idx = self._first_available()
-        return self.primaries[idx].model_fingerprint if idx is not None else self.fallback.model_fingerprint
+        return self.primaries[idx].model_fingerprint if idx is not None else (self.primaries[0].model_fingerprint if self.primaries else "")
 
     @property
     def venue_fingerprint(self) -> str:
         idx = self._first_available()
-        return self.primaries[idx].venue_fingerprint if idx is not None else self.fallback.venue_fingerprint
+        return self.primaries[idx].venue_fingerprint if idx is not None else (self.primaries[0].venue_fingerprint if self.primaries else "")
 
     @property
     def person_fingerprint(self) -> str:
         idx = self._first_available()
-        return self.primaries[idx].person_fingerprint if idx is not None else self.fallback.person_fingerprint
+        return self.primaries[idx].person_fingerprint if idx is not None else (self.primaries[0].person_fingerprint if self.primaries else "")
 
     @property
     def enrich_fingerprint(self) -> str:
         idx = self._first_available()
-        return self.primaries[idx].enrich_fingerprint if idx is not None else self.fallback.enrich_fingerprint
+        return self.primaries[idx].enrich_fingerprint if idx is not None else (self.primaries[0].enrich_fingerprint if self.primaries else "")
 
     @property
     def model(self) -> str:
         idx = self._first_available()
-        return self.primaries[idx].model if idx is not None else self.fallback.model
+        return self.primaries[idx].model if idx is not None else (self.primaries[0].model if self.primaries else "")
 
     async def extract(self, text: str, city: str, topic: str, locale: str,
                       source_url: str, false_positive_examples: str = "") -> list[CommunityRecord]:
@@ -903,7 +725,7 @@ class FallbackExtractor:
             except ExtractorQuotaError as exc:
                 log.warning("extractor_quota_exhausted", provider=primary.__class__.__name__, reason=str(exc))
                 self._exhausted[i] = True
-        return await self.fallback.extract(text, city, topic, locale, source_url, false_positive_examples)
+        return []
 
     async def enrich(self, record: CommunityRecord, page_text: str,
                      false_positive_examples: str = "") -> CommunityRecord:
@@ -919,7 +741,7 @@ class FallbackExtractor:
             except ExtractorQuotaError as exc:
                 log.warning("extractor_quota_exhausted", provider=primary.__class__.__name__, reason=str(exc))
                 self._exhausted[i] = True
-        return await self.fallback.enrich(record, page_text, false_positive_examples)
+        return record
 
     async def extract_venues(self, text: str, city: str, locale: str,
                              source_url: str,
@@ -937,8 +759,7 @@ class FallbackExtractor:
             except ExtractorQuotaError as exc:
                 log.warning("extractor_quota_exhausted", provider=primary.__class__.__name__, reason=str(exc))
                 self._exhausted[i] = True
-        return await self.fallback.extract_venues(text, city, locale, source_url,
-                                                  valid_topics=valid_topics)
+        return []
 
     async def extract_persons(self, text: str, city: str, topic: str, locale: str,
                               source_url: str,
@@ -955,7 +776,7 @@ class FallbackExtractor:
             except ExtractorQuotaError as exc:
                 log.warning("extractor_quota_exhausted", provider=primary.__class__.__name__, reason=str(exc))
                 self._exhausted[i] = True
-        return await self.fallback.extract_persons(text, city, topic, locale, source_url, community_names)
+        return []
 
     async def chat(self, user_msg: str, temperature: float = 0.3) -> str:
         """Free-form chat completion with provider fallback."""
@@ -971,4 +792,4 @@ class FallbackExtractor:
             except ExtractorQuotaError as exc:
                 log.warning("extractor_quota_exhausted", provider=primary.__class__.__name__, reason=str(exc))
                 self._exhausted[i] = True
-        return await self.fallback.chat(user_msg, temperature)
+        return ""

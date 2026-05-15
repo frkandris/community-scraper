@@ -19,11 +19,6 @@ def _db(tmp_path: Path) -> Path:
 def _cfg(db: Path) -> PipelineConfig:
     return PipelineConfig(
         searxng_url="http://localhost:8888",
-        ollama_url="http://localhost:11434",
-        ollama_model="llama3",
-        ollama_temperature=0.1,
-        ollama_timeout=30,
-        ollama_max_text_chars=6000,
         search_results_per_query=5,
         search_max_pages=2,
         search_rate_limit=1.0,
@@ -103,11 +98,11 @@ def test_reextract_community_uses_cached_text(tmp_path):
     save_cache_page(db, {"url": r.source_url, "url_hash": url_hash, "raw_text": "Futó klub szöveg"})
 
     cfg = _cfg(db)
-    with patch("scraper.pipeline.OllamaExtractor") as MockOllama, \
+    with patch("scraper.pipeline.FallbackExtractor") as MockFallback, \
          patch("scraper.pipeline.fetch_and_clean", new_callable=AsyncMock) as mock_fetch:
         mock_extractor = AsyncMock()
         mock_extractor.extract = AsyncMock(return_value=[])
-        MockOllama.return_value = mock_extractor
+        MockFallback.return_value = mock_extractor
         result = asyncio.run(reextract_community(db, cfg, r.community_id))
 
     assert result is True

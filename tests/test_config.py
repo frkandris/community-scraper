@@ -7,12 +7,6 @@ from scraper.config import load_config_from_docs
 
 def minimal_settings() -> dict:
     return {
-        "ollama": {
-            "model": "gemma3:4b",
-            "temperature": 0.1,
-            "timeout_seconds": 180,
-            "max_text_chars": 6000,
-        },
         "search": {
             "results_per_query": 10,
             "max_pages_per_topic": 5,
@@ -56,7 +50,7 @@ def test_load_config_from_docs_builds_runtime_config(tmp_path: Path):
 
     assert cities[0].name == "Budapest"
     assert topics[0].name == "running"
-    assert cfg.ollama_model == "gemma3:4b"
+    assert cfg.searxng_url is not None
 
 
 def test_load_config_from_docs_rejects_invalid_shapes(tmp_path: Path):
