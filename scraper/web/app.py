@@ -790,6 +790,14 @@ def _hu_city_names() -> set[str]:
     return {c.name for c in (app_state.cities or []) if c.country == "Hungary"}
 
 
+def _site_cities(request: Request) -> list:
+    from .i18n import _detect_site
+    cities = app_state.cities or []
+    if _detect_site(request) == "kozossegek":
+        return [c for c in cities if c.country == "Hungary"]
+    return cities
+
+
 def _global_topic_counts() -> dict[str, int]:
     return get_topic_counts(_db())
 
@@ -2047,7 +2055,7 @@ async def admin_community_reai(community_id: str, background_tasks: BackgroundTa
 
 # ── Re-validate existing communities ─────────────────────────────────────────
 
-_home_stats_cache: dict | None = None  # invalidated after each pipeline run
+_home_stats_cache: dict[str, dict] = {}  # keyed by site ("kozossegek" | "meetapedia")
 
 _revalidate_state: dict = {"running": False, "done": 0, "total": 0, "flagged": 0, "skipped": 0, "error": ""}
 
@@ -2524,7 +2532,7 @@ async def trigger_run(
             app_state.current_url = None
             app_state.current_run_mode = None
             global _home_stats_cache
-            _home_stats_cache = None
+            _home_stats_cache = {}
             if app_state.db_path and _run_id:
                 _finish_run(app_state.db_path, _run_id, datetime.now(timezone.utc),
                             success,

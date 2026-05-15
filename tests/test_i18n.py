@@ -83,3 +83,38 @@ def test_make_t_kwargs_override_defaults():
         assert t("_fmt_test2", site_name="override.com") == "site is override.com"
     finally:
         del _T["en"]["_fmt_test2"]
+
+
+def test_site_cities_kozossegek_filters_to_hungary(monkeypatch):
+    from scraper.web.app import _site_cities
+    from scraper.web.state import app_state
+
+    class FakeCity:
+        def __init__(self, name, country):
+            self.name = name
+            self.country = country
+
+    monkeypatch.setattr(app_state, "cities", [
+        FakeCity("Budapest", "Hungary"),
+        FakeCity("London", "United Kingdom"),
+    ])
+    result = _site_cities(_req("kozossegek.com"))
+    assert len(result) == 1
+    assert result[0].name == "Budapest"
+
+
+def test_site_cities_meetapedia_returns_all(monkeypatch):
+    from scraper.web.app import _site_cities
+    from scraper.web.state import app_state
+
+    class FakeCity:
+        def __init__(self, name, country):
+            self.name = name
+            self.country = country
+
+    monkeypatch.setattr(app_state, "cities", [
+        FakeCity("Budapest", "Hungary"),
+        FakeCity("London", "United Kingdom"),
+    ])
+    result = _site_cities(_req("meetapedia.com"))
+    assert len(result) == 2
