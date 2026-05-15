@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-05-15
+
+- **Multi-domain support**: `közösségek.com` (HU cities, HU UI) and `meetapedia.com` (all cities, EN UI) served from one container
+- `_detect_site(request)` in `i18n.py` — Host-header-based domain detection
+- `_site_cities(request)` in `app.py` — per-domain city filtering (HU-only vs. all)
+- Site-aware home stats cache keyed by domain (`dict[str, dict]`)
+- All public templates updated to use `{{ site_name }}`, `{{ site_url }}`, `{{ lang }}`, `{{ locale }}` variables
+- International cities pipeline run added in scheduler and startup after HU run
+
 ## 2026-05-14
 
 - **Smart run fázis-alapú sorrend**: a Smart futás (`run_mode="full"`) először az összes városra lefuttatja az AI-újrafeldolgozást (stale fingerprint esetén), csak ezután kerülnek sorra az új keresések — a lista elején lévő nagy városok adatai frissülnek legelőbb
