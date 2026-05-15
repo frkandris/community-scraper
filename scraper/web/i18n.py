@@ -2249,16 +2249,22 @@ def _detect_lang(request: Request) -> str:
     return "en"
 
 
-def make_t(lang: str):
+def _detect_site(request: Request) -> str:
+    host = request.headers.get("host", "").lower().removeprefix("www.").split(":")[0]
+    return "meetapedia" if "meetapedia" in host else "kozossegek"
+
+
+def make_t(lang: str, **defaults):
     base = _T.get("en", {})
     overrides = _T.get(lang, {})
     merged = {**base, **overrides}
 
     def t(key: str, **kwargs) -> str:
         text = merged.get(key, key)
-        if kwargs:
+        all_kwargs = {**defaults, **kwargs}
+        if all_kwargs:
             try:
-                text = text.format(**kwargs)
+                text = text.format(**all_kwargs)
             except (KeyError, IndexError):
                 pass
         return text
@@ -2266,15 +2272,21 @@ def make_t(lang: str):
 
 
 def lang_context(request: Request) -> dict:
-    # Site is Hungary-focused; always render in Hungarian.
-    # _detect_lang / LANGUAGES / cookie infrastructure kept for future multi-lang support.
-    lang = "hu"
+    site = _detect_site(request)
+    lang = "en" if site == "meetapedia" else "hu"
+    site_name = "meetapedia.com" if site == "meetapedia" else "közösségek.com"
+    site_url = f"https://{site_name}"
+    locale = "en_US" if site == "meetapedia" else "hu_HU"
     return {
         "lang": lang,
+        "site": site,
+        "site_name": site_name,
+        "site_url": site_url,
+        "locale": locale,
         "lang_dir": "ltr",
-        "t": make_t(lang),
+        "t": make_t(lang, site_name=site_name),
         "languages": dict(sorted(LANGUAGES.items(), key=lambda x: x[1]["name"])),
-        "current_lang": LANGUAGES.get(lang, LANGUAGES["hu"]),
+        "current_lang": LANGUAGES.get(lang, LANGUAGES["en"]),
         "topic_labels": get_topic_labels(lang),
         "venue_type_labels": get_venue_type_labels(lang),
     }
