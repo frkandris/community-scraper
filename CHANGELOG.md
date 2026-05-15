@@ -8,6 +8,15 @@
 - Site-aware home stats cache keyed by domain (`dict[str, dict]`)
 - All public templates updated to use `{{ site_name }}`, `{{ site_url }}`, `{{ lang }}`, `{{ locale }}` variables
 - International cities pipeline run added in scheduler and startup after HU run
+- **meetapedia.com site fixes**: English URL paths (`/about`, `/map`, `/explore`, `/cities`, `/submit-community`), flag language selector in nav (far right of search), world-view map default, country-grouped About page, no hardcoded Hungarian strings
+- **Search chain simplified**: DataForSEO → Serper only (SearXNG, Brave Search, DuckDuckGo removed)
+- **Extractor chain simplified**: DeepSeek → Groq only (Ollama removed)
+- **SVG favicon**: orange rounded square with three-person silhouette, served from `/static/favicon.svg`
+- **Homepage**: hero label removed; "Cities near you" geolocation section (client-side haversine, localStorage cache); country-grouped popular cities for meetapedia
+- **Site-aware sitemap.xml**: meetapedia generates English paths, közösségek generates Hungarian paths
+- **robots.txt**: explicit `facebookexternalhit Allow: /` block added
+- **Dockerfile HEALTHCHECK**: `--start-period=60s` so Coolify health checks survive slow startup
+- **Social media domains blocked**: Facebook, Instagram, TikTok, LinkedIn, YouTube, Reddit, X moved from `playwright_domains` to `blocked_domains` — Playwright was launching Chromium for login-walled sites, causing 91% CPU / 43 GB disk I/O per run
 
 ## 2026-05-14
 

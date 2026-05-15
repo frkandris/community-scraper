@@ -1,19 +1,19 @@
-# közösségek.com — Community Directory Scraper
+# közösségek.com / meetapedia.com — Community Directory Scraper
 
-A self-hosted scraper and public directory of local community groups in Hungary.
+A self-hosted scraper and public directory of local community groups.
 The app continuously discovers running clubs, choirs, board-game nights, yoga circles, etc.
-by city and interest topic, then serves them at **közösségek.com**.
+by city and interest topic, then serves them at **közösségek.com** (HU) and **meetapedia.com** (EN/international).
 
 ## What it does
 
 For each `(city, topic)` pair it:
 
-1. Generates search queries in Hungarian/English.
-2. Searches the web — Serper → Brave → SearXNG fallback chain.
-3. Fetches and cleans pages (`httpx` + `trafilatura`; Playwright for JS-heavy sites like Reddit).
-4. Runs LLM extraction — DeepSeek → Groq → Ollama fallback chain.
+1. Generates search queries in the city's language.
+2. Searches the web — DataForSEO → Serper fallback chain.
+3. Fetches and cleans pages (`httpx` + `trafilatura`). Social media domains (Facebook, Instagram, etc.) are blocked immediately.
+4. Runs LLM extraction — DeepSeek → Groq fallback chain.
 5. Saves structured community, venue, and person records to SQLite.
-6. Serves the data through a bilingual public website (HU/EN) and a password-protected admin UI.
+6. Serves the data through a public website and a password-protected admin UI.
 
 The scheduled **Smart run** works in two phases, both city-ordered (largest cities first):
 1. **Re-AI phase** — re-extracts all cached pages where the extraction fingerprint is stale (prompt or model changed).
@@ -23,25 +23,29 @@ The scheduled **Smart run** works in two phases, both city-ordered (largest citi
 
 ```
 pipeline.py
-  └── search.py      (Serper / Brave / SearXNG)
-  └── fetch.py       (httpx + trafilatura / Playwright)
-  └── extract.py     (DeepSeek / Groq / Ollama)
+  └── search.py      (DataForSEO / Serper)
+  └── fetch.py       (httpx + trafilatura; social domains blocked)
+  └── extract.py     (DeepSeek / Groq)
   └── store.py       (SQLite via db.py)
 
 web/app.py           (FastAPI — public site + /admin)
 main.py              (APScheduler + uvicorn)
 ```
 
+Two domains, one container. `_detect_site(request)` reads the `Host` header and switches language, URL paths, city scope, and map center accordingly.
+
 ## Public site
 
-| Page | URL |
-|------|-----|
-| Home | `/` |
-| City directory | `/:city` |
-| Explore by tag | `/felfedezes` |
-| Community detail | `/:city/:slug` |
-| Venue detail | `/:city/helyszinek/:slug` |
-| Person detail | `/:city/emberek/:slug` |
+| Page | közösségek.com | meetapedia.com |
+|------|----------------|----------------|
+| Home | `/` | `/` |
+| City directory | `/:city` | `/:city` |
+| Explore by tag | `/felfedezes` | `/explore` |
+| Venue list | `/helyszinek` | `/venues` |
+| People list | `/emberek` | `/people` |
+| Map | `/terkep` | `/map` |
+| About | `/rolunk` | `/about` |
+| Submit | `/kozosseg-bekuldes` | `/submit-community` |
 
 ## Admin UI (`/admin`)
 
@@ -73,12 +77,11 @@ main.py              (APScheduler + uvicorn)
 | Variable | Description |
 |----------|-------------|
 | `ADMIN_PASSWORD` | Required — gates the entire `/admin` UI |
-| `SEARXNG_URL` | SearXNG base URL |
-| `OLLAMA_URL` | Ollama base URL |
-| `DEEPSEEK_API_KEY` | Optional — faster/better extraction |
-| `GROQ_API_KEY` | Optional — fallback extraction |
-| `SERPER_DEV_API_KEY` | Optional — primary search |
-| `BRAVE_API_KEY` | Optional — secondary search |
+| `DEEPSEEK_API_KEY` | Primary LLM extraction (recommended) |
+| `GROQ_API_KEY` | Fallback LLM extraction |
+| `DATAFORSEO_LOGIN` | Primary search (recommended) |
+| `DATAFORSEO_PASSWORD` | Primary search |
+| `SERPER_DEV_API_KEY` | Fallback search |
 
 ## Deployment
 

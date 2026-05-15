@@ -24,9 +24,9 @@ pip install -e ".[dev]"
 
 The scraper discovers community groups for each `(city, topic)` pair:
 
-1. **Search** (`search.py`): Serper → Brave → SearXNG fallback chain. Quota errors permanently skip a provider for the run.
-2. **Fetch** (`fetch.py`): `httpx` + `trafilatura` to extract clean page text. Blocked domains (Facebook etc.) return `None` immediately.
-3. **Extract** (`extract.py`): DeepSeek → Groq → Ollama fallback chain. All three classes share `_ApiExtractor` base (for API providers) or `OllamaExtractor`. The `FallbackExtractor` wraps them with per-provider `_exhausted` and `_blocked_until` state.
+1. **Search** (`search.py`): DataForSEO → Serper fallback chain. Quota errors permanently skip a provider for the run.
+2. **Fetch** (`fetch.py`): `httpx` + `trafilatura` to extract clean page text. Blocked domains (Facebook, Instagram, TikTok, LinkedIn, YouTube, Reddit, Twitter/X) return `None` immediately. `playwright_domains` is currently empty — Playwright is installed but not active.
+3. **Extract** (`extract.py`): DeepSeek → Groq fallback chain. Both share `_ApiExtractor` base. The `FallbackExtractor` wraps them with per-provider `_exhausted` and `_blocked_until` state.
 4. **Store** (`store.py` → `db.py`): Upsert to SQLite `communities` table, merging `source_urls` on conflict.
 
 The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
@@ -36,7 +36,7 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 
 **Cache**: everything goes through `cache.py` (a thin facade over `db.py`). Each scraped URL gets a row in `cache_pages`. The extraction cache is fingerprint-keyed: SHA-256[:12] of `SYSTEM_PROMPT + model_name`. Changing either invalidates all cached extractions automatically.
 
-**Web app** (`web/app.py`): single FastAPI app with two routers — public (`_fastapi`) and admin (`admin`, gated by `_BasicAuth` ASGI middleware). Shared runtime state lives in `web/state.py:app_state` singleton.
+**Web app** (`web/app.py`): single FastAPI app serving two domains from one container. Public router (`_fastapi`) and admin router (`admin`, gated by `_BasicAuth` ASGI middleware). `_detect_site(request)` reads the `Host` header and returns `"meetapedia"` or `"kozossegek"`. `lang_context(request)` injects site-aware variables (`site`, `site_name`, `site_url`, `lang`, `locale`, `map_url`, `about_url`, `explore_url`, `submit_url`, `map_center`) into every public template. `_site_cities(request)` filters cities by domain (HU-only vs. all). Shared runtime state lives in `web/state.py:app_state` singleton.
 
 ## Key Files
 
@@ -91,4 +91,4 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 
 ## Deployment
 
-Runs on Coolify (Hetzner) via Docker. Persist only `/app/data` (SQLite) and `/app/config` (YAML edits). Do not mount a volume over the entire `/app/` tree. Required env vars: `ADMIN_PASSWORD`, `SEARXNG_URL`, `OLLAMA_URL`. Optional API keys: `DEEPSEEK_API_KEY`, `GROQ_API_KEY`, `SERPER_DEV_API_KEY`, `BRAVE_API_KEY`.
+Runs on Coolify (Hetzner) via Docker. Persist only `/app/data` (SQLite) and `/app/config` (YAML edits). Do not mount a volume over the entire `/app/` tree. Required env vars: `ADMIN_PASSWORD`. Optional API keys: `DEEPSEEK_API_KEY`, `GROQ_API_KEY`, `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD`, `SERPER_DEV_API_KEY`.
