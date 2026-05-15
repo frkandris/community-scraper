@@ -54,7 +54,7 @@ def test_lang_context_kozossegek_sets_hu_and_site_info():
     assert ctx["lang"] == "hu"
     assert ctx["site"] == "kozossegek"
     assert ctx["site_name"] == "közösségek.com"
-    assert ctx["site_url"] == "https://közösségek.com"
+    assert ctx["site_url"] == "https://kozossegek.com"
 
 
 def test_lang_context_includes_locale():

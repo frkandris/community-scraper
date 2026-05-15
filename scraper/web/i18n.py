@@ -2276,7 +2276,7 @@ def lang_context(request: Request) -> dict:
     site = _detect_site(request)
     lang = "en" if site == "meetapedia" else "hu"
     site_name = "meetapedia.com" if site == "meetapedia" else "közösségek.com"
-    site_url = f"https://{site_name}"
+    site_url = "https://meetapedia.com" if site == "meetapedia" else "https://kozossegek.com"
     locale = "en_US" if site == "meetapedia" else "hu_HU"
     return {
         "lang": lang,
