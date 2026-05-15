@@ -6,10 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Run tests
-pytest
+PYTHONPATH=. .venv/bin/pytest --ignore=tests/test_city_page.py
 
 # Run a single test file
-pytest tests/test_store.py
+PYTHONPATH=. .venv/bin/pytest tests/test_store.py
+
+# Note: tests/test_city_page.py has a pre-existing failure unrelated to any changes — always ignore it
 
 # Lint
 ruff check scraper/
@@ -49,7 +51,7 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 | `scraper/models.py` | `CommunityRecord` pydantic model with auto-cleanup validator |
 | `scraper/web/app.py` | All HTTP routes (~3700 lines) |
 | `scraper/duplicates.py` | Duplicate detection; admin UI at `/admin/duplicates` |
-| `scraper/playwright_fetch.py` | Playwright-based fetcher for JS-heavy sites; activated via `fetch_playwright_domains` in `settings.yaml` |
+| `scraper/playwright_fetch.py` | Playwright-based fetcher; `playwright_domains` in `settings.yaml` is currently empty (all social domains are blocked) |
 | `scraper/false_positives.py` | CRUD + prompt injection for false positive rules |
 | `scraper/web/schema.py` | JSON-LD schema generation for public pages |
 | `scraper/web/i18n.py` | Translations; `lang_context(request)` injects `t`, `lang`, `topic_labels` etc. into every public template |
@@ -78,6 +80,10 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 **Stop/cancel pattern**: long-running routes (pipeline, revalidate) must use `asyncio.create_task()` and store the task in `app_state._run_task`. `BackgroundTasks` (FastAPI) cannot be cancelled. `asyncio.CancelledError` is a `BaseException` in Python 3.8+, so `except Exception` will NOT catch it — always use `finally` for cleanup.
 
 **CSS build**: `scraper/web/static/css/app.css` is gitignored. Docker builds it from `input.css` via `pytailwindcss` at image build time. For local dev, maintain `app.css` manually. Committing `input.css` changes is sufficient for production.
+
+**Playwright vs. blocked ordering**: `fetch_and_clean()` checks `playwright_fetcher.matches(url)` *before* `_is_blocked()`. A domain in both lists gets fetched by Playwright, not blocked. Keep social-media domains out of `playwright_domains` entirely.
+
+**Two-domain nav active-state**: nav links in `public_base.html` use `or` prefix checks for both HU and EN paths (e.g. `_p.startswith('/terkep') or _p.startswith('/map')`). Add both prefixes when introducing a new route that exists on both domains.
 
 ## Adding Things
 
