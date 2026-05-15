@@ -131,7 +131,7 @@ async def main() -> None:
         hu_cities = [c for c in (app_state.cities or []) if c.country == "Hungary"]
         intl_cities = [c for c in (app_state.cities or []) if c.country != "Hungary"]
         try:
-            pair_logs = await run_pipeline(
+            pair_logs, _ = await run_pipeline(
                 hu_cities,
                 app_state.topics,
                 app_state.pipeline_cfg,
@@ -139,7 +139,7 @@ async def main() -> None:
                 on_progress=_on_progress,
             )
             if intl_cities:
-                intl_logs = await run_pipeline(
+                intl_logs, _ = await run_pipeline(
                     intl_cities,
                     app_state.topics,
                     app_state.pipeline_cfg,
@@ -200,7 +200,7 @@ async def main() -> None:
         hu_cities = [c for c in (app_state.cities or []) if c.country == "Hungary"]
         intl_cities = [c for c in (app_state.cities or []) if c.country != "Hungary"]
         try:
-            pair_logs = await run_pipeline(
+            pair_logs, _ = await run_pipeline(
                 hu_cities,
                 app_state.topics,
                 app_state.pipeline_cfg,
@@ -209,7 +209,7 @@ async def main() -> None:
                 run_mode=startup_mode,
             )
             if intl_cities:
-                intl_logs = await run_pipeline(
+                intl_logs, _ = await run_pipeline(
                     intl_cities,
                     app_state.topics,
                     app_state.pipeline_cfg,
