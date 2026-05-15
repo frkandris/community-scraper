@@ -56,7 +56,6 @@ def load_config_from_docs(
     deepseek_cfg = settings.get("deepseek", {})
     groq_cfg = settings.get("groq", {})
     pipeline_cfg = PipelineConfig(
-        searxng_url=os.environ.get("SEARXNG_URL", "http://localhost:8080"),
         search_results_per_query=settings["search"]["results_per_query"],
         search_max_pages=settings["search"]["max_pages_per_topic"],
         search_rate_limit=settings["search"]["rate_limit_seconds"],
@@ -70,7 +69,6 @@ def load_config_from_docs(
         cache_skip_extracted=cache_cfg.get("skip_extracted", True),
         search_cache_ttl_days=cache_cfg.get("search_ttl_days", 7),
         enrich_communities=pipeline_settings.get("enrich_communities", True),
-        brave_api_key=os.environ.get("BRAVE_API_KEY", ""),
         serper_api_key=os.environ.get("SERPER_DEV_API_KEY", ""),
         dataforseo_login=os.environ.get("DATAFORSEO_LOGIN", ""),
         dataforseo_password=os.environ.get("DATAFORSEO_PASSWORD", ""),

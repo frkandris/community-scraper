@@ -19,7 +19,6 @@ def _db(tmp_path: Path) -> Path:
 
 def _cfg(db: Path) -> PipelineConfig:
     return PipelineConfig(
-        searxng_url="http://localhost:8888",
         search_results_per_query=5,
         search_max_pages=2,
         search_rate_limit=1.0,

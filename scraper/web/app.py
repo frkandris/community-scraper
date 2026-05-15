@@ -96,7 +96,7 @@ from ..extract import (ENRICH_SCHEMA, ENRICH_SYSTEM_PROMPT, EXTRACTION_SCHEMA,
 from ..fetch import fetch_and_clean
 from ..models import CommunityRecord
 from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline, scrape_submitted_url, reextract_community
-from ..search import BraveSearchClient, SearXNGClient
+from ..search import DataForSEOClient, FallbackSearchClient, SerperSearchClient
 from ..store import patch_results, save_results
 from .i18n import get_topic_labels, lang_context
 from .log_stream import broadcaster
@@ -422,27 +422,16 @@ def _lib_version(name: str) -> str:
         return "?"
 
 
-async def _searxng_status(base_url: str) -> str:
-    try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.get(f"{base_url.rstrip('/')}/search",
-                                    params={"q": "test", "format": "json"})
-            return "ok" if resp.status_code == 200 else f"HTTP {resp.status_code}"
-    except Exception:
-        return "unreachable"
-
-
 async def _build_software_info() -> dict:
     cfg = app_state.pipeline_cfg
-    brave_key = cfg.brave_api_key if cfg else ""
-    if brave_key:
-        search_info = {"label": "Brave Search", "status": "ok", "backend": "brave"}
+    if cfg and cfg.dataforseo_login:
+        search_info = {"label": "DataForSEO", "status": "ok", "backend": "dataforseo"}
+    elif cfg and cfg.serper_api_key:
+        search_info = {"label": "Serper", "status": "ok", "backend": "serper"}
     else:
-        searxng_url = cfg.searxng_url if cfg else "http://localhost:8080"
-        searxng_st = await _searxng_status(searxng_url)
-        search_info = {"label": "SearXNG", "status": searxng_st, "backend": "searxng"}
+        search_info = {"label": "Search", "status": "no key", "backend": "none"}
     return {
-        "searxng": search_info,
+        "search": search_info,
         "python": {"label": "Python", "version": sys.version.split()[0]},
         "libs": {
             "httpx": _lib_version("httpx"),
@@ -2565,27 +2554,6 @@ async def status():
     }
 
 
-@admin.get("/api/test-searxng")
-async def test_searxng(q: str = "running club Budapest"):
-    if not app_state.pipeline_cfg:
-        return JSONResponse({"error": "not configured"}, status_code=503)
-    try:
-        import httpx
-        async with httpx.AsyncClient(timeout=10.0) as hc:
-            resp = await hc.get(f"{app_state.pipeline_cfg.searxng_url}/search",
-                                params={"q": q, "format": "json", "language": "en-US"})
-            data = resp.json()
-        return {
-            "url": app_state.pipeline_cfg.searxng_url,
-            "query": q,
-            "status": resp.status_code,
-            "results": len(data.get("results", [])),
-            "unresponsive_engines": data.get("unresponsive_engines", []),
-            "top3": [{"url": r["url"], "title": r.get("title", "")} for r in data.get("results", [])[:3]],
-        }
-    except Exception as exc:
-        return JSONResponse({"error": str(exc), "url": app_state.pipeline_cfg.searxng_url}, status_code=500)
-
 
 def _build_extractor(cfg):
     """Build the extractor chain (DeepSeek → Groq) from PipelineConfig."""
@@ -3046,18 +3014,17 @@ async def cache_run_enrich(url_hash: str):
     async def _do() -> None:
         try:
             extractor = _build_extractor(cfg)
+            search_primaries = []
             if cfg.dataforseo_login and cfg.dataforseo_password:
-                from ..search import DataForSEOClient
-                searxng = DataForSEOClient(
+                search_primaries.append(DataForSEOClient(
                     cfg.dataforseo_login, cfg.dataforseo_password,
                     rate_limit_seconds=cfg.search_rate_limit,
-                )
-            elif cfg.brave_api_key:
-                searxng: BraveSearchClient | SearXNGClient = BraveSearchClient(
-                    cfg.brave_api_key, rate_limit_seconds=cfg.search_rate_limit
-                )
-            else:
-                searxng = SearXNGClient(cfg.searxng_url, rate_limit_seconds=cfg.search_rate_limit)
+                ))
+            if cfg.serper_api_key:
+                search_primaries.append(SerperSearchClient(
+                    cfg.serper_api_key, rate_limit_seconds=cfg.search_rate_limit,
+                ))
+            searxng = FallbackSearchClient(primaries=search_primaries)
             semaphore = asyncio.Semaphore(cfg.fetch_max_concurrent)
             timing = {"scrape": 0.0, "extract": 0.0, "count": 0, "needed": False}
             enriched: list = []
