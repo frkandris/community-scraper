@@ -61,7 +61,30 @@
     </div>
   </div>
 
-  {% if all_hu_cities %}
+  {% if site == 'meetapedia' and country_city_groups %}
+  <!-- Cities by country -->
+  {% for country, cities in country_city_groups.items() %}
+  <div>
+    <h2 class="text-lg font-bold text-[#1C1917] mb-3">{{ country }}</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 mb-6">
+      {% for city in cities %}
+      {% if city.count > 0 %}
+      <a href="/{{ city.slug }}"
+         class="flex items-center justify-between bg-white rounded-lg border border-[#EAE5DB] px-3 py-2.5
+                hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
+        <span class="text-sm font-semibold text-[#2E2B29] group-hover:text-[#8A4226] truncate min-w-0">{{ city.name }}</span>
+        <span class="text-xs font-bold text-[#C2613A] shrink-0 ml-2">{{ city.count }}</span>
+      </a>
+      {% else %}
+      <div class="flex items-center bg-white rounded-lg border border-[#EAE5DB] px-3 py-2.5 opacity-50">
+        <span class="text-sm font-medium text-[#8C8478] truncate min-w-0">{{ city.name }}</span>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+  {% elif all_hu_cities %}
   <!-- All Hungarian cities A–Z -->
   <div>
     <h2 class="text-xl font-bold text-[#1C1917] mb-5">Magyar városok A–Z</h2>

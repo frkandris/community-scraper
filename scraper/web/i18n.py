@@ -758,6 +758,8 @@ _T: dict[str, dict[str, str]] = {
     "nav_discover": "Discover",
     "nav_map": "Map",
     "nav_about": "About",
+    "nav_submit": "Submit community",
+    "home_hero_label": "Communities worldwide",
     "home_title": "Find your community",
     "home_subtitle": "Discover local clubs, groups and activities in cities worldwide.",
     "home_city_label": "City",
@@ -849,6 +851,8 @@ _T: dict[str, dict[str, str]] = {
     "nav_discover": "Felfedezés",
     "nav_map": "Térkép",
     "nav_about": "Rólunk",
+    "nav_submit": "Közösség beküldése",
+    "home_hero_label": "Magyar közösségek",
     "home_title": "Találd meg a közösséged",
     "home_subtitle": "Fedezz fel helyi klubokat, közösségeket, csoportokat Magyarországon.",
     "home_city_label": "Város",
@@ -2274,20 +2278,45 @@ def make_t(lang: str, **defaults):
 
 def lang_context(request: Request) -> dict:
     site = _detect_site(request)
-    lang = "en" if site == "meetapedia" else "hu"
-    site_name = "meetapedia.com" if site == "meetapedia" else "közösségek.com"
-    site_url = "https://meetapedia.com" if site == "meetapedia" else "https://kozossegek.com"
-    locale = "en_US" if site == "meetapedia" else "hu_HU"
+    if site == "meetapedia":
+        cookie_lang = request.cookies.get("lang", "en")
+        lang = cookie_lang if cookie_lang in LANGUAGES else "en"
+        site_name = "meetapedia.com"
+        site_url = "https://meetapedia.com"
+        locale = "en_US"
+        explore_url = "/explore"
+        map_url = "/map"
+        about_url = "/about"
+        cities_url = "/cities"
+        submit_url = "/submit-community"
+        map_center = {"lat": 20.0, "lng": 0.0, "zoom": 2}
+    else:
+        lang = "hu"
+        site_name = "közösségek.com"
+        site_url = "https://kozossegek.com"
+        locale = "hu_HU"
+        explore_url = "/felfedezes"
+        map_url = "/terkep"
+        about_url = "/rolunk"
+        cities_url = "/varosok"
+        submit_url = "/kozosseg-bekuldes"
+        map_center = {"lat": 47.5, "lng": 19.0, "zoom": 7}
     return {
         "lang": lang,
         "site": site,
         "site_name": site_name,
         "site_url": site_url,
         "locale": locale,
-        "lang_dir": "ltr",
+        "lang_dir": "rtl" if lang in ("ar", "he", "fa", "ur") else "ltr",
         "t": make_t(lang, site_name=site_name),
         "languages": dict(sorted(LANGUAGES.items(), key=lambda x: x[1]["name"])),
         "current_lang": LANGUAGES.get(lang, LANGUAGES["en"]),
         "topic_labels": get_topic_labels(lang),
         "venue_type_labels": get_venue_type_labels(lang),
+        "explore_url": explore_url,
+        "map_url": map_url,
+        "about_url": about_url,
+        "cities_url": cities_url,
+        "submit_url": submit_url,
+        "map_center": map_center,
     }

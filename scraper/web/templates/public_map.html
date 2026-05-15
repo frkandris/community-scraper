@@ -42,7 +42,7 @@
 <div id="map"></div>
 
 <script>
-const map = L.map('map', { zoomControl: true }).setView([47.5, 19.0], 7);
+const map = L.map('map', { zoomControl: true }).setView([{{ map_center.lat }}, {{ map_center.lng }}], {{ map_center.zoom }});
 
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
   attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
@@ -69,7 +69,7 @@ cities.forEach(city => {
   const popupContent = `<div>
     <div class="city-popup-name">${city.name}</div>
     <div class="city-popup-count">${city.count} ${city.count === 1 ? _communitySingular : _communityPlural}</div>
-    <a href="/felfedezes?city=${encodeURIComponent(city.name)}" class="city-popup-btn">${_exploreBtn}</a>
+    <a href="{{ explore_url }}?city=${encodeURIComponent(city.name)}" class="city-popup-btn">${_exploreBtn}</a>
   </div>`;
 
   marker.bindPopup(popupContent, { maxWidth: 200 });
@@ -82,7 +82,7 @@ cities.forEach(city => {
     this.setStyle({ radius, fillOpacity: 0.82 });
   });
   marker.on('click', function () {
-    window.location.href = '/felfedezes?city=' + encodeURIComponent(city.name);
+    window.location.href = '{{ explore_url }}?city=' + encodeURIComponent(city.name);
   });
 });
 </script>

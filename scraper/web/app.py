@@ -1185,7 +1185,7 @@ async def public_explore_topic_slug(request: Request, topic_slug: str):
 @_fastapi.get("/explore", response_class=HTMLResponse)
 async def public_explore_en(request: Request):
     qs = str(request.url.query)
-    return RedirectResponse("/felfedezes" + (f"?{qs}" if qs else ""), status_code=301)
+    return RedirectResponse("/felfedezes" + (f"?{qs}" if qs else ""), status_code=302)
 
 
 @_fastapi.get("/community/{community_id}", response_class=HTMLResponse)
@@ -1425,8 +1425,8 @@ async def public_cities(request: Request, requested: str = ""):
 
 
 @_fastapi.get("/cities", response_class=HTMLResponse)
-async def public_cities_en():
-    return RedirectResponse("/varosok", status_code=301)
+async def public_cities_en(request: Request):
+    return RedirectResponse("/varosok", status_code=302)
 
 
 @_fastapi.post("/varosok/kerelem")
@@ -1461,6 +1461,15 @@ async def public_about(request: Request):
          for c in site_cities],
         key=lambda c: _hu_sort_key(c["name"]),
     )
+    country_city_groups: dict = {}
+    if site == "meetapedia":
+        for c in site_cities:
+            country = c.country or "Other"
+            entry = {"name": c.name, "slug": _slugify(c.name), "count": city_totals.get(c.name, 0)}
+            country_city_groups.setdefault(country, []).append(entry)
+        for grp in country_city_groups.values():
+            grp.sort(key=lambda c: c["name"])
+        country_city_groups = dict(sorted(country_city_groups.items()))
     return templates.TemplateResponse(request, "public_about.html", {
         "city_count": len(site_city_names),
         "topic_count": len(app_state.topics or []),
@@ -1472,18 +1481,25 @@ async def public_about(request: Request):
         "topic_labels": TOPIC_LABELS,
         "topic_counts": site_topic_counts,
         "all_hu_cities": all_site_cities,
+        "country_city_groups": country_city_groups,
         **lang_context(request),
     })
 
 
 @_fastapi.get("/about", response_class=HTMLResponse)
-async def public_about_en():
-    return RedirectResponse("/rolunk", status_code=301)
+async def public_about_en(request: Request):
+    return RedirectResponse("/rolunk", status_code=302)
 
 
 @_fastapi.get("/map", response_class=HTMLResponse)
-async def public_map_en():
-    return RedirectResponse("/terkep", status_code=301)
+async def public_map_en(request: Request):
+    return RedirectResponse("/terkep", status_code=302)
+
+
+@_fastapi.get("/submit-community", response_class=HTMLResponse)
+async def submit_community_en(request: Request):
+    qs = str(request.url.query)
+    return RedirectResponse("/kozosseg-bekuldes" + (f"?{qs}" if qs else ""), status_code=302)
 
 
 @_fastapi.get("/kozosseg-bekuldes", response_class=HTMLResponse)

@@ -53,13 +53,30 @@
       <a href="/" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
         {% if _p == '/' or _p.startswith('/felfedezes') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
         {{ t('nav_discover') }}</a>
-      <a href="/terkep" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
-        {% if _p.startswith('/terkep') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
+      <a href="{{ map_url }}" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
+        {% if _p.startswith('/terkep') or _p.startswith('/map') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
         {{ t('nav_map') }}</a>
-      <a href="/rolunk" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
-        {% if _p.startswith('/rolunk') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
+      <a href="{{ about_url }}" class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap
+        {% if _p.startswith('/rolunk') or _p.startswith('/about') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
         {{ t('nav_about') }}</a>
     </nav>
+    <!-- Language selector (meetapedia only) -->
+    {% if site == 'meetapedia' %}
+    <div class="relative group hidden sm:block ml-1 shrink-0">
+      <button type="button" class="px-2 py-1.5 text-sm rounded-md text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC] flex items-center gap-1 transition-colors">
+        <span class="text-base leading-none">{{ current_lang.flag }}</span>
+        <i class="ph ph-caret-down text-xs"></i>
+      </button>
+      <div class="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-lg border border-[#EAE5DB] py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 max-h-64 overflow-y-auto">
+        {% for code, info in languages.items() %}
+        <a href="/set-lang?lang={{ code }}&next={{ request.url.path | urlencode }}"
+           class="flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#F5F2EC] transition-colors {{ 'font-semibold text-[#A8512F]' if code == lang else 'text-[#1C1917]' }}">
+          <span>{{ info.flag }}</span><span>{{ info.name }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
     <!-- Desktop search -->
     <form action="/kereses" method="get" class="hidden sm:flex items-center flex-1 max-w-xs ml-2">
       <div class="relative w-full">
@@ -67,7 +84,7 @@
                placeholder="{{ t('nav_search_placeholder') }}"
                value="{{ request.query_params.get('q', '') }}"
                class="w-full pl-3 pr-8 py-1.5 text-sm rounded-md border border-[#EAE5DB] bg-[#F5F2EC] text-[#1C1917] placeholder-[#B5ADA0] focus:outline-none focus:ring-1 focus:ring-[#A8512F] focus:border-[#A8512F]">
-        <button type="submit" class="absolute right-2 top-1/2 -translate-y-1/2 text-[#8C8478] hover:text-[#A8512F] transition-colors">
+        <button type="submit" class="absolute right-2 inset-y-0 flex items-center text-[#8C8478] hover:text-[#A8512F] transition-colors">
           <i class="ph ph-magnifying-glass text-base"></i>
         </button>
       </div>
@@ -83,11 +100,11 @@
       <a href="/" class="px-3 py-2.5 text-sm font-medium rounded-md transition-colors
         {% if _p == '/' or _p.startswith('/felfedezes') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
         {{ t('nav_discover') }}</a>
-      <a href="/terkep" class="px-3 py-2.5 text-sm font-medium rounded-md transition-colors
-        {% if _p.startswith('/terkep') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
+      <a href="{{ map_url }}" class="px-3 py-2.5 text-sm font-medium rounded-md transition-colors
+        {% if _p.startswith('/terkep') or _p.startswith('/map') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
         {{ t('nav_map') }}</a>
-      <a href="/rolunk" class="px-3 py-2.5 text-sm font-medium rounded-md transition-colors
-        {% if _p.startswith('/rolunk') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
+      <a href="{{ about_url }}" class="px-3 py-2.5 text-sm font-medium rounded-md transition-colors
+        {% if _p.startswith('/rolunk') or _p.startswith('/about') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
         {{ t('nav_about') }}</a>
     </nav>
     <div class="px-3 py-2 border-t border-[#EAE5DB]">
@@ -153,9 +170,9 @@
       <span class="text-xs text-[#8C8478]">· {{ t('footer_tagline') }}</span>
     </div>
     <div class="flex items-center gap-4">
-      <a href="/rolunk" class="text-xs text-[#8C8478] hover:text-[#4A4441] transition-colors">{{ t('nav_about') }}</a>
-      <a href="/terkep" class="text-xs text-[#8C8478] hover:text-[#4A4441] transition-colors">{{ t('nav_map') }}</a>
-      <a href="/kozosseg-bekuldes" class="text-xs text-[#8C8478] hover:text-[#4A4441] transition-colors">Közösség beküldése</a>
+      <a href="{{ about_url }}" class="text-xs text-[#8C8478] hover:text-[#4A4441] transition-colors">{{ t('nav_about') }}</a>
+      <a href="{{ map_url }}" class="text-xs text-[#8C8478] hover:text-[#4A4441] transition-colors">{{ t('nav_map') }}</a>
+      <a href="{{ submit_url }}" class="text-xs text-[#8C8478] hover:text-[#4A4441] transition-colors">{{ t('nav_submit') }}</a>
       <a href="/admin" class="text-xs text-[#D8D1C4] hover:text-[#8C8478] transition-colors">Admin</a>
     </div>
   </div>
