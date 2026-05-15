@@ -932,41 +932,43 @@ def _cities_by_country(
 
 @_fastapi.get("/", response_class=HTMLResponse)
 async def public_home(request: Request, city: str = ""):
+    from .i18n import _detect_site
     global _home_stats_cache
-    hu_names = _hu_city_names()
-    hu_cities = [c for c in (app_state.cities or []) if c.name in hu_names]
+    site = _detect_site(request)
+    site_cities = _site_cities(request)
+    site_city_names = {c.name for c in site_cities}
     topics = app_state.topics or []
     topic_url_slugs = {t.name: _topic_url_slug(t.name, "hu") for t in topics}
-    if not _home_stats_cache:
-        topic_counts = _hu_topic_counts()
-        venue_counts = {k: v for k, v in (get_venue_counts(_db()) if app_state.db_path else {}).items() if k in hu_names}
-        person_counts = {k: v for k, v in (get_person_counts(_db()) if app_state.db_path else {}).items() if k in hu_names}
+    if site not in _home_stats_cache:
+        topic_counts = _hu_topic_counts() if site == "kozossegek" else _global_topic_counts()
+        venue_counts = {k: v for k, v in (get_venue_counts(_db()) if app_state.db_path else {}).items() if k in site_city_names}
+        person_counts = {k: v for k, v in (get_person_counts(_db()) if app_state.db_path else {}).items() if k in site_city_names}
         city_totals = dict(get_city_totals(_db())) if app_state.db_path else {}
-        hu_city_list = sorted(
-            [{"name": c.name, "slug": _slugify(c.name), "count": city_totals.get(c.name, 0)} for c in hu_cities],
+        city_list = sorted(
+            [{"name": c.name, "slug": _slugify(c.name), "count": city_totals.get(c.name, 0)} for c in site_cities],
             key=lambda x: (-x["count"], _hu_sort_key(x["name"])),
         )
-        _home_stats_cache = {
+        _home_stats_cache[site] = {
             "topic_counts": topic_counts,
             "total_records": sum(topic_counts.values()),
             "total_venues": sum(venue_counts.values()),
             "total_persons": sum(person_counts.values()),
-            "hu_city_list": hu_city_list,
+            "city_list": city_list,
         }
-    topic_counts = _home_stats_cache["topic_counts"]
-    hu_city_list = _home_stats_cache["hu_city_list"]
+    topic_counts = _home_stats_cache[site]["topic_counts"]
+    city_list = _home_stats_cache[site]["city_list"]
     return templates.TemplateResponse(request, "public_home.html", {
-        "cities": hu_cities,
+        "cities": site_cities,
         "topics": topics,
         "topic_icons": TOPIC_ICONS,
         "topic_labels": TOPIC_LABELS,
         "selected_city": city,
         "topic_counts": topic_counts,
         "topic_url_slugs": topic_url_slugs,
-        "total_records": _home_stats_cache["total_records"],
-        "total_venues": _home_stats_cache["total_venues"],
-        "total_persons": _home_stats_cache["total_persons"],
-        "hu_city_list": hu_city_list,
+        "total_records": _home_stats_cache[site]["total_records"],
+        "total_venues": _home_stats_cache[site]["total_venues"],
+        "total_persons": _home_stats_cache[site]["total_persons"],
+        "hu_city_list": city_list,
         **lang_context(request),
     })
 
@@ -1409,9 +1411,7 @@ async def set_lang(lang: str = "en", next: str = "/"):
 @_fastapi.get("/terkep", response_class=HTMLResponse)
 async def public_map(request: Request):
     cities_data = []
-    for city in (app_state.cities or []):
-        if city.country != "Hungary":
-            continue
+    for city in _site_cities(request):
         coords = CITY_COORDS.get(city.name)
         if not coords:
             continue
@@ -1437,9 +1437,9 @@ async def public_map(request: Request):
 @_fastapi.get("/varosok", response_class=HTMLResponse)
 async def public_cities(request: Request, requested: str = ""):
     city_totals = dict(get_city_totals(_db())) if app_state.db_path else {}
-    hu_cities = [c for c in (app_state.cities or []) if c.country == "Hungary"]
+    site_cities = _site_cities(request)
     cities_list = sorted(
-        [{"name": c.name, "slug": _slugify(c.name), "count": city_totals.get(c.name, 0)} for c in hu_cities],
+        [{"name": c.name, "slug": _slugify(c.name), "count": city_totals.get(c.name, 0)} for c in site_cities],
         key=lambda c: (-c["count"], _hu_sort_key(c["name"])),
     )
     return templates.TemplateResponse(request, "public_cities.html", {
@@ -1474,27 +1474,30 @@ async def admin_root_redirect():
 
 @_fastapi.get("/rolunk", response_class=HTMLResponse)
 async def public_about(request: Request):
-    hu_names = _hu_city_names()
-    hu_topic_counts = _hu_topic_counts()
+    from .i18n import _detect_site
+    site = _detect_site(request)
+    site_cities = _site_cities(request)
+    site_city_names = {c.name for c in site_cities}
+    site_topic_counts = _hu_topic_counts() if site == "kozossegek" else _global_topic_counts()
     city_totals = dict(get_city_totals(_db())) if app_state.db_path else {}
-    venue_counts = {k: v for k, v in (get_venue_counts(_db()) if app_state.db_path else {}).items() if k in hu_names}
-    person_counts = {k: v for k, v in (get_person_counts(_db()) if app_state.db_path else {}).items() if k in hu_names}
-    all_hu_cities = sorted(
+    venue_counts = {k: v for k, v in (get_venue_counts(_db()) if app_state.db_path else {}).items() if k in site_city_names}
+    person_counts = {k: v for k, v in (get_person_counts(_db()) if app_state.db_path else {}).items() if k in site_city_names}
+    all_site_cities = sorted(
         [{"name": c.name, "slug": _slugify(c.name), "count": city_totals.get(c.name, 0)}
-         for c in (app_state.cities or []) if c.country == "Hungary"],
+         for c in site_cities],
         key=lambda c: _hu_sort_key(c["name"]),
     )
     return templates.TemplateResponse(request, "public_about.html", {
-        "city_count": len(hu_names),
+        "city_count": len(site_city_names),
         "topic_count": len(app_state.topics or []),
-        "total_records": sum(hu_topic_counts.values()),
+        "total_records": sum(site_topic_counts.values()),
         "total_venues": sum(venue_counts.values()),
         "total_persons": sum(person_counts.values()),
         "topics": app_state.topics or [],
         "topic_icons": TOPIC_ICONS,
         "topic_labels": TOPIC_LABELS,
-        "topic_counts": hu_topic_counts,
-        "all_hu_cities": all_hu_cities,
+        "topic_counts": site_topic_counts,
+        "all_hu_cities": all_site_cities,
         **lang_context(request),
     })
 
@@ -1549,8 +1552,11 @@ async def submit_community_post(
 
 
 @_fastapi.get("/robots.txt")
-async def robots_txt():
+async def robots_txt(request: Request):
     from fastapi.responses import PlainTextResponse
+    from .i18n import _detect_site
+    site = _detect_site(request)
+    site_url = "https://meetapedia.com" if site == "meetapedia" else "https://kozossegek.com"
     return PlainTextResponse(
         "User-agent: *\n"
         "Disallow: /admin\n"
@@ -1558,14 +1564,16 @@ async def robots_txt():
         "Disallow: /api/\n"
         "Disallow: /set-lang\n"
         "Disallow: /unsubscribe\n"
-        "Sitemap: https://kozossegek.com/sitemap.xml\n"
+        f"Sitemap: {site_url}/sitemap.xml\n"
     )
 
 
 @_fastapi.get("/sitemap.xml")
 async def sitemap(request: Request):
     from fastapi.responses import Response as _Response
-    base = "https://kozossegek.com"
+    ctx = lang_context(request)
+    base = ctx["site_url"]
+    site_city_names = {c.name for c in _site_cities(request)}
 
     locs: list[str] = [
         base + "/",
@@ -1581,9 +1589,10 @@ async def sitemap(request: Request):
     if app_state.db_path:
         init_db(app_state.db_path)
 
-        # City pages + city+topic pages + community detail pages
         counts = get_city_topic_counts(_db())
         for city_name, topics in counts.items():
+            if city_name not in site_city_names:
+                continue
             city_sl = _slugify(city_name)
             city_locale = _city_locale(city_name)
             locs.append(f"{base}/{city_sl}")
@@ -1595,16 +1604,18 @@ async def sitemap(request: Request):
                     if name_sl:
                         locs.append(f"{base}/{city_sl}/{name_sl}")
 
-        # Venue detail pages
         for v in get_all_venues(app_state.db_path):
+            if v.get("city", "") not in site_city_names:
+                continue
             city_sl = _slugify(v.get("city", ""))
             name_sl = _slugify(v.get("name", ""))
             if city_sl and name_sl:
                 locs.append(f"{base}/{city_sl}/helyszin/{name_sl}")
 
-        # Person detail pages — deduplicated by name+city slug
         seen_persons: set[tuple[str, str]] = set()
         for p in get_all_persons(app_state.db_path):
+            if p.get("city", "") not in site_city_names:
+                continue
             city_sl = _slugify(p.get("city", ""))
             name_sl = _slugify(p.get("name", ""))
             if city_sl and name_sl and (city_sl, name_sl) not in seen_persons:
