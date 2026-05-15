@@ -918,18 +918,41 @@ async def public_home(request: Request, city: str = ""):
         person_counts = {k: v for k, v in (get_person_counts(_db()) if app_state.db_path else {}).items() if k in site_city_names}
         city_totals = dict(get_city_totals(_db())) if app_state.db_path else {}
         city_list = sorted(
-            [{"name": c.name, "slug": _slugify(c.name), "count": city_totals.get(c.name, 0)} for c in site_cities],
+            [{
+                "name": c.name,
+                "slug": _slugify(c.name),
+                "count": city_totals.get(c.name, 0),
+                "country": c.country or "",
+                "lat": CITY_COORDS.get(c.name, (None, None))[0],
+                "lng": CITY_COORDS.get(c.name, (None, None))[1],
+            } for c in site_cities],
             key=lambda x: (-x["count"], _hu_sort_key(x["name"])),
         )
+        # meetapedia: top 3 cities per country, sorted by total count desc
+        country_city_groups: dict = {}
+        if site == "meetapedia":
+            for c in city_list:
+                if c["country"]:
+                    country_city_groups.setdefault(c["country"], []).append(c)
+            country_city_groups = dict(sorted(
+                country_city_groups.items(),
+                key=lambda x: -sum(e["count"] for e in x[1]),
+            ))
+            for k in country_city_groups:
+                country_city_groups[k] = country_city_groups[k][:3]
         _home_stats_cache[site] = {
             "topic_counts": topic_counts,
             "total_records": sum(topic_counts.values()),
             "total_venues": sum(venue_counts.values()),
             "total_persons": sum(person_counts.values()),
             "city_list": city_list,
+            "country_city_groups": country_city_groups,
         }
     topic_counts = _home_stats_cache[site]["topic_counts"]
     city_list = _home_stats_cache[site]["city_list"]
+    cities_coords_json = json.dumps([
+        c for c in city_list if c.get("lat") is not None
+    ])
     return templates.TemplateResponse(request, "public_home.html", {
         "cities": site_cities,
         "topics": topics,
@@ -941,7 +964,9 @@ async def public_home(request: Request, city: str = ""):
         "total_records": _home_stats_cache[site]["total_records"],
         "total_venues": _home_stats_cache[site]["total_venues"],
         "total_persons": _home_stats_cache[site]["total_persons"],
-        "hu_city_list": city_list,
+        "hu_city_list": city_list[:12],
+        "country_city_groups": _home_stats_cache[site]["country_city_groups"],
+        "cities_coords_json": cities_coords_json,
         **lang_context(request),
     })
 

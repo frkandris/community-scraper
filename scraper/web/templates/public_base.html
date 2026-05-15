@@ -61,9 +61,21 @@
         {% if _p.startswith('/rolunk') or _p.startswith('/about') %}text-[#1C1917] bg-[#F5F2EC]{% else %}text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC]{% endif %}">
         {{ t('nav_about') }}</a>
     </nav>
-    <!-- Language selector (meetapedia only) -->
+    <!-- Desktop search -->
+    <form action="/kereses" method="get" class="hidden sm:flex items-center flex-1 max-w-xs ml-2">
+      <div class="relative w-full">
+        <input name="q" type="search"
+               placeholder="{{ t('nav_search_placeholder') }}"
+               value="{{ request.query_params.get('q', '') }}"
+               class="w-full pl-3 pr-8 py-1.5 text-sm rounded-md border border-[#EAE5DB] bg-[#F5F2EC] text-[#1C1917] placeholder-[#B5ADA0] focus:outline-none focus:ring-1 focus:ring-[#A8512F] focus:border-[#A8512F]">
+        <button type="submit" class="absolute right-2 inset-y-0 flex items-center text-[#8C8478] hover:text-[#A8512F] transition-colors">
+          <i class="ph ph-magnifying-glass text-base"></i>
+        </button>
+      </div>
+    </form>
+    <!-- Language selector (meetapedia only, far right of search) -->
     {% if site == 'meetapedia' %}
-    <div class="relative group hidden sm:block ml-1 shrink-0">
+    <div class="relative group hidden sm:block shrink-0">
       <button type="button" class="px-2 py-1.5 text-sm rounded-md text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC] flex items-center gap-1 transition-colors">
         <span class="text-base leading-none">{{ current_lang.flag }}</span>
         <i class="ph ph-caret-down text-xs"></i>
@@ -78,18 +90,6 @@
       </div>
     </div>
     {% endif %}
-    <!-- Desktop search -->
-    <form action="/kereses" method="get" class="hidden sm:flex items-center flex-1 max-w-xs ml-2">
-      <div class="relative w-full">
-        <input name="q" type="search"
-               placeholder="{{ t('nav_search_placeholder') }}"
-               value="{{ request.query_params.get('q', '') }}"
-               class="w-full pl-3 pr-8 py-1.5 text-sm rounded-md border border-[#EAE5DB] bg-[#F5F2EC] text-[#1C1917] placeholder-[#B5ADA0] focus:outline-none focus:ring-1 focus:ring-[#A8512F] focus:border-[#A8512F]">
-        <button type="submit" class="absolute right-2 inset-y-0 flex items-center text-[#8C8478] hover:text-[#A8512F] transition-colors">
-          <i class="ph ph-magnifying-glass text-base"></i>
-        </button>
-      </div>
-    </form>
     <!-- Mobile hamburger button -->
     <button id="nav-toggle" class="sm:hidden p-2 rounded-md text-[#6A6259] hover:text-[#1C1917] hover:bg-[#F5F2EC] transition-colors" aria-label="Menü">
       <i id="nav-icon" class="ph ph-list text-xl"></i>
