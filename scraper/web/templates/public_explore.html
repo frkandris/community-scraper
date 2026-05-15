@@ -3,13 +3,13 @@
 {% block og_desc %}{% if city and total > 0 %}{{ total }} közösség {{ city }}-ban/-ben.{% elif city %}Közösségek {{ city }}-ban/-ben – fedezd fel az érdeklődési köröket.{% else %}Fedezd fel a helyi közösségeket Magyarországon.{% endif %}{% endblock %}
 {% block title %}
   {% if city and selected_topics %}
-    {{ city }} · {% for t in selected_topics %}{{ topic_labels.get(t, t.replace('_', ' ').title()) }}{% if not loop.last %}, {% endif %}{% endfor %} – közösségek.com
+    {{ city }} · {% for t in selected_topics %}{{ topic_labels.get(t, t.replace('_', ' ').title()) }}{% if not loop.last %}, {% endif %}{% endfor %} – {{ site_name }}
   {% elif city %}
-    {{ city }} – közösségek.com
+    {{ city }} – {{ site_name }}
   {% elif selected_topics %}
-    {% for t in selected_topics %}{{ topic_labels.get(t, t.replace('_', ' ').title()) }}{% if not loop.last %}, {% endif %}{% endfor %} – közösségek.com
+    {% for t in selected_topics %}{{ topic_labels.get(t, t.replace('_', ' ').title()) }}{% if not loop.last %}, {% endif %}{% endfor %} – {{ site_name }}
   {% else %}
-    Felfedezés – közösségek.com
+    Felfedezés – {{ site_name }}
   {% endif %}
 {% endblock %}
 {% block og_image_url %}/static/img/og/{% if selected_topics and selected_topics | length == 1 %}{{ selected_topics[0] }}{% else %}default{% endif %}.png{% endblock %}
@@ -18,7 +18,7 @@
 <!-- Sticky sub-bar -->
 <div class="bg-white/95 border-b border-[#EAE5DB] sticky top-[57px] z-10 backdrop-blur">
   <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-2 flex-wrap">
-    <a href="/" class="text-sm text-[#8C8478] hover:text-[#1C1917] transition-colors">közösségek.com</a>
+    <a href="/" class="text-sm text-[#8C8478] hover:text-[#1C1917] transition-colors">{{ site_name }}</a>
     {% if city %}
     <span class="text-[#D8D1C4]">/</span>
     <a href="/{{ city | slugify }}" class="text-sm {% if not selected_topics %}font-semibold text-[#1C1917]{% else %}text-[#8C8478] hover:text-[#1C1917]{% endif %}">{{ city }}</a>

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="hu" dir="ltr">
+<html lang="{{ lang }}" dir="{{ lang_dir }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}közösségek.com – Találd meg a közösséged{% endblock %}</title>
+  <title>{% block title %}{{ site_name }}{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -14,19 +14,19 @@
   </style>
   <meta name="description" content="{{ self.og_desc() }}">
   {% block og_meta %}
-  <meta property="og:site_name" content="közösségek.com">
+  <meta property="og:site_name" content="{{ site_name }}">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://kozossegek.com{{ request.url.path }}">
+  <meta property="og:url" content="{{ site_url }}{{ request.url.path }}">
   <meta property="og:title" content="{{ self.title() | trim }}">
   <meta property="og:description" content="{% block og_desc %}Helyi közösségek és érdeklődési körök Magyarországon.{% endblock %}">
-  <meta property="og:image" content="https://kozossegek.com{% block og_image_url %}/static/img/og/default.png{% endblock %}">
+  <meta property="og:image" content="{{ site_url }}{% block og_image_url %}/static/img/og/default.png{% endblock %}">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:locale" content="hu_HU">
+  <meta property="og:locale" content="{{ locale }}">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="{{ self.title() | trim }}">
   <meta name="twitter:description" content="{{ self.og_desc() }}">
-  <meta name="twitter:image" content="https://kozossegek.com{{ self.og_image_url() }}">
+  <meta name="twitter:image" content="{{ site_url }}{{ self.og_image_url() }}">
   {% endblock %}
   {% block head %}{% endblock %}
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-XD0Z4FE8LX"></script>
@@ -45,7 +45,7 @@
       <span class="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#A8512F] text-white">
         <i class="ph ph-users-three text-lg"></i>
       </span>
-      <span>közösségek.com</span>
+      <span>{{ site_name }}</span>
     </a>
     {% set _p = request.url.path %}
     <!-- Desktop nav -->
@@ -149,7 +149,7 @@
   <!-- Footer links -->
   <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
     <div class="flex items-center gap-2">
-      <span class="font-semibold text-[#1C1917] text-sm">közösségek.com</span>
+      <span class="font-semibold text-[#1C1917] text-sm">{{ site_name }}</span>
       <span class="text-xs text-[#8C8478]">· {{ t('footer_tagline') }}</span>
     </div>
     <div class="flex items-center gap-4">

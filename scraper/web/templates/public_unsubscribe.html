@@ -1,5 +1,5 @@
 {% extends "public_base.html" %}
-{% block title %}Leiratkozás – közösségek.com{% endblock %}
+{% block title %}Leiratkozás – {{ site_name }}{% endblock %}
 {% block content %}
 <div class="max-w-md mx-auto px-6 py-24 text-center">
   {% if removed %}
@@ -16,7 +16,7 @@
   <p class="text-slate-500 mb-8">This unsubscribe link is invalid or has already been used.</p>
   {% endif %}
   <a href="/" class="inline-block px-6 py-3 bg-emerald-700 text-white rounded-md font-medium hover:bg-emerald-800 transition-colors">
-    Back to közösségek.com
+    Back to {{ site_name }}
   </a>
 </div>
 {% endblock %}

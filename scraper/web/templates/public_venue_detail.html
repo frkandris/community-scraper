@@ -1,5 +1,5 @@
 {% extends "public_base.html" %}
-{% block title %}{{ v.name }} – közösségek.com{% endblock %}
+{% block title %}{{ v.name }} – {{ site_name }}{% endblock %}
 {% block og_image_url %}/static/img/og/{% if v.welcomed_topics %}{{ v.welcomed_topics[0] }}{% else %}default{% endif %}.png{% endblock %}
 {% block og_desc %}{{ v.description or (v.name + ' helyszín ' + city + 'ban.') }}{% endblock %}
 {% block content %}
@@ -19,7 +19,7 @@
 
   <!-- Breadcrumb -->
   <nav class="flex items-center gap-1.5 text-sm text-[#8C8478] mb-6 overflow-hidden flex-wrap">
-    <a href="/" class="hover:text-[#1C1917] transition-colors shrink-0">közösségek.com</a>
+    <a href="/" class="hover:text-[#1C1917] transition-colors shrink-0">{{ site_name }}</a>
     {% if city %}
     <span class="text-[#D8D1C4]">/</span>
     <a href="/{{ city_slug }}" class="hover:text-[#1C1917] transition-colors shrink-0">{{ city }}</a>

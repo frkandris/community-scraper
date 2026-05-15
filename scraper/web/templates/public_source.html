@@ -1,5 +1,5 @@
 {% extends "public_base.html" %}
-{% block title %}Forrás infó – közösségek.com{% endblock %}
+{% block title %}Forrás infó – {{ site_name }}{% endblock %}
 {% block head %}<meta name="robots" content="noindex, nofollow">{% endblock %}
 
 {% block content %}
@@ -7,7 +7,7 @@
 
   <!-- Breadcrumb -->
   <nav class="flex items-center gap-2 text-sm text-slate-400 mb-6">
-    <a href="/" class="hover:text-slate-800 transition-colors">közösségek.com</a>
+    <a href="/" class="hover:text-slate-800 transition-colors">{{ site_name }}</a>
     <span>/</span>
     <span class="text-slate-700 font-medium">Forrás infó</span>
   </nav>
