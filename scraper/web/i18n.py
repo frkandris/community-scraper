@@ -2237,6 +2237,7 @@ for _code in LANGUAGES:
         _T[_code] = {}
 
 
+# kept for potential future use (lang override by cookie/header)
 def _detect_lang(request: Request) -> str:
     lang = request.cookies.get("lang", "")
     if lang in LANGUAGES:

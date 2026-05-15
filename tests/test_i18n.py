@@ -5,7 +5,7 @@ import pytest
 
 def _req(host: str):
     req = MagicMock()
-    req.headers.get.return_value = host
+    req.headers.get.side_effect = lambda key, default="": host if key == "host" else default
     return req
 
 
