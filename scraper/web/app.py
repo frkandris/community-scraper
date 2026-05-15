@@ -1041,10 +1041,11 @@ async def _render_explore(
         city_totals = dict(get_city_totals(_db()))
         cities_map = {c.name: c.country for c in cities}
 
-        # Group cities by country, only include Hungarian cities that have data
+        # Group cities by country, only include site-appropriate cities that have data
+        site_city_names = {c.name for c in _site_cities(request)}
         country_cities: dict[str, list[tuple[str, int]]] = {}
         for name, country in cities_map.items():
-            if country != "Hungary":
+            if name not in site_city_names:
                 continue
             count = city_totals.get(name, 0)
             if count > 0:
@@ -3454,8 +3455,8 @@ async def public_venues(request: Request, city: str = "", topic: str = ""):
     if not app_state.db_path:
         return RedirectResponse("/", status_code=302)
     init_db(app_state.db_path)
-    hu_names = _hu_city_names()
-    all_venues = [v for v in get_all_venues(app_state.db_path) if v.get("city", "") in hu_names]
+    site_names = {c.name for c in _site_cities(request)}
+    all_venues = [v for v in get_all_venues(app_state.db_path) if v.get("city", "") in site_names]
 
     # Filter
     filtered = all_venues
@@ -3508,14 +3509,14 @@ async def public_people(request: Request, city: str = "", role: str = ""):
             **lang_context(request),
         })
     init_db(app_state.db_path)
-    hu_names = _hu_city_names()
+    site_names = {c.name for c in _site_cities(request)}
     all_persons = get_all_persons(app_state.db_path)
-    hu_persons = [p for p in all_persons if p.get("city", "") in hu_names]
+    site_persons = [p for p in all_persons if p.get("city", "") in site_names]
 
     # Deduplicate: one card per person (name+city slug), merged across communities
     from collections import defaultdict
     seen: dict[tuple, dict] = {}
-    for p in hu_persons:
+    for p in site_persons:
         key = (_slugify(p.get("name", "")), _slugify(p.get("city", "")))
         if key not in seen:
             seen[key] = p
