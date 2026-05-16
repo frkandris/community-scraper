@@ -43,9 +43,8 @@
 <!-- Gradient strips — one per content state, full-bleed -->
 {% if tag %}
 <div class="brand-gradient relative overflow-hidden">
-  <div class="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white opacity-[0.07] pointer-events-none"></div>
   <div class="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 relative">
-    <p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">
+    <p class="text-xs font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">
       <i class="ph ph-tag"></i> Tag
     </p>
     <h1 class="text-xl sm:text-2xl font-black tracking-[-0.025em] text-white leading-tight">{{ tag }}</h1>
@@ -54,9 +53,8 @@
 </div>
 {% elif country_sections %}
 <div class="brand-gradient relative overflow-hidden">
-  <div class="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white opacity-[0.07] pointer-events-none"></div>
   <div class="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 relative">
-    <p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">{{ t('nav_discover') }}</p>
+    <p class="text-xs font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">{{ t('nav_discover') }}</p>
     <h1 class="text-xl sm:text-2xl font-black tracking-[-0.025em] text-white leading-tight">
       {% if selected_topics | length == 1 %}
         {{ topic_labels.get(selected_topics[0], selected_topics[0].replace('_',' ').title()) }}
@@ -68,9 +66,8 @@
 </div>
 {% elif city %}
 <div class="brand-gradient relative overflow-hidden">
-  <div class="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white opacity-[0.07] pointer-events-none"></div>
   <div class="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 relative">
-    <p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">{{ city }}</p>
+    <p class="text-xs font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">{{ city }}</p>
     <h1 class="text-xl sm:text-2xl font-black tracking-[-0.025em] text-white leading-tight">
       {% if selected_topics | length == 1 %}
         {{ t('explore_topic_in', label=topic_labels.get(selected_topics[0], selected_topics[0].replace('_',' ').title()), city=city) }}
@@ -103,15 +100,16 @@
   {% if tag_records %}
   <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
     {% for r in tag_records %}
-    <div onclick="location.href='{{ r.community_url }}'" class="cursor-pointer bg-white rounded-lg border border-[#EAE5DB] p-4 flex flex-col gap-2 shadow-sm hover:border-[#E88E6B] hover:bg-[#FDF0EA]/40 hover:shadow-md transition-all">
-      <div class="flex items-start justify-between gap-2">
+    <div class="relative bg-white rounded-lg border border-[#EAE5DB] p-4 flex flex-col gap-2 shadow-sm hover:border-[#E88E6B] hover:bg-[#FDF0EA]/40 hover:shadow-md transition-all">
+      <a href="{{ r.community_url }}" class="absolute inset-0 rounded-lg" aria-label="{{ r.name }}"></a>
+      <div class="relative flex items-start justify-between gap-2">
         <h4 class="font-semibold text-[#1C1917] text-sm leading-snug flex items-baseline gap-1.5 min-w-0">
           <i class="ph ph-{{ topic_icons.get(r.topic, 'circle') }} text-[#C2613A] text-sm shrink-0"></i>
           <span class="truncate">{{ r.name }}</span>
         </h4>
         {% if r.city %}
         <a href="/{{ r.city | slugify }}"
-           class="shrink-0 inline-flex items-center gap-1 text-[10px] text-[#6A6259] bg-[#F5F2EC] border border-[#EAE5DB] px-1.5 py-0.5 rounded-md hover:border-[#C2613A] hover:text-[#8A4226] transition-colors whitespace-nowrap">
+           class="relative shrink-0 inline-flex items-center gap-1 text-xs text-[#6A6259] bg-[#F5F2EC] border border-[#EAE5DB] px-1.5 py-0.5 rounded-md hover:border-[#C2613A] hover:text-[#8A4226] transition-colors whitespace-nowrap">
           <i class="ph ph-map-pin" style="font-size:9px"></i> {{ r.city }}
         </a>
         {% endif %}
@@ -359,7 +357,7 @@
           class="flex-1 px-4 py-2.5 border border-[#D8D1C4] rounded-lg text-sm focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 bg-white transition-colors placeholder-[#B5ADA0] text-[#1C1917]"
         >
         <button type="submit"
-          class="px-6 py-2.5 bg-[#A8512F] text-white text-sm font-semibold rounded-lg hover:bg-[#A8512F] transition-colors whitespace-nowrap">
+          class="px-6 py-2.5 bg-[#A8512F] text-white text-sm font-semibold rounded-lg hover:bg-[#8A4226] active:bg-[#8A4226] transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#A8512F]/50 focus:ring-offset-1">
           {{ t('subscribe_btn') }}
         </button>
       </form>

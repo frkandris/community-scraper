@@ -5,15 +5,15 @@
 
 <!-- Gradient hero — full bleed -->
 <div class="brand-gradient relative overflow-hidden">
-  <div class="absolute -top-12 -right-10 w-52 h-52 rounded-full bg-white opacity-[0.07] pointer-events-none"></div>
-  <div class="absolute -bottom-10 -left-6 w-36 h-36 rounded-full bg-white opacity-[0.06] pointer-events-none"></div>
-  <div class="absolute top-6 right-[18%] w-24 h-24 rounded-full bg-white opacity-[0.06] pointer-events-none"></div>
   <div class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14 relative">
-    <h1 class="text-3xl sm:text-4xl font-black tracking-[-0.03em] text-white leading-[1.1] mb-4">
+    <h1 class="text-3xl sm:text-4xl font-extrabold tracking-[-0.03em] text-white leading-[1.1] mb-4">
       {{ t('home_title') }}
     </h1>
     <p class="text-base text-white/80 leading-relaxed max-w-lg">
       {{ t('home_subtitle') }}
+    </p>
+    <p class="text-sm text-white/55 mt-3 font-medium">
+      {{ total_records }} {{ t('about_communities') }} · {{ cities | length }} {{ t('about_cities') }}
     </p>
   </div>
 </div>
@@ -21,32 +21,8 @@
 <div class="max-w-6xl mx-auto px-4 sm:px-6 pt-8 pb-12">
   <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)] gap-8 items-start">
 
-    <!-- Left: stats + cities (order-2 on mobile so interests appear first) -->
+    <!-- Left: cities (order-2 on mobile so interests appear first) -->
     <section class="space-y-8 order-2 lg:order-1">
-
-      <!-- Stats strip -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <a href="/felfedezes"
-           class="bg-white border border-[#EAE5DB] rounded-lg p-4 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
-          <div class="text-2xl font-extrabold text-[#1C1917]">{{ total_records }}</div>
-          <div class="text-xs font-medium text-[#8C8478] mt-1 group-hover:text-[#A8512F]">{{ t('about_communities') }}</div>
-        </a>
-        <a href="/varosok"
-           class="bg-white border border-[#EAE5DB] rounded-lg p-4 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
-          <div class="text-2xl font-extrabold text-[#1C1917]">{{ cities|length }}</div>
-          <div class="text-xs font-medium text-[#8C8478] mt-1 group-hover:text-[#A8512F]">{{ t('about_cities') }}</div>
-        </a>
-        <a href="/emberek"
-           class="bg-white border border-[#EAE5DB] rounded-lg p-4 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
-          <div class="text-2xl font-extrabold text-[#1C1917]">{{ total_persons }}</div>
-          <div class="text-xs font-medium text-[#8C8478] mt-1 group-hover:text-[#A8512F]">{{ t('about_people') }}</div>
-        </a>
-        <a href="/helyszinek"
-           class="bg-white border border-[#EAE5DB] rounded-lg p-4 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
-          <div class="text-2xl font-extrabold text-[#1C1917]">{{ total_venues }}</div>
-          <div class="text-xs font-medium text-[#8C8478] mt-1 group-hover:text-[#A8512F]">{{ t('about_venues') }}</div>
-        </a>
-      </div>
 
       <!-- Cities near you (JS-populated) -->
       <div id="cities-near-you" class="space-y-3 hidden">
@@ -59,7 +35,7 @@
       <!-- Detect location prompt -->
       <div id="detect-location-wrap" class="flex items-center">
         <button id="detect-location-btn"
-          class="flex items-center gap-1.5 text-xs font-medium text-[#A8512F] hover:text-[#8A4226] transition-colors">
+          class="flex items-center gap-1.5 text-xs font-medium text-[#A8512F] hover:text-[#8A4226] transition-colors focus:outline-none focus:ring-2 focus:ring-[#A8512F]/40 focus:rounded">
           <i class="ph ph-crosshair text-sm"></i>
           {{ t('home_detect_location') }}
         </button>
@@ -137,8 +113,8 @@
                 focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 transition-colors
                 bg-white placeholder-[#B5ADA0] text-[#1C1917]"
             >
-            <button type="button" id="geo-btn" title="Helyzet meghatározása"
-              class="absolute right-2.5 inset-y-0 my-auto flex items-center justify-center w-6 h-6 text-[#B5ADA0] hover:text-[#C2613A] transition-colors">
+            <button type="button" id="geo-btn" title="Helyzet meghatározása" aria-label="Helyzet meghatározása"
+              class="absolute right-2.5 inset-y-0 my-auto flex items-center justify-center w-6 h-6 text-[#B5ADA0] hover:text-[#C2613A] transition-colors focus:outline-none focus:ring-2 focus:ring-[#C2613A]/40 focus:rounded">
               <i id="geo-icon" class="ph ph-crosshair text-xl"></i>
             </button>
             <datalist id="cities-list">
@@ -157,7 +133,7 @@
           <div class="flex items-center justify-between mb-3">
             <label class="text-xs font-semibold text-[#8C8478] uppercase tracking-[0.08em]">{{ t('home_interests_label') }}</label>
             <button type="button" id="clear-topics"
-              class="text-xs text-[#A8512F] hover:text-[#8A4226] font-medium hidden transition-colors">
+              class="text-xs text-[#A8512F] hover:text-[#8A4226] font-medium hidden transition-colors focus:outline-none focus:ring-2 focus:ring-[#A8512F]/40 focus:rounded">
               {{ t('home_clear_all') }}
             </button>
           </div>
@@ -187,7 +163,7 @@
         <!-- Explore button -->
         <button type="submit"
           class="w-full py-3 bg-[#A8512F] text-white font-semibold rounded-lg
-            hover:bg-[#A8512F] active:bg-[#8A4226] transition-colors text-base">
+            hover:bg-[#8A4226] active:bg-[#8A4226] transition-colors text-base focus:outline-none focus:ring-2 focus:ring-[#A8512F]/50 focus:ring-offset-1">
           {{ t('home_explore_btn') }}
         </button>
 
@@ -313,6 +289,16 @@ document.getElementById('detect-location-btn')?.addEventListener('click', functi
   }, () => {
     this.innerHTML = '<i class="ph ph-crosshair text-sm"></i> {{ t("home_detect_location") }}';
   });
+});
+
+document.getElementById('main-form').addEventListener('submit', function(e) {
+  const val = cityInput.value.trim();
+  if (val && !cityOptions.some(c => c.toLowerCase() === val.toLowerCase())) {
+    e.preventDefault();
+    cityCountText.textContent = '';
+    hint.innerHTML = '<span style="color:#C2613A">Ezt a várost még nem ismerjük — válassz egyet a listából.</span>';
+    cityInput.focus();
+  }
 });
 
 geoBtn.addEventListener('click', function() {
