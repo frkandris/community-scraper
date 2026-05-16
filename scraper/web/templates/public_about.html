@@ -5,7 +5,7 @@
 
 <div class="brand-gradient relative overflow-hidden">
   <div class="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 relative">
-    <p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">{{ site_name }}</p>
+    <p class="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">{{ site_name }}</p>
     <h1 class="text-xl sm:text-2xl font-black tracking-[-0.025em] text-white leading-tight">{{ t('about_title') }}</h1>
   </div>
 </div>
@@ -53,7 +53,7 @@
         </span>
         {%- set cnt = topic_counts.get(topic.name, 0) -%}
         {%- if cnt > 0 -%}
-        <span class="absolute top-2 right-2 text-[10px] font-bold text-[#C2613A] leading-none">{{ cnt }}</span>
+        <span class="absolute top-2 right-2 text-[11px] font-bold text-[#C2613A] leading-none">{{ cnt }}</span>
         {%- endif -%}
       </a>
       {% endfor %}

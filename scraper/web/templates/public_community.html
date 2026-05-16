@@ -9,7 +9,7 @@
 <!-- Mini gradient strip -->
 <div class="brand-gradient relative overflow-hidden">
   <div class="max-w-3xl mx-auto px-4 sm:px-6 py-5 sm:py-7 relative">
-    <p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">
+    <p class="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">
       {{ city }}{% if topic %} · {{ topic_labels.get(topic, topic.replace('_',' ').title()) }}{% endif %}
     </p>
     <h1 class="text-xl sm:text-2xl font-black tracking-[-0.025em] text-white leading-tight">{{ r.name }}</h1>
@@ -120,7 +120,7 @@
         <i class="ph ph-{{ icon }} text-[#8C8478]" style="font-size:13px"></i>
       </div>
       <div class="min-w-0">
-        <div class="text-[10px] font-semibold text-[#B5ADA0] uppercase tracking-[0.08em] mb-0.5">{{ label }}</div>
+        <div class="text-[11px] font-semibold text-[#B5ADA0] uppercase tracking-[0.08em] mb-0.5">{{ label }}</div>
         <div class="text-[#4A4441]">{{ value }}</div>
       </div>
     </div>
@@ -152,7 +152,7 @@
             <i class="ph ph-person-simple text-[#8C8478]" style="font-size:13px"></i>
           </div>
           <div class="min-w-0">
-            <div class="text-[10px] font-semibold text-[#B5ADA0] uppercase tracking-[0.08em] mb-0.5">Vezető</div>
+            <div class="text-[11px] font-semibold text-[#B5ADA0] uppercase tracking-[0.08em] mb-0.5">Vezető</div>
             <div class="text-[#4A4441]">
               <a href="/{{ city | slugify }}/ember/{{ r.leader | slugify }}"
                  class="hover:text-[#A8512F] transition-colors">{{ r.leader }}</a>
@@ -182,7 +182,7 @@
             <i class="ph ph-envelope text-[#8C8478]" style="font-size:13px"></i>
           </div>
           <div class="min-w-0">
-            <div class="text-[10px] font-semibold text-[#B5ADA0] uppercase tracking-[0.08em] mb-0.5">{{ t('community_contact') }}</div>
+            <div class="text-[11px] font-semibold text-[#B5ADA0] uppercase tracking-[0.08em] mb-0.5">{{ t('community_contact') }}</div>
             {% if r.email %}
             <div class="text-[#4A4441]"><a href="mailto:{{ r.email }}" class="text-[#A8512F] hover:underline">{{ r.email }}</a></div>
             {% endif %}
@@ -211,7 +211,7 @@
     <!-- Tags -->
     {% if r.tags %}
     <div class="mt-5 pt-5 border-t border-[#F5F2EC]">
-      <div class="text-[10px] font-semibold text-[#B5ADA0] uppercase tracking-[0.08em] mb-2">Témák</div>
+      <div class="text-[11px] font-semibold text-[#B5ADA0] uppercase tracking-[0.08em] mb-2">Témák</div>
       <div class="flex flex-wrap gap-1.5">
         {% for tag in r.tags %}
         <a href="/felfedezes?tag={{ tag | urlencode }}"
@@ -235,7 +235,7 @@
   <!-- Venue card -->
   {% if community_venue %}
   <div class="mt-4 bg-white rounded-xl border border-[#EAE5DB] p-5">
-    <p class="text-[10px] font-semibold text-[#B5ADA0] uppercase tracking-[0.08em] mb-3">
+    <p class="text-[11px] font-semibold text-[#B5ADA0] uppercase tracking-[0.08em] mb-3">
       <i class="ph ph-map-pin mr-1"></i>Helyszín
     </p>
     <a href="/{{ city | slugify }}/helyszin/{{ community_venue.name | slugify }}"
@@ -257,7 +257,7 @@
   <!-- Community persons -->
   {% if community_persons %}
   <div class="mt-4 bg-white rounded-xl border border-[#EAE5DB] p-5">
-    <p class="text-[10px] font-semibold text-[#B5ADA0] uppercase tracking-[0.08em] mb-3">
+    <p class="text-[11px] font-semibold text-[#B5ADA0] uppercase tracking-[0.08em] mb-3">
       <i class="ph ph-person-simple mr-1"></i>Emberek
     </p>
     <div class="space-y-2">
@@ -268,7 +268,7 @@
         <div class="min-w-0 flex items-center gap-2">
           <span class="text-sm font-medium text-[#1C1917] group-hover:text-[#A8512F] transition-colors">{{ p.name }}</span>
           {% if p.role %}
-          <span class="text-[10px] text-[#8C8478] bg-[#F5F2EC] border border-[#EAE5DB] px-1.5 py-0.5 rounded shrink-0">{{ p.role | role_hu }}</span>
+          <span class="text-[11px] text-[#8C8478] bg-[#F5F2EC] border border-[#EAE5DB] px-1.5 py-0.5 rounded shrink-0">{{ p.role | role_hu }}</span>
           {% endif %}
         </div>
       </a>
@@ -281,7 +281,7 @@
   {% set all_sources = r.source_urls if r.get('source_urls') else ([r.source_url] if r.source_url else []) %}
   {% if all_sources %}
   <div class="mt-4 border-t border-[#EAE5DB] pt-5">
-    <p class="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#B5ADA0] mb-2">{{ t('community_source_page') }}</p>
+    <p class="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#B5ADA0] mb-2">{{ t('community_source_page') }}</p>
     <div class="flex flex-col gap-1.5">
       {% for url in all_sources %}
       {% set _uhash = url | sha256_16 %}
@@ -450,7 +450,7 @@
         {% set date_str = entry.changed_at[:10] %}
         {% if date_str != ns.last_date %}
         {% set ns.last_date = date_str %}
-        <div class="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#B5ADA0] pt-3 pb-1 first:pt-0">
+        <div class="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#B5ADA0] pt-3 pb-1 first:pt-0">
           {{ date_str }}
         </div>
         {% endif %}

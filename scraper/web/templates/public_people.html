@@ -5,7 +5,7 @@
 
 <div class="brand-gradient relative overflow-hidden">
   <div class="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 relative">
-    <p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">Közösségi emberek</p>
+    <p class="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">Közösségi emberek</p>
     <h1 class="text-xl sm:text-2xl font-black tracking-[-0.025em] text-white leading-tight">Közösségi vezetők és oktatók</h1>
     <p class="text-sm text-white/75 mt-1">{{ total_persons }} személy</p>
   </div>
@@ -17,7 +17,7 @@
   <div class="mb-6 flex flex-wrap gap-3 items-end">
     <form method="GET" action="/emberek" class="flex flex-wrap gap-2 items-end">
       <div class="flex flex-col gap-1">
-        <label class="text-[10px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">Város</label>
+        <label class="text-[11px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">Város</label>
         <select name="city" onchange="this.form.submit()"
           class="text-sm border border-[#D8D1C4] rounded-lg px-3 py-2 bg-white text-[#1C1917]
                  focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20">
@@ -28,7 +28,7 @@
         </select>
       </div>
       <div class="flex flex-col gap-1">
-        <label class="text-[10px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">Szerepkör</label>
+        <label class="text-[11px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">Szerepkör</label>
         <select name="role" onchange="this.form.submit()"
           class="text-sm border border-[#D8D1C4] rounded-lg px-3 py-2 bg-white text-[#1C1917]
                  focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20">
@@ -45,7 +45,7 @@
       {% endif %}
     </form>
     <div class="flex flex-col gap-1">
-      <label class="text-[10px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">Keresés</label>
+      <label class="text-[11px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">Keresés</label>
       <input id="people-search" type="search" placeholder="Névre szűrés…"
         class="text-sm border border-[#D8D1C4] rounded-lg px-3 py-2 bg-white text-[#1C1917]
                focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 w-48">
@@ -72,7 +72,7 @@
         <p class="text-xs text-[#8C8478] truncate">{{ p.community_name }}</p>
         {% endif %}
         {% if p.role %}
-        <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#F5F2EC] text-[#8C8478] border border-[#EAE5DB] self-start">{{ p.role | role_hu }}</span>
+        <span class="text-[11px] font-medium px-1.5 py-0.5 rounded bg-[#F5F2EC] text-[#8C8478] border border-[#EAE5DB] self-start">{{ p.role | role_hu }}</span>
         {% endif %}
       </a>
       {% endfor %}

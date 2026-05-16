@@ -150,7 +150,7 @@
                 <span class="text-xs font-medium text-[#4A4441] leading-tight min-w-0 pr-5">
                   {{ topic_labels.get(topic.name, topic.name.replace('_',' ').title()) }}
                 </span>
-                <span class="count-badge absolute top-1.5 right-2 text-[10px] font-bold text-[#C2613A] leading-none">
+                <span class="count-badge absolute top-1.5 right-2 text-[11px] font-bold text-[#C2613A] leading-none">
                   {%- set cnt = topic_counts.get(topic.name, 0) -%}
                   {%- if cnt > 0 %}{{ cnt }}{% endif -%}
                 </span>
@@ -226,8 +226,8 @@ async function fetchCounts(city) {
       if (count > 0) total += count;
     });
     cityCountText.textContent = total > 0
-      ? total + ' közösség itt: ' + city
-      : 'Még nincs adat – nézz vissza a következő futás után.';
+      ? total + ' {{ t("about_communities") }} itt: ' + city
+      : '{{ t("home_no_city_data") }}';
   } catch (e) {}
 }
 
@@ -287,7 +287,11 @@ document.getElementById('detect-location-btn')?.addEventListener('click', functi
     try { localStorage.setItem('user_position', JSON.stringify({lat, lng})); } catch(_) {}
     _renderNearbyCities(lat, lng);
   }, () => {
-    this.innerHTML = '<i class="ph ph-crosshair text-sm"></i> {{ t("home_detect_location") }}';
+    const _btn = this;
+    _btn.textContent = '{{ t("home_geo_failed") }}';
+    setTimeout(() => {
+      _btn.innerHTML = '<i class="ph ph-crosshair text-sm"></i> {{ t("home_detect_location") }}';
+    }, 3000);
   });
 });
 
