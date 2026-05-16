@@ -203,6 +203,7 @@
           </a>
         </div>
       </div>
+      {{ navlink('/admin/stats',          'Stats',        _p == '/admin/stats') }}
       {{ navlink('/admin/subscriptions',  'Subscribers', _p.startswith('/admin/subscriptions')) }}
       <span class="w-px h-4 bg-gray-200 mx-1 shrink-0"></span>
       <a href="/" class="text-sm text-indigo-500 hover:text-indigo-700 transition-colors">← Public</a>
@@ -254,6 +255,7 @@
       {{ navlink('/admin/config',        'Config',        _p.startswith('/admin/config')) }}
       {{ navlink('/admin/prompts',       'Prompts',       _p == '/admin/prompts') }}
       <p class="px-2.5 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Other</p>
+      {{ navlink('/admin/stats',         'Stats',          _p == '/admin/stats') }}
       {{ navlink('/admin/subscriptions', 'Subscribers',   _p.startswith('/admin/subscriptions')) }}
       <a href="/" class="px-2.5 py-2 rounded-lg text-sm text-indigo-500 hover:text-indigo-700 transition-colors">← Public</a>
     </div>
