@@ -2060,3 +2060,64 @@ def update_recategorize_status(db_path: Path, suggestion_id: int, status: str) -
             (status, suggestion_id),
         )
         conn.commit()
+
+
+def get_data_quality_stats(db_path: Path) -> dict:
+    empty: dict = {
+        "total": 0, "visible": 0, "hidden": 0,
+        "cities": 0, "topics": 0,
+        "has_website": 0, "has_contact": 0, "has_description": 0, "has_any": 0,
+        "city_rows": [], "topic_counts": {},
+    }
+    if not db_path.exists():
+        return empty
+    with _connect(db_path) as conn:
+        row = conn.execute("""
+            SELECT
+              COUNT(*) as total,
+              SUM(CASE WHEN hidden=0 THEN 1 ELSE 0 END) as visible,
+              SUM(CASE WHEN hidden=1 THEN 1 ELSE 0 END) as hidden,
+              COUNT(DISTINCT CASE WHEN hidden=0 THEN city END) as cities,
+              COUNT(DISTINCT CASE WHEN hidden=0 THEN topic END) as topics,
+              SUM(CASE WHEN hidden=0
+                   AND json_extract(data,'$.website') IS NOT NULL
+                   AND json_extract(data,'$.website') != '' THEN 1 ELSE 0 END) as has_website,
+              SUM(CASE WHEN hidden=0
+                   AND json_extract(data,'$.contact') IS NOT NULL
+                   AND json_extract(data,'$.contact') != '' THEN 1 ELSE 0 END) as has_contact,
+              SUM(CASE WHEN hidden=0
+                   AND length(COALESCE(json_extract(data,'$.description'),'')) > 50
+                   THEN 1 ELSE 0 END) as has_description,
+              SUM(CASE WHEN hidden=0 AND (
+                   (json_extract(data,'$.website') IS NOT NULL AND json_extract(data,'$.website') != '')
+                   OR
+                   (json_extract(data,'$.contact') IS NOT NULL AND json_extract(data,'$.contact') != '')
+                 ) THEN 1 ELSE 0 END) as has_any
+            FROM communities
+        """).fetchone()
+        city_rows = conn.execute("""
+            SELECT city, COUNT(*) as cnt,
+              SUM(CASE WHEN json_extract(data,'$.website') IS NOT NULL
+                       AND json_extract(data,'$.website') != '' THEN 1 ELSE 0 END) as w,
+              SUM(CASE WHEN json_extract(data,'$.contact') IS NOT NULL
+                       AND json_extract(data,'$.contact') != '' THEN 1 ELSE 0 END) as c
+            FROM communities
+            WHERE hidden=0
+            GROUP BY city
+            ORDER BY cnt DESC
+            LIMIT 20
+        """).fetchall()
+    topic_counts = get_topic_counts(db_path)
+    return {
+        "total": row[0] or 0,
+        "visible": row[1] or 0,
+        "hidden": row[2] or 0,
+        "cities": row[3] or 0,
+        "topics": row[4] or 0,
+        "has_website": row[5] or 0,
+        "has_contact": row[6] or 0,
+        "has_description": row[7] or 0,
+        "has_any": row[8] or 0,
+        "city_rows": [{"city": r[0], "cnt": r[1], "w": r[2] or 0, "c": r[3] or 0} for r in city_rows],
+        "topic_counts": topic_counts,
+    }
