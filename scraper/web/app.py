@@ -1355,7 +1355,7 @@ async def public_suggest_edit(
     notes: str = Form(""),
     email: str = Form(""),
 ):
-    if not entity_name or not change_type or not notes.strip() or not email.strip():
+    if not entity_name or not change_type:
         return JSONResponse({"ok": False, "error": "missing_fields"})
     if not app_state.db_path:
         return JSONResponse({"ok": False})
