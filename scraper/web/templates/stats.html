@@ -94,7 +94,7 @@
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-100">
-        {% for topic, cnt in stats['topic_counts'].items() | sort(attribute='1', reverse=True) %}
+        {% for topic, cnt in stats['topic_counts'] | dictsort(by='value', reverse=True) %}
         <tr class="hover:bg-gray-50">
           <td class="px-4 py-2.5 font-medium text-gray-900">{{ topic }}</td>
           <td class="px-4 py-2.5 text-right text-gray-700">{{ cnt }}</td>
