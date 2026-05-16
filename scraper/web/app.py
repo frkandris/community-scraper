@@ -2466,6 +2466,15 @@ async def subscriptions_page(request: Request):
     })
 
 
+@admin.get("/stats", response_class=HTMLResponse)
+async def stats_page(request: Request):
+    from ..db import get_data_quality_stats
+    stats: dict = {}
+    if app_state.db_path and app_state.db_path.exists():
+        stats = get_data_quality_stats(app_state.db_path)
+    return templates.TemplateResponse(request, "stats.html", {"stats": stats})
+
+
 @admin.get("/logs", response_class=HTMLResponse)
 async def logs_page(request: Request):
     return templates.TemplateResponse(request, "logs.html", {})
