@@ -65,6 +65,7 @@ from ..db import (
     init_db,
     get_duplicate_candidates,
     resolve_duplicate_candidate,
+    delete_duplicate_candidate,
     merge_community_into,
     get_community_by_record_key,
     save_community_data,
@@ -3399,6 +3400,14 @@ async def admin_duplicates_dismiss(candidate_id: int):
     if not app_state.db_path:
         return JSONResponse({"ok": False})
     resolve_duplicate_candidate(_db(), candidate_id, "dismissed")
+    return JSONResponse({"ok": True})
+
+
+@admin.post("/duplicates/{candidate_id}/delete")
+async def admin_duplicates_delete(candidate_id: int):
+    if not app_state.db_path:
+        return JSONResponse({"ok": False})
+    delete_duplicate_candidate(_db(), candidate_id)
     return JSONResponse({"ok": True})
 
 

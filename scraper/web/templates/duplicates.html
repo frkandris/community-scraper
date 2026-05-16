@@ -7,10 +7,16 @@
     <h1 class="text-xl font-bold text-gray-900">Duplicates</h1>
     <p class="text-sm text-gray-500 mt-0.5">{{ candidates | length }} pending</p>
   </div>
-  <button onclick="scanNow(this)"
-    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-colors">
-    <i class="ph ph-magnifying-glass"></i> Scan now
-  </button>
+  <div class="flex items-center gap-2">
+    <button onclick="deleteAllStale(this)"
+      class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors">
+      <i class="ph ph-trash"></i> Delete stale
+    </button>
+    <button onclick="scanNow(this)"
+      class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-colors">
+      <i class="ph ph-magnifying-glass"></i> Scan now
+    </button>
+  </div>
 </div>
 
 <!-- Bulk action bar (hidden until selection) -->
@@ -79,7 +85,8 @@
 {% endif %}
 
 {% for c in candidates %}
-<div class="bg-white rounded-lg border border-gray-200 mb-3 overflow-hidden transition-opacity" id="cand-{{ c.id }}">
+<div class="bg-white rounded-lg border border-gray-200 mb-3 overflow-hidden transition-opacity" id="cand-{{ c.id }}"
+  {% if not c.winner_data and not c.loser_data %}data-stale="true"{% endif %}>
   <div class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex items-center gap-3 flex-wrap">
     <!-- Checkbox -->
     <input type="checkbox" value="{{ c.id }}" onchange="updateBulkBar()"
@@ -103,6 +110,12 @@
     </div>
     <!-- Action buttons -->
     <div class="flex items-center gap-2 shrink-0">
+      {% if not c.winner_data and not c.loser_data %}
+      <button onclick="resolve({{ c.id }}, 'delete', this)"
+        class="flex items-center gap-1 px-3 py-1 rounded-md text-xs font-semibold bg-red-100 text-red-700 hover:bg-red-200 transition-colors">
+        <i class="ph ph-trash"></i> Delete
+      </button>
+      {% else %}
       <button onclick="resolve({{ c.id }}, 'merge', this)"
         class="flex items-center gap-1 px-3 py-1 rounded-md text-xs font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors">
         <i class="ph ph-magic-wand"></i> AI merge
@@ -111,6 +124,7 @@
         class="px-3 py-1 rounded-md text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
         Not duplicate
       </button>
+      {% endif %}
     </div>
   </div>
   <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-200">
@@ -203,6 +217,27 @@ async function bulkAction(action) {
       else card.style.opacity = '';
     } catch { card.style.opacity = ''; }
   }));
+  updateBulkBar();
+}
+
+async function deleteAllStale(btn) {
+  const stale = [...document.querySelectorAll('[data-stale="true"]')];
+  if (!stale.length) { alert('No stale records found.'); return; }
+  if (!confirm(`Delete ${stale.length} stale record(s) where both sides are missing?`)) return;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Deleting…';
+  await Promise.all(stale.map(async card => {
+    const id = parseInt(card.id.replace('cand-', ''));
+    card.style.opacity = '0.4';
+    try {
+      const res = await fetch(`/admin/duplicates/${id}/delete`, {method: 'POST'});
+      const data = await res.json();
+      if (data.ok) setTimeout(() => card.remove(), 200);
+      else card.style.opacity = '';
+    } catch { card.style.opacity = ''; }
+  }));
+  btn.disabled = false;
+  btn.innerHTML = '<i class="ph ph-trash"></i> Delete stale';
   updateBulkBar();
 }
 

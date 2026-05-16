@@ -1771,6 +1771,12 @@ def resolve_duplicate_candidate(db_path: Path, candidate_id: int, resolution: st
         conn.commit()
 
 
+def delete_duplicate_candidate(db_path: Path, candidate_id: int) -> None:
+    with _connect(db_path) as conn:
+        conn.execute("DELETE FROM duplicate_candidates WHERE id=?", (candidate_id,))
+        conn.commit()
+
+
 def merge_community_into(
     db_path: Path,
     winner_key: str,
