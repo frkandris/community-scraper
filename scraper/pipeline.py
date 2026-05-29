@@ -549,7 +549,8 @@ async def _run_full(
                         url, city.name, topic.name,
                         fingerprint=extractor.person_fingerprint) if cache else None
                     if _person_cache is not None:
-                        log.debug("person_cache_hit", url=url, cached=len(_person_cache))
+                        if _person_cache:
+                            log.debug("person_cache_hit", url=url, cached=len(_person_cache))
                     elif run_persons:
                         try:
                             persons = await extractor.extract_persons(
@@ -714,7 +715,8 @@ async def _run_ai_only(
                     _person_cache = cache.get_person_extracted(
                         url, city.name, topic.name, fingerprint=extractor.person_fingerprint)
                     if _person_cache is not None:
-                        log.debug("person_cache_hit", url=url, cached=len(_person_cache))
+                        if _person_cache:
+                            log.debug("person_cache_hit", url=url, cached=len(_person_cache))
                     elif run_persons:
                         try:
                             persons = await extractor.extract_persons(
