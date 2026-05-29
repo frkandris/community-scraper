@@ -81,6 +81,7 @@ from ..db import (
     get_community_submissions,
     resolve_community_submission,
     get_other_communities,
+    get_communities_missing_description,
     upsert_recategorize_suggestion,
     get_recategorize_suggestions,
     apply_recategorize_suggestion,
@@ -2334,6 +2335,62 @@ async def _run_recategorize() -> None:
         log.warning("recategorize_failed", error=str(exc))
     finally:
         _recategorize_state["running"] = False
+
+
+# ── Maintenance ───────────────────────────────────────────────────────────────
+
+_fill_descriptions_state: dict = {"running": False, "done": 0, "total": 0, "failed": 0, "error": ""}
+
+
+@admin.get("/maintenance", response_class=HTMLResponse)
+async def admin_maintenance_page(request: Request):
+    missing_count = len(get_communities_missing_description(app_state.db_path)) if app_state.db_path else 0
+    return templates.TemplateResponse("maintenance.html", {
+        "request": request,
+        "missing_description_count": missing_count,
+        "state": _fill_descriptions_state,
+    })
+
+
+@admin.post("/maintenance/fill-descriptions/start")
+async def admin_fill_descriptions_start():
+    if not app_state.db_path or not app_state.pipeline_cfg:
+        return JSONResponse({"ok": False, "error": "Not configured"})
+    if _fill_descriptions_state["running"]:
+        return JSONResponse({"ok": False, "error": "Already running"})
+    asyncio.create_task(_run_fill_descriptions())
+    return JSONResponse({"ok": True})
+
+
+@admin.get("/maintenance/fill-descriptions/status")
+async def admin_fill_descriptions_status():
+    return JSONResponse(_fill_descriptions_state)
+
+
+async def _run_fill_descriptions() -> None:
+    _fill_descriptions_state.update({"running": True, "done": 0, "total": 0, "failed": 0, "error": ""})
+    try:
+        communities = get_communities_missing_description(app_state.db_path)
+        _fill_descriptions_state["total"] = len(communities)
+        log.info("fill_descriptions_started", total=len(communities))
+        for c in communities:
+            community_id = c.get("community_id", "")
+            if not community_id:
+                _fill_descriptions_state["failed"] += 1
+                _fill_descriptions_state["done"] += 1
+                continue
+            try:
+                await reextract_community(app_state.db_path, app_state.pipeline_cfg, community_id)
+            except Exception as exc:
+                log.warning("fill_descriptions_item_failed", community_id=community_id, error=str(exc))
+                _fill_descriptions_state["failed"] += 1
+            _fill_descriptions_state["done"] += 1
+        log.info("fill_descriptions_done", done=_fill_descriptions_state["done"], failed=_fill_descriptions_state["failed"])
+    except Exception as exc:
+        _fill_descriptions_state["error"] = str(exc)
+        log.warning("fill_descriptions_failed", error=str(exc))
+    finally:
+        _fill_descriptions_state["running"] = False
 
 
 @admin.get("/config", response_class=HTMLResponse)

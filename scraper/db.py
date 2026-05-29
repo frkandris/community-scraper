@@ -885,6 +885,19 @@ def get_communities_for_city(db_path: Path, city: str) -> list[dict]:
     return [json.loads(r[0]) for r in rows]
 
 
+def get_communities_missing_description(db_path: Path) -> list[dict]:
+    """Return visible communities where description is NULL or empty."""
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT data FROM communities WHERE hidden=0 "
+            "AND (json_extract(data,'$.description') IS NULL OR json_extract(data,'$.description') = '') "
+            "ORDER BY city, id"
+        ).fetchall()
+    return [json.loads(r[0]) for r in rows]
+
+
 def find_community_by_id(db_path: Path, community_id: str) -> dict | None:
     if not db_path.exists():
         return None
