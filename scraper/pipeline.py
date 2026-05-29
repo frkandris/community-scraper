@@ -12,7 +12,7 @@ from .extract import DeepSeekExtractor, FallbackExtractor, GroqExtractor
 from .false_positives import build_prompt_section
 from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
-from .search import DataForSEOClient, FallbackSearchClient, SerperSearchClient, build_queries
+from .search import DataForSEOClient, FallbackSearchClient, GooglePlaywrightSearchClient, SerperSearchClient, build_queries
 from .db import get_search_cache, save_search_cache, get_covered_pairs, upsert_venues, upsert_persons, delete_leader_persons_for_community, load_cache_page, find_community_by_id
 from .store import save_results
 
@@ -339,7 +339,10 @@ async def _run_full(
     run_persons: bool = True,
     pairs_filter: set[tuple[str, str]] | None = None,
 ) -> tuple[int, list[dict]]:
-    search_primaries = []
+    google_search = GooglePlaywrightSearchClient(rate_limit_seconds=8.0)
+    await google_search.start()
+
+    search_primaries: list = [google_search]
     if config.dataforseo_login and config.dataforseo_password:
         search_primaries.append(DataForSEOClient(
             config.dataforseo_login, config.dataforseo_password,
@@ -587,6 +590,7 @@ async def _run_full(
 
     if pw_fetcher:
         await pw_fetcher.stop()
+    await google_search.stop()
     return total_new, pair_logs
 
 

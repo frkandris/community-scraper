@@ -2,7 +2,7 @@ import asyncio
 import re
 import structlog
 import httpx
-from urllib.parse import parse_qs, urlparse, unquote
+from urllib.parse import parse_qs, urlparse, unquote, quote_plus
 
 from .models import SearchResult
 
@@ -278,6 +278,174 @@ class DataForSEOClient:
                     seen_urls.add(r.url)
                     combined.append(r)
         return combined
+
+    async def _rate_limit(self) -> None:
+        import time
+        now = time.monotonic()
+        elapsed = now - self._last_request_time
+        if elapsed < self.rate_limit_seconds:
+            await asyncio.sleep(self.rate_limit_seconds - elapsed)
+        self._last_request_time = time.monotonic()
+
+
+class GooglePlaywrightSearchClient:
+    """Headless Chromium Google search — free, no API key, 8 s between requests.
+    Raises SearchQuotaError on CAPTCHA so FallbackSearchClient rolls to DataForSEO.
+    Requires playwright + chromium (already installed via Dockerfile).
+    """
+
+    _CAPTCHA_MARKERS = ("/sorry/", "recaptcha", "g-recaptcha", "unusual traffic")
+
+    def __init__(self, rate_limit_seconds: float = 8.0):
+        self.rate_limit_seconds = rate_limit_seconds
+        self._pw = None
+        self._browser = None
+        self._context = None
+        self._last_request_time: float = 0.0
+        self._consent_done = False
+
+    async def start(self) -> None:
+        try:
+            from playwright.async_api import async_playwright
+            self._pw = await async_playwright().start()
+            self._browser = await self._pw.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-dev-shm-usage"],
+            )
+            self._context = await self._browser.new_context(
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/124.0.0.0 Safari/537.36"
+                ),
+                locale="en-US",
+                viewport={"width": 1280, "height": 800},
+            )
+            log.info("google_playwright_search_started")
+        except Exception as exc:
+            log.warning("google_playwright_search_start_failed", error=str(exc))
+
+    async def stop(self) -> None:
+        try:
+            if self._context:
+                await self._context.close()
+            if self._browser:
+                await self._browser.close()
+            if self._pw:
+                await self._pw.stop()
+        except Exception as exc:
+            log.debug("google_playwright_search_stop_error", error=str(exc))
+
+    async def search(
+        self,
+        query: str,
+        locale: str = "en",
+        num_results: int = 10,
+    ) -> list[SearchResult]:
+        if not self._context:
+            return []
+        await self._rate_limit()
+
+        hl = locale.split("-")[0] if "-" in locale else locale
+        if hl == "no":
+            hl = "nb"
+        gl = LOCALE_TO_SERPER.get(hl, ("us", "en"))[0]
+        url = (
+            f"https://www.google.com/search"
+            f"?q={quote_plus(query)}"
+            f"&num={min(num_results, 10)}"
+            f"&hl={hl}&gl={gl}"
+        )
+
+        page = None
+        try:
+            page = await self._context.new_page()
+            await page.goto(url, timeout=20_000, wait_until="domcontentloaded")
+            await asyncio.sleep(1.0)
+
+            if not self._consent_done:
+                await self._accept_consent(page)
+
+            content = await page.content()
+            if any(m in content.lower() for m in self._CAPTCHA_MARKERS):
+                log.warning("google_playwright_captcha", query=query)
+                raise SearchQuotaError("Google blocked: CAPTCHA detected")
+
+            results = await self._parse_results(page, num_results)
+            log.info("google_playwright_results", query=query, found=len(results))
+            return results
+        except SearchQuotaError:
+            raise
+        except Exception as exc:
+            log.warning("google_playwright_search_failed", query=query, error=str(exc))
+            return []
+        finally:
+            if page:
+                try:
+                    await page.close()
+                except Exception:
+                    pass
+
+    async def search_all(
+        self,
+        queries: list[str],
+        locale: str = "en",
+        num_results: int = 10,
+    ) -> list[SearchResult]:
+        seen_urls: set[str] = set()
+        combined: list[SearchResult] = []
+        for query in queries:
+            for r in await self.search(query, locale=locale, num_results=num_results):
+                if r.url not in seen_urls:
+                    seen_urls.add(r.url)
+                    combined.append(r)
+        return combined
+
+    async def _accept_consent(self, page) -> None:
+        try:
+            btn = page.locator(
+                'button:has-text("Accept all"), '
+                'button[id="L2AGLb"], '
+                'button:has-text("Alle akzeptieren"), '
+                'button:has-text("Tout accepter"), '
+                'button:has-text("Elfogad")'
+            )
+            if await btn.first.is_visible(timeout=2000):
+                await btn.first.click()
+                await page.wait_for_load_state("domcontentloaded")
+                await asyncio.sleep(0.5)
+                self._consent_done = True
+                log.info("google_playwright_consent_accepted")
+        except Exception:
+            pass
+
+    async def _parse_results(self, page, num_results: int) -> list[SearchResult]:
+        results: list[SearchResult] = []
+        links = await page.locator("#search a:has(h3)").all()
+        for link in links:
+            href = await link.get_attribute("href")
+            if not href or not href.startswith("http") or "google.com" in href:
+                continue
+            try:
+                title = await link.locator("h3").first.inner_text(timeout=500)
+            except Exception:
+                continue
+            if not title:
+                continue
+            snippet = ""
+            try:
+                snippet_el = (
+                    link.locator("..")
+                    .locator('[data-sncf], [style*="line-clamp"], .VwiC3b')
+                    .first
+                )
+                snippet = await snippet_el.inner_text(timeout=500)
+            except Exception:
+                pass
+            results.append(SearchResult(url=href, title=title, snippet=snippet))
+            if len(results) >= num_results:
+                break
+        return results
 
     async def _rate_limit(self) -> None:
         import time
