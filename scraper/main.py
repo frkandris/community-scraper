@@ -160,15 +160,9 @@ async def main() -> None:
                        json.dumps(pair_logs) if pair_logs else None)
 
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(
-        _scheduled_run,
-        CronTrigger(minute=minute, hour=hour, day=day, month=month,
-                    day_of_week=day_of_week, timezone="UTC"),
-        misfire_grace_time=900,
-    )
     scheduler.start()
     app_state.scheduler = scheduler
-    log.info("scheduler_started", cron=cron_expr, version=app_state.version)
+    log.info("scheduler_started_paused", cron=cron_expr, version=app_state.version)
 
     async def _startup_run() -> None:
         await asyncio.sleep(5)
@@ -230,7 +224,7 @@ async def main() -> None:
             finish_run(db_path, run_id, datetime.now(timezone.utc), success,
                        json.dumps(pair_logs) if pair_logs else None)
 
-    asyncio.create_task(_startup_run())
+    # asyncio.create_task(_startup_run())
 
     config = uvicorn.Config(
         web_app,
