@@ -3619,6 +3619,8 @@ async def public_city_segment(
     city_name = _city_from_slug(city_slug)
     if not city_name:
         return RedirectResponse("/", status_code=302)
+    if city_name not in {c.name for c in _site_cities(request)}:
+        return RedirectResponse("/", status_code=302)
     topic_names = {t.name for t in (app_state.topics or [])}
     city_locale = _city_locale(city_name)
     # Try localized slug first, then fall back to English slug
@@ -3667,5 +3669,7 @@ async def public_city_segment(
 async def public_city(request: Request, city_slug: str, subscribed: str = ""):
     city_name = _city_from_slug(city_slug)
     if not city_name:
+        return RedirectResponse("/", status_code=302)
+    if city_name not in {c.name for c in _site_cities(request)}:
         return RedirectResponse("/", status_code=302)
     return await _render_explore(request, city=city_name, subscribed=subscribed)
