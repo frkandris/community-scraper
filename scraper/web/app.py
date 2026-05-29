@@ -2345,8 +2345,7 @@ _fill_descriptions_state: dict = {"running": False, "done": 0, "total": 0, "fail
 @admin.get("/maintenance", response_class=HTMLResponse)
 async def admin_maintenance_page(request: Request):
     missing_count = len(get_communities_missing_description(app_state.db_path)) if app_state.db_path else 0
-    return templates.TemplateResponse("maintenance.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "maintenance.html", {
         "missing_description_count": missing_count,
         "state": _fill_descriptions_state,
     })
