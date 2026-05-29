@@ -78,6 +78,17 @@ def _settings_cron() -> str:
     return DEFAULT_SCHEDULE_CRON
 
 
+def _settings_auto_run_on_startup() -> bool:
+    try:
+        settings = yaml.safe_load((CONFIG_DIR / "settings.yaml").read_text(encoding="utf-8")) or {}
+        schedule = settings.get("schedule", {})
+        if isinstance(schedule, dict):
+            return bool(schedule.get("auto_run_on_startup", False))
+    except Exception:
+        return False
+    return False
+
+
 async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true")
@@ -224,7 +235,8 @@ async def main() -> None:
             finish_run(db_path, run_id, datetime.now(timezone.utc), success,
                        json.dumps(pair_logs) if pair_logs else None)
 
-    # asyncio.create_task(_startup_run())
+    if _settings_auto_run_on_startup():
+        asyncio.create_task(_startup_run())
 
     config = uvicorn.Config(
         web_app,

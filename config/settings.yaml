@@ -49,3 +49,4 @@ cache:
 
 schedule:
   cron: "* * * * *"
+  auto_run_on_startup: false
