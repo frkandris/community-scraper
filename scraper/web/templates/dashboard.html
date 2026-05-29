@@ -69,23 +69,6 @@
                 <div class="text-blue-500"><i class="ph ph-check"></i> Search + Fetch <span class="opacity-60">(new)</span></div>
                 <div class="text-blue-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(new)</span> + Enrich</div>
               </div>
-              {% if smart_cities_hu > 0 %}
-              <div class="flex gap-2 mt-1.5 text-[9px] font-semibold flex-wrap">
-                <span class="flex items-center gap-0.5 text-blue-700" title="városok">
-                  <i class="ph ph-map-pin"></i>{{ smart_cities_hu }}
-                </span>
-                {% if smart_search_hu > 0 %}
-                <span class="flex items-center gap-0.5 text-blue-600" title="keresések">
-                  <i class="ph ph-magnifying-glass"></i>{{ smart_search_hu }}
-                </span>
-                {% endif %}
-                {% if smart_ai_hu > 0 %}
-                <span class="flex items-center gap-0.5 text-blue-500" title="AI hívás">
-                  <i class="ph ph-robot"></i>{{ smart_ai_hu }}
-                </span>
-                {% endif %}
-              </div>
-              {% endif %}
             </button>
 
             <button type="button" data-preset="refresh"
@@ -119,14 +102,6 @@
                 <div class="text-gray-300"><i class="ph ph-minus"></i> Search / Fetch</div>
                 <div class="text-gray-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(fingerprint stale)</span> + Enrich</div>
               </div>
-              {% if reai_pending > 0 or reai_pending_hu > 0 %}
-              <div class="flex gap-2 mt-1.5 text-[9px] font-semibold">
-                <span class="flex items-center gap-0.5 text-purple-600"
-                      data-global="{{ reai_pending }}" data-hu="{{ reai_pending_hu }}">
-                  <i class="ph ph-cpu"></i><span class="rs-num">{{ reai_pending_hu }}</span>
-                </span>
-              </div>
-              {% endif %}
             </button>
 
             <button type="button" data-preset="revalidate"
@@ -140,14 +115,6 @@
                 <div class="text-gray-300"><i class="ph ph-minus"></i> Search / Fetch</div>
                 <div class="text-gray-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(not yet validated)</span></div>
               </div>
-              {% if revalidation_pending > 0 or revalidation_pending_hu > 0 %}
-              <div class="flex gap-2 mt-1.5 text-[9px] font-semibold">
-                <span class="flex items-center gap-0.5 text-amber-600"
-                      data-global="{{ revalidation_pending }}" data-hu="{{ revalidation_pending_hu }}">
-                  <i class="ph ph-cpu"></i><span class="rs-num">{{ revalidation_pending_hu }}</span>
-                </span>
-              </div>
-              {% endif %}
             </button>
 
           </div>

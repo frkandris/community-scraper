@@ -1754,69 +1754,10 @@ async def dashboard(request: Request):
         test_mode = False
         test_cities = []
 
-    revalidation_pending = 0
-    revalidation_pending_hu = 0
-    reai_pending = 0
-    reai_pending_hu = 0
-    if app_state.db_path and app_state.db_path.exists():
-        try:
-            fp = _revalidation_fingerprint()
-            revalidation_pending = count_communities_needing_revalidation(_db(), fp)
-            hu_names = _hu_city_names()
-            revalidation_pending_hu = count_communities_needing_revalidation(_db(), fp, list(hu_names))
-        except Exception:
-            pass
-        try:
-            from ..extract import _prompt_hash, get_prompt as _ep
-            cfg = app_state.pipeline_cfg
-            if cfg:
-                if cfg.deepseek_api_key:
-                    _model = cfg.deepseek_model or "deepseek-chat"
-                elif cfg.groq_api_key:
-                    _model = cfg.groq_model or "llama-3.1-70b-versatile"
-                else:
-                    _model = ""
-                if _model:
-                    extract_fp = _prompt_hash(_ep("extraction_system") + _model)
-                    venue_fp   = _prompt_hash(_ep("venue_system") + _model)
-                    person_fp  = _prompt_hash(_ep("person_system") + _model)
-                    _stats = get_scope_stats(app_state.db_path, extract_fp, venue_fp, person_fp)
-                    reai_pending = _stats["with_text"] - _stats["fully_matched"]
-                    _hu = list(_hu_city_names())
-                    if _hu:
-                        _stats_hu = get_scope_stats(app_state.db_path, extract_fp, venue_fp, person_fp, cities=_hu)
-                        reai_pending_hu = _stats_hu["with_text"] - _stats_hu["fully_matched"]
-        except Exception:
-            pass
-
     all_cities = app_state.cities or []
     run_countries = sorted({c.country for c in all_cities if c.country})
     run_cities = sorted([{"name": c.name, "country": c.country} for c in all_cities],
                         key=lambda c: (c["country"], c["name"]))
-
-    _hu_names = list(_hu_city_names())
-    smart_pairs_hu = len(_hu_names) * len(app_state.topics or [])
-    smart_pairs_global = len(all_cities) * len(app_state.topics or [])
-
-    smart_cities_hu = len(_hu_names)
-    smart_search_hu = 0
-    smart_ai_hu = 0
-    if app_state.db_path and app_state.db_path.exists() and _hu_names:
-        try:
-            from ..db import count_cached_search_pairs as _count_cached
-            from ..db import count_cities_with_pending_search as _count_cities_pending
-            _ttl = (app_state.pipeline_cfg.search_cache_ttl_days
-                    if app_state.pipeline_cfg else 7)
-            _topics_count = len(app_state.topics or [])
-            _cached = _count_cached(app_state.db_path, _hu_names, _ttl)
-            smart_search_hu = max(0, smart_pairs_hu - _cached)
-            smart_cities_hu = _count_cities_pending(app_state.db_path, _hu_names, _topics_count, _ttl)
-        except Exception:
-            pass
-        try:
-            smart_ai_hu = max(0, _stats_hu["with_text"] - _stats_hu["fully_matched"])
-        except Exception:
-            pass
 
     return templates.TemplateResponse(request, "dashboard.html", {
         "is_running": app_state.is_running,
@@ -1827,15 +1768,6 @@ async def dashboard(request: Request):
         "run_history": run_history,
         "test_mode": test_mode,
         "test_cities": test_cities,
-        "revalidation_pending": revalidation_pending,
-        "revalidation_pending_hu": revalidation_pending_hu,
-        "reai_pending": reai_pending,
-        "reai_pending_hu": reai_pending_hu,
-        "smart_pairs_hu": smart_pairs_hu,
-        "smart_pairs_global": smart_pairs_global,
-        "smart_cities_hu": smart_cities_hu,
-        "smart_search_hu": smart_search_hu,
-        "smart_ai_hu": smart_ai_hu,
         "revalidate_state": _revalidate_state,
         "current_run_mode": app_state.current_run_mode,
         "run_countries": run_countries,
