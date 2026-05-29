@@ -5,6 +5,7 @@ import hmac
 import importlib.metadata
 import json
 import os
+import random
 import re
 import sys
 import unicodedata
@@ -751,7 +752,9 @@ def _find_community_by_slug(city_name: str, name_slug: str) -> dict | None:
 
 
 def _load_communities(city: str, topic: str) -> list[dict]:
-    return [_ensure_community_id(r) for r in get_communities(_db(), city, topic)]
+    recs = [_ensure_community_id(r) for r in get_communities(_db(), city, topic)]
+    random.shuffle(recs)
+    return recs
 
 
 def _find_community(community_id: str) -> dict | None:
@@ -1077,8 +1080,9 @@ async def _render_explore(
                     for t in topic:
                         recs.extend(_load_communities(city_name, t))
                 else:
-                    recs = [_ensure_community_id(r)
-                            for r in get_communities_for_city(_db(), city_name)][:10]
+                    _all = [_ensure_community_id(r) for r in get_communities_for_city(_db(), city_name)]
+                    random.shuffle(_all)
+                    recs = _all[:10]
                 if recs:
                     city_url = "/" + _slugify(city_name)
                     if topic and len(topic) == 1:
