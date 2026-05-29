@@ -155,7 +155,7 @@
         </div>
       </div>
       {# Moderation dropdown #}
-      {% set _mod_active = _p.startswith('/admin/duplicates') or _p.startswith('/admin/edit-requests') or _p == '/admin/not-community' or _p == '/admin/submissions' or _p == '/admin/recategorize' %}
+      {% set _mod_active = _p.startswith('/admin/duplicates') or _p.startswith('/admin/edit-requests') or _p == '/admin/not-community' or _p == '/admin/submissions' or _p == '/admin/recategorize' or _p == '/admin/maintenance' %}
       <div class="relative" id="nav-mod-wrap">
         <button onclick="document.getElementById('nav-mod-menu').classList.toggle('hidden')"
           class="px-2.5 py-1 rounded-lg text-sm transition-colors flex items-center gap-1
@@ -178,10 +178,11 @@
           <a href="/admin/recategorize" class="flex items-center gap-2 px-3 py-2 text-sm {% if _p == '/admin/recategorize' %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
             <i class="ph ph-tag" style="font-size:14px"></i> Recategorize
           </a>
+          <a href="/admin/maintenance" class="flex items-center gap-2 px-3 py-2 text-sm {% if _p == '/admin/maintenance' %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+            <i class="ph ph-wrench" style="font-size:14px"></i> Description re-AI
+          </a>
         </div>
       </div>
-      {# Maintenance top-level link #}
-      {{ navlink('/admin/maintenance', 'Maintenance', _p == '/admin/maintenance') }}
       {# System dropdown #}
       {% set _sys_active = _p.startswith('/admin/progress') or _p == '/admin/logs' or _p.startswith('/admin/config') or _p == '/admin/prompts' %}
       <div class="relative" id="nav-sys-wrap">
