@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-05-29
+
+- **Google Playwright keresés**: `GooglePlaywrightSearchClient` bevezetve elsődleges keresési forrásként — headless Chromium scrapolja a Google találatokat API kulcs nélkül, 8 mp várakozással kérések között. CAPTCHA esetén automatikusan DataForSEO-ra vált. Fallback lánc: Google Playwright → DataForSEO → Serper
+- **Automatikus futtatások letiltva**: cron ütemező regisztrálva, de aktív jobok nélkül — a pipeline csak gombnyomásra indul
+- **`auto_run_on_startup` config flag**: `config/settings.yaml → schedule.auto_run_on_startup: true/false` vezérli, hogy deploy után automatikusan elindul-e a pipeline (alapértelmezés: `true`)
+- **Dashboard gyorsítás**: 5 drága DB lekérdezés eltávolítva a dashboard betöltésből (revalidation count, scope stats ×2, search cache counts) — a Run Now kártyákról eltűntek a számok
+- **Person extraction optimalizáció**: ha egy URL-hez 0 közösség tartozik, a person cache lookup és AI hívás ki van hagyva — megtakarít egy DB olvasást URL-enként (az URL-ek többsége 0 közösséget ad)
+- **Admin stats oldal** (`/admin/stats`): adatminőség statisztikák témánként és városonként
+
 ## 2026-05-15
 
 - **Multi-domain support**: `közösségek.com` (HU cities, HU UI) and `meetapedia.com` (all cities, EN UI) served from one container

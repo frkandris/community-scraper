@@ -26,15 +26,17 @@ pip install -e ".[dev]"
 
 The scraper discovers community groups for each `(city, topic)` pair:
 
-1. **Search** (`search.py`): DataForSEO → Serper fallback chain. Quota errors permanently skip a provider for the run.
-2. **Fetch** (`fetch.py`): `httpx` + `trafilatura` to extract clean page text. Blocked domains (Facebook, Instagram, TikTok, LinkedIn, YouTube, Reddit, Twitter/X) return `None` immediately. `playwright_domains` is currently empty — Playwright is installed but not active.
+1. **Search** (`search.py`): Google Playwright → DataForSEO → Serper fallback chain. `GooglePlaywrightSearchClient` uses headless Chromium to scrape Google directly (no API key, 8 s delay between requests). CAPTCHA detection raises `SearchQuotaError` which rolls to DataForSEO. Quota errors permanently skip a provider for the run.
+2. **Fetch** (`fetch.py`): `httpx` + `trafilatura` to extract clean page text. Blocked domains (Facebook, Instagram, TikTok, LinkedIn, YouTube, Reddit, Twitter/X) return `None` immediately. `playwright_domains` in `settings.yaml` controls Playwright-fetched domains (currently empty for page fetching — Playwright is used for Google search, not page fetching).
 3. **Extract** (`extract.py`): DeepSeek → Groq fallback chain. Both share `_ApiExtractor` base. The `FallbackExtractor` wraps them with per-provider `_exhausted` and `_blocked_until` state.
 4. **Store** (`store.py` → `db.py`): Upsert to SQLite `communities` table, merging `source_urls` on conflict.
 
 The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
-- `full`: search → fetch → extract → enrich (default; also what the scheduler runs — labelled "Smart" in the UI)
+- `full`: search → fetch → extract → enrich (default; labelled "Smart" in the UI)
 - `ai_only`: re-extract from cached page texts, no web requests
 - `revalidate`: re-validates communities whose `revalidate_fingerprint` is stale (separate flow via `_run_revalidate`, not `run_pipeline`)
+
+**Scheduler**: cron job is registered but has no jobs — automatic scheduled runs are disabled. Pipeline only starts via manual button presses or `auto_run_on_startup` (see `config/settings.yaml → schedule.auto_run_on_startup`).
 
 **Cache**: everything goes through `cache.py` (a thin facade over `db.py`). Each scraped URL gets a row in `cache_pages`. The extraction cache is fingerprint-keyed: SHA-256[:12] of `SYSTEM_PROMPT + model_name`. Changing either invalidates all cached extractions automatically.
 
@@ -51,7 +53,7 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 | `scraper/models.py` | `CommunityRecord` pydantic model with auto-cleanup validator |
 | `scraper/web/app.py` | All HTTP routes (~3700 lines) |
 | `scraper/duplicates.py` | Duplicate detection; admin UI at `/admin/duplicates` |
-| `scraper/playwright_fetch.py` | Playwright-based fetcher; `playwright_domains` in `settings.yaml` is currently empty (all social domains are blocked) |
+| `scraper/playwright_fetch.py` | Playwright-based page fetcher; `playwright_domains` in `settings.yaml` is currently empty (social domains are blocked, not Playwright-fetched) |
 | `scraper/false_positives.py` | CRUD + prompt injection for false positive rules |
 | `scraper/web/schema.py` | JSON-LD schema generation for public pages |
 | `scraper/web/i18n.py` | Translations; `lang_context(request)` injects `t`, `lang`, `topic_labels` etc. into every public template |
@@ -82,6 +84,10 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 **CSS build**: `scraper/web/static/css/app.css` is gitignored. Docker builds it from `input.css` via `pytailwindcss` at image build time. For local dev, maintain `app.css` manually. Committing `input.css` changes is sufficient for production.
 
 **Playwright vs. blocked ordering**: `fetch_and_clean()` checks `playwright_fetcher.matches(url)` *before* `_is_blocked()`. A domain in both lists gets fetched by Playwright, not blocked. Keep social-media domains out of `playwright_domains` entirely.
+
+**Person extraction skip**: in `_run_full` and `_run_ai_only`, the person cache lookup and AI call are skipped entirely when `community_names` is empty for a URL. No communities → no persons to extract. Saves one DB read per URL (the majority of URLs in most topic runs yield 0 communities).
+
+**settings.yaml schedule flags**: `schedule.auto_run_on_startup: true/false` controls whether the pipeline runs automatically on deploy/restart (read at startup, not hot-reloaded). The cron job slot exists but is intentionally empty — automatic scheduled runs are disabled.
 
 **Two-domain nav active-state**: nav links in `public_base.html` use `or` prefix checks for both HU and EN paths (e.g. `_p.startswith('/terkep') or _p.startswith('/map')`). Add both prefixes when introducing a new route that exists on both domains.
 
