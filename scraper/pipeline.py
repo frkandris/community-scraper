@@ -856,3 +856,109 @@ async def reextract_community(
     save_results(city, topic, records, db_path)
     log.info("reextract_community_done", community_id=community_id, found=len(records))
     return True
+
+
+async def reextract_with_search_fallback(
+    db_path: Path,
+    config: "PipelineConfig",
+    community_id: str,
+) -> bool:
+    """Re-extract from existing source; if still no description, search the web for this community.
+
+    Search fallback helps both with missing descriptions and wrong-city assignments —
+    fresh search results for "{name} {city}" naturally surface better source pages.
+    """
+    # Step 1: re-extract from cached/live source URL
+    await reextract_community(db_path, config, community_id)
+
+    record = find_community_by_id(db_path, community_id)
+    if not record:
+        return False
+    if record.get("description"):
+        return True  # description filled, done
+
+    # Step 2: search the web for this community by name
+    name = record.get("name", "")
+    city = record.get("city", "")
+    topic = record.get("topic", "")
+    locale = record.get("locale", "hu")
+
+    if not name or not city:
+        return False
+
+    search_primaries: list = []
+    if config.dataforseo_login and config.dataforseo_password:
+        search_primaries.append(DataForSEOClient(
+            config.dataforseo_login, config.dataforseo_password,
+            rate_limit_seconds=config.search_rate_limit,
+        ))
+    if config.serper_api_key:
+        search_primaries.append(SerperSearchClient(config.serper_api_key, rate_limit_seconds=config.search_rate_limit))
+    if not search_primaries:
+        log.warning("reextract_search_fallback_no_client", community_id=community_id)
+        return False
+
+    searcher = FallbackSearchClient(primaries=search_primaries)
+    query = f'"{name}" {city}'
+    log.info("reextract_search_fallback", community_id=community_id, name=name, query=query)
+
+    try:
+        results = await searcher.search(query, locale=locale, num_results=5)
+    except Exception as exc:
+        log.warning("reextract_search_fallback_search_failed", community_id=community_id, error=str(exc))
+        return False
+
+    ext_primaries: list = []
+    if config.deepseek_api_key:
+        ext_primaries.append(DeepSeekExtractor(
+            api_key=config.deepseek_api_key,
+            model=config.deepseek_model,
+            temperature=config.deepseek_temperature,
+            timeout_seconds=config.deepseek_timeout,
+            max_text_chars=config.deepseek_max_text_chars,
+            rate_limit_seconds=config.deepseek_rate_limit_seconds,
+        ))
+    if config.groq_api_key:
+        ext_primaries.append(GroqExtractor(
+            api_key=config.groq_api_key,
+            model=config.groq_model,
+            temperature=config.groq_temperature,
+            timeout_seconds=config.groq_timeout,
+            max_text_chars=config.groq_max_text_chars,
+            rate_limit_seconds=config.groq_rate_limit_seconds,
+        ))
+    if not ext_primaries:
+        return False
+
+    extractor = FallbackExtractor(primaries=ext_primaries)
+    all_fps = load_false_positives(db_path)
+    fp_section = build_prompt_section(all_fps, city=city, topic=topic)
+    blocked = set(config.fetch_blocked_domains)
+
+    for result in results[:5]:
+        url = result.url
+        if any(d in url for d in blocked):
+            continue
+        try:
+            text = await fetch_and_clean(url, blocked_domains=list(blocked), timeout_seconds=15)
+        except Exception:
+            continue
+        if not text:
+            continue
+        try:
+            extracted = await extractor.extract(
+                text=text, city=city, topic=topic, locale=locale, source_url=url,
+                false_positive_examples=fp_section,
+            )
+        except Exception as exc:
+            log.warning("reextract_search_fallback_extract_failed", url=url, error=str(exc))
+            continue
+        if extracted:
+            save_results(city, topic, extracted, db_path)
+            refreshed = find_community_by_id(db_path, community_id)
+            if refreshed and refreshed.get("description"):
+                log.info("reextract_search_fallback_success", community_id=community_id, url=url)
+                return True
+
+    log.info("reextract_search_fallback_exhausted", community_id=community_id)
+    return False

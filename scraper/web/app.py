@@ -98,7 +98,7 @@ from ..extract import (ENRICH_SCHEMA, ENRICH_SYSTEM_PROMPT, EXTRACTION_SCHEMA,
                        DeepSeekExtractor, FallbackExtractor, GroqExtractor)
 from ..fetch import fetch_and_clean
 from ..models import CommunityRecord
-from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline, scrape_submitted_url, reextract_community
+from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline, scrape_submitted_url, reextract_community, reextract_with_search_fallback
 from ..search import DataForSEOClient, FallbackSearchClient, SerperSearchClient
 from ..store import patch_results, save_results
 from .i18n import get_topic_labels, lang_context
@@ -2379,7 +2379,7 @@ async def _run_fill_descriptions() -> None:
                 _fill_descriptions_state["done"] += 1
                 continue
             try:
-                await reextract_community(app_state.db_path, app_state.pipeline_cfg, community_id)
+                await reextract_with_search_fallback(app_state.db_path, app_state.pipeline_cfg, community_id)
             except Exception as exc:
                 log.warning("fill_descriptions_item_failed", community_id=community_id, error=str(exc))
                 _fill_descriptions_state["failed"] += 1
