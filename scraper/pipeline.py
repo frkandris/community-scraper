@@ -544,29 +544,30 @@ async def _run_full(
                         log.warning("venues_extract_error", url=url, error=str(exc))
 
                 # ── Person extraction (with fingerprint cache) ───────────────
-                _person_cache = cache.get_person_extracted(
-                    url, city.name, topic.name,
-                    fingerprint=extractor.person_fingerprint) if cache else None
-                if _person_cache is not None:
-                    log.debug("person_cache_hit", url=url, cached=len(_person_cache))
-                elif run_persons:
-                    try:
-                        persons = await extractor.extract_persons(
-                            text, city.name, topic.name, city.locale, url, community_names,
-                        )
-                        if persons:
-                            upsert_persons(config.db_path, [p.model_dump() for p in persons])
-                            log.info("persons_extracted", url=url, found=len(persons))
-                        elif community_names:
-                            log.info("persons_extract_zero", url=url,
-                                     communities=len(community_names))
-                        if cache:
-                            cache.save_person_extracted(url, city.name, topic.name,
-                                                        [p.model_dump() for p in persons],
-                                                        fingerprint=extractor.person_fingerprint,
-                                                        model=extractor.model)
-                    except Exception as exc:
-                        log.warning("persons_extract_error", url=url, error=str(exc))
+                if community_names:
+                    _person_cache = cache.get_person_extracted(
+                        url, city.name, topic.name,
+                        fingerprint=extractor.person_fingerprint) if cache else None
+                    if _person_cache is not None:
+                        log.debug("person_cache_hit", url=url, cached=len(_person_cache))
+                    elif run_persons:
+                        try:
+                            persons = await extractor.extract_persons(
+                                text, city.name, topic.name, city.locale, url, community_names,
+                            )
+                            if persons:
+                                upsert_persons(config.db_path, [p.model_dump() for p in persons])
+                                log.info("persons_extracted", url=url, found=len(persons))
+                            else:
+                                log.info("persons_extract_zero", url=url,
+                                         communities=len(community_names))
+                            if cache:
+                                cache.save_person_extracted(url, city.name, topic.name,
+                                                            [p.model_dump() for p in persons],
+                                                            fingerprint=extractor.person_fingerprint,
+                                                            model=extractor.model)
+                        except Exception as exc:
+                            log.warning("persons_extract_error", url=url, error=str(exc))
 
             # ── Synthesize PersonRecords from community leader fields ────────
             if run_persons:
@@ -709,27 +710,28 @@ async def _run_ai_only(
                         log.warning("venues_extract_error", url=url, error=str(exc))
 
                 # ── Person extraction (with fingerprint cache) ───────────────
-                _person_cache = cache.get_person_extracted(
-                    url, city.name, topic.name, fingerprint=extractor.person_fingerprint)
-                if _person_cache is not None:
-                    log.debug("person_cache_hit", url=url, cached=len(_person_cache))
-                elif run_persons:
-                    try:
-                        persons = await extractor.extract_persons(
-                            text, city.name, topic.name, city.locale, url, community_names,
-                        )
-                        if persons:
-                            upsert_persons(config.db_path, [p.model_dump() for p in persons])
-                            log.info("persons_extracted", url=url, found=len(persons))
-                        elif community_names:
-                            log.info("persons_extract_zero", url=url,
-                                     communities=len(community_names))
-                        cache.save_person_extracted(url, city.name, topic.name,
-                                                    [p.model_dump() for p in persons],
-                                                    fingerprint=extractor.person_fingerprint,
-                                                    model=extractor.model)
-                    except Exception as exc:
-                        log.warning("persons_extract_error", url=url, error=str(exc))
+                if community_names:
+                    _person_cache = cache.get_person_extracted(
+                        url, city.name, topic.name, fingerprint=extractor.person_fingerprint)
+                    if _person_cache is not None:
+                        log.debug("person_cache_hit", url=url, cached=len(_person_cache))
+                    elif run_persons:
+                        try:
+                            persons = await extractor.extract_persons(
+                                text, city.name, topic.name, city.locale, url, community_names,
+                            )
+                            if persons:
+                                upsert_persons(config.db_path, [p.model_dump() for p in persons])
+                                log.info("persons_extracted", url=url, found=len(persons))
+                            else:
+                                log.info("persons_extract_zero", url=url,
+                                         communities=len(community_names))
+                            cache.save_person_extracted(url, city.name, topic.name,
+                                                        [p.model_dump() for p in persons],
+                                                        fingerprint=extractor.person_fingerprint,
+                                                        model=extractor.model)
+                        except Exception as exc:
+                            log.warning("persons_extract_error", url=url, error=str(exc))
 
             # ── Synthesize PersonRecords from community leader fields ────────
             if run_persons:
