@@ -70,11 +70,16 @@
 
     <!-- Get involved CTA zone -->
     {% set website_url = r.website if r.website and r.website.startswith('http') else ('https://' ~ r.website if r.website else '') %}
-    {% if (website_url and website_url | valid_url) or r.social_links %}
+    {% set has_website = website_url and (website_url | valid_url) %}
+    {# Fallback links: source URLs shown when no explicit website is set #}
+    {% set all_sources = r.source_urls if r.get('source_urls') else ([r.source_url] if r.source_url else []) %}
+    {% set social_set = r.social_links | list %}
+    {% if has_website or r.social_links or all_sources %}
     <div class="mb-6 pb-6 border-b border-[#F5F2EC]">
       <p class="text-xs font-semibold text-[#8C8478] uppercase tracking-[0.08em] mb-3">{{ t('community_get_involved') }}</p>
       <div class="flex flex-col gap-2">
-        {% if website_url and website_url | valid_url %}
+        {# Primary website #}
+        {% if has_website %}
         {% set wm = website_url | link_meta %}
         <a href="/out?url={{ website_url | urlencode }}&cid={{ r.community_id }}" target="_blank" rel="noopener"
            class="flex items-center gap-3 group rounded-lg px-3 py-2.5 hover:bg-[#F5F2EC] transition-colors -mx-3">
@@ -89,7 +94,28 @@
           </span>
           <i class="ph ph-arrow-square-out text-[#D8D1C4] group-hover:text-[#C2613A] ml-auto shrink-0 transition-colors" style="font-size:15px"></i>
         </a>
+        {% else %}
+        {# No website — show source URLs as fallback #}
+        {% for src in all_sources %}
+        {% if src and (src | valid_url) and src not in social_set %}
+        {% set sm = src | link_meta %}
+        <a href="/out?url={{ src | urlencode }}&cid={{ r.community_id }}" target="_blank" rel="noopener"
+           class="flex items-center gap-3 group rounded-lg px-3 py-2.5 hover:bg-[#F5F2EC] transition-colors -mx-3">
+          <span class="flex items-center justify-center w-9 h-9 rounded-lg shrink-0 {{ sm.color }}">
+            <i class="ph {{ sm.icon }}" style="font-size:17px"></i>
+          </span>
+          <span class="flex flex-col min-w-0">
+            <span class="text-sm font-semibold text-[#1C1917]">{{ sm.label }}</span>
+            <span class="text-xs text-[#8C8478] truncate group-hover:text-[#C2613A] transition-colors">
+              {{ src | replace('https://','') | replace('http://','') | truncate(55, True, '…') }}
+            </span>
+          </span>
+          <i class="ph ph-arrow-square-out text-[#D8D1C4] group-hover:text-[#C2613A] ml-auto shrink-0 transition-colors" style="font-size:15px"></i>
+        </a>
         {% endif %}
+        {% endfor %}
+        {% endif %}
+        {# Social / extra links #}
         {% for link in r.social_links %}
         {% if link | valid_url %}
         {% set lm = link | link_meta %}
