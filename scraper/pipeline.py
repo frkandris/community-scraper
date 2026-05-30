@@ -252,6 +252,7 @@ async def run_pipeline(
     run_venues: bool = True,
     run_persons: bool = True,
     on_progress: Callable[[str | None, str | None], None] | None = None,
+    on_pair_start: "Callable[[str, str], None] | None" = None,
 ) -> tuple[list[dict], int]:
     _skip_scraped = skip_scraped if skip_scraped is not None else config.cache_skip_scraped
     _skip_extracted = skip_extracted if skip_extracted is not None else config.cache_skip_extracted
@@ -286,15 +287,18 @@ async def run_pipeline(
         total_new, pair_logs = await _run_ai_only(
             cities, topics, config, extractor, cache, _skip_extracted, run_stats, on_progress,
             run_communities=run_communities, run_venues=run_venues, run_persons=run_persons,
+            on_pair_start=on_pair_start,
         )
     else:
         reai_new, reai_logs = await _run_ai_only(
             cities, topics, config, extractor, cache, _skip_extracted, run_stats, on_progress,
             run_communities=run_communities, run_venues=run_venues, run_persons=run_persons,
+            on_pair_start=on_pair_start,
         )
         full_new, full_logs = await _run_full(
             cities, topics, config, extractor, cache, _skip_scraped, _skip_extracted, run_stats, on_progress,
             run_communities=run_communities, run_venues=run_venues, run_persons=run_persons,
+            on_pair_start=on_pair_start,
         )
         total_new = reai_new + full_new
         pair_logs = reai_logs + full_logs
@@ -310,6 +314,7 @@ async def run_pipeline(
                 _skip_scraped, _skip_extracted, run_stats, on_progress,
                 run_communities=run_communities, run_venues=run_venues,
                 run_persons=run_persons, pairs_filter=uncovered,
+                on_pair_start=on_pair_start,
             )
             total_new += catchup_new
             pair_logs += catchup_logs
@@ -338,6 +343,7 @@ async def _run_full(
     run_venues: bool = True,
     run_persons: bool = True,
     pairs_filter: set[tuple[str, str]] | None = None,
+    on_pair_start: "Callable[[str, str], None] | None" = None,
 ) -> tuple[int, list[dict]]:
     google_search = GooglePlaywrightSearchClient(rate_limit_seconds=8.0)
     await google_search.start()
@@ -371,6 +377,8 @@ async def _run_full(
             if pairs_filter is not None and (city.name, topic.name) not in pairs_filter:
                 continue
             await asyncio.sleep(0)
+            if on_pair_start:
+                on_pair_start(city.name, topic.name)
             log.info("processing_pair", city=city.name, topic=topic.name)
 
             terms = topic.search_terms.get(city.locale) or topic.search_terms.get("en", [])
@@ -613,6 +621,7 @@ async def _run_ai_only(
     run_communities: bool = True,
     run_venues: bool = True,
     run_persons: bool = True,
+    on_pair_start: "Callable[[str, str], None] | None" = None,
 ) -> tuple[int, list[dict]]:
     if not cache:
         log.warning("ai_only_mode_no_cache")
@@ -633,6 +642,8 @@ async def _run_ai_only(
         run_stats[city.name] = {}
         for topic in topics:
             await asyncio.sleep(0)
+            if on_pair_start:
+                on_pair_start(city.name, topic.name)
             pages = city_topic_pages.get((city.name, topic.name), [])
             pair_log: dict = {
                 "city": city.name,

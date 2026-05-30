@@ -128,6 +128,10 @@ async def main() -> None:
         app_state.current_phase = phase
         app_state.current_url = url
 
+    def _on_pair_start(city: str, topic: str) -> None:
+        app_state.current_city = city
+        app_state.current_topic = topic
+
     async def _scheduled_run() -> None:
         if app_state.is_running:
             log.info("scheduled_run_skipped", reason="already_running")
@@ -149,6 +153,7 @@ async def main() -> None:
                 app_state.pipeline_cfg,
                 cache=app_state.cache_manager,
                 on_progress=_on_progress,
+                on_pair_start=_on_pair_start,
             )
             if se_cities:
                 se_logs, _ = await run_pipeline(
@@ -157,6 +162,7 @@ async def main() -> None:
                     app_state.pipeline_cfg,
                     cache=app_state.cache_manager,
                     on_progress=_on_progress,
+                    on_pair_start=_on_pair_start,
                 )
                 pair_logs += se_logs
             if intl_cities:
@@ -166,6 +172,7 @@ async def main() -> None:
                     app_state.pipeline_cfg,
                     cache=app_state.cache_manager,
                     on_progress=_on_progress,
+                    on_pair_start=_on_pair_start,
                 )
                 pair_logs += intl_logs
             app_state.last_run_at = datetime.now(timezone.utc)
@@ -177,6 +184,8 @@ async def main() -> None:
             app_state.current_phase = None
             app_state.current_url = None
             app_state.current_run_mode = None
+            app_state.current_city = None
+            app_state.current_topic = None
             finish_run(db_path, run_id, datetime.now(timezone.utc), success,
                        json.dumps(pair_logs) if pair_logs else None)
 
@@ -222,6 +231,7 @@ async def main() -> None:
                 app_state.pipeline_cfg,
                 cache=app_state.cache_manager,
                 on_progress=_on_progress,
+                on_pair_start=_on_pair_start,
                 run_mode=startup_mode,
             )
             if se_cities:
@@ -231,6 +241,7 @@ async def main() -> None:
                     app_state.pipeline_cfg,
                     cache=app_state.cache_manager,
                     on_progress=_on_progress,
+                    on_pair_start=_on_pair_start,
                     run_mode=startup_mode,
                 )
                 pair_logs += se_logs
@@ -241,6 +252,7 @@ async def main() -> None:
                     app_state.pipeline_cfg,
                     cache=app_state.cache_manager,
                     on_progress=_on_progress,
+                    on_pair_start=_on_pair_start,
                     run_mode=startup_mode,
                 )
                 pair_logs += intl_logs
@@ -253,6 +265,8 @@ async def main() -> None:
             app_state.current_phase = None
             app_state.current_url = None
             app_state.current_run_mode = None
+            app_state.current_city = None
+            app_state.current_topic = None
             finish_run(db_path, run_id, datetime.now(timezone.utc), success,
                        json.dumps(pair_logs) if pair_logs else None)
 

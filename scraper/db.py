@@ -1015,6 +1015,45 @@ def get_city_topic_counts(db_path: Path) -> dict[str, dict[str, int]]:
     return result
 
 
+def get_city_topic_states(db_path: Path, current_fp: str) -> dict[str, dict[str, dict]]:
+    """Return per-(city, topic) state dict for the coverage page.
+
+    State keys per cell:
+      community_count: int
+      page_count: int  (scraped pages)
+      current_fp_count: int  (pages extracted with current_fp)
+    Pairs absent from search_cache are not included (not_searched).
+    """
+    if not db_path.exists():
+        return {}
+    with _connect(db_path) as conn:
+        rows = conn.execute("""
+            SELECT
+                sc.city,
+                sc.topic,
+                COUNT(DISTINCT cp.url_hash) AS page_count,
+                SUM(CASE WHEN cp.extract_fingerprint = ? THEN 1 ELSE 0 END) AS current_fp_count,
+                COALESCE(comm.cnt, 0) AS community_count
+            FROM search_cache sc
+            LEFT JOIN cache_pages cp
+                ON cp.city = sc.city AND cp.topic = sc.topic AND cp.scraped_at IS NOT NULL
+            LEFT JOIN (
+                SELECT city, topic, COUNT(*) AS cnt
+                FROM communities WHERE hidden = 0
+                GROUP BY city, topic
+            ) comm ON comm.city = sc.city AND comm.topic = sc.topic
+            GROUP BY sc.city, sc.topic
+        """, (current_fp,)).fetchall()
+    result: dict[str, dict[str, dict]] = {}
+    for city, topic, page_count, current_fp_count, community_count in rows:
+        result.setdefault(city, {})[topic] = {
+            "page_count": page_count or 0,
+            "current_fp_count": current_fp_count or 0,
+            "community_count": community_count or 0,
+        }
+    return result
+
+
 def get_city_totals(db_path: Path) -> list[tuple[str, int]]:
     if not db_path.exists():
         return []

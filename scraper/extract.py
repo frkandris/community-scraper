@@ -258,6 +258,10 @@ def get_prompt(key: str) -> str:
     return _PROMPT_OVERRIDES.get(key) or PROMPT_KEYS[key]()
 
 
+def get_extract_fingerprint(model: str = "deepseek-chat") -> str:
+    return _prompt_hash(get_prompt("extraction_system") + model)
+
+
 def set_prompt_override(key: str, content: str | None) -> None:
     if content is None:
         _PROMPT_OVERRIDES.pop(key, None)

@@ -18,6 +18,8 @@ class AppState:
     current_phase: str | None = None     # "scrape" | "extract" | "enrich_scrape" | "enrich_extract"
     current_url: str | None = None       # source URL of the cache row being processed
     current_run_mode: str | None = None  # "full" | "ai_only" | "revalidate"
+    current_city: str | None = None      # city being processed in current pair
+    current_topic: str | None = None     # topic being processed in current pair
     _run_task: Any = None
     # Task queue — queue_items is the authoritative ordered list
     queue_items: list = field(default_factory=list)   # list of item dicts (pending/running/done)

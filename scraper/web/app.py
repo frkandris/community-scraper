@@ -2601,22 +2601,48 @@ async def stats_timeline(period: str = "24h"):
 
 
 @admin.get("/coverage", response_class=HTMLResponse)
-async def admin_coverage(request: Request):
-    from ..db import get_city_topic_counts
-    counts: dict[str, dict[str, int]] = {}
+async def admin_coverage(request: Request, country: str = ""):
+    from ..db import get_city_topic_states
+    from ..extract import get_extract_fingerprint
+    current_fp = get_extract_fingerprint()
+    states: dict[str, dict[str, dict]] = {}
     if app_state.db_path and app_state.db_path.exists():
-        counts = get_city_topic_counts(app_state.db_path)
+        states = get_city_topic_states(app_state.db_path, current_fp)
     topic_names = [t.name for t in (app_state.topics or [])]
     countries: dict[str, list[str]] = {}
     for city in (app_state.cities or []):
-        country = getattr(city, "country", "Other") or "Other"
-        countries.setdefault(country, []).append(city.name)
+        c = getattr(city, "country", "Other") or "Other"
+        countries.setdefault(c, []).append(city.name)
+    all_countries = list(countries.keys())
+    active_country: str | None = None
+    if app_state.is_running and app_state.current_city:
+        for c, cities_list in countries.items():
+            if app_state.current_city in cities_list:
+                active_country = c
+                break
+    default_country = active_country or (all_countries[0] if all_countries else "")
+    selected_country = country if country in all_countries else default_country
+    filtered_cities = countries.get(selected_country, [])
     return templates.TemplateResponse(request, "coverage.html", {
-        "countries": countries,
+        "all_countries": all_countries,
+        "selected_country": selected_country,
+        "cities": filtered_cities,
         "topic_names": topic_names,
-        "counts": counts,
+        "states": states,
         "is_running": app_state.is_running,
+        "current_city": app_state.current_city,
+        "current_topic": app_state.current_topic,
+        "active_country": active_country,
     })
+
+
+@admin.get("/api/coverage/current")
+async def api_coverage_current():
+    return {
+        "city": app_state.current_city,
+        "topic": app_state.current_topic,
+        "is_running": app_state.is_running,
+    }
 
 
 @admin.get("/logs", response_class=HTMLResponse)
@@ -2687,6 +2713,10 @@ async def trigger_run(
         app_state.current_phase = phase
         app_state.current_url = url
 
+    def _on_pair_start(city: str, topic: str) -> None:
+        app_state.current_city = city
+        app_state.current_topic = topic
+
     async def _run() -> None:
         started = datetime.now(timezone.utc)
         from ..db import finish_run as _finish_run, start_run as _start_run
@@ -2707,6 +2737,7 @@ async def trigger_run(
                 run_venues=_run_venues,
                 run_persons=_run_persons,
                 on_progress=_on_progress,
+                on_pair_start=_on_pair_start,
             )
             app_state.last_run_at = datetime.now(timezone.utc)
             success = True
@@ -2717,6 +2748,8 @@ async def trigger_run(
             app_state.current_phase = None
             app_state.current_url = None
             app_state.current_run_mode = None
+            app_state.current_city = None
+            app_state.current_topic = None
             global _home_stats_cache
             _home_stats_cache = {}
             if app_state.db_path and _run_id:
