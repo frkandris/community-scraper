@@ -1054,6 +1054,41 @@ def get_city_topic_states(db_path: Path, current_fp: str) -> dict[str, dict[str,
     return result
 
 
+def get_fully_processed_pairs(db_path: Path, current_fp: str) -> set[tuple[str, str]]:
+    """Return (city, topic) pairs that need no pipeline work this run.
+
+    A pair is fully processed if it has a search_cache entry AND either:
+    - The URL list was empty (search found nothing to fetch), OR
+    - All cache_pages rows for this pair carry the current extract fingerprint.
+
+    Pairs with URLs in search_cache but no matching cache_pages (not yet fetched)
+    are intentionally NOT returned here, so the pipeline will fetch them.
+    """
+    if not db_path.exists():
+        return set()
+    with _connect(db_path) as conn:
+        rows = conn.execute("""
+            SELECT sc.city, sc.topic
+            FROM search_cache sc
+            WHERE
+                -- search found no URLs
+                json_array_length(sc.urls) = 0
+              OR (
+                -- pages exist AND all carry the current fingerprint
+                EXISTS (
+                    SELECT 1 FROM cache_pages cp
+                    WHERE cp.city = sc.city AND cp.topic = sc.topic
+                )
+                AND NOT EXISTS (
+                    SELECT 1 FROM cache_pages cp
+                    WHERE cp.city = sc.city AND cp.topic = sc.topic
+                      AND (cp.extract_fingerprint IS NULL OR cp.extract_fingerprint != ?)
+                )
+              )
+        """, (current_fp,)).fetchall()
+    return {(r[0], r[1]) for r in rows}
+
+
 def get_city_totals(db_path: Path) -> list[tuple[str, int]]:
     if not db_path.exists():
         return []

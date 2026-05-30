@@ -4,11 +4,13 @@
 
 <style>
   tr.active-row { background-color: rgb(255 251 235) !important; border-left: 2px solid rgb(251 191 36); }
-  tr.active-row td:first-child { background-color: rgb(255 251 235) !important; }
+  tr.active-row td { color: rgb(120 53 15) !important; }
+  tr.active-row td:first-child { background-color: rgb(255 251 235) !important; color: rgb(120 53 15) !important; font-weight: 700; }
   tr.active-row .city-arrow { display: inline !important; }
   td.active-topic .topic-badge { display: none !important; }
   td.active-topic .topic-badge-active { display: inline-flex !important; }
   .topic-badge-active { display: none; }
+  .topic-th { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; height: 100px; vertical-align: bottom; padding-bottom: 6px; padding-top: 0; }
 </style>
 
 <div class="flex items-center justify-between mb-4">
@@ -117,8 +119,8 @@
       <tr class="border-b border-gray-100 bg-gray-50">
         <th class="px-3 py-2.5 text-left font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap sticky left-0 bg-gray-50 z-10" style="min-width:130px">Város</th>
         {% for topic in topic_names %}
-        <th class="px-2 py-2.5 text-center font-semibold text-gray-400 whitespace-nowrap" title="{{ topic }}">
-          {{ topic | replace('_', ' ') | truncate(8, True, '') }}
+        <th class="px-1 text-center font-semibold text-gray-400" style="min-width:28px" title="{{ topic }}">
+          <span class="topic-th">{{ topic | replace('_', ' ') }}</span>
         </th>
         {% endfor %}
         <th class="px-3 py-2.5 text-right font-semibold text-gray-400 whitespace-nowrap">Össz.</th>
