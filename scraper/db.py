@@ -1057,43 +1057,48 @@ def get_city_topic_states(db_path: Path, current_fp: str) -> dict[str, dict[str,
 def get_fully_processed_pairs(db_path: Path, current_fp: str) -> set[tuple[str, str]]:
     """Return (city, topic) pairs that need no pipeline work this run.
 
-    A pair is fully processed if it has a search_cache entry AND either:
-    - The URL list was empty (search found nothing to fetch), OR
-    - All cache_pages rows for this pair carry the current extract fingerprint.
+    cache_pages is keyed by url_hash and city/topic columns are overwritten on
+    every save (last-write-wins), so city/topic-based joins are unreliable.
+    Instead we check by url_hash, exactly as cache.py does at fetch time.
 
-    Pairs with URLs in search_cache but no matching cache_pages (not yet fetched)
-    are intentionally NOT returned here, so the pipeline will fetch them.
+    A pair is done if it has a search_cache entry AND:
+    - The URL list is empty (search found nothing), OR
+    - Communities already exist for the pair (green circle), OR
+    - Every URL in the search result has been extracted with current fingerprint
+      (all url_hashes appear in cache_pages with extract_fingerprint = current_fp)
     """
+    import hashlib
+
+    def _url_hash(url: str) -> str:
+        return hashlib.sha256(url.encode()).hexdigest()[:16]
+
     if not db_path.exists():
         return set()
     with _connect(db_path) as conn:
-        rows = conn.execute("""
-            SELECT sc.city, sc.topic
-            FROM search_cache sc
-            WHERE
-                -- search found no URLs
-                json_array_length(sc.urls) = 0
-              OR (
-                -- at least one real (non-hidden) community already found → green circle
-                EXISTS (
-                    SELECT 1 FROM communities c
-                    WHERE c.city = sc.city AND c.topic = sc.topic AND c.hidden = 0
-                )
-              )
-              OR (
-                -- ALL fetched pages carry the current fingerprint → blue ✓ (tuti nincs)
-                EXISTS (
-                    SELECT 1 FROM cache_pages cp
-                    WHERE cp.city = sc.city AND cp.topic = sc.topic
-                )
-                AND NOT EXISTS (
-                    SELECT 1 FROM cache_pages cp
-                    WHERE cp.city = sc.city AND cp.topic = sc.topic
-                      AND (cp.extract_fingerprint IS NULL OR cp.extract_fingerprint != ?)
-                )
-              )
-        """, (current_fp,)).fetchall()
-    return {(r[0], r[1]) for r in rows}
+        # Pairs that already have at least one community
+        community_pairs: set[tuple[str, str]] = {
+            (r[0], r[1]) for r in conn.execute(
+                "SELECT DISTINCT city, topic FROM communities WHERE hidden = 0"
+            )
+        }
+        # url_hashes extracted with the current fingerprint (global, city/topic-agnostic)
+        current_fp_hashes: set[str] = {
+            r[0] for r in conn.execute(
+                "SELECT url_hash FROM cache_pages WHERE extract_fingerprint = ?", (current_fp,)
+            )
+        }
+        search_rows = conn.execute("SELECT city, topic, urls FROM search_cache").fetchall()
+
+    result: set[tuple[str, str]] = set()
+    for city, topic, urls_json in search_rows:
+        urls: list[str] = json.loads(urls_json) if urls_json else []
+        if not urls:
+            result.add((city, topic))
+        elif (city, topic) in community_pairs:
+            result.add((city, topic))
+        elif urls and all(_url_hash(u) in current_fp_hashes for u in urls):
+            result.add((city, topic))
+    return result
 
 
 def get_city_totals(db_path: Path) -> list[tuple[str, int]]:
