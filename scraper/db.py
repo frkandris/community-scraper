@@ -2134,3 +2134,108 @@ def get_data_quality_stats(db_path: Path) -> dict:
         "city_rows": [{"city": r[0], "cnt": r[1], "w": r[2] or 0, "c": r[3] or 0} for r in city_rows],
         "topic_counts": topic_counts,
     }
+
+
+def get_activity_timeline(db_path: Path, period: str) -> list[dict]:
+    """Return per-bucket activity counts for the given period.
+
+    period: "24h" (hourly, last 24 h), "7d" (daily, last 7 d), "12m" (monthly, last 12 m)
+    """
+    from datetime import timedelta
+
+    if not db_path.exists():
+        return []
+
+    now = datetime.now(timezone.utc)
+
+    if period == "24h":
+        fmt = "%Y-%m-%dT%H"
+        since = now - timedelta(hours=24)
+        since_sql = "datetime('now', '-24 hours')"
+        buckets = [(now - timedelta(hours=i)).strftime(fmt) for i in range(23, -1, -1)]
+        display = {b: b[-2:] + ":00" for b in buckets}
+    elif period == "7d":
+        fmt = "%Y-%m-%d"
+        since = now - timedelta(days=7)
+        since_sql = "datetime('now', '-7 days')"
+        buckets = [(now - timedelta(days=i)).strftime(fmt) for i in range(6, -1, -1)]
+        display = {b: datetime.strptime(b, "%Y-%m-%d").strftime("%b %d") for b in buckets}
+    else:  # "12m"
+        fmt = "%Y-%m"
+        since_sql = "datetime('now', '-12 months')"
+        buckets = []
+        display = {}
+        for i in range(11, -1, -1):
+            m = now.month - i
+            y = now.year
+            while m <= 0:
+                m += 12
+                y -= 1
+            key = f"{y:04d}-{m:02d}"
+            buckets.append(key)
+            display[key] = datetime(y, m, 1).strftime("%b %Y")
+
+    rows: dict[str, dict] = {b: {
+        "bucket": b, "label": display[b],
+        "scrapes": 0, "extractions": 0,
+        "enrich_scrapes": 0, "enrich_ai": 0,
+        "new_communities": 0, "community_changes": 0,
+        "new_venues": 0, "new_persons": 0,
+    } for b in buckets}
+
+    def _run(conn: sqlite3.Connection, sql: str, key: str) -> None:
+        for bkt, cnt in conn.execute(sql).fetchall():
+            if bkt and bkt in rows:
+                rows[bkt][key] = cnt
+
+    strftime_col = f"strftime('{fmt}', {{col}})"
+
+    with _connect(db_path) as conn:
+        _run(conn, f"""
+            SELECT {strftime_col.format(col='scraped_at')}, COUNT(*)
+            FROM cache_pages WHERE scraped_at >= {since_sql}
+            GROUP BY 1
+        """, "scrapes")
+        _run(conn, f"""
+            SELECT {strftime_col.format(col='extracted_at')}, COUNT(*)
+            FROM cache_pages WHERE extracted_at >= {since_sql}
+            GROUP BY 1
+        """, "extractions")
+        _run(conn, f"""
+            SELECT {strftime_col.format(col="json_extract(data,'$.enrich_scraped_at')")}, COUNT(*)
+            FROM cache_pages
+            WHERE json_extract(data,'$.enrich_scraped_at') >= {since_sql}
+            GROUP BY 1
+        """, "enrich_scrapes")
+        _run(conn, f"""
+            SELECT {strftime_col.format(col="json_extract(data,'$.enrich_extracted_at')")}, COUNT(*)
+            FROM cache_pages
+            WHERE json_extract(data,'$.enrich_extracted_at') >= {since_sql}
+            GROUP BY 1
+        """, "enrich_ai")
+        _run(conn, f"""
+            SELECT {strftime_col.format(col='changed_at')}, COUNT(*)
+            FROM community_history
+            WHERE field='__created__' AND changed_at >= {since_sql}
+            GROUP BY 1
+        """, "new_communities")
+        _run(conn, f"""
+            SELECT {strftime_col.format(col='changed_at')}, COUNT(*)
+            FROM community_history
+            WHERE field!='__created__' AND changed_at >= {since_sql}
+            GROUP BY 1
+        """, "community_changes")
+        _run(conn, f"""
+            SELECT {strftime_col.format(col='changed_at')}, COUNT(*)
+            FROM venue_history
+            WHERE field='__created__' AND changed_at >= {since_sql}
+            GROUP BY 1
+        """, "new_venues")
+        _run(conn, f"""
+            SELECT {strftime_col.format(col='changed_at')}, COUNT(*)
+            FROM person_history
+            WHERE field='__created__' AND changed_at >= {since_sql}
+            GROUP BY 1
+        """, "new_persons")
+
+    return [rows[b] for b in buckets]

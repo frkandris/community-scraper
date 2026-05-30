@@ -106,4 +106,83 @@
 </div>
 {% endif %}
 
+<!-- Activity timeline -->
+<div class="mb-6">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Aktivitás</h2>
+    <div class="flex gap-1">
+      {% for p, label in [('24h','24 óra'), ('7d','7 nap'), ('12m','12 hónap')] %}
+      <button onclick="loadTimeline('{{ p }}')" id="tab-{{ p }}"
+        class="px-3 py-1 text-xs rounded-lg font-medium transition-colors
+          {% if p == '24h' %}bg-gray-900 text-white{% else %}bg-white text-gray-600 border border-gray-200 hover:bg-gray-50{% endif %}">
+        {{ label }}
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+    <div id="timeline-loading" class="py-10 text-center text-gray-400 text-sm">Betöltés…</div>
+    <table id="timeline-table" class="min-w-full text-xs hidden">
+      <thead>
+        <tr class="border-b border-gray-100 bg-gray-50">
+          <th class="px-3 py-2.5 text-left font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Időszak</th>
+          <th class="px-3 py-2.5 text-right font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Scrape</th>
+          <th class="px-3 py-2.5 text-right font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Extract</th>
+          <th class="px-3 py-2.5 text-right font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Enrich scrape</th>
+          <th class="px-3 py-2.5 text-right font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Enrich AI</th>
+          <th class="px-3 py-2.5 text-right font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Új közösség</th>
+          <th class="px-3 py-2.5 text-right font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Változás</th>
+          <th class="px-3 py-2.5 text-right font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Új helyszín</th>
+          <th class="px-3 py-2.5 text-right font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Új ember</th>
+        </tr>
+      </thead>
+      <tbody id="timeline-body" class="divide-y divide-gray-100"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function loadTimeline(period) {
+  ['24h','7d','12m'].forEach(p => {
+    const btn = document.getElementById('tab-' + p);
+    if (!btn) return;
+    btn.className = p === period
+      ? 'px-3 py-1 text-xs rounded-lg font-medium transition-colors bg-gray-900 text-white'
+      : 'px-3 py-1 text-xs rounded-lg font-medium transition-colors bg-white text-gray-600 border border-gray-200 hover:bg-gray-50';
+  });
+  document.getElementById('timeline-loading').classList.remove('hidden');
+  document.getElementById('timeline-table').classList.add('hidden');
+
+  fetch('/admin/api/stats/timeline?period=' + period)
+    .then(r => r.json())
+    .then(rows => {
+      const tbody = document.getElementById('timeline-body');
+      tbody.innerHTML = '';
+      rows.slice().reverse().forEach(row => {
+        const cols = ['scrapes','extractions','enrich_scrapes','enrich_ai','new_communities','community_changes','new_venues','new_persons'];
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50';
+        const hasActivity = cols.some(c => (row[c] || 0) > 0);
+        const labelCls = hasActivity ? 'text-gray-900 font-semibold' : 'text-gray-400';
+        let html = `<td class="px-3 py-2 whitespace-nowrap ${labelCls}">${row.label}</td>`;
+        cols.forEach(c => {
+          const v = row[c] || 0;
+          html += v > 0
+            ? `<td class="px-3 py-2 text-right text-gray-900 font-medium">${v}</td>`
+            : `<td class="px-3 py-2 text-right text-gray-300">–</td>`;
+        });
+        tr.innerHTML = html;
+        tbody.appendChild(tr);
+      });
+      document.getElementById('timeline-loading').classList.add('hidden');
+      document.getElementById('timeline-table').classList.remove('hidden');
+    })
+    .catch(() => {
+      document.getElementById('timeline-loading').textContent = 'Betöltési hiba';
+    });
+}
+
+loadTimeline('24h');
+</script>
+
 {% endblock %}

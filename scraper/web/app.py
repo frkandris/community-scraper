@@ -2467,6 +2467,15 @@ async def stats_page(request: Request):
     return templates.TemplateResponse(request, "stats.html", {"stats": stats})
 
 
+@admin.get("/api/stats/timeline")
+async def stats_timeline(period: str = "24h"):
+    from ..db import get_activity_timeline
+    if period not in ("24h", "7d", "12m"):
+        period = "24h"
+    rows = get_activity_timeline(app_state.db_path, period) if app_state.db_path else []
+    return JSONResponse(rows)
+
+
 @admin.get("/logs", response_class=HTMLResponse)
 async def logs_page(request: Request):
     return templates.TemplateResponse(request, "logs.html", {})
