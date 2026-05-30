@@ -2,6 +2,15 @@
 {% block title %}Coverage – Community Scraper{% endblock %}
 {% block content %}
 
+<style>
+  tr.active-row { background-color: rgb(255 251 235) !important; border-left: 2px solid rgb(251 191 36); }
+  tr.active-row td:first-child { background-color: rgb(255 251 235) !important; }
+  tr.active-row .city-arrow { display: inline !important; }
+  td.active-topic .topic-badge { display: none !important; }
+  td.active-topic .topic-badge-active { display: inline-flex !important; }
+  .topic-badge-active { display: none; }
+</style>
+
 <div class="flex items-center justify-between mb-4">
   <h1 class="text-2xl font-bold text-gray-900">Coverage</h1>
   <div class="flex items-center gap-3">
@@ -18,13 +27,24 @@
   </div>
 </div>
 
+{% if is_running %}
+<div id="active-status" class="mb-4 hidden">
+  <div class="flex items-center gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5">
+    <span class="w-2 h-2 bg-amber-500 rounded-full animate-pulse flex-shrink-0"></span>
+    <span>Épp feldolgozás alatt: <strong id="active-city-label" class="font-semibold"></strong> — <span id="active-topic-label" class="text-amber-700"></span></span>
+  </div>
+</div>
+{% endif %}
+
 {# Country selector #}
 <div class="mb-4 flex items-center gap-3 flex-wrap">
   {% for c in all_countries %}
   <a href="/admin/coverage?country={{ c | urlencode }}"
     class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition
       {% if c == selected_country %}bg-gray-900 text-white border-gray-900{% else %}bg-white text-gray-600 border-gray-200 hover:border-gray-400{% endif %}">
-    {% if c == active_country %}<span class="{% if c == selected_country %}text-amber-300{% else %}text-amber-500{% endif %}">▶</span>{% endif %}
+    {% if c == active_country %}
+    <span class="{% if c == selected_country %}text-amber-300{% else %}text-amber-500{% endif %}">▶</span>
+    {% endif %}
     {{ c }}
   </a>
   {% endfor %}
@@ -77,8 +97,8 @@
     Feldolgozva (aktuális AI), 0 találat
   </span>
   <span class="flex items-center gap-1.5">
-    <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-50 border border-amber-200 text-amber-600 text-xs">~</span>
-    Régi feldolgozás / csak keresve
+    <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-50 border border-amber-200 text-amber-500 text-xs">~</span>
+    Régi / csak keresve
   </span>
   <span class="flex items-center gap-1.5">
     <span class="text-gray-200 text-lg leading-none">·</span>
@@ -113,34 +133,32 @@
           {% set city_total.n = city_total.n + 1 %}
         {% endif %}
       {% endfor %}
-      {% set is_active_city = (current_city == city and is_running) %}
-      <tr id="row-{{ city_id }}"
-        class="hover:bg-gray-50 {% if is_active_city %}bg-amber-50 border-l-2 border-amber-400{% endif %}">
-        <td class="px-3 py-2 font-medium text-gray-800 sticky left-0 z-10
-          {% if is_active_city %}bg-amber-50{% else %}bg-white hover:bg-gray-50{% endif %}">
-          {% if is_active_city %}<span class="text-amber-500 mr-1">▶</span>{% endif %}
-          {{ city }}
+      <tr id="row-{{ city_id }}" data-city="{{ city }}" class="hover:bg-gray-50">
+        <td class="px-3 py-2 font-medium text-gray-800 sticky left-0 bg-white z-10">
+          <span class="city-arrow hidden text-amber-500 mr-1">▶</span>{{ city }}
         </td>
         {% for topic in topic_names %}
         {% set cell = states.get(city, {}).get(topic, {}) %}
         {% set cnt = cell.get('community_count', 0) %}
         {% set page_cnt = cell.get('page_count', 0) %}
         {% set curr_fp = cell.get('current_fp_count', 0) %}
-        {% set is_active_cell = (is_active_city and current_topic == topic) %}
-        <td class="px-2 py-2 text-center">
-          {% if is_active_cell %}
-            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-400 animate-pulse text-white font-semibold" title="Épp feldolgozás alatt">▶</span>
-          {% elif cnt > 0 %}
+        <td class="px-2 py-2 text-center" data-topic="{{ topic }}">
+          {# Pulsing active indicator — shown via CSS when td has active-topic class #}
+          <span class="topic-badge-active inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-400 animate-pulse text-white font-semibold" title="Épp feldolgozás alatt">▶</span>
+          {# Normal badge — hidden via CSS when td has active-topic class #}
+          <span class="topic-badge">
+            {% if cnt > 0 %}
             <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-100 text-green-700 font-semibold" title="{{ cnt }} közösség">
               {% if cnt >= 10 %}✓{% else %}{{ cnt }}{% endif %}
             </span>
-          {% elif curr_fp > 0 %}
+            {% elif curr_fp > 0 %}
             <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-600" title="Feldolgozva (aktuális AI), 0 találat">✓</span>
-          {% elif page_cnt > 0 or cell %}
+            {% elif page_cnt > 0 or cell %}
             <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-50 border border-amber-200 text-amber-500" title="Régi feldolgozás vagy csak keresve">~</span>
-          {% else %}
+            {% else %}
             <span class="text-gray-200">·</span>
-          {% endif %}
+            {% endif %}
+          </span>
         </td>
         {% endfor %}
         <td class="px-3 py-2 text-right">
@@ -156,45 +174,92 @@
 
 <script>
 const _activeCountry = {{ (active_country or '') | tojson }};
+let _highlightedCity = null;
+let _highlightedTopic = null;
+
+const _statusEl = document.getElementById('active-status');
+const _cityLabelEl = document.getElementById('active-city-label');
+const _topicLabelEl = document.getElementById('active-topic-label');
+
+function _updateStatusBanner(city, topic) {
+  if (!_statusEl) return;
+  if (city) {
+    if (_cityLabelEl) _cityLabelEl.textContent = city;
+    if (_topicLabelEl) _topicLabelEl.textContent = topic ? topic.replace(/_/g, ' ') : '';
+    _statusEl.classList.remove('hidden');
+  } else {
+    _statusEl.classList.add('hidden');
+  }
+}
+
+function _clearHighlight() {
+  if (_highlightedCity) {
+    const id = _highlightedCity.replace(/ /g, '-').replace(/\//g, '-');
+    const row = document.getElementById('row-' + id);
+    if (row) {
+      row.classList.remove('active-row');
+      if (_highlightedTopic) {
+        const td = row.querySelector('[data-topic="' + CSS.escape(_highlightedTopic) + '"]');
+        if (td) td.classList.remove('active-topic');
+      }
+    }
+  }
+  _highlightedCity = null;
+  _highlightedTopic = null;
+  _updateStatusBanner(null, null);
+}
+
+function _applyHighlight(city, topic) {
+  _clearHighlight();
+  if (!city) return null;
+  const id = city.replace(/ /g, '-').replace(/\//g, '-');
+  const row = document.getElementById('row-' + id);
+  _updateStatusBanner(city, topic);
+  if (!row) return null;
+  row.classList.add('active-row');
+  _highlightedCity = city;
+  if (topic) {
+    const td = row.querySelector('[data-topic="' + CSS.escape(topic) + '"]');
+    if (td) {
+      td.classList.add('active-topic');
+      _highlightedTopic = topic;
+    }
+  }
+  return row;
+}
 
 function jumpToCurrent() {
   fetch('/admin/api/coverage/current')
     .then(r => r.json())
     .then(data => {
-      if (!data.city || !data.is_running) return;
-      const cityId = data.city.replace(/ /g, '-').replace(/\//g, '-');
-      const row = document.getElementById('row-' + cityId);
+      if (!data.is_running) return;
+      if (!data.city) return;
+      const row = _applyHighlight(data.city, data.topic);
       if (row) {
         row.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } else if (_activeCountry) {
-        // Active city is in a different country tab — switch to it
         window.location.href = '/admin/coverage?country=' + encodeURIComponent(_activeCountry);
       }
     });
 }
 
 {% if is_running %}
-// Auto-refresh current city highlight every 10s
-setInterval(() => {
+function _refreshHighlight() {
   fetch('/admin/api/coverage/current')
     .then(r => r.json())
     .then(data => {
-      // Clear old active rows
-      document.querySelectorAll('tr[data-active]').forEach(r => r.removeAttribute('data-active'));
-      if (data.city && data.is_running) {
-        const cityId = data.city.replace(/ /g, '-').replace(/\//g, '-');
-        const row = document.getElementById('row-' + cityId);
-        if (row) row.setAttribute('data-active', '1');
+      if (data.is_running && data.city) {
+        _applyHighlight(data.city, data.topic);
+      } else {
+        _clearHighlight();
       }
     });
-}, 10000);
-{% endif %}
+}
 
-// Auto-scroll to active row on page load
-window.addEventListener('DOMContentLoaded', () => {
-  const active = document.querySelector('tr[id].border-l-2');
-  if (active) active.scrollIntoView({ behavior: 'smooth', block: 'center' });
-});
+// Refresh highlight immediately on load, then every 5s
+_refreshHighlight();
+setInterval(_refreshHighlight, 5000);
+{% endif %}
 </script>
 
 {% endblock %}
