@@ -281,14 +281,26 @@
 </script>
 <script>
 (function() {
+  // Intercept Run / Stop form submissions — stay on current page
+  const runF  = document.getElementById('nav-run-form');
+  const stopF = document.getElementById('nav-stop-form');
+  if (runF) runF.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    runF.classList.add('hidden'); runF.classList.remove('flex');
+    stopF.classList.remove('hidden'); stopF.classList.add('flex');
+    try { await fetch('/admin/api/run', {method:'POST', body: new FormData(runF)}); } catch (_) {}
+  });
+  if (stopF) stopF.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    try { await fetch('/admin/api/stop', {method:'POST'}); } catch (_) {}
+  });
+
   let _prevRunning = null;
   async function _pollStatus() {
     try {
       const { is_running } = await (await fetch('/admin/api/status')).json();
       if (is_running !== _prevRunning) {
         _prevRunning = is_running;
-        const runF  = document.getElementById('nav-run-form');
-        const stopF = document.getElementById('nav-stop-form');
         if (runF && stopF) {
           runF.classList.toggle('hidden', is_running);
           runF.classList.toggle('flex', !is_running);
