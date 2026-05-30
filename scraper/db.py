@@ -1074,6 +1074,13 @@ def get_fully_processed_pairs(db_path: Path, current_fp: str) -> set[tuple[str, 
                 -- search found no URLs
                 json_array_length(sc.urls) = 0
               OR (
+                -- at least one real (non-hidden) community already found → covered
+                EXISTS (
+                    SELECT 1 FROM communities c
+                    WHERE c.city = sc.city AND c.topic = sc.topic AND c.hidden = 0
+                )
+              )
+              OR (
                 -- pages exist AND all carry the current fingerprint
                 EXISTS (
                     SELECT 1 FROM cache_pages cp
