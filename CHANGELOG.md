@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-05-30 (session 2)
+
+- **290 svéd önkormányzat**: az összes svéd közigazgatási egység felvéve `config/cities.yaml`-ba; Svédország a pipeline-ban Magyarország után, a többi ország előtt fut (hu → se → intl három egymást követő `run_pipeline()` hívással `main.py`-ban)
+- **Coverage oldal** (`/admin/coverage`): ország-választó legördülő, városonkénti × témánkénti mátrix, 5 cella-állapot (nem keresett / régi FP / aktuális FP+0 találat / van közösség / éppen fut), „Ugrás az aktív sorhoz" gomb, a témacímek 90°-kal elforgatva; aktív sor kiemelése teljesen JS-alapú (5 mp-es refresh), nem szerver-oldali snapshot
+- **Pipeline kihagyás**: `get_fully_processed_pairs(db_path, current_fp)` egyetlen SQL lekérdezéssel szűri ki azokat a párokat, ahol a `search_cache` megvan és minden `cache_pages` sor az aktuális `extract_fingerprint`-et viseli — ezek teljesen kimaradnak a hurokból (sem log, sem UI-update)
+- **`on_pair_start` callback**: `run_pipeline()`, `_run_full()`, `_run_ai_only()` és a manuális indítás mindegyike (`app.py`, `main.py`) frissíti `app_state.current_city`/`current_topic`-ot; `finally`-ban törlődik
+- **Email értesítések**: Resend integráció `/subscribe`, `/report-not-community`, `/suggest-edit`, `/claim-community` route-okon; `RESEND_API_KEY` + `FEEDBACK_EMAIL` + `RESEND_FROM` env var-ok
+- **LLM wiki** (`docs/wiki/`): Karpathy-féle wiki minta — hacks, post-mortemek, döntések, architektúra oldalak `[[link]]` kereszthivatkozásokkal; `index.md` katalógus, `log.md` append-only napló, `SCHEMA.md` szabályok
+- **`search_ttl_days: 3650`**: a TTL gyakorlatilag kikapcsolva — egyszer beindexelt párok nem futnak újra; a cél az egész világ lefedése, nem a frissítés
+
 ## 2026-05-30
 
 - **Random közösség sorrend**: publikus oldalakon (városlap, topic, felfedezés, főoldal minták) a közösségek minden betöltéskor véletlenszerű sorrendben jelennek meg — `random.shuffle()` az alkalmazás rétegben, a DB lekérdezések változatlanok

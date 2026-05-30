@@ -36,11 +36,19 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 - `ai_only`: re-extract from cached page texts, no web requests
 - `revalidate`: re-validates communities whose `revalidate_fingerprint` is stale (separate flow via `_run_revalidate`, not `run_pipeline`)
 
+**Pipeline city priority**: `main.py` runs three sequential `run_pipeline()` calls — Hungary → Sweden → rest of world. Sweden is second due to its 290-municipality city list. This split is in `main.py`, not `pipeline.py`.
+
+**Done-pair pre-filter**: `run_pipeline()` calls `get_fully_processed_pairs(db_path, current_fp)` (one SQL query) before inner loops and passes the complement as `pairs_filter`. Pairs with a `search_cache` entry AND all `cache_pages` at the current `extract_fingerprint` are skipped entirely — no loop iteration, no log entry. Fully-covered cities should not appear in the log.
+
 **Scheduler**: cron job is registered but has no jobs — automatic scheduled runs are disabled. Pipeline only starts via manual button presses or `auto_run_on_startup` (see `config/settings.yaml → schedule.auto_run_on_startup`).
 
 **Cache**: everything goes through `cache.py` (a thin facade over `db.py`). Each scraped URL gets a row in `cache_pages`. The extraction cache is fingerprint-keyed: SHA-256[:12] of `SYSTEM_PROMPT + model_name`. Changing either invalidates all cached extractions automatically.
 
 **Web app** (`web/app.py`): single FastAPI app serving two domains from one container. Public router (`_fastapi`) and admin router (`admin`, gated by `_BasicAuth` ASGI middleware). `_detect_site(request)` reads the `Host` header and returns `"meetapedia"` or `"kozossegek"`. `lang_context(request)` injects site-aware variables (`site`, `site_name`, `site_url`, `lang`, `locale`, `map_url`, `about_url`, `explore_url`, `submit_url`, `map_center`) into every public template. `_site_cities(request)` filters cities by domain (HU-only vs. all). Shared runtime state lives in `web/state.py:app_state` singleton.
+
+`app_state.cities` and `app_state.topics` are **dataclass objects** — always use `city.name`, `city.country` (NOT `city["name"]`). Dict-style access causes a 500 on any route that touches them.
+
+`app_state.current_city` / `current_topic` are set by the `on_pair_start` callback during pipeline runs (cleared in `finally`). Consumed by `/admin/api/coverage/current` for the live jump-to-active feature.
 
 ## Key Files
 
@@ -60,6 +68,8 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 | `config/cities.yaml` | City list: `name`, `country`, `locale`, `search_variants` |
 | `config/topics.yaml` | Topic list: `name`, per-locale `search_terms` |
 | `config/settings.yaml` | Model/API/cache/schedule config |
+| `scraper/web/templates/coverage.html` | City×topic matrix; JS class toggle (`.active-row`, `.active-topic`) drives live cell states — use CSS `<style>` block, not Tailwind, for JS-dynamic styles |
+| `docs/wiki/` | LLM wiki (Karpathy pattern): hacks, post-mortems, decisions, architecture. Ingest a source doc → Claude creates/updates pages + updates `index.md` + appends `log.md` |
 
 ## Important Patterns
 
@@ -103,4 +113,4 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 
 ## Deployment
 
-Runs on Coolify (Hetzner) via Docker. Persist only `/app/data` (SQLite) and `/app/config` (YAML edits). Do not mount a volume over the entire `/app/` tree. Required env vars: `ADMIN_PASSWORD`. Optional API keys: `DEEPSEEK_API_KEY`, `GROQ_API_KEY`, `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD`, `SERPER_DEV_API_KEY`.
+Runs on Coolify (Hetzner) via Docker. Persist only `/app/data` (SQLite) and `/app/config` (YAML edits). Do not mount a volume over the entire `/app/` tree. Required env vars: `ADMIN_PASSWORD`. Optional API keys: `DEEPSEEK_API_KEY`, `GROQ_API_KEY`, `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD`, `SERPER_DEV_API_KEY`. Email notifications (`/subscribe`, `/report-not-community`, `/suggest-edit`, `/claim-community`): `RESEND_API_KEY`, `FEEDBACK_EMAIL` (recipient), `RESEND_FROM` (sender, e.g. `noreply@kozossegek.com`). All optional — missing = silent no-op.

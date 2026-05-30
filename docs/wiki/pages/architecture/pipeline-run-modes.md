@@ -29,6 +29,29 @@ The scheduled run in `main.py` splits cities into three groups and runs them seq
 
 Each group is a separate `run_pipeline()` call so progress is visible in coverage per group.
 
+## Done-pair pre-filter
+
+Before entering the city×topic loop, `run_pipeline()` calls `get_fully_processed_pairs(db_path, current_fp)` to build a set of pairs to skip entirely:
+
+```sql
+SELECT sc.city, sc.topic FROM search_cache sc
+WHERE json_array_length(sc.urls) = 0
+  OR (
+    EXISTS (SELECT 1 FROM cache_pages cp WHERE cp.city=sc.city AND cp.topic=sc.topic)
+    AND NOT EXISTS (
+        SELECT 1 FROM cache_pages cp
+        WHERE cp.city=sc.city AND cp.topic=sc.topic
+        AND (cp.extract_fingerprint IS NULL OR cp.extract_fingerprint != ?)
+    )
+  )
+```
+
+A pair qualifies as "done" if either:
+- The search returned 0 URLs (nothing to extract), OR
+- At least one `cache_pages` row exists AND none have a stale/null fingerprint
+
+These pairs are subtracted from `all_pairs` before `_run_full` / `_run_ai_only` is called, so there's zero loop overhead — no log entry, no UI update, no DB reads per skipped pair.
+
 ## Cache-skip flags
 
 `cache.skip_scraped` and `cache.skip_extracted` control per-URL skipping:
