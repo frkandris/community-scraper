@@ -457,28 +457,52 @@ class GooglePlaywrightSearchClient:
 
 
 class FallbackSearchClient:
-    """Tries primaries left-to-right (DataForSEO → Serper)."""
+    """Tries primaries left-to-right (Google Playwright → DataForSEO → Serper).
+
+    GooglePlaywrightSearchClient gets a 15-minute cooldown on CAPTCHA so a single
+    block early in the run doesn't kill Playwright for the remaining hundreds of
+    city/topic pairs. API-based providers (DataForSEO, Serper) are marked
+    permanently exhausted on quota error — retrying won't help if credits are gone.
+    """
+
+    PLAYWRIGHT_COOLDOWN_SECONDS = 15 * 60
 
     def __init__(self, primaries: list):
         self.primaries = primaries
-        self._exhausted = [False] * len(primaries)
+        # 0.0 = not blocked; float('inf') = permanent; future timestamp = cooldown
+        self._blocked_until: list[float] = [0.0] * len(primaries)
+
+    def _is_provider_blocked(self, i: int) -> bool:
+        import time
+        return time.monotonic() < self._blocked_until[i]
+
+    def _block_provider(self, i: int, primary) -> None:
+        import time
+        if isinstance(primary, GooglePlaywrightSearchClient):
+            until = time.monotonic() + self.PLAYWRIGHT_COOLDOWN_SECONDS
+            self._blocked_until[i] = until
+            log.warning("search_quota_cooldown", provider=type(primary).__name__,
+                        retry_in_minutes=self.PLAYWRIGHT_COOLDOWN_SECONDS // 60)
+        else:
+            self._blocked_until[i] = float("inf")
+            log.warning("search_quota_exhausted", provider=type(primary).__name__)
 
     async def search(self, query: str, locale: str = "en",
                      num_results: int = 10) -> list[SearchResult]:
         for i, primary in enumerate(self.primaries):
-            if self._exhausted[i]:
+            if self._is_provider_blocked(i):
                 continue
             try:
                 return await primary.search(query, locale=locale, num_results=num_results)
             except SearchQuotaError as exc:
-                log.warning("search_quota_exhausted", provider=type(primary).__name__, reason=str(exc))
-                self._exhausted[i] = True
+                log.warning("search_quota_error", provider=type(primary).__name__, reason=str(exc))
+                self._block_provider(i, primary)
         return []
 
     async def search_all(self, queries: list[str], locale: str = "en",
                          num_results: int = 10) -> list[SearchResult]:
         for i, primary in enumerate(self.primaries):
-            if self._exhausted[i]:
+            if self._is_provider_blocked(i):
                 continue
             try:
                 results = await primary.search_all(queries, locale=locale, num_results=num_results)
@@ -486,8 +510,8 @@ class FallbackSearchClient:
                     return results
                 log.info("search_empty_try_next", provider=type(primary).__name__, queries=queries)
             except SearchQuotaError as exc:
-                log.warning("search_quota_exhausted", provider=type(primary).__name__, reason=str(exc))
-                self._exhausted[i] = True
+                log.warning("search_quota_error", provider=type(primary).__name__, reason=str(exc))
+                self._block_provider(i, primary)
         return []
 
 

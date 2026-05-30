@@ -389,6 +389,11 @@ async def _run_full(
                 search_results = await searxng.search_all(
                     queries, locale=city.locale, num_results=config.search_results_per_query,
                 )
+                _blocked_domains = config.fetch_blocked_domains
+                search_results = [
+                    r for r in search_results
+                    if not any(d in r.url for d in _blocked_domains)
+                ]
                 log.info("search_done", city=city.name, topic=topic.name, urls=len(search_results))
                 urls = [r.url for r in search_results][:config.search_max_pages]
                 urls_found = len(search_results)
