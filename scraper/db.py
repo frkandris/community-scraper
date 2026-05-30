@@ -1081,20 +1081,7 @@ def get_fully_processed_pairs(db_path: Path, current_fp: str) -> set[tuple[str, 
                 )
               )
               OR (
-                -- at least one page extracted with current AI and 0 communities found
-                -- → blue checkmark state: confirmed empty with current prompt
-                EXISTS (
-                    SELECT 1 FROM cache_pages cp
-                    WHERE cp.city = sc.city AND cp.topic = sc.topic
-                      AND cp.extract_fingerprint = ?
-                )
-                AND NOT EXISTS (
-                    SELECT 1 FROM communities c
-                    WHERE c.city = sc.city AND c.topic = sc.topic AND c.hidden = 0
-                )
-              )
-              OR (
-                -- all pages carry the current fingerprint (fully up-to-date)
+                -- ALL fetched pages carry the current fingerprint → blue ✓ (tuti nincs)
                 EXISTS (
                     SELECT 1 FROM cache_pages cp
                     WHERE cp.city = sc.city AND cp.topic = sc.topic
@@ -1105,7 +1092,7 @@ def get_fully_processed_pairs(db_path: Path, current_fp: str) -> set[tuple[str, 
                       AND (cp.extract_fingerprint IS NULL OR cp.extract_fingerprint != ?)
                 )
               )
-        """, (current_fp, current_fp)).fetchall()
+        """, (current_fp,)).fetchall()
     return {(r[0], r[1]) for r in rows}
 
 
