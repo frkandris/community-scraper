@@ -2602,12 +2602,14 @@ async def stats_timeline(period: str = "24h"):
 
 @admin.get("/coverage", response_class=HTMLResponse)
 async def admin_coverage(request: Request, country: str = ""):
-    from ..db import get_city_topic_states
+    from ..db import get_city_topic_states, get_fully_processed_pairs
     from ..extract import get_extract_fingerprint
     current_fp = get_extract_fingerprint()
     states: dict[str, dict[str, dict]] = {}
+    done_pairs: set[tuple[str, str]] = set()
     if app_state.db_path and app_state.db_path.exists():
         states = get_city_topic_states(app_state.db_path, current_fp)
+        done_pairs = get_fully_processed_pairs(app_state.db_path, current_fp)
     topic_names = [t.name for t in (app_state.topics or [])]
     countries: dict[str, list[str]] = {}
     for city in (app_state.cities or []):
@@ -2629,6 +2631,7 @@ async def admin_coverage(request: Request, country: str = ""):
         "cities": filtered_cities,
         "topic_names": topic_names,
         "states": states,
+        "done_pairs": done_pairs,
         "is_running": app_state.is_running,
         "current_city": app_state.current_city,
         "current_topic": app_state.current_topic,
