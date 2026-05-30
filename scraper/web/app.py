@@ -1306,6 +1306,23 @@ async def public_subscribe(
     for t in topics:
         save_subscription(app_state.db_path, email, city, t)
 
+    if _FEEDBACK_EMAIL and _RESEND_API_KEY:
+        try:
+            import resend
+            resend.api_key = _RESEND_API_KEY
+            resend.Emails.send({
+                "from": _RESEND_FROM,
+                "to": _FEEDBACK_EMAIL,
+                "subject": f"[kozossegek.com] Új feliratkozás — {city}",
+                "html": (
+                    f"<p><b>Email:</b> {html.escape(email)}<br>"
+                    f"<b>Város:</b> {html.escape(city)}<br>"
+                    f"<b>Kategóriák:</b> {html.escape(', '.join(topics))}</p>"
+                ),
+            })
+        except Exception as exc:
+            log.warning("subscribe_email_failed", error=str(exc))
+
     if city_sl and len(topics) == 1:
         return RedirectResponse(f"/{city_sl}/{_topic_url_slug(topics[0], city_locale)}?subscribed=1", status_code=302)
     qs = f"city={city}&" + "&".join(f"topic={t}" for t in topics) + "&subscribed=1"
@@ -1354,6 +1371,39 @@ async def public_feedback(
     return JSONResponse({"ok": True})
 
 
+@_fastapi.post("/claim-community")
+async def public_claim_community(
+    community_id: str = Form(""),
+    community_name: str = Form(""),
+    city: str = Form(""),
+    page_url: str = Form(""),
+    claimant_email: str = Form(""),
+):
+    if not community_name or not claimant_email:
+        return JSONResponse({"ok": False, "error": "missing_fields"})
+    if _FEEDBACK_EMAIL and _RESEND_API_KEY:
+        try:
+            import resend
+            resend.api_key = _RESEND_API_KEY
+            safe_page = html.escape(page_url, quote=True)
+            resend.Emails.send({
+                "from": _RESEND_FROM,
+                "to": _FEEDBACK_EMAIL,
+                "reply_to": claimant_email or None,
+                "subject": f"[kozossegek.com] Közösség igénylés — {community_name} ({city})",
+                "html": (
+                    f"<p><b>Közösség:</b> {html.escape(community_name)}<br>"
+                    f"<b>Város:</b> {html.escape(city)}<br>"
+                    f"<b>Igénylő email:</b> {html.escape(claimant_email)}<br>"
+                    f"<b>Oldal:</b> <a href='{safe_page}'>{safe_page}</a></p>"
+                ),
+            })
+            log.info("claim_email_sent", community=community_name, claimant=claimant_email)
+        except Exception as exc:
+            log.warning("claim_email_failed", error=str(exc))
+    return JSONResponse({"ok": True})
+
+
 @_fastapi.post("/report-not-community")
 async def public_report_not_community(
     community_id: str = Form(""),
@@ -1369,6 +1419,24 @@ async def public_report_not_community(
         _db(), community_id, community_name, city, topic, source_url, page_url
     )
     log.info("not_community_reported", name=community_name, city=city)
+    if _FEEDBACK_EMAIL and _RESEND_API_KEY:
+        try:
+            import resend
+            resend.api_key = _RESEND_API_KEY
+            safe_page = html.escape(page_url, quote=True)
+            resend.Emails.send({
+                "from": _RESEND_FROM,
+                "to": _FEEDBACK_EMAIL,
+                "subject": f"[kozossegek.com] Nem közösség — {community_name}",
+                "html": (
+                    f"<p><b>Közösség:</b> {html.escape(community_name)}<br>"
+                    f"<b>Város:</b> {html.escape(city)}<br>"
+                    f"<b>Topic:</b> {html.escape(topic)}<br>"
+                    f"<b>Oldal:</b> <a href='{safe_page}'>{safe_page}</a></p>"
+                ),
+            })
+        except Exception as exc:
+            log.warning("report_not_community_email_failed", error=str(exc))
     return JSONResponse({"ok": True})
 
 
@@ -1403,6 +1471,36 @@ async def public_suggest_edit(
         record_key, change_type, new_value.strip() or None, notes.strip(), email.strip(),
     )
     log.info("edit_request_submitted", entity=entity_name, change_type=change_type)
+    if _FEEDBACK_EMAIL and _RESEND_API_KEY:
+        try:
+            import resend
+            resend.api_key = _RESEND_API_KEY
+            _type_labels = {
+                "wrong_city": "Rossz város", "wrong_topic": "Rossz kategória",
+                "name_correction": "Névpontosítás", "archive": "Megszűnt",
+                "delete": "Törlés", "wrong_info": "Hibás adat", "closed": "Bezárt",
+            }
+            type_label = _type_labels.get(change_type, change_type)
+            new_val_clean = new_value.strip()
+            notes_clean = notes.strip()
+            email_clean = email.strip()
+            resend.Emails.send({
+                "from": _RESEND_FROM,
+                "to": _FEEDBACK_EMAIL,
+                "reply_to": email_clean or None,
+                "subject": f"[kozossegek.com] Szerkesztési kérés — {entity_name} ({type_label})",
+                "html": (
+                    f"<p><b>{html.escape(entity_type).title()}:</b> {html.escape(entity_name)}<br>"
+                    f"<b>Város:</b> {html.escape(entity_city)}<br>"
+                    f"<b>Változás:</b> {html.escape(type_label)}"
+                    f"{'<br><b>Új érték:</b> ' + html.escape(new_val_clean) if new_val_clean else ''}"
+                    f"{'<br><b>Megjegyzés:</b> ' + html.escape(notes_clean) if notes_clean else ''}"
+                    f"{'<br><b>Email:</b> ' + html.escape(email_clean) if email_clean else ''}"
+                    f"</p>"
+                ),
+            })
+        except Exception as exc:
+            log.warning("suggest_edit_email_failed", error=str(exc))
     return JSONResponse({"ok": True})
 
 
@@ -2500,6 +2598,25 @@ async def stats_timeline(period: str = "24h"):
         period = "24h"
     rows = get_activity_timeline(app_state.db_path, period) if app_state.db_path else []
     return JSONResponse(rows)
+
+
+@admin.get("/coverage", response_class=HTMLResponse)
+async def admin_coverage(request: Request):
+    from ..db import get_city_topic_counts
+    counts: dict[str, dict[str, int]] = {}
+    if app_state.db_path and app_state.db_path.exists():
+        counts = get_city_topic_counts(app_state.db_path)
+    topic_names = [t["name"] for t in (app_state.topics or [])]
+    countries: dict[str, list[str]] = {}
+    for city in (app_state.cities or []):
+        country = city.get("country", "Other")
+        countries.setdefault(country, []).append(city["name"])
+    return templates.TemplateResponse(request, "coverage.html", {
+        "countries": countries,
+        "topic_names": topic_names,
+        "counts": counts,
+        "is_running": app_state.is_running,
+    })
 
 
 @admin.get("/logs", response_class=HTMLResponse)

@@ -334,8 +334,10 @@
     <!-- Collapsed prompt -->
     <div id="report-prompt" class="px-5 py-3">
       <button onclick="openReport()"
-        class="inline-flex items-center gap-1.5 text-xs text-[#B5ADA0] hover:text-[#6A6259] transition-colors">
-        <i class="ph ph-flag"></i> Hibát találtál?
+        class="w-full flex items-center gap-2 text-sm text-[#8C8478] hover:text-[#4A4441] transition-colors group text-left">
+        <i class="ph ph-flag text-base group-hover:text-[#A8512F] transition-colors"></i>
+        <span>Hibát találtál? Jelezd nekünk</span>
+        <i class="ph ph-caret-right ml-auto text-[#D8D1C4] group-hover:text-[#A8512F] transition-colors"></i>
       </button>
     </div>
 
@@ -436,6 +438,37 @@
 
   </div>
 
+  <!-- Claim community -->
+  <div class="mt-3 bg-white border border-[#EAE5DB] rounded-xl overflow-hidden" id="claim-section">
+    <div id="claim-prompt" class="px-5 py-3">
+      <button onclick="openClaim()"
+        class="w-full flex items-center gap-2 text-sm text-[#8C8478] hover:text-[#4A4441] transition-colors group text-left">
+        <i class="ph ph-crown-simple text-base group-hover:text-[#C2613A] transition-colors"></i>
+        <span>Ez a te közösséged?</span>
+        <i class="ph ph-caret-right ml-auto text-[#D8D1C4] group-hover:text-[#A8512F] transition-colors"></i>
+      </button>
+    </div>
+    <div id="claim-form" class="hidden px-5 pb-5 pt-4 border-t border-[#F5F2EC]">
+      <p class="text-xs text-[#6A6259] mb-3">Add meg az email címed, és felvesszük veled a kapcsolatot az adatok pontosítása céljából.</p>
+      <input type="email" id="claim-email"
+        placeholder="email@cimed.hu"
+        class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] text-[#1C1917] placeholder-[#B5ADA0] mb-3">
+      <div class="flex items-center gap-3">
+        <button onclick="submitClaim()"
+          class="px-4 py-2 bg-[#A8512F] text-white text-xs font-semibold rounded-lg hover:bg-[#8A4226] transition-colors">
+          Küldés
+        </button>
+        <button type="button" onclick="closeClaim()"
+          class="text-xs text-[#8C8478] hover:text-[#4A4441] transition-colors">
+          Mégsem
+        </button>
+      </div>
+    </div>
+    <div id="claim-thanks" class="hidden px-5 py-3 text-sm text-green-700 flex items-center gap-2">
+      <i class="ph ph-check-circle"></i> Köszönjük! Hamarosan felvesszük veled a kapcsolatot.
+    </div>
+  </div>
+
   <!-- History -->
   {% if community_history %}
   {% set field_labels = {
@@ -517,6 +550,32 @@
 </div>
 
 <script>
+function openClaim() {
+  document.getElementById('claim-prompt').classList.add('hidden');
+  document.getElementById('claim-form').classList.remove('hidden');
+  document.getElementById('claim-email').focus();
+}
+function closeClaim() {
+  document.getElementById('claim-form').classList.add('hidden');
+  document.getElementById('claim-prompt').classList.remove('hidden');
+  document.getElementById('claim-email').value = '';
+}
+async function submitClaim() {
+  const emailEl = document.getElementById('claim-email');
+  const email = emailEl.value.trim();
+  if (!email || !email.includes('@')) { emailEl.focus(); return; }
+  const g = id => document.getElementById(id)?.value || '';
+  const fd = new FormData();
+  fd.append('community_id',   g('rf-entity-id'));
+  fd.append('community_name', g('rf-community-name'));
+  fd.append('city',           g('rf-city'));
+  fd.append('page_url',       location.href);
+  fd.append('claimant_email', email);
+  try { await fetch('/claim-community', { method: 'POST', body: fd }); } catch (_) {}
+  document.getElementById('claim-form').classList.add('hidden');
+  document.getElementById('claim-thanks').classList.remove('hidden');
+}
+
 function openReport() {
   document.getElementById('report-prompt').classList.add('hidden');
   document.getElementById('report-form').classList.remove('hidden');
