@@ -2226,15 +2226,26 @@ def get_activity_timeline(db_path: Path, period: str) -> list[dict]:
             GROUP BY 1
         """, "community_changes")
         _run(conn, f"""
-            SELECT {strftime_col.format(col='changed_at')}, COUNT(*)
-            FROM venue_history
-            WHERE field='__created__' AND changed_at >= {since_sql}
+            SELECT {strftime_col.format(col='first_seen')}, COUNT(*)
+            FROM (
+                SELECT venue_id, MIN(changed_at) AS first_seen
+                FROM venue_history
+                WHERE field='__created__'
+                GROUP BY venue_id
+            )
+            WHERE first_seen >= {since_sql}
             GROUP BY 1
         """, "new_venues")
+        # Use MIN(changed_at) per person_id so delete+reinsert cycles only count once.
         _run(conn, f"""
-            SELECT {strftime_col.format(col='changed_at')}, COUNT(*)
-            FROM person_history
-            WHERE field='__created__' AND changed_at >= {since_sql}
+            SELECT {strftime_col.format(col='first_seen')}, COUNT(*)
+            FROM (
+                SELECT person_id, MIN(changed_at) AS first_seen
+                FROM person_history
+                WHERE field='__created__'
+                GROUP BY person_id
+            )
+            WHERE first_seen >= {since_sql}
             GROUP BY 1
         """, "new_persons")
 
