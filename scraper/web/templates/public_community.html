@@ -76,7 +76,7 @@
       <div class="flex flex-col gap-2">
         {% if website_url and website_url | valid_url %}
         {% set wm = website_url | link_meta %}
-        <a href="{{ website_url }}" target="_blank" rel="noopener"
+        <a href="/out?url={{ website_url | urlencode }}&cid={{ r.community_id }}" target="_blank" rel="noopener"
            class="flex items-center gap-3 group rounded-lg px-3 py-2.5 hover:bg-[#F5F2EC] transition-colors -mx-3">
           <span class="flex items-center justify-center w-9 h-9 rounded-lg shrink-0 {{ wm.color }}">
             <i class="ph {{ wm.icon }}" style="font-size:17px"></i>
@@ -93,7 +93,7 @@
         {% for link in r.social_links %}
         {% if link | valid_url %}
         {% set lm = link | link_meta %}
-        <a href="{{ link }}" target="_blank" rel="noopener"
+        <a href="/out?url={{ link | urlencode }}&cid={{ r.community_id }}" target="_blank" rel="noopener"
            class="flex items-center gap-3 group rounded-lg px-3 py-2.5 hover:bg-[#F5F2EC] transition-colors -mx-3">
           <span class="flex items-center justify-center w-9 h-9 rounded-lg shrink-0 {{ lm.color }}">
             <i class="ph {{ lm.icon }}" style="font-size:17px"></i>

@@ -351,6 +351,21 @@ def init_db(db_path: Path) -> None:
                 created_at       TEXT DEFAULT (datetime('now'))
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS outclick_events (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                community_id TEXT NOT NULL,
+                url          TEXT NOT NULL,
+                link_type    TEXT NOT NULL DEFAULT 'website',
+                clicked_at   TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_outclick_community ON outclick_events(community_id)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_outclick_clicked_at ON outclick_events(clicked_at)"
+        )
 
         conn.commit()
 
@@ -2250,3 +2265,61 @@ def get_activity_timeline(db_path: Path, period: str) -> list[dict]:
         """, "new_persons")
 
     return [rows[b] for b in buckets]
+
+
+# ── Outclick tracking ─────────────────────────────────────────────────────────
+
+def log_outclick(db_path: Path, community_id: str, url: str, link_type: str) -> None:
+    try:
+        with _connect(db_path) as conn:
+            conn.execute(
+                "INSERT INTO outclick_events (community_id, url, link_type) VALUES (?, ?, ?)",
+                (community_id, url, link_type),
+            )
+            conn.commit()
+    except Exception:
+        pass
+
+
+def get_outclick_stats(db_path: Path) -> dict:
+    empty: dict = {"total": 0, "total_30d": 0, "top_communities": [], "by_type": []}
+    if not db_path.exists():
+        return empty
+    with _connect(db_path) as conn:
+        tbl = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='outclick_events'"
+        ).fetchone()
+        if not tbl:
+            return empty
+        total = conn.execute("SELECT COUNT(*) FROM outclick_events").fetchone()[0]
+        total_30d = conn.execute(
+            "SELECT COUNT(*) FROM outclick_events WHERE clicked_at >= datetime('now','-30 days')"
+        ).fetchone()[0]
+        top = conn.execute("""
+            SELECT o.community_id,
+                   json_extract(c.data,'$.name') AS name,
+                   json_extract(c.data,'$.city') AS city,
+                   COUNT(*) AS clicks
+            FROM outclick_events o
+            LEFT JOIN communities c ON c.community_id = o.community_id
+            WHERE o.clicked_at >= datetime('now','-30 days')
+            GROUP BY o.community_id
+            ORDER BY clicks DESC
+            LIMIT 15
+        """).fetchall()
+        by_type = conn.execute("""
+            SELECT link_type, COUNT(*) AS cnt
+            FROM outclick_events
+            WHERE clicked_at >= datetime('now','-30 days')
+            GROUP BY link_type
+            ORDER BY cnt DESC
+        """).fetchall()
+    return {
+        "total": total,
+        "total_30d": total_30d,
+        "top_communities": [
+            {"community_id": r[0], "name": r[1] or r[0], "city": r[2] or "", "clicks": r[3]}
+            for r in top
+        ],
+        "by_type": [{"type": r[0], "cnt": r[1]} for r in by_type],
+    }

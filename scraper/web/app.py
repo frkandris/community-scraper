@@ -1227,6 +1227,30 @@ async def public_community_legacy(request: Request, community_id: str):
     return RedirectResponse(record["community_url"], status_code=301)
 
 
+def _link_type_code(url: str) -> str:
+    url_lower = url.lower()
+    for domains, label, _icon, _color in _LINK_PLATFORMS:
+        if any(d in url_lower for d in domains):
+            return label.lower()
+    return "website"
+
+
+@_fastapi.get("/out")
+async def outclick_redirect(url: str = "", cid: str = ""):
+    from urllib.parse import unquote
+    target = unquote(url)
+    if not target.startswith(("http://", "https://")):
+        return RedirectResponse("/", status_code=302)
+    if app_state.db_path and cid:
+        from ..db import log_outclick
+        link_type = _link_type_code(target)
+        try:
+            log_outclick(app_state.db_path, cid, target, link_type)
+        except Exception:
+            pass
+    return RedirectResponse(target, status_code=302)
+
+
 @_fastapi.get("/source/{url_hash}", response_class=HTMLResponse)
 async def public_source_page(request: Request, url_hash: str):
     """Public provenance page: search queries, scraped text, prompt, extracted records."""
@@ -2460,11 +2484,13 @@ async def subscriptions_page(request: Request):
 
 @admin.get("/stats", response_class=HTMLResponse)
 async def stats_page(request: Request):
-    from ..db import get_data_quality_stats
+    from ..db import get_data_quality_stats, get_outclick_stats
     stats: dict = {}
+    outclicks: dict = {"total": 0, "total_30d": 0, "top_communities": [], "by_type": []}
     if app_state.db_path and app_state.db_path.exists():
         stats = get_data_quality_stats(app_state.db_path)
-    return templates.TemplateResponse(request, "stats.html", {"stats": stats})
+        outclicks = get_outclick_stats(app_state.db_path)
+    return templates.TemplateResponse(request, "stats.html", {"stats": stats, "outclicks": outclicks})
 
 
 @admin.get("/api/stats/timeline")

@@ -106,6 +106,89 @@
 </div>
 {% endif %}
 
+<!-- Outclick tracking -->
+<div class="mb-6">
+  <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Kimenő kattintások <span class="normal-case font-normal">(linkek közösség oldalakról)</span></h2>
+
+  {% if outclicks.total == 0 %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 text-sm text-gray-400">
+    Még nincs adat — a közösségek.com-ra érkező látogatók linkjeire kattintások ide fognak gyűlni.
+  </div>
+  {% else %}
+
+  <!-- Összesítők -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+    <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+      <div class="text-2xl font-bold text-gray-900">{{ outclicks.total }}</div>
+      <div class="text-xs text-gray-500 mt-1">Összes kattintás</div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+      <div class="text-2xl font-bold text-gray-900">{{ outclicks.total_30d }}</div>
+      <div class="text-xs text-gray-500 mt-1">Elmúlt 30 nap</div>
+    </div>
+    {% for row in outclicks.by_type[:2] %}
+    <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+      <div class="text-2xl font-bold text-gray-900">{{ row.cnt }}</div>
+      <div class="text-xs text-gray-500 mt-1 capitalize">{{ row.type }} (30 nap)</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+    <!-- Top közösségek -->
+    {% if outclicks.top_communities %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-4 py-3 border-b border-gray-100">
+        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Top közösségek (30 nap)</span>
+      </div>
+      <table class="min-w-full text-sm">
+        <tbody class="divide-y divide-gray-100">
+          {% for row in outclicks.top_communities %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-2.5">
+              <div class="font-medium text-gray-900 text-sm">{{ row.name }}</div>
+              <div class="text-xs text-gray-400">{{ row.city }}</div>
+            </td>
+            <td class="px-4 py-2.5 text-right font-semibold text-gray-900 whitespace-nowrap">{{ row.clicks }} katt.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    <!-- Link típusonként -->
+    {% if outclicks.by_type %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-4 py-3 border-b border-gray-100">
+        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Típus szerint (30 nap)</span>
+      </div>
+      <table class="min-w-full text-sm">
+        <tbody class="divide-y divide-gray-100">
+          {% set total_30d = outclicks.total_30d or 1 %}
+          {% for row in outclicks.by_type %}
+          {% set pct = ((row.cnt / total_30d * 100) | round | int) %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-2.5 font-medium text-gray-900 capitalize">{{ row.type }}</td>
+            <td class="px-4 py-2.5 text-right text-gray-700">{{ row.cnt }}</td>
+            <td class="px-4 py-2.5 w-24">
+              <div class="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                <div class="h-full rounded-full bg-indigo-400" style="width: {{ pct }}%"></div>
+              </div>
+            </td>
+            <td class="px-4 py-2.5 text-right text-gray-400 text-xs">{{ pct }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+  </div>
+  {% endif %}
+</div>
+
 <!-- Activity timeline -->
 <div class="mb-6">
   <div class="flex items-center justify-between mb-3">
