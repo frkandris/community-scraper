@@ -1089,12 +1089,14 @@ def get_fully_processed_pairs(db_path: Path, current_fp: str) -> set[tuple[str, 
         }
         search_rows = conn.execute("SELECT city, topic, urls FROM search_cache").fetchall()
 
-    result: set[tuple[str, str]] = set()
+    # Green pairs are always done — communities already exist, no need to re-process
+    result: set[tuple[str, str]] = set(community_pairs)
+    # Blue pairs: searched, all pages extracted with current fp, 0 communities
     for city, topic, urls_json in search_rows:
+        if (city, topic) in result:
+            continue  # already green, skip
         urls: list[str] = json.loads(urls_json) if urls_json else []
         if not urls:
-            result.add((city, topic))
-        elif (city, topic) in community_pairs:
             result.add((city, topic))
         elif urls and all(_url_hash(u) in current_fp_hashes for u in urls):
             result.add((city, topic))
