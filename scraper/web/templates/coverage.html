@@ -157,7 +157,15 @@
             {% elif curr_fp > 0 and curr_fp >= page_cnt %}
             <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-600" title="Feldolgozva (aktuális AI), 0 találat — tuti nincs">✓</span>
             {% elif page_cnt > 0 or cell %}
-            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-50 border border-amber-200 text-amber-500" title="Régi feldolgozás vagy csak keresve">~</span>
+            {% set stale = page_cnt - curr_fp %}
+            {% if page_cnt == 0 %}
+              {% set _tip = "Keresve, lapok még nincsenek letöltve" %}
+            {% elif curr_fp == 0 %}
+              {% set _tip = page_cnt ~ " stale lap (mind régi fingerprint)" %}
+            {% else %}
+              {% set _tip = stale ~ " stale lap, " ~ curr_fp ~ " aktuális (összesen " ~ page_cnt ~ ")" %}
+            {% endif %}
+            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-50 border border-amber-200 text-amber-500" title="{{ _tip }}">~</span>
             {% else %}
             <span class="text-gray-200">·</span>
             {% endif %}
