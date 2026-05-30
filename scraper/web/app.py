@@ -2606,11 +2606,11 @@ async def admin_coverage(request: Request):
     counts: dict[str, dict[str, int]] = {}
     if app_state.db_path and app_state.db_path.exists():
         counts = get_city_topic_counts(app_state.db_path)
-    topic_names = [t["name"] for t in (app_state.topics or [])]
+    topic_names = [t.name for t in (app_state.topics or [])]
     countries: dict[str, list[str]] = {}
     for city in (app_state.cities or []):
-        country = city.get("country", "Other")
-        countries.setdefault(country, []).append(city["name"])
+        country = getattr(city, "country", "Other") or "Other"
+        countries.setdefault(country, []).append(city.name)
     return templates.TemplateResponse(request, "coverage.html", {
         "countries": countries,
         "topic_names": topic_names,

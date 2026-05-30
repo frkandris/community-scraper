@@ -140,7 +140,8 @@ async def main() -> None:
         success = False
         pair_logs: list = []
         hu_cities = [c for c in (app_state.cities or []) if c.country == "Hungary"]
-        intl_cities = [c for c in (app_state.cities or []) if c.country != "Hungary"]
+        se_cities = [c for c in (app_state.cities or []) if c.country == "Sweden"]
+        intl_cities = [c for c in (app_state.cities or []) if c.country not in {"Hungary", "Sweden"}]
         try:
             pair_logs, _ = await run_pipeline(
                 hu_cities,
@@ -149,6 +150,15 @@ async def main() -> None:
                 cache=app_state.cache_manager,
                 on_progress=_on_progress,
             )
+            if se_cities:
+                se_logs, _ = await run_pipeline(
+                    se_cities,
+                    app_state.topics,
+                    app_state.pipeline_cfg,
+                    cache=app_state.cache_manager,
+                    on_progress=_on_progress,
+                )
+                pair_logs += se_logs
             if intl_cities:
                 intl_logs, _ = await run_pipeline(
                     intl_cities,
@@ -203,7 +213,8 @@ async def main() -> None:
         success = False
         pair_logs: list = []
         hu_cities = [c for c in (app_state.cities or []) if c.country == "Hungary"]
-        intl_cities = [c for c in (app_state.cities or []) if c.country != "Hungary"]
+        se_cities = [c for c in (app_state.cities or []) if c.country == "Sweden"]
+        intl_cities = [c for c in (app_state.cities or []) if c.country not in {"Hungary", "Sweden"}]
         try:
             pair_logs, _ = await run_pipeline(
                 hu_cities,
@@ -213,6 +224,16 @@ async def main() -> None:
                 on_progress=_on_progress,
                 run_mode=startup_mode,
             )
+            if se_cities:
+                se_logs, _ = await run_pipeline(
+                    se_cities,
+                    app_state.topics,
+                    app_state.pipeline_cfg,
+                    cache=app_state.cache_manager,
+                    on_progress=_on_progress,
+                    run_mode=startup_mode,
+                )
+                pair_logs += se_logs
             if intl_cities:
                 intl_logs, _ = await run_pipeline(
                     intl_cities,

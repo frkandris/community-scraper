@@ -45,7 +45,7 @@ pipeline:
 cache:
   skip_scraped: true
   skip_extracted: true
-  search_ttl_days: 7
+  search_ttl_days: 3650
 
 schedule:
   cron: "* * * * *"

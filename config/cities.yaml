@@ -1357,6 +1357,456 @@ cities:
     locale: hu
     search_variants: [Pálháza, Palhaza]
 
+  # Sweden
+  - name: Stockholm
+    country: Sweden
+    locale: sv
+    search_variants: [Stockholm, "Stockholm Sverige"]
+  - name: Göteborg
+    country: Sweden
+    locale: sv
+    search_variants: [Göteborg, Gothenburg, "Göteborg Sverige"]
+  - name: Malmö
+    country: Sweden
+    locale: sv
+    search_variants: [Malmö, Malmo, "Malmö Sverige"]
+  - name: Uppsala
+    country: Sweden
+    locale: sv
+    search_variants: [Uppsala, "Uppsala Sverige"]
+  - name: Linköping
+    country: Sweden
+    locale: sv
+    search_variants: [Linköping, Linkoping, "Linköping Sverige"]
+  - name: Västerås
+    country: Sweden
+    locale: sv
+    search_variants: [Västerås, Vasteras, "Västerås Sverige"]
+  - name: Örebro
+    country: Sweden
+    locale: sv
+    search_variants: [Örebro, Orebro, "Örebro Sverige"]
+  - name: Helsingborg
+    country: Sweden
+    locale: sv
+    search_variants: [Helsingborg, "Helsingborg Sverige"]
+  - name: Jönköping
+    country: Sweden
+    locale: sv
+    search_variants: [Jönköping, Jonkoping, "Jönköping Sverige"]
+  - name: Norrköping
+    country: Sweden
+    locale: sv
+    search_variants: [Norrköping, Norrkoping, "Norrköping Sverige"]
+  - name: Umeå
+    country: Sweden
+    locale: sv
+    search_variants: [Umeå, Umea, "Umeå Sverige"]
+  - name: Lund
+    country: Sweden
+    locale: sv
+    search_variants: [Lund, "Lund Sverige"]
+  - name: Borås
+    country: Sweden
+    locale: sv
+    search_variants: [Borås, Boras, "Borås Sverige"]
+  - name: Huddinge
+    country: Sweden
+    locale: sv
+    search_variants: [Huddinge, "Huddinge Sverige"]
+  - name: Nacka
+    country: Sweden
+    locale: sv
+    search_variants: [Nacka, "Nacka Sverige"]
+  - name: Eskilstuna
+    country: Sweden
+    locale: sv
+    search_variants: [Eskilstuna, "Eskilstuna Sverige"]
+  - name: Halmstad
+    country: Sweden
+    locale: sv
+    search_variants: [Halmstad, "Halmstad Sverige"]
+  - name: Gävle
+    country: Sweden
+    locale: sv
+    search_variants: [Gävle, Gavle, "Gävle Sverige"]
+  - name: Södertälje
+    country: Sweden
+    locale: sv
+    search_variants: [Södertälje, Sodertalje, "Södertälje Sverige"]
+  - name: Haninge
+    country: Sweden
+    locale: sv
+    search_variants: [Haninge, Handen, "Haninge Sverige"]
+  - name: Karlstad
+    country: Sweden
+    locale: sv
+    search_variants: [Karlstad, "Karlstad Sverige"]
+  - name: Sundsvall
+    country: Sweden
+    locale: sv
+    search_variants: [Sundsvall, "Sundsvall Sverige"]
+  - name: Växjö
+    country: Sweden
+    locale: sv
+    search_variants: [Växjö, Vaxjo, "Växjö Sverige"]
+  - name: Botkyrka
+    country: Sweden
+    locale: sv
+    search_variants: [Botkyrka, Tumba, "Botkyrka Sverige"]
+  - name: Järfälla
+    country: Sweden
+    locale: sv
+    search_variants: [Järfälla, Jarfalla, Jakobsberg, "Järfälla Sverige"]
+  - name: Solna
+    country: Sweden
+    locale: sv
+    search_variants: [Solna, "Solna Sverige"]
+  - name: Kungsbacka
+    country: Sweden
+    locale: sv
+    search_variants: [Kungsbacka, "Kungsbacka Sverige"]
+  - name: Kristianstad
+    country: Sweden
+    locale: sv
+    search_variants: [Kristianstad, "Kristianstad Sverige"]
+  - name: Luleå
+    country: Sweden
+    locale: sv
+    search_variants: [Luleå, Lulea, "Luleå Sverige"]
+  - name: Täby
+    country: Sweden
+    locale: sv
+    search_variants: [Täby, Taby, "Täby Sverige"]
+  - name: Sollentuna
+    country: Sweden
+    locale: sv
+    search_variants: [Sollentuna, "Sollentuna Sverige"]
+  - name: Skellefteå
+    country: Sweden
+    locale: sv
+    search_variants: [Skellefteå, Skelleftea, "Skellefteå Sverige"]
+  - name: Kalmar
+    country: Sweden
+    locale: sv
+    search_variants: [Kalmar, "Kalmar Sverige"]
+  - name: Mölndal
+    country: Sweden
+    locale: sv
+    search_variants: [Mölndal, Molndal, "Mölndal Sverige"]
+  - name: Varberg
+    country: Sweden
+    locale: sv
+    search_variants: [Varberg, "Varberg Sverige"]
+  - name: Norrtälje
+    country: Sweden
+    locale: sv
+    search_variants: [Norrtälje, Norrtalje, "Norrtälje Sverige"]
+  - name: Karlskrona
+    country: Sweden
+    locale: sv
+    search_variants: [Karlskrona, "Karlskrona Sverige"]
+  - name: Östersund
+    country: Sweden
+    locale: sv
+    search_variants: [Östersund, Ostersund, "Östersund Sverige"]
+  - name: Visby
+    country: Sweden
+    locale: sv
+    search_variants: [Visby, Gotland, "Visby Sverige"]
+  - name: Falun
+    country: Sweden
+    locale: sv
+    search_variants: [Falun, "Falun Sverige"]
+  - name: Trollhättan
+    country: Sweden
+    locale: sv
+    search_variants: [Trollhättan, Trollhattan, "Trollhättan Sverige"]
+  - name: Skövde
+    country: Sweden
+    locale: sv
+    search_variants: [Skövde, Skovde, "Skövde Sverige"]
+  - name: Nyköping
+    country: Sweden
+    locale: sv
+    search_variants: [Nyköping, Nykoping, "Nyköping Sverige"]
+  - name: Sundbyberg
+    country: Sweden
+    locale: sv
+    search_variants: [Sundbyberg, "Sundbyberg Sverige"]
+  - name: Uddevalla
+    country: Sweden
+    locale: sv
+    search_variants: [Uddevalla, "Uddevalla Sverige"]
+  - name: Örnsköldsvik
+    country: Sweden
+    locale: sv
+    search_variants: [Örnsköldsvik, Ornskoldsvik, "Örnsköldsvik Sverige"]
+  - name: Märsta
+    country: Sweden
+    locale: sv
+    search_variants: [Märsta, Marsta, Sigtuna, "Märsta Sverige"]
+  - name: Hässleholm
+    country: Sweden
+    locale: sv
+    search_variants: [Hässleholm, Hassleholm, "Hässleholm Sverige"]
+  - name: Borlänge
+    country: Sweden
+    locale: sv
+    search_variants: [Borlänge, Borlange, "Borlänge Sverige"]
+  - name: Upplands Väsby
+    country: Sweden
+    locale: sv
+    search_variants: ["Upplands Väsby", "Upplands Vasby", "Upplands Väsby Sverige"]
+  - name: Kungälv
+    country: Sweden
+    locale: sv
+    search_variants: [Kungälv, Kungalv, "Kungälv Sverige"]
+  - name: Åkersberga
+    country: Sweden
+    locale: sv
+    search_variants: [Åkersberga, Akersberga, "Åkersberga Sverige"]
+  - name: Tyresö
+    country: Sweden
+    locale: sv
+    search_variants: [Tyresö, Tyreso, "Tyresö Sverige"]
+  - name: Enköping
+    country: Sweden
+    locale: sv
+    search_variants: [Enköping, Enkoping, "Enköping Sverige"]
+  - name: Lidingö
+    country: Sweden
+    locale: sv
+    search_variants: [Lidingö, Lidingo, "Lidingö Sverige"]
+  - name: Landskrona
+    country: Sweden
+    locale: sv
+    search_variants: [Landskrona, "Landskrona Sverige"]
+  - name: Trelleborg
+    country: Sweden
+    locale: sv
+    search_variants: [Trelleborg, "Trelleborg Sverige"]
+  - name: Falkenberg
+    country: Sweden
+    locale: sv
+    search_variants: [Falkenberg, "Falkenberg Sverige"]
+  - name: Gustavsberg
+    country: Sweden
+    locale: sv
+    search_variants: [Gustavsberg, Värmdö, Varmdo, "Gustavsberg Sverige"]
+  - name: Ängelholm
+    country: Sweden
+    locale: sv
+    search_variants: [Ängelholm, Angelholm, "Ängelholm Sverige"]
+  - name: Lerum
+    country: Sweden
+    locale: sv
+    search_variants: [Lerum, "Lerum Sverige"]
+  - name: Motala
+    country: Sweden
+    locale: sv
+    search_variants: [Motala, "Motala Sverige"]
+  - name: Alingsås
+    country: Sweden
+    locale: sv
+    search_variants: [Alingsås, Alingsas, "Alingsås Sverige"]
+  - name: Piteå
+    country: Sweden
+    locale: sv
+    search_variants: [Piteå, Pitea, "Piteå Sverige"]
+  - name: Partille
+    country: Sweden
+    locale: sv
+    search_variants: [Partille, "Partille Sverige"]
+  - name: Lidköping
+    country: Sweden
+    locale: sv
+    search_variants: [Lidköping, Lidkoping, "Lidköping Sverige"]
+  - name: Vänersborg
+    country: Sweden
+    locale: sv
+    search_variants: [Vänersborg, Vanersborg, "Vänersborg Sverige"]
+  - name: Mölnlycke
+    country: Sweden
+    locale: sv
+    search_variants: [Mölnlycke, Molnlycke, Härryda, "Mölnlycke Sverige"]
+  - name: Strängnäs
+    country: Sweden
+    locale: sv
+    search_variants: [Strängnäs, Strangnas, "Strängnäs Sverige"]
+  - name: Sandviken
+    country: Sweden
+    locale: sv
+    search_variants: [Sandviken, "Sandviken Sverige"]
+  - name: Hudiksvall
+    country: Sweden
+    locale: sv
+    search_variants: [Hudiksvall, "Hudiksvall Sverige"]
+  - name: Västervik
+    country: Sweden
+    locale: sv
+    search_variants: [Västervik, Vastervik, "Västervik Sverige"]
+  - name: Vallentuna
+    country: Sweden
+    locale: sv
+    search_variants: [Vallentuna, "Vallentuna Sverige"]
+  - name: Eslöv
+    country: Sweden
+    locale: sv
+    search_variants: [Eslöv, Eslov, "Eslöv Sverige"]
+  - name: Värnamo
+    country: Sweden
+    locale: sv
+    search_variants: [Värnamo, Varnamo, "Värnamo Sverige"]
+  - name: Katrineholm
+    country: Sweden
+    locale: sv
+    search_variants: [Katrineholm, "Katrineholm Sverige"]
+  - name: Falköping
+    country: Sweden
+    locale: sv
+    search_variants: [Falköping, Falkoping, "Falköping Sverige"]
+  - name: Kävlinge
+    country: Sweden
+    locale: sv
+    search_variants: [Kävlinge, Kavlinge, "Kävlinge Sverige"]
+  - name: Ystad
+    country: Sweden
+    locale: sv
+    search_variants: [Ystad, "Ystad Sverige"]
+  - name: Karlshamn
+    country: Sweden
+    locale: sv
+    search_variants: [Karlshamn, "Karlshamn Sverige"]
+  - name: Nässjö
+    country: Sweden
+    locale: sv
+    search_variants: [Nässjö, Nassjo, "Nässjö Sverige"]
+  - name: Nynäshamn
+    country: Sweden
+    locale: sv
+    search_variants: [Nynäshamn, Nynashamn, "Nynäshamn Sverige"]
+  - name: Karlskoga
+    country: Sweden
+    locale: sv
+    search_variants: [Karlskoga, "Karlskoga Sverige"]
+  - name: Mjölby
+    country: Sweden
+    locale: sv
+    search_variants: [Mjölby, Mjolby, "Mjölby Sverige"]
+  - name: Boden
+    country: Sweden
+    locale: sv
+    search_variants: [Boden, "Boden Sverige"]
+  - name: Ronneby
+    country: Sweden
+    locale: sv
+    search_variants: [Ronneby, "Ronneby Sverige"]
+  - name: Gislaved
+    country: Sweden
+    locale: sv
+    search_variants: [Gislaved, "Gislaved Sverige"]
+  - name: Höganäs
+    country: Sweden
+    locale: sv
+    search_variants: [Höganäs, Hoganas, "Höganäs Sverige"]
+  - name: Ljungby
+    country: Sweden
+    locale: sv
+    search_variants: [Ljungby, "Ljungby Sverige"]
+  - name: Stenungsund
+    country: Sweden
+    locale: sv
+    search_variants: [Stenungsund, "Stenungsund Sverige"]
+  - name: Staffanstorp
+    country: Sweden
+    locale: sv
+    search_variants: [Staffanstorp, "Staffanstorp Sverige"]
+  - name: Vetlanda
+    country: Sweden
+    locale: sv
+    search_variants: [Vetlanda, "Vetlanda Sverige"]
+  - name: Ludvika
+    country: Sweden
+    locale: sv
+    search_variants: [Ludvika, "Ludvika Sverige"]
+  - name: Oskarshamn
+    country: Sweden
+    locale: sv
+    search_variants: [Oskarshamn, "Oskarshamn Sverige"]
+  - name: Laholm
+    country: Sweden
+    locale: sv
+    search_variants: [Laholm, "Laholm Sverige"]
+  - name: Bollnäs
+    country: Sweden
+    locale: sv
+    search_variants: [Bollnäs, Bollnas, "Bollnäs Sverige"]
+  - name: Köping
+    country: Sweden
+    locale: sv
+    search_variants: [Köping, Koping, "Köping Sverige"]
+  - name: Arvika
+    country: Sweden
+    locale: sv
+    search_variants: [Arvika, "Arvika Sverige"]
+  - name: Ulricehamn
+    country: Sweden
+    locale: sv
+    search_variants: [Ulricehamn, "Ulricehamn Sverige"]
+  - name: Mariestad
+    country: Sweden
+    locale: sv
+    search_variants: [Mariestad, "Mariestad Sverige"]
+  - name: Härnösand
+    country: Sweden
+    locale: sv
+    search_variants: [Härnösand, Harnosand, "Härnösand Sverige"]
+  - name: Söderhamn
+    country: Sweden
+    locale: sv
+    search_variants: [Söderhamn, Soderhamn, "Söderhamn Sverige"]
+  - name: Kristinehamn
+    country: Sweden
+    locale: sv
+    search_variants: [Kristinehamn, "Kristinehamn Sverige"]
+  - name: Bålsta
+    country: Sweden
+    locale: sv
+    search_variants: [Bålsta, Balsta, Håbo, "Bålsta Sverige"]
+  - name: Lindesberg
+    country: Sweden
+    locale: sv
+    search_variants: [Lindesberg, "Lindesberg Sverige"]
+  - name: Kumla
+    country: Sweden
+    locale: sv
+    search_variants: [Kumla, "Kumla Sverige"]
+  - name: Sala
+    country: Sweden
+    locale: sv
+    search_variants: [Sala, "Sala Sverige"]
+  - name: Kiruna
+    country: Sweden
+    locale: sv
+    search_variants: [Kiruna, "Kiruna Sverige"]
+  - name: Avesta
+    country: Sweden
+    locale: sv
+    search_variants: [Avesta, "Avesta Sverige"]
+  - name: Knivsta
+    country: Sweden
+    locale: sv
+    search_variants: [Knivsta, "Knivsta Sverige"]
+  - name: Finspång
+    country: Sweden
+    locale: sv
+    search_variants: [Finspång, Finspang, "Finspång Sverige"]
+  - name: Mora
+    country: Sweden
+    locale: sv
+    search_variants: [Mora, "Mora Sverige"]
+
   # Austria
   - name: Vienna
     country: Austria
@@ -1754,18 +2204,6 @@ cities:
     country: Denmark
     locale: da
     search_variants: [København, Copenhagen, "Copenhagen Denmark"]
-  - name: Stockholm
-    country: Sweden
-    locale: sv
-    search_variants: [Stockholm, "Stockholm Sweden"]
-  - name: Gothenburg
-    country: Sweden
-    locale: sv
-    search_variants: [Göteborg, Gothenburg, "Gothenburg Sweden"]
-  - name: Malmö
-    country: Sweden
-    locale: sv
-    search_variants: [Malmö, Malmo, "Malmö Sweden"]
   - name: Oslo
     country: Norway
     locale: "no"
