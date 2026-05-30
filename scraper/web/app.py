@@ -2600,8 +2600,11 @@ async def stats_timeline(period: str = "24h"):
     return JSONResponse(rows)
 
 
+_COVERAGE_PAGE_SIZE = 10
+
+
 @admin.get("/coverage", response_class=HTMLResponse)
-async def admin_coverage(request: Request, country: str = ""):
+async def admin_coverage(request: Request, country: str = "", page: int = 1):
     from ..db import get_city_topic_states, get_fully_processed_pairs
     from ..extract import get_extract_fingerprint
     current_fp = get_extract_fingerprint()
@@ -2624,7 +2627,17 @@ async def admin_coverage(request: Request, country: str = ""):
                 break
     default_country = active_country or (all_countries[0] if all_countries else "")
     selected_country = country if country in all_countries else default_country
-    filtered_cities = countries.get(selected_country, [])
+    all_cities = countries.get(selected_country, [])
+    total_cities = len(all_cities)
+    total_pages = max(1, (total_cities + _COVERAGE_PAGE_SIZE - 1) // _COVERAGE_PAGE_SIZE)
+    page = max(1, min(page, total_pages))
+    offset = (page - 1) * _COVERAGE_PAGE_SIZE
+    filtered_cities = all_cities[offset: offset + _COVERAGE_PAGE_SIZE]
+    # Page number where the active city lives (for jump-to-active across pages)
+    active_city_page: int | None = None
+    if app_state.current_city and app_state.current_city in all_cities:
+        idx = all_cities.index(app_state.current_city)
+        active_city_page = idx // _COVERAGE_PAGE_SIZE + 1
     return templates.TemplateResponse(request, "coverage.html", {
         "all_countries": all_countries,
         "selected_country": selected_country,
@@ -2636,6 +2649,10 @@ async def admin_coverage(request: Request, country: str = ""):
         "current_city": app_state.current_city,
         "current_topic": app_state.current_topic,
         "active_country": active_country,
+        "page": page,
+        "total_pages": total_pages,
+        "total_cities": total_cities,
+        "active_city_page": active_city_page,
     })
 
 

@@ -480,7 +480,7 @@ async def _run_full(
                 # ── Community extraction (with fingerprint cache) ────────────
                 community_cache_hit = False
                 if cache and skip_extracted:
-                    cached_records = cache.get_extracted(url, fingerprint=extractor.model_fingerprint)
+                    cached_records = cache.get_extracted(url, fingerprint=extractor.canonical_fingerprint)
                     if cached_records is not None:
                         log.debug("cache_hit_extract", url=url)
                         records.extend(cached_records)
@@ -534,7 +534,7 @@ async def _run_full(
 
                     if cache:
                         cache.save_extracted(url, final_records, duration_s=extract_dur,
-                                             fingerprint=extractor.model_fingerprint,
+                                             fingerprint=extractor.canonical_fingerprint,
                                              model=extractor.model)
                         if enrich_timing["needed"]:
                             cache.mark_enrich_scraped(url, enrich_timing["scrape"])
@@ -687,7 +687,7 @@ async def _run_ai_only(
                 # Always read from cache for community_names (helps person extraction).
                 # Only run fresh extraction when run_communities=True and cache misses.
                 community_cache_hit = False
-                cached = cache.get_extracted(url, fingerprint=extractor.model_fingerprint)
+                cached = cache.get_extracted(url, fingerprint=extractor.canonical_fingerprint)
                 if cached is not None:
                     log.debug("cache_hit_extract", url=url)
                     records.extend(cached)
@@ -713,7 +713,7 @@ async def _run_ai_only(
                         log.info("joinability_filtered", url=url,
                                  kept=len(joinable), removed=len(extracted) - len(joinable))
 
-                    cache.save_extracted(url, joinable, fingerprint=extractor.model_fingerprint,
+                    cache.save_extracted(url, joinable, fingerprint=extractor.canonical_fingerprint,
                                          model=extractor.model)
 
                     if joinable:

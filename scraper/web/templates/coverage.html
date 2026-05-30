@@ -182,8 +182,26 @@
   </table>
 </div>
 
+{% if total_pages > 1 %}
+<div class="mt-4 flex items-center justify-between text-sm text-gray-500">
+  <span>{{ cities | length }} / {{ total_cities }} város ({{ page }}/{{ total_pages }}. oldal)</span>
+  <div class="flex items-center gap-2">
+    {% if page > 1 %}
+    <a href="/admin/coverage?country={{ selected_country | urlencode }}&page={{ page - 1 }}"
+      class="px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:border-gray-400 transition">← Előző</a>
+    {% endif %}
+    {% if page < total_pages %}
+    <a href="/admin/coverage?country={{ selected_country | urlencode }}&page={{ page + 1 }}"
+      class="px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:border-gray-400 transition">Következő →</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
 <script>
 const _activeCountry = {{ (active_country or '') | tojson }};
+const _activeCityPage = {{ (active_city_page or 'null') | tojson }};
+const _selectedCountry = {{ selected_country | tojson }};
 let _highlightedCity = null;
 let _highlightedTopic = null;
 
@@ -248,7 +266,9 @@ function jumpToCurrent() {
       if (row) {
         row.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } else if (_activeCountry) {
-        window.location.href = '/admin/coverage?country=' + encodeURIComponent(_activeCountry);
+        let url = '/admin/coverage?country=' + encodeURIComponent(_activeCountry);
+        if (_activeCityPage) url += '&page=' + _activeCityPage;
+        window.location.href = url;
       }
     });
 }

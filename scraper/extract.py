@@ -696,6 +696,19 @@ class FallbackExtractor:
         return self.primaries[idx].model_fingerprint if idx is not None else (self.primaries[0].model_fingerprint if self.primaries else "")
 
     @property
+    def canonical_fingerprint(self) -> str:
+        """Always returns primaries[0]'s fingerprint as the canonical cache key.
+
+        model_fingerprint shifts to the fallback provider when the primary is
+        exhausted, so pages extracted by the fallback end up stored under the
+        fallback's fp — which never matches the done-pairs check (always uses
+        primaries[0]). Using canonical_fingerprint for all cache read/write
+        ensures every extraction, regardless of which provider ran, is stored
+        under the same key that done-pairs checks.
+        """
+        return self.primaries[0].model_fingerprint if self.primaries else ""
+
+    @property
     def venue_fingerprint(self) -> str:
         idx = self._first_available()
         return self.primaries[idx].venue_fingerprint if idx is not None else (self.primaries[0].venue_fingerprint if self.primaries else "")
