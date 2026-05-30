@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-05-30
+
+- **Random közösség sorrend**: publikus oldalakon (városlap, topic, felfedezés, főoldal minták) a közösségek minden betöltéskor véletlenszerű sorrendben jelennek meg — `random.shuffle()` az alkalmazás rétegben, a DB lekérdezések változatlanok
+- **Description re-AI** (`/admin/maintenance`, Moderation menüben): maintenance oldal, amely újrafuttatja az AI-t a leírás nélküli közösségekre. Kétlépéses logika: (1) re-extract a meglévő source URL-ből (cache-ből vagy live fetch), (2) ha leírás még mindig üres, Google/DataForSEO/Serper keresés a `"közösség neve" város` query-val, top 5 találat fetchelése és extrakciója — természetesen segít a rossz városhoz rendelt közösségek javításában is. Élő progress bar, háttérben fut (`asyncio.create_task`)
+- **Aktivitás timeline a Stats oldalon**: `get_activity_timeline(db_path, period)` — 24h (óránként), 7d (naponként), 12m (havonként) nézetek; 8 oszlop: Scrape, Extract, Enrich scrape, Enrich AI, Új közösség, Változás, Új helyszín, Új ember. JS-sel töltődik be JSON endpointról, period-váltó tabokkal
+- **`person_history` overcounting javítás**: a `delete_leader_persons_for_community` + `upsert_persons` ciklus minden AI futásnál új `__created__` bejegyzést generált a leader personoknak. Fix: `MIN(changed_at) GROUP BY person_id` — minden személy csak az első megjelenésekor számít újnak. Ugyanez a védelmi fix a `venue_history`-ra is alkalmazva
+
 ## 2026-05-29
 
 - **Google Playwright keresés**: `GooglePlaywrightSearchClient` bevezetve elsődleges keresési forrásként — headless Chromium scrapolja a Google találatokat API kulcs nélkül, 8 mp várakozással kérések között. CAPTCHA esetén automatikusan DataForSEO-ra vált. Fallback lánc: Google Playwright → DataForSEO → Serper
