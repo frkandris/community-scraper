@@ -1020,36 +1020,48 @@ def get_city_topic_states(db_path: Path, current_fp: str) -> dict[str, dict[str,
 
     State keys per cell:
       community_count: int
-      page_count: int  (scraped pages)
-      current_fp_count: int  (pages extracted with current_fp)
-    Pairs absent from search_cache are not included (not_searched).
+      page_count: int   (search_cache URLs that have been scraped)
+      current_fp_count: int  (scraped URLs extracted with current_fp)
+
+    Uses url_hash lookup (same as get_fully_processed_pairs) so that
+    page_count/current_fp_count are consistent with the done-pairs check.
+    The old city/topic JOIN was unreliable because cache_pages.city/topic
+    is last-write-wins and gets overwritten when a URL appears in multiple
+    search results.
     """
+    import hashlib as _hashlib
+
+    def _url_hash(url: str) -> str:
+        return _hashlib.sha256(url.encode()).hexdigest()[:16]
+
     if not db_path.exists():
         return {}
     with _connect(db_path) as conn:
-        rows = conn.execute("""
-            SELECT
-                sc.city,
-                sc.topic,
-                COUNT(DISTINCT cp.url_hash) AS page_count,
-                SUM(CASE WHEN cp.extract_fingerprint = ? THEN 1 ELSE 0 END) AS current_fp_count,
-                COALESCE(comm.cnt, 0) AS community_count
-            FROM search_cache sc
-            LEFT JOIN cache_pages cp
-                ON cp.city = sc.city AND cp.topic = sc.topic AND cp.scraped_at IS NOT NULL
-            LEFT JOIN (
-                SELECT city, topic, COUNT(*) AS cnt
-                FROM communities WHERE hidden = 0
-                GROUP BY city, topic
-            ) comm ON comm.city = sc.city AND comm.topic = sc.topic
-            GROUP BY sc.city, sc.topic
-        """, (current_fp,)).fetchall()
+        # url_hash → extract_fingerprint for all successfully scraped pages
+        fp_by_hash: dict[str, str | None] = {
+            r[0]: r[1]
+            for r in conn.execute(
+                "SELECT url_hash, extract_fingerprint FROM cache_pages WHERE scraped_at IS NOT NULL"
+            )
+        }
+        comm_counts: dict[tuple[str, str], int] = {
+            (r[0], r[1]): r[2]
+            for r in conn.execute(
+                "SELECT city, topic, COUNT(*) FROM communities WHERE hidden=0 GROUP BY city, topic"
+            )
+        }
+        search_rows = conn.execute("SELECT city, topic, urls FROM search_cache").fetchall()
+
     result: dict[str, dict[str, dict]] = {}
-    for city, topic, page_count, current_fp_count, community_count in rows:
+    for city, topic, urls_json in search_rows:
+        urls: list[str] = json.loads(urls_json) if urls_json else []
+        hashes = [_url_hash(u) for u in urls]
+        page_count = sum(1 for h in hashes if h in fp_by_hash)
+        current_fp_count = sum(1 for h in hashes if fp_by_hash.get(h) == current_fp)
         result.setdefault(city, {})[topic] = {
-            "page_count": page_count or 0,
-            "current_fp_count": current_fp_count or 0,
-            "community_count": community_count or 0,
+            "page_count": page_count,
+            "current_fp_count": current_fp_count,
+            "community_count": comm_counts.get((city, topic), 0),
         }
     return result
 
