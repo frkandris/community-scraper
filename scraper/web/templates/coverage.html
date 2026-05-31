@@ -274,21 +274,67 @@ function jumpToCurrent() {
 }
 
 {% if is_running %}
+// Update a single cell's badge after the pipeline finishes processing it
+function _refreshCell(city, topic) {
+  if (!city || !topic) return;
+  const id = city.replace(/ /g, '-').replace(/\//g, '-');
+  const row = document.getElementById('row-' + id);
+  if (!row) return;
+  const td = row.querySelector('[data-topic="' + CSS.escape(topic) + '"]');
+  if (!td) return;
+  fetch('/admin/api/coverage/cell?city=' + encodeURIComponent(city) + '&topic=' + encodeURIComponent(topic))
+    .then(r => r.json())
+    .then(data => {
+      const badge = td.querySelector('.topic-badge');
+      if (!badge) return;
+      const cnt = data.community_count || 0;
+      const pageCnt = data.page_count || 0;
+      const currFp = data.current_fp_count || 0;
+      const stale = pageCnt - currFp;
+      let html = '';
+      if (cnt > 0) {
+        const label = cnt >= 10 ? '✓' : cnt;
+        html = '<span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-100 text-green-700 font-semibold" title="' + cnt + ' közösség">' + label + '</span>';
+      } else if (data.is_done) {
+        html = '<span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-600" title="Feldolgozva (aktuális AI), 0 találat — tuti nincs">✓</span>';
+      } else if (pageCnt > 0) {
+        let tip = stale === 0 ? pageCnt + ' aktuális' : stale + ' stale, ' + currFp + ' aktuális (össz. ' + pageCnt + ')';
+        html = '<span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-50 border border-amber-200 text-amber-500" title="' + tip + '">~</span>';
+      } else {
+        html = '<span class="text-gray-200">·</span>';
+      }
+      badge.innerHTML = html;
+    });
+}
+
+let _prevCity = null;
+let _prevTopic = null;
+
 function _refreshHighlight() {
   fetch('/admin/api/coverage/current')
     .then(r => r.json())
     .then(data => {
       if (data.is_running && data.city) {
+        // When the pipeline moves to a new pair, refresh the previous cell
+        if (_prevCity && (_prevCity !== data.city || _prevTopic !== data.topic)) {
+          _refreshCell(_prevCity, _prevTopic);
+        }
         _applyHighlight(data.city, data.topic);
+        _prevCity = data.city;
+        _prevTopic = data.topic;
       } else {
+        // Pipeline stopped — refresh the last active cell and clear highlight
+        if (_prevCity) _refreshCell(_prevCity, _prevTopic);
         _clearHighlight();
+        _prevCity = null;
+        _prevTopic = null;
       }
     });
 }
 
-// Refresh highlight immediately on load, then every 5s
+// Refresh highlight immediately on load, then every 3s
 _refreshHighlight();
-setInterval(_refreshHighlight, 5000);
+setInterval(_refreshHighlight, 3000);
 {% endif %}
 </script>
 

@@ -2665,6 +2665,47 @@ async def api_coverage_current():
     }
 
 
+@admin.get("/api/coverage/cell")
+async def api_coverage_cell(city: str = "", topic: str = ""):
+    """Return the current state for a single (city, topic) cell."""
+    from ..db import get_city_topic_states, get_fully_processed_pairs
+    from ..extract import get_extract_fingerprint
+    if not city or not topic or not app_state.db_path:
+        return {"community_count": 0, "page_count": 0, "current_fp_count": 0, "is_done": False}
+    current_fp = get_extract_fingerprint()
+    states = get_city_topic_states(app_state.db_path, current_fp)
+    done_pairs = get_fully_processed_pairs(app_state.db_path, current_fp)
+    cell = states.get(city, {}).get(topic, {})
+    return {
+        "community_count": cell.get("community_count", 0),
+        "page_count": cell.get("page_count", 0),
+        "current_fp_count": cell.get("current_fp_count", 0),
+        "is_done": (city, topic) in done_pairs,
+    }
+
+
+@admin.post("/api/restamp-fingerprints")
+async def api_restamp_fingerprints():
+    """Restamp all cache_pages rows to the current runtime extract fingerprint.
+
+    Use after changing the extraction prompt when existing results are still
+    valid and should not be re-processed. Idempotent.
+    """
+    from ..db import _connect
+    from ..extract import get_extract_fingerprint
+    if not app_state.db_path or not app_state.db_path.exists():
+        return JSONResponse({"error": "no db"}, status_code=400)
+    current_fp = get_extract_fingerprint()
+    with _connect(app_state.db_path) as conn:
+        cur = conn.execute(
+            "UPDATE cache_pages SET extract_fingerprint = ? WHERE extract_fingerprint != ? AND extract_fingerprint IS NOT NULL",
+            (current_fp, current_fp),
+        )
+        updated = cur.rowcount
+        conn.commit()
+    return {"updated": updated, "fingerprint": current_fp}
+
+
 @admin.get("/logs", response_class=HTMLResponse)
 async def logs_page(request: Request):
     return templates.TemplateResponse(request, "logs.html", {})
