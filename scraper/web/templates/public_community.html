@@ -2,7 +2,7 @@
 {% block head %}{% if schema_json %}<script type="application/ld+json">{{ schema_json | safe }}</script>{% endif %}{% endblock %}
 {% block title %}{{ r.name }} – {{ site_name }}{% endblock %}
 {% block og_image_url %}/static/img/og/{{ topic or 'default' }}.png{% endblock %}
-{% block og_desc %}{{ r.description | truncate(160, True, '...') if r.description else r.name + ' – helyi közösség Magyarországon.' }}{% endblock %}
+{% block og_desc %}{{ r.description | truncate(160, True, '...') if r.description else t('community_og_fallback', name=r.name) }}{% endblock %}
 
 {% block content %}
 
@@ -161,7 +161,7 @@
       <div class="space-y-3">
         {{ detail_row('map-pin',  t('community_location'),  r.location) }}
         {{ detail_row('calendar', t('community_schedule'),  r.meeting_schedule) }}
-        {{ detail_row('repeat',   'Rendszeresség',          r.frequency) }}
+        {{ detail_row('repeat',   t('community_frequency'),  r.frequency) }}
       </div>
     </div>
     {% endif %}
@@ -170,7 +170,7 @@
     {% set has_who = r.leader or r.member_count or r.skill_level or r.age_range or r.language %}
     {% if has_who %}
     <div class="mb-5 {% if has_when_where %}pt-5 border-t border-[#F5F2EC]{% endif %}">
-      <p class="text-xs font-semibold text-[#8C8478] uppercase tracking-[0.08em] mb-3">A közösség</p>
+      <p class="text-xs font-semibold text-[#8C8478] uppercase tracking-[0.08em] mb-3">{{ t('community_who_section') }}</p>
       <div class="space-y-3">
         {% if r.leader %}
         <div class="flex items-start gap-3 text-sm">
@@ -178,7 +178,7 @@
             <i class="ph ph-person-simple text-[#8C8478]" style="font-size:13px"></i>
           </div>
           <div class="min-w-0">
-            <div class="text-[11px] font-semibold text-[#B5ADA0] uppercase tracking-[0.08em] mb-0.5">Vezető</div>
+            <div class="text-[11px] font-semibold text-[#B5ADA0] uppercase tracking-[0.08em] mb-0.5">{{ t('community_leader') }}</div>
             <div class="text-[#4A4441]">
               <a href="/{{ city | slugify }}/ember/{{ r.leader | slugify }}"
                  class="hover:text-[#A8512F] transition-colors">{{ r.leader }}</a>
@@ -186,10 +186,10 @@
           </div>
         </div>
         {% endif %}
-        {{ detail_row('users-three',   'Tagok',      r.member_count) }}
-        {{ detail_row('star',          'Szint',      r.skill_level) }}
-        {{ detail_row('baby',          'Korosztály', r.age_range) }}
-        {{ detail_row('translate',     'Nyelv',      r.language) }}
+        {{ detail_row('users-three',   t('community_members'),   r.member_count) }}
+        {{ detail_row('star',          t('community_level'),     r.skill_level) }}
+        {{ detail_row('baby',          t('community_age_range'), r.age_range) }}
+        {{ detail_row('translate',     t('community_language'),  r.language) }}
       </div>
     </div>
     {% endif %}
@@ -198,10 +198,10 @@
     {% set has_joining = r.fee or r.join_process or r.email or r.phone or r.contact %}
     {% if has_joining %}
     <div class="{% if has_when_where or has_who %}pt-5 border-t border-[#F5F2EC]{% endif %}">
-      <p class="text-xs font-semibold text-[#8C8478] uppercase tracking-[0.08em] mb-3">Csatlakozás</p>
+      <p class="text-xs font-semibold text-[#8C8478] uppercase tracking-[0.08em] mb-3">{{ t('community_joining_section') }}</p>
       <div class="space-y-3">
-        {{ detail_row('currency-circle-dollar', 'Részvételi díj', r.fee) }}
-        {{ detail_row('trend-up',               'Csatlakozás',    r.join_process) }}
+        {{ detail_row('currency-circle-dollar', t('community_fee'),          r.fee) }}
+        {{ detail_row('trend-up',               t('community_join_process'), r.join_process) }}
         {% if r.email or r.phone or r.contact %}
         <div class="flex items-start gap-3 text-sm">
           <div class="w-7 h-7 rounded-md bg-[#F5F2EC] border border-[#EAE5DB] flex items-center justify-center shrink-0 mt-0.5">
@@ -229,7 +229,7 @@
     {% if r.founding_year %}
     <div class="mt-5 pt-5 border-t border-[#F5F2EC]">
       <div class="space-y-3">
-        {{ detail_row('flag', 'Alapítva', r.founding_year | string) }}
+        {{ detail_row('flag', t('community_founded'), r.founding_year | string) }}
       </div>
     </div>
     {% endif %}
@@ -237,10 +237,10 @@
     <!-- Tags -->
     {% if r.tags %}
     <div class="mt-5 pt-5 border-t border-[#F5F2EC]">
-      <div class="text-[11px] font-semibold text-[#B5ADA0] uppercase tracking-[0.08em] mb-2">Témák</div>
+      <div class="text-[11px] font-semibold text-[#B5ADA0] uppercase tracking-[0.08em] mb-2">{{ t('community_tags_label') }}</div>
       <div class="flex flex-wrap gap-1.5">
         {% for tag in r.tags %}
-        <a href="/felfedezes?tag={{ tag | urlencode }}"
+        <a href="{{ explore_url }}?tag={{ tag | urlencode }}"
            class="text-xs bg-[#F5F2EC] text-[#6A6259] border border-[#EAE5DB] px-2 py-0.5 rounded-md hover:bg-[#FDF0EA] hover:border-[#FAD9C7] hover:text-[#8A4226] transition-colors">{{ tag }}</a>
         {% endfor %}
       </div>
@@ -251,7 +251,7 @@
     {% if r.history %}
     <div class="mt-5 pt-5 border-t border-[#F5F2EC]">
       <div class="space-y-3">
-        {{ detail_row('book-open', 'Történet', r.history) }}
+        {{ detail_row('book-open', t('community_history_label'), r.history) }}
       </div>
     </div>
     {% endif %}
@@ -262,7 +262,7 @@
   {% if community_venue %}
   <div class="mt-4 bg-white rounded-xl border border-[#EAE5DB] p-5">
     <p class="text-[11px] font-semibold text-[#B5ADA0] uppercase tracking-[0.08em] mb-3">
-      <i class="ph ph-map-pin mr-1"></i>Helyszín
+      <i class="ph ph-map-pin mr-1"></i>{{ t('community_venue_label') }}
     </p>
     <a href="/{{ city | slugify }}/helyszin/{{ community_venue.name | slugify }}"
        class="flex items-center gap-3 group">
@@ -284,7 +284,7 @@
   {% if community_persons %}
   <div class="mt-4 bg-white rounded-xl border border-[#EAE5DB] p-5">
     <p class="text-[11px] font-semibold text-[#B5ADA0] uppercase tracking-[0.08em] mb-3">
-      <i class="ph ph-person-simple mr-1"></i>Emberek
+      <i class="ph ph-person-simple mr-1"></i>{{ t('community_people_label') }}
     </p>
     <div class="space-y-2">
       {% for p in community_persons %}
@@ -318,7 +318,7 @@
           <span class="truncate group-hover:underline">{{ url | replace('https://','') | replace('http://','') }}</span>
         </a>
         <a href="/source/{{ _uhash }}"
-           title="Forrás részletei: mikor, milyen keresés, prompt, eredmény"
+           title="{{ t('community_source_page') }}"
            class="shrink-0 w-5 h-5 rounded-full bg-[#F5F2EC] border border-[#EAE5DB] flex items-center justify-center text-[#B5ADA0] hover:bg-[#FDF0EA] hover:border-[#FAD9C7] hover:text-[#C2613A] transition-colors">
           <i class="ph ph-info" style="font-size:11px"></i>
         </a>
@@ -336,7 +336,7 @@
       <button onclick="openReport()"
         class="w-full flex items-center gap-2 text-sm text-[#8C8478] hover:text-[#4A4441] transition-colors group text-left">
         <i class="ph ph-flag text-base group-hover:text-[#A8512F] transition-colors"></i>
-        <span>Hibát találtál? Jelezd nekünk</span>
+        <span>{{ t('community_report_error') }}</span>
         <i class="ph ph-caret-right ml-auto text-[#D8D1C4] group-hover:text-[#A8512F] transition-colors"></i>
       </button>
     </div>
@@ -352,47 +352,47 @@
       <input type="hidden" id="rf-record-key"      value="{{ record_key | default('') | e }}">
       <input type="hidden" id="rf-entity-id"       value="{{ r.community_id | default('') | e }}">
 
-      <label class="block text-xs font-medium text-[#6A6259] mb-1.5">Mi a probléma?</label>
+      <label class="block text-xs font-medium text-[#6A6259] mb-1.5">{{ t('community_report_what_problem') }}</label>
       <select id="report-type" onchange="onReportType(this.value)"
         class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] mb-4 text-[#1C1917] bg-white">
-        <option value="">— válassz —</option>
-        <option value="not_community">Ez nem egy közösség</option>
-        <option value="wrong_city">Rossz városban van</option>
-        <option value="wrong_topic">Rossz érdeklődési körnél van</option>
-        <option value="name_correction">Névpontosítás</option>
-        <option value="archive">Megszűnt közösség</option>
-        <option value="delete">Hibás bejegyzés (törlés)</option>
-        <option value="other">Egyéb visszajelzés</option>
+        <option value="">{{ t('community_report_select') }}</option>
+        <option value="not_community">{{ t('community_report_not_community') }}</option>
+        <option value="wrong_city">{{ t('community_report_wrong_city') }}</option>
+        <option value="wrong_topic">{{ t('community_report_wrong_topic') }}</option>
+        <option value="name_correction">{{ t('community_report_name_correction') }}</option>
+        <option value="archive">{{ t('community_report_archive') }}</option>
+        <option value="delete">{{ t('community_report_delete') }}</option>
+        <option value="other">{{ t('community_report_other') }}</option>
       </select>
 
       <!-- Not community: no extra fields, just a note -->
       <div id="rf-not-community" class="hidden mb-4 text-xs text-[#8C8478] bg-[#FFF8F5] border border-[#FAD9C7] rounded-lg px-3 py-2">
-        A jelzés után az admin felületen manuálisan ellenőrizzük.
+        {{ t('community_report_admin_note') }}
       </div>
 
       <!-- Wrong city -->
       <div id="rf-city-field" class="hidden mb-4">
-        <label class="block text-xs font-medium text-[#6A6259] mb-1">Helyes város</label>
+        <label class="block text-xs font-medium text-[#6A6259] mb-1">{{ t('community_report_correct_city') }}</label>
         <select id="rf-new-city"
           class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] text-[#1C1917] bg-white">
-          <option value="">— válassz várost —</option>
+          <option value="">{{ t('community_report_select_city') }}</option>
           {% for c in all_cities | default([]) %}<option value="{{ c }}"{% if c == city %} selected{% endif %}>{{ c }}</option>{% endfor %}
         </select>
       </div>
 
       <!-- Wrong topic -->
       <div id="rf-topic-field" class="hidden mb-4">
-        <label class="block text-xs font-medium text-[#6A6259] mb-1">Helyes érdeklődési kör</label>
+        <label class="block text-xs font-medium text-[#6A6259] mb-1">{{ t('community_report_correct_topic') }}</label>
         <select id="rf-new-topic"
           class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] text-[#1C1917] bg-white">
-          <option value="">— válassz kategóriát —</option>
+          <option value="">{{ t('community_report_select_topic') }}</option>
           {% for slug, label in all_topic_names | default([]) %}<option value="{{ slug }}"{% if slug == topic %} selected{% endif %}>{{ label }}</option>{% endfor %}
         </select>
       </div>
 
       <!-- Name correction -->
       <div id="rf-name-field" class="hidden mb-4">
-        <label class="block text-xs font-medium text-[#6A6259] mb-1">Helyes név</label>
+        <label class="block text-xs font-medium text-[#6A6259] mb-1">{{ t('community_report_correct_name') }}</label>
         <input type="text" id="rf-new-name" value="{{ r.name | e }}"
           class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] text-[#1C1917]">
       </div>
@@ -400,21 +400,21 @@
       <!-- Notes (shown for most types) -->
       <div id="rf-notes-field" class="hidden mb-3">
         <textarea id="rf-notes" rows="2"
-          placeholder="Megjegyzés / indoklás (opcionális)"
+          placeholder="{{ t('community_report_note_placeholder') }}"
           class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg resize-none focus:outline-none focus:border-[#C2613A] text-[#1C1917] placeholder-[#B5ADA0]"></textarea>
       </div>
 
       <!-- Free text (for "other") -->
       <div id="rf-message-field" class="hidden mb-3">
         <textarea id="rf-message" rows="3"
-          placeholder="Miben tudnánk jobbak lenni? (pl. hiányzó adat, hibás leírás…)"
+          placeholder="{{ t('community_report_message_placeholder') }}"
           class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg resize-none focus:outline-none focus:border-[#C2613A] text-[#1C1917] placeholder-[#B5ADA0]"></textarea>
       </div>
 
       <!-- Email -->
       <div id="rf-email-field" class="hidden mb-4">
         <input type="email" id="rf-email"
-          placeholder="E-mail cím (opcionális)"
+          placeholder="{{ t('community_report_email_placeholder') }}"
           class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] text-[#1C1917] placeholder-[#B5ADA0]">
       </div>
 
@@ -422,18 +422,18 @@
       <div id="rf-actions" class="hidden flex items-center gap-3">
         <button onclick="submitReport()"
           class="px-4 py-2 bg-[#A8512F] text-white text-xs font-semibold rounded-lg hover:bg-[#8A4226] transition-colors">
-          Küldés
+          {{ t('community_feedback_send') }}
         </button>
         <button type="button" onclick="closeReport()"
           class="text-xs text-[#8C8478] hover:text-[#4A4441] transition-colors">
-          Mégsem
+          {{ t('community_feedback_cancel') }}
         </button>
       </div>
     </div>
 
     <!-- Thanks -->
     <div id="report-thanks" class="hidden px-5 py-3 text-sm text-green-700 flex items-center gap-2">
-      <i class="ph ph-check-circle"></i> Köszönjük a jelzést!
+      <i class="ph ph-check-circle"></i> {{ t('community_report_thanks') }}
     </div>
 
   </div>
@@ -444,63 +444,63 @@
       <button onclick="openClaim()"
         class="w-full flex items-center gap-2 text-sm text-[#8C8478] hover:text-[#4A4441] transition-colors group text-left">
         <i class="ph ph-crown-simple text-base group-hover:text-[#C2613A] transition-colors"></i>
-        <span>Ez a te közösséged?</span>
+        <span>{{ t('community_claim') }}</span>
         <i class="ph ph-caret-right ml-auto text-[#D8D1C4] group-hover:text-[#A8512F] transition-colors"></i>
       </button>
     </div>
     <div id="claim-form" class="hidden px-5 pb-5 pt-4 border-t border-[#F5F2EC]">
-      <p class="text-xs text-[#6A6259] mb-3">Add meg az email címed, és felvesszük veled a kapcsolatot az adatok pontosítása céljából.</p>
+      <p class="text-xs text-[#6A6259] mb-3">{{ t('community_claim_desc') }}</p>
       <input type="email" id="claim-email"
-        placeholder="email@cimed.hu"
+        placeholder="{{ t('community_report_email_placeholder') }}"
         class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] text-[#1C1917] placeholder-[#B5ADA0] mb-3">
       <div class="flex items-center gap-3">
         <button onclick="submitClaim()"
           class="px-4 py-2 bg-[#A8512F] text-white text-xs font-semibold rounded-lg hover:bg-[#8A4226] transition-colors">
-          Küldés
+          {{ t('community_feedback_send') }}
         </button>
         <button type="button" onclick="closeClaim()"
           class="text-xs text-[#8C8478] hover:text-[#4A4441] transition-colors">
-          Mégsem
+          {{ t('community_feedback_cancel') }}
         </button>
       </div>
     </div>
     <div id="claim-thanks" class="hidden px-5 py-3 text-sm text-green-700 flex items-center gap-2">
-      <i class="ph ph-check-circle"></i> Köszönjük! Hamarosan felvesszük veled a kapcsolatot.
+      <i class="ph ph-check-circle"></i> {{ t('community_claim_thanks') }}
     </div>
   </div>
 
   <!-- History -->
   {% if community_history %}
   {% set field_labels = {
-    '__created__': 'Hozzáadva',
-    'name': 'Név',
-    'description': 'Leírás',
-    'history': 'Történet',
-    'website': 'Weboldal',
-    'tags': 'Témák',
-    'social_links': 'Közösségi oldalak',
-    'meeting_schedule': 'Találkozók',
-    'location': 'Helyszín',
-    'contact': 'Kapcsolat',
-    'fee': 'Díj',
-    'age_range': 'Korosztály',
-    'skill_level': 'Szint',
-    'join_process': 'Csatlakozás',
-    'leader': 'Vezető',
-    'language': 'Nyelv',
-    'frequency': 'Gyakoriság',
-    'founding_year': 'Alapítva',
-    'member_count': 'Tagok',
+    '__created__': t('community_added'),
+    'name': 'Name',
+    'description': 'Description',
+    'history': t('community_history_label'),
+    'website': t('community_visit_website'),
+    'tags': t('community_tags_label'),
+    'social_links': 'Social links',
+    'meeting_schedule': t('community_schedule'),
+    'location': t('community_location'),
+    'contact': t('community_contact'),
+    'fee': t('community_fee'),
+    'age_range': t('community_age_range'),
+    'skill_level': t('community_level'),
+    'join_process': t('community_join_process'),
+    'leader': t('community_leader'),
+    'language': t('community_language'),
+    'frequency': t('community_frequency'),
+    'founding_year': t('community_founded'),
+    'member_count': t('community_members'),
     'email': 'Email',
-    'phone': 'Telefon',
-    'confidence': 'Megbízhatóság',
-    'joinable': 'Nyílt csatlakozás'
+    'phone': 'Phone',
+    'confidence': 'Confidence',
+    'joinable': t('community_join_process')
   } %}
   <div class="mt-10 border-t border-[#EAE5DB] pt-6">
     <details class="group">
       <summary class="flex items-center gap-2 cursor-pointer text-xs font-semibold uppercase tracking-[0.08em] text-[#8C8478] hover:text-[#4A4441] transition-colors list-none">
         <i class="ph ph-clock-counter-clockwise"></i>
-        Változások ({{ community_history | length }})
+        {{ t('community_changes') }} ({{ community_history | length }})
         <i class="ph ph-caret-down group-open:rotate-180 transition-transform ml-auto"></i>
       </summary>
       <div class="mt-4 space-y-1">
@@ -517,7 +517,7 @@
           <span class="shrink-0 text-[#B5ADA0] w-[5.5rem]">{{ entry.changed_at[11:16] }}</span>
           <span class="shrink-0 font-medium text-[#4A4441] w-28">{{ field_labels.get(entry.field, entry.field) }}</span>
           {% if entry.field == '__created__' %}
-          <span class="text-[#A8512F]">hozzáadva</span>
+          <span class="text-[#A8512F]">{{ t('community_added') }}</span>
           {% elif entry.old_value is none %}
           <span class="text-[#6A9E6A]">{{ entry.new_value | truncate(80) }}</span>
           {% elif entry.new_value is none %}
