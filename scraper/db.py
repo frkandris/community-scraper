@@ -1093,6 +1093,12 @@ def get_fully_processed_pairs(db_path: Path, current_fp: str) -> set[tuple[str, 
                 "SELECT DISTINCT city, topic FROM communities WHERE hidden = 0"
             )
         }
+        # url_hashes successfully scraped (scraped_at IS NOT NULL)
+        scraped_hashes: set[str] = {
+            r[0] for r in conn.execute(
+                "SELECT url_hash FROM cache_pages WHERE scraped_at IS NOT NULL"
+            )
+        }
         # url_hashes extracted with the current fingerprint (global, city/topic-agnostic)
         current_fp_hashes: set[str] = {
             r[0] for r in conn.execute(
@@ -1103,15 +1109,18 @@ def get_fully_processed_pairs(db_path: Path, current_fp: str) -> set[tuple[str, 
 
     # Green pairs are always done — communities already exist, no need to re-process
     result: set[tuple[str, str]] = set(community_pairs)
-    # Blue pairs: searched, all pages extracted with current fp, 0 communities
+    # Blue pairs: searched, all SCRAPED pages extracted with current fp, 0 communities.
+    # Unscraped urls (blocked/failed fetches) are excluded — consistent with get_city_topic_states.
     for city, topic, urls_json in search_rows:
         if (city, topic) in result:
             continue  # already green, skip
         urls: list[str] = json.loads(urls_json) if urls_json else []
         if not urls:
             result.add((city, topic))
-        elif urls and all(_url_hash(u) in current_fp_hashes for u in urls):
-            result.add((city, topic))
+        else:
+            processable = [u for u in urls if _url_hash(u) in scraped_hashes]
+            if processable and all(_url_hash(u) in current_fp_hashes for u in processable):
+                result.add((city, topic))
     return result
 
 

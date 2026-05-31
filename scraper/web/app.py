@@ -2600,7 +2600,7 @@ async def stats_timeline(period: str = "24h"):
     return JSONResponse(rows)
 
 
-_COVERAGE_PAGE_SIZE = 10
+_COVERAGE_PAGE_SIZE = 2
 
 
 @admin.get("/coverage", response_class=HTMLResponse)
