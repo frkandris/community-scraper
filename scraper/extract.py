@@ -46,27 +46,28 @@ Set joinable to false for: professional/competitive ensembles, paid instruction 
 are a student not a member, venues or sports facilities, one-time or annual events.
 
 For 'description': write 1-3 sentences summarising what this group does, who it is for, and \
-what makes it distinctive. Use the page's language. Leave null only if the page gives no \
-meaningful information about the group beyond its name.
+what makes it distinctive. Write in the same language as the source page — if the page is in \
+Swedish write in Swedish, if in English write in English, etc. Leave null only if the page gives \
+no meaningful information about the group beyond its name.
 
 Extract these additional fields when clearly stated on the page (leave null/empty if not found):
 - 'founding_year': integer year founded (e.g. 1987). Only if explicitly stated.
-- 'member_count': member count as string (e.g. "80", "200+", "~50 fő"). Only if stated.
-- 'fee': cost in original currency (e.g. "Ingyenes", "3000 Ft/év", "€10/hó"). Use the page's \
-  language. Set to "Ingyenes"/"Free"/etc. only if page explicitly says it is free.
-- 'age_range': age requirements if stated (e.g. "18+", "Mindenki", "55+").
-- 'skill_level': skill/experience level (e.g. "Minden szint", "Kezdőknek is", "Haladó szint").
-- 'join_process': how to join (e.g. "Nyílt csatlakozás", "Email szükséges", "Meghallgatón").
-- 'leader': name and/or role of the organizer/leader (e.g. "Kovács János, karmester").
+- 'member_count': member count as string (e.g. "80", "200+", "~50 members"). Only if stated.
+- 'fee': cost in original currency and language of the page (e.g. "Free", "€10/year", "3000 Ft/év"). \
+  Set to the page's word for free only if page explicitly says it is free.
+- 'age_range': age requirements if stated (e.g. "18+", "All ages", "55+").
+- 'skill_level': skill/experience level in the page's language (e.g. "All levels", "Beginners welcome", "Advanced").
+- 'join_process': how to join in the page's language (e.g. "Open to all", "Email required", "Audition required").
+- 'leader': name and/or role of the organizer/leader (e.g. "Jane Smith, conductor").
 - 'email': primary contact email address (must contain @).
 - 'phone': primary phone number.
-- 'tags': 1–5 specific subtopic keywords in the page language \
-  (e.g. for running: ["trail", "maraton", "terepfutás"]).
-- 'language': primary language(s) of the group (e.g. "Magyar", "English", "Deutsch/Magyar").
-- 'history': 1–3 sentence background story or history of the group if the page describes it \
-  (e.g. "1998-ban alapították, azóta 200 tagot számlál"). Leave null if not mentioned.
-- 'frequency': how often the group meets as a short phrase in the page language \
-  (e.g. "Heti", "Kéthetente", "Havonta", "Hetente kétszer", "Weekly", "Monthly"). \
+- 'tags': 1–5 specific subtopic keywords in the page's language \
+  (e.g. for running: ["trail", "marathon", "cross-country"]).
+- 'language': primary language(s) of the group (e.g. "Swedish", "English", "English/Swedish").
+- 'history': 1–3 sentence background story or history of the group if the page describes it, \
+  in the page's language. Leave null if not mentioned.
+- 'frequency': how often the group meets as a short phrase in the page's language \
+  (e.g. "Weekly", "Biweekly", "Monthly", "Twice a week"). \
   Leave null if not mentioned or unclear.
 
 If nothing on the page is a real community group, return an empty communities array.
