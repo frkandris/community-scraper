@@ -367,13 +367,6 @@ def init_db(db_path: Path) -> None:
             "CREATE INDEX IF NOT EXISTS idx_outclick_clicked_at ON outclick_events(clicked_at)"
         )
 
-        # Data migration: prompt examples were Hungarian-biased (fixed 2026-05-31).
-        # Restamp existing extractions to new fingerprint so they aren't re-processed.
-        conn.execute(
-            "UPDATE cache_pages SET extract_fingerprint = 'a3b4ff4d7078' "
-            "WHERE extract_fingerprint = '88632fe6dadc'"
-        )
-
         conn.commit()
 
 
