@@ -224,6 +224,8 @@
       <span class="text-xs text-gray-400 font-mono hidden sm:inline">{{ app_version }}</span>
       <form id="nav-run-form" method="POST" action="/admin/api/run" class="flex">
         <input type="hidden" name="run_mode" value="full">
+        <input type="hidden" name="skip_scraped" value="on">
+        <input type="hidden" name="skip_extracted" value="on">
         <button type="submit" title="Start run"
           class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors">
           <i class="ph ph-play-circle" style="font-size:15px"></i> Run
