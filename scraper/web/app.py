@@ -1248,7 +1248,7 @@ async def outclick_redirect(url: str = "", cid: str = ""):
             log_outclick(app_state.db_path, cid, target, link_type)
         except Exception:
             pass
-    return RedirectResponse(target, status_code=302)
+    return RedirectResponse(target, status_code=302, headers={"X-Robots-Tag": "noindex, nofollow"})
 
 
 @_fastapi.get("/source/{url_hash}", response_class=HTMLResponse)
@@ -1706,6 +1706,7 @@ async def robots_txt(request: Request):
         "\n"
         "User-agent: *\n"
         "Disallow: /admin\n"
+        "Disallow: /out\n"
         "Disallow: /source/\n"
         "Disallow: /api/\n"
         "Disallow: /set-lang\n"
