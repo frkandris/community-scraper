@@ -1530,7 +1530,7 @@ async def set_lang(lang: str = "en", next: str = "/"):
     if lang not in LANGUAGES:
         lang = "en"
     safe_next = _safe_redirect_target(next, "/")
-    resp = RedirectResponse(safe_next, status_code=302)
+    resp = RedirectResponse(safe_next, status_code=302, headers={"X-Robots-Tag": "noindex, nofollow"})
     resp.set_cookie("lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
     return resp
 
