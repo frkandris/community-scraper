@@ -13,13 +13,14 @@
   <style>
     .brand-gradient { background: linear-gradient(135deg, #8A4226 0%, #A8512F 30%, #C2613A 65%, #E88E6B 100%); }
   </style>
+  <link rel="canonical" href="{{ site_url }}{% block canonical_path %}{{ request.url.path }}{% endblock %}">
   <meta name="description" content="{{ self.og_desc() }}">
   {% block og_meta %}
   <meta property="og:site_name" content="{{ site_name }}">
   <meta property="og:type" content="website">
   <meta property="og:url" content="{{ site_url }}{{ request.url.path }}">
   <meta property="og:title" content="{{ self.title() | trim }}">
-  <meta property="og:description" content="{% block og_desc %}Helyi közösségek és érdeklődési körök Magyarországon.{% endblock %}">
+  <meta property="og:description" content="{% block og_desc %}{{ t('home_subtitle') }}{% endblock %}">
   <meta property="og:image" content="{{ site_url }}{% block og_image_url %}/static/img/og/default.png{% endblock %}">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
