@@ -2584,15 +2584,33 @@ async def subscriptions_page(request: Request):
     })
 
 
-@admin.get("/stats", response_class=HTMLResponse)
-async def stats_page(request: Request):
-    from ..db import get_data_quality_stats, get_outclick_stats
+@admin.get("/stats")
+async def stats_redirect():
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/admin/stats/adatminoseg", status_code=302)
+
+
+@admin.get("/stats/adatminoseg", response_class=HTMLResponse)
+async def stats_quality_page(request: Request):
+    from ..db import get_data_quality_stats
     stats: dict = {}
-    outclicks: dict = {"total": 0, "total_30d": 0, "top_communities": [], "by_type": []}
     if app_state.db_path and app_state.db_path.exists():
         stats = get_data_quality_stats(app_state.db_path)
+    return templates.TemplateResponse(request, "stats_quality.html", {"stats": stats})
+
+
+@admin.get("/stats/kattintasok", response_class=HTMLResponse)
+async def stats_clicks_page(request: Request):
+    from ..db import get_outclick_stats
+    outclicks: dict = {"total": 0, "total_30d": 0, "top_communities": [], "by_type": []}
+    if app_state.db_path and app_state.db_path.exists():
         outclicks = get_outclick_stats(app_state.db_path)
-    return templates.TemplateResponse(request, "stats.html", {"stats": stats, "outclicks": outclicks})
+    return templates.TemplateResponse(request, "stats_clicks.html", {"outclicks": outclicks})
+
+
+@admin.get("/stats/aktivitas", response_class=HTMLResponse)
+async def stats_activity_page(request: Request):
+    return templates.TemplateResponse(request, "stats_activity.html", {})
 
 
 @admin.get("/api/stats/timeline")
