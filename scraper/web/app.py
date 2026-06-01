@@ -1711,6 +1711,9 @@ async def robots_txt(request: Request):
         "Disallow: /api/\n"
         "Disallow: /set-lang\n"
         "Disallow: /unsubscribe\n"
+        "Disallow: /community/\n"
+        "Disallow: /healthz\n"
+        "Disallow: /kereses\n"
         f"Sitemap: {site_url}/sitemap.xml\n"
     )
 
@@ -1724,7 +1727,7 @@ async def sitemap(request: Request):
 
     is_meetapedia = ctx.get("site") == "meetapedia"
     if is_meetapedia:
-        static_paths = ["/", "/about", "/map", "/cities", "/explore", "/venues", "/people", "/submit-community"]
+        static_paths = ["/", "/about", "/map", "/cities", "/explore", "/submit-community"]
         venue_prefix = "/venue/"
         person_prefix = "/person/"
     else:
