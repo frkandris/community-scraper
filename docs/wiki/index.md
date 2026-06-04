@@ -15,10 +15,13 @@ One line per page. LLM-maintained — update after every ingest or new page crea
 - [[jinja2-macro-definition-order]] — Macros must be defined before they're called; Jinja2 does not hoist
 - [[jinja2-namespace-mutable-counter]] — Use namespace() for mutable variables inside Jinja2 for loops
 - [[playwright-vs-blocked-domain-ordering]] — Playwright check runs before blocked-domain check; social domains must stay out of playwright_domains
+- [[init-db-before-prompt-overrides]] — init_db() runs before overrides load; fingerprint migrations must use a runtime endpoint, not init_db()
+- [[llm-prompt-language-bias]] — Example strings in the system prompt bias LLM output language for all cities; keep examples in English
 
 ## Post-mortems
 
 - [[2026-05-coverage-page-500]] — Coverage page 500 error: app_state cities/topics are dataclasses, not dicts
+- [[2026-06-coverage-amber-cells]] — Amber cells never turned blue: get_fully_processed_pairs() and get_city_topic_states() disagreed on which URLs count
 
 ## Decisions
 
