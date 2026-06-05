@@ -81,7 +81,7 @@
         {# Primary website #}
         {% if has_website %}
         {% set wm = website_url | link_meta %}
-        <a href="/out?url={{ website_url | urlencode }}&cid={{ r.community_id }}" target="_blank" rel="noopener"
+        <a href="{{ website_url }}" target="_blank" rel="noopener"
            class="flex items-center gap-3 group rounded-lg px-3 py-2.5 hover:bg-[#F5F2EC] transition-colors -mx-3">
           <span class="flex items-center justify-center w-9 h-9 rounded-lg shrink-0 {{ wm.color }}">
             <i class="ph {{ wm.icon }}" style="font-size:17px"></i>
@@ -99,7 +99,7 @@
         {% for src in all_sources %}
         {% if src and (src | valid_url) and src not in social_set %}
         {% set sm = src | link_meta %}
-        <a href="/out?url={{ src | urlencode }}&cid={{ r.community_id }}" target="_blank" rel="noopener"
+        <a href="{{ src }}" target="_blank" rel="noopener"
            class="flex items-center gap-3 group rounded-lg px-3 py-2.5 hover:bg-[#F5F2EC] transition-colors -mx-3">
           <span class="flex items-center justify-center w-9 h-9 rounded-lg shrink-0 {{ sm.color }}">
             <i class="ph {{ sm.icon }}" style="font-size:17px"></i>
@@ -119,7 +119,7 @@
         {% for link in r.social_links %}
         {% if link | valid_url %}
         {% set lm = link | link_meta %}
-        <a href="/out?url={{ link | urlencode }}&cid={{ r.community_id }}" target="_blank" rel="noopener"
+        <a href="{{ link }}" target="_blank" rel="noopener"
            class="flex items-center gap-3 group rounded-lg px-3 py-2.5 hover:bg-[#F5F2EC] transition-colors -mx-3">
           <span class="flex items-center justify-center w-9 h-9 rounded-lg shrink-0 {{ lm.color }}">
             <i class="ph {{ lm.icon }}" style="font-size:17px"></i>

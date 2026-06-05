@@ -5,7 +5,6 @@ import hmac
 import importlib.metadata
 import json
 import os
-import random
 import re
 import sys
 import unicodedata
@@ -753,9 +752,7 @@ def _find_community_by_slug(city_name: str, name_slug: str) -> dict | None:
 
 
 def _load_communities(city: str, topic: str) -> list[dict]:
-    recs = [_ensure_community_id(r) for r in get_communities(_db(), city, topic)]
-    random.shuffle(recs)
-    return recs
+    return [_ensure_community_id(r) for r in get_communities(_db(), city, topic)]
 
 
 def _find_community(community_id: str) -> dict | None:
@@ -1081,9 +1078,7 @@ async def _render_explore(
                     for t in topic:
                         recs.extend(_load_communities(city_name, t))
                 else:
-                    _all = [_ensure_community_id(r) for r in get_communities_for_city(_db(), city_name)]
-                    random.shuffle(_all)
-                    recs = _all[:10]
+                    recs = [_ensure_community_id(r) for r in get_communities_for_city(_db(), city_name)][:10]
                 if recs:
                     city_url = "/" + _slugify(city_name)
                     if topic and len(topic) == 1:
@@ -1227,28 +1222,6 @@ async def public_community_legacy(request: Request, community_id: str):
     return RedirectResponse(record["community_url"], status_code=301)
 
 
-def _link_type_code(url: str) -> str:
-    url_lower = url.lower()
-    for domains, label, _icon, _color in _LINK_PLATFORMS:
-        if any(d in url_lower for d in domains):
-            return label.lower()
-    return "website"
-
-
-@_fastapi.get("/out")
-async def outclick_redirect(url: str = "", cid: str = ""):
-    from urllib.parse import unquote
-    target = unquote(url)
-    if not target.startswith(("http://", "https://")):
-        return RedirectResponse("/", status_code=302)
-    if app_state.db_path and cid:
-        from ..db import log_outclick
-        link_type = _link_type_code(target)
-        try:
-            log_outclick(app_state.db_path, cid, target, link_type)
-        except Exception:
-            pass
-    return RedirectResponse(target, status_code=302, headers={"X-Robots-Tag": "noindex, nofollow"})
 
 
 @_fastapi.get("/source/{url_hash}", response_class=HTMLResponse)
@@ -1706,7 +1679,6 @@ async def robots_txt(request: Request):
         "\n"
         "User-agent: *\n"
         "Disallow: /admin\n"
-        "Disallow: /out\n"
         "Disallow: /source/\n"
         "Disallow: /api/\n"
         "Disallow: /set-lang\n"
@@ -2598,14 +2570,6 @@ async def stats_quality_page(request: Request):
         stats = get_data_quality_stats(app_state.db_path)
     return templates.TemplateResponse(request, "stats_quality.html", {"stats": stats})
 
-
-@admin.get("/stats/kattintasok", response_class=HTMLResponse)
-async def stats_clicks_page(request: Request):
-    from ..db import get_outclick_stats
-    outclicks: dict = {"total": 0, "total_30d": 0, "top_communities": [], "by_type": []}
-    if app_state.db_path and app_state.db_path.exists():
-        outclicks = get_outclick_stats(app_state.db_path)
-    return templates.TemplateResponse(request, "stats_clicks.html", {"outclicks": outclicks})
 
 
 @admin.get("/stats/aktivitas", response_class=HTMLResponse)
