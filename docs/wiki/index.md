@@ -81,6 +81,7 @@ frontmatter. See [SCHEMA.md](SCHEMA.md) for conventions.
 - [[2026-05-coverage-page-500]] — app_state cities/topics are dataclasses, not dicts
 - [[2026-06-coverage-amber-cells]] — get_fully_processed_pairs() and get_city_topic_states() disagreed on which URLs count
 - [[2026-06-seo-traffic-collapse]] — ~20K pages devalued to "Crawled - currently not indexed"; cross-domain duplication
+- [[2026-07-bug-hunt]] — three-batch fix round: moderation survival, domain matching, persons, recategorize + hot-path optimizations
 
 ## Operations
 

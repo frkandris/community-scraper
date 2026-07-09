@@ -1233,53 +1233,41 @@ def clear_person_cache(db_path: Path) -> int:
                     '$.persons_data')
             WHERE json_extract(data, '$.person_extracted_at') IS NOT NULL
         """)
+        conn.execute("UPDATE cache_pages SET person_fingerprint=NULL")
         conn.commit()
         return cur.rowcount
 
 
 def get_cache_index(db_path: Path) -> list[dict]:
+    """Cache listing without loading page texts: json_extract pulls only the
+    small metadata keys (the old SELECT data + json.loads deserialized every
+    full page text just to render a table)."""
     if not db_path.exists():
         return []
+    small_keys = [
+        "url_hash", "url", "domain", "city", "topic",
+        "scraped_at", "scrape_duration_s", "extracted_at", "extract_duration_s",
+        "enrich_scraped_at", "enrich_scrape_duration_s",
+        "enrich_extracted_at", "enrich_extract_duration_s", "enrich_count",
+        "extract_fingerprint", "extract_model", "enrich_model",
+    ]
+    select = ", ".join(f"json_extract(data, '$.{k}')" for k in small_keys)
     with _connect(db_path) as conn:
         rows = conn.execute(
-            "SELECT data FROM cache_pages ORDER BY url_hash"
+            f"SELECT {select},"
+            " json_array_length(COALESCE(json_extract(data, '$.records'), '[]')),"
+            " json_extract(data, '$.raw_text') IS NOT NULL"
+            " FROM cache_pages ORDER BY url_hash"
         ).fetchall()
     entries = []
-    for (data_json,) in rows:
-        try:
-            entry = json.loads(data_json)
-        except Exception:
-            entry = None
-        if not isinstance(entry, dict):
-            continue
-        entries.append({
-            "url_hash":                  entry.get("url_hash", ""),
-            "url":                       entry.get("url", ""),
-            "domain":                    entry.get("domain", ""),
-            "city":                      entry.get("city", ""),
-            "topic":                     entry.get("topic", ""),
-            "scraped_at":                entry.get("scraped_at"),
-            "scrape_duration_s":         entry.get("scrape_duration_s"),
-            "extracted_at":              entry.get("extracted_at"),
-            "extract_duration_s":        entry.get("extract_duration_s"),
-            "enrich_scraped_at":         entry.get("enrich_scraped_at"),
-            "enrich_scrape_duration_s":  entry.get("enrich_scrape_duration_s"),
-            "enrich_extracted_at":       entry.get("enrich_extracted_at"),
-            "enrich_extract_duration_s": entry.get("enrich_extract_duration_s"),
-            "enrich_count":              entry.get("enrich_count"),
-            "record_count":              len(entry.get("records") or []),
-            "has_text":                  bool(entry.get("raw_text")),
-            "extract_fingerprint":       entry.get("extract_fingerprint"),
-            "extract_model":             entry.get("extract_model"),
-            "enrich_model":              entry.get("enrich_model") or (entry.get("extract_model") if entry.get("enrich_extracted_at") else None),
-        })
-
-    def _sort_key(e: dict) -> tuple:
-        complete = 1 if (e.get("scraped_at") and e.get("extracted_at")) else 0
-        ts = e.get("scraped_at") or "0000-00-00T00:00:00+00:00"
-        return (complete, tuple(-ord(c) for c in ts))
-
-    return sorted(entries, key=_sort_key)
+    for row in rows:
+        entry = dict(zip(small_keys, row[:len(small_keys)]))
+        entry["record_count"] = row[len(small_keys)] or 0
+        entry["has_text"] = bool(row[len(small_keys) + 1])
+        for k in ("url_hash", "url", "domain", "city", "topic"):
+            entry[k] = entry[k] or ""
+        entries.append(entry)
+    return entries
 
 
 def get_all_scraped_cache(db_path: Path) -> list[tuple[str, str, str, str]]:
@@ -1419,6 +1407,8 @@ def save_search_cache(db_path: Path, city: str, topic: str,
 
 def get_search_cache(db_path: Path, city: str, topic: str,
                      ttl_days: int) -> list[str] | None:
+    if not db_path.exists():
+        return None
     import json
     from datetime import timedelta
     cutoff = (datetime.now(timezone.utc) - timedelta(days=ttl_days)).isoformat()
@@ -1430,36 +1420,6 @@ def get_search_cache(db_path: Path, city: str, topic: str,
     return json.loads(row[0]) if row else None
 
 
-def count_cached_search_pairs(db_path: Path, cities: list[str], ttl_days: int) -> int:
-    """Count (city, topic) pairs that have a non-expired search cache entry."""
-    if not db_path.exists() or not cities:
-        return 0
-    from datetime import timedelta
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=ttl_days)).isoformat()
-    placeholders = ",".join("?" * len(cities))
-    with _connect(db_path) as conn:
-        row = conn.execute(
-            f"SELECT COUNT(*) FROM search_cache WHERE city IN ({placeholders}) AND cached_at>=?",
-            (*cities, cutoff),
-        ).fetchone()
-    return row[0] if row else 0
-
-
-def count_cities_with_pending_search(db_path: Path, cities: list[str], topics_count: int, ttl_days: int) -> int:
-    """Count cities that have at least one (city, topic) pair with no valid search cache."""
-    if not db_path.exists() or not cities or topics_count == 0:
-        return len(cities)
-    from datetime import timedelta
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=ttl_days)).isoformat()
-    placeholders = ",".join("?" * len(cities))
-    with _connect(db_path) as conn:
-        rows = conn.execute(
-            f"SELECT city, COUNT(DISTINCT topic) FROM search_cache"
-            f" WHERE city IN ({placeholders}) AND cached_at>=? GROUP BY city",
-            (*cities, cutoff),
-        ).fetchall()
-    fully_cached = sum(1 for _, cnt in rows if cnt >= topics_count)
-    return len(cities) - fully_cached
 
 
 def get_covered_pairs(db_path: Path) -> set[tuple[str, str]]:
@@ -1713,25 +1673,26 @@ def search_all(
     if not db_path.exists() or not query.strip():
         return {"communities": [], "venues": [], "persons": []}
 
-    pattern = f"%{query}%"
+    escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    pattern = f"%{escaped}%"
     with _connect(db_path) as conn:
         community_rows = conn.execute(
             "SELECT data FROM communities WHERE hidden=0 AND ("
-            "  json_extract(data,'$.name') LIKE ? OR"
-            "  json_extract(data,'$.description') LIKE ?"
+            "  json_extract(data,'$.name') LIKE ? ESCAPE '\\' OR"
+            "  json_extract(data,'$.description') LIKE ? ESCAPE '\\'"
             ") ORDER BY city, id LIMIT ?",
             (pattern, pattern, limit),
         ).fetchall()
         venue_rows = conn.execute(
             "SELECT data FROM venues WHERE ("
-            "  json_extract(data,'$.name') LIKE ? OR"
-            "  json_extract(data,'$.description') LIKE ?"
+            "  json_extract(data,'$.name') LIKE ? ESCAPE '\\' OR"
+            "  json_extract(data,'$.description') LIKE ? ESCAPE '\\'"
             ") ORDER BY city, id LIMIT ?",
             (pattern, pattern, limit),
         ).fetchall()
         person_rows = conn.execute(
             "SELECT data FROM persons WHERE"
-            "  json_extract(data,'$.name') LIKE ? ORDER BY city, id LIMIT ?",
+            "  json_extract(data,'$.name') LIKE ? ESCAPE '\\' ORDER BY city, id LIMIT ?",
             (pattern, limit),
         ).fetchall()
 
@@ -2050,24 +2011,25 @@ def apply_community_edit(
                 "UPDATE communities SET hidden=1, updated_at=? WHERE record_key=?",
                 (now, record_key),
             )
-        elif change_type == "wrong_city":
-            data["city"] = new_value
-            conn.execute(
-                "UPDATE communities SET city=?, data=?, updated_at=? WHERE record_key=?",
-                (new_value, json.dumps(data, ensure_ascii=False), now, record_key),
-            )
-        elif change_type == "wrong_topic":
-            data["topic"] = new_value
-            conn.execute(
-                "UPDATE communities SET topic=?, data=?, updated_at=? WHERE record_key=?",
-                (new_value, json.dumps(data, ensure_ascii=False), now, record_key),
-            )
-        elif change_type == "name_correction":
-            data["name"] = new_value
-            conn.execute(
-                "UPDATE communities SET data=?, updated_at=? WHERE record_key=?",
-                (json.dumps(data, ensure_ascii=False), now, record_key),
-            )
+        elif change_type in ("wrong_city", "wrong_topic", "name_correction"):
+            if change_type == "wrong_city":
+                data["city"] = new_value
+            elif change_type == "wrong_topic":
+                data["topic"] = new_value
+            else:
+                data["name"] = new_value
+            # record_key derives from (name, city, topic) — leaving it stale made
+            # the next scrape insert a duplicate row and broke follow-up edits.
+            new_key = _community_record_key(data["name"], data["city"], data["topic"])
+            try:
+                conn.execute(
+                    "UPDATE communities SET record_key=?, city=?, topic=?, data=?, updated_at=?"
+                    " WHERE record_key=?",
+                    (new_key, data["city"], data["topic"],
+                     json.dumps(data, ensure_ascii=False), now, record_key),
+                )
+            except sqlite3.IntegrityError:
+                return False  # target key already exists — surface as failed edit
         else:
             return False
         conn.commit()
@@ -2292,13 +2254,12 @@ def get_activity_timeline(db_path: Path, period: str) -> list[dict]:
 
     if period == "24h":
         fmt = "%Y-%m-%dT%H"
-        since = now - timedelta(hours=24)
+        now - timedelta(hours=24)
         since_sql = "datetime('now', '-24 hours')"
         buckets = [(now - timedelta(hours=i)).strftime(fmt) for i in range(23, -1, -1)]
         display = {b: b[-2:] + ":00" for b in buckets}
     elif period == "7d":
         fmt = "%Y-%m-%d"
-        since = now - timedelta(days=7)
         since_sql = "datetime('now', '-7 days')"
         buckets = [(now - timedelta(days=i)).strftime(fmt) for i in range(6, -1, -1)]
         display = {b: datetime.strptime(b, "%Y-%m-%d").strftime("%b %d") for b in buckets}

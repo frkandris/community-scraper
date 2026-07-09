@@ -2397,7 +2397,7 @@ def lang_context(request: Request) -> dict:
         "site_name": site_name,
         "site_url": site_url,
         "locale": locale,
-        "lang_dir": "rtl" if lang in ("ar", "he", "fa", "ur") else "ltr",
+        "lang_dir": "rtl" if lang in RTL_LANGS else "ltr",
         "t": make_t(lang, site_name=site_name),
         "languages": dict(sorted(LANGUAGES.items(), key=lambda x: x[1]["name"])),
         "current_lang": LANGUAGES.get(lang, LANGUAGES["en"]),

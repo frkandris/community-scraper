@@ -1,6 +1,5 @@
 from unittest.mock import MagicMock
 
-import pytest
 
 
 def _req(host: str):

@@ -614,9 +614,9 @@ async def _run_full(
                                                         enrich_timing["extract"], model=extractor.model)
                             cache.save_enrich_log(url, enrich_logs)
 
-                    if final_records:
-                        save_results(city.name, topic.name, final_records, config.db_path)
-
+                    # NB: no per-URL save_results — the pair-final batch save below
+                    # covers it; saving per URL re-ran O(n²) dedup + a full topic
+                    # DELETE+reinsert + a city-wide duplicate scan for every page.
                     records.extend(final_records)
                     total_new += len(final_records)
                     pair_log["records_extracted"] += len(final_records)
@@ -802,9 +802,6 @@ async def _run_ai_only(
 
                     cache.save_extracted(url, joinable, fingerprint=extractor.canonical_fingerprint,
                                          model=extractor.model)
-
-                    if joinable:
-                        save_results(city.name, topic.name, joinable, config.db_path)
 
                     records.extend(joinable)
                     total_new += len(joinable)

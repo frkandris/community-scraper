@@ -5,6 +5,7 @@ import hmac
 import importlib.metadata
 import json
 import os
+from functools import lru_cache
 import re
 import sys
 import unicodedata
@@ -13,7 +14,6 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import quote as _url_quote, urlsplit
 
-import httpx
 import structlog
 import yaml
 from fastapi import APIRouter, BackgroundTasks, FastAPI, Form, Query, Request
@@ -38,7 +38,6 @@ from ..db import (
     get_not_community_reports,
     delete_not_community_report,
     get_communities_needing_revalidation,
-    count_communities_needing_revalidation,
     set_community_revalidate_fingerprint,
     set_community_hidden,
     _community_record_key,
@@ -56,7 +55,6 @@ from ..db import (
     get_all_persons,
     get_person_counts,
     get_person_history,
-    get_cache_cost_stats,
     get_scope_stats,
     get_prompt_overrides,
     upsert_prompt_override,
@@ -91,9 +89,7 @@ from ..false_positives import (add as fp_add, diff_html as fp_diff_html,
                                remove as fp_remove, build_prompt_section)
 from ..extract import (ENRICH_SCHEMA, ENRICH_SYSTEM_PROMPT, EXTRACTION_SCHEMA,
                        SYSTEM_PROMPT, USER_PROMPT_TEMPLATE, _prompt_hash,
-                       VENUE_SCHEMA, VENUE_SYSTEM_PROMPT, VENUE_USER_PROMPT_TEMPLATE,
-                       PERSON_SCHEMA, PERSON_SYSTEM_PROMPT, PERSON_USER_PROMPT_TEMPLATE,
-                       PROMPT_KEYS, get_prompt, set_prompt_override,
+                       VENUE_SCHEMA, PERSON_SCHEMA, PROMPT_KEYS, get_prompt, set_prompt_override,
                        DeepSeekExtractor, FallbackExtractor)
 from ..fetch import fetch_and_clean
 from ..models import CommunityRecord
@@ -343,6 +339,7 @@ templates.env.filters["valid_url"] = _valid_url
 templates.env.filters["link_meta"] = _link_meta
 
 
+@lru_cache(maxsize=8192)
 def _slugify(text: str) -> str:
     text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
@@ -1028,10 +1025,9 @@ async def _render_explore(
 
     available_topics: dict[str, int] = {}
     if city:
-        for t in topics:
-            count = len(_load_communities(city, t.name))
-            if count > 0:
-                available_topics[t.name] = count
+        from ..db import get_city_topic_counts
+        counts = get_city_topic_counts(_db()).get(city, {}) if app_state.db_path else {}
+        available_topics = {t.name: counts[t.name] for t in topics if counts.get(t.name, 0) > 0}
 
     # City page with no topic filter: show all communities (small chips will filter client-side)
     if city and not topic and available_topics:
@@ -1240,7 +1236,6 @@ async def public_community_legacy(request: Request, community_id: str):
 @_fastapi.get("/source/{url_hash}", response_class=HTMLResponse)
 async def public_source_page(request: Request, url_hash: str):
     """Public provenance page: search queries, scraped text, prompt, extracted records."""
-    import hashlib
     if not app_state.cache_manager:
         return RedirectResponse("/", status_code=302)
     entry = app_state.cache_manager.get_entry(url_hash)
@@ -1523,12 +1518,14 @@ async def set_lang(lang: str = "en", next: str = "/"):
 
 @_fastapi.get("/terkep", response_class=HTMLResponse)
 async def public_map(request: Request):
+    from ..db import get_city_totals
+    city_totals = dict(get_city_totals(_db())) if app_state.db_path else {}
     cities_data = []
     for city in _site_cities(request):
         coords = CITY_COORDS.get(city.name)
         if not coords:
             continue
-        count = sum(len(_load_communities(city.name, t.name)) for t in (app_state.topics or []))
+        count = city_totals.get(city.name, 0)
         cities_data.append({
             "name": city.name,
             "lat": coords[0],
@@ -2668,16 +2665,32 @@ async def api_coverage_current():
     }
 
 
+_coverage_state_cache: dict = {"ts": 0.0, "fp": None, "states": None, "done": None}
+
+
+def _coverage_state(fp: str):
+    """get_city_topic_states + get_fully_processed_pairs with a ~3 s memo — the
+    coverage page polls /api/coverage/cell every 3 s and each call otherwise
+    re-scanned cache_pages + hashed every search_cache URL."""
+    import time as _time
+    from ..db import get_city_topic_states, get_fully_processed_pairs
+    now = _time.monotonic()
+    c = _coverage_state_cache
+    if c["states"] is None or c["fp"] != fp or now - c["ts"] > 3.0:
+        c.update(ts=now, fp=fp,
+                 states=get_city_topic_states(app_state.db_path, fp),
+                 done=get_fully_processed_pairs(app_state.db_path, fp))
+    return c["states"], c["done"]
+
+
 @admin.get("/api/coverage/cell")
 async def api_coverage_cell(city: str = "", topic: str = ""):
     """Return the current state for a single (city, topic) cell."""
-    from ..db import get_city_topic_states, get_fully_processed_pairs
     from ..extract import get_extract_fingerprint
     if not city or not topic or not app_state.db_path:
         return {"community_count": 0, "page_count": 0, "current_fp_count": 0, "is_done": False}
     current_fp = get_extract_fingerprint()
-    states = get_city_topic_states(app_state.db_path, current_fp)
-    done_pairs = get_fully_processed_pairs(app_state.db_path, current_fp)
+    states, done_pairs = _coverage_state(current_fp)
     cell = states.get(city, {}).get(topic, {})
     return {
         "community_count": cell.get("community_count", 0),

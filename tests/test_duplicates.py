@@ -11,6 +11,7 @@ from scraper.db import (
 )
 from scraper.store import save_results
 from scraper.models import CommunityRecord
+from scraper.duplicates import detect_community_candidates, detect_all
 
 
 def _db(tmp_path: Path) -> Path:
@@ -116,7 +117,6 @@ def test_merge_resolves_candidate_atomically(tmp_path):
     assert len(pending) == 0
 
 
-from scraper.duplicates import detect_community_candidates, detect_all
 
 
 def test_detect_cross_topic_duplicates(tmp_path):

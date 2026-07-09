@@ -1,5 +1,5 @@
 from pathlib import Path
-from scraper.db import init_db, upsert_venues, upsert_persons, get_venue_for_community, get_persons_for_community
+from scraper.db import init_db, upsert_venues, upsert_persons, get_venue_for_community
 from scraper.store import save_results
 from scraper.models import VenueRecord, PersonRecord, CommunityRecord
 from scraper.pipeline import CityConfig
