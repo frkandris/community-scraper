@@ -321,9 +321,9 @@
 
   {% if city and selected_topics | length == 1 %}
   <div class="mt-6 text-center">
-    <a href="/kozosseg-bekuldes?city={{ city | urlencode }}&topic={{ selected_topics[0] | urlencode }}"
+    <a href="{{ submit_url }}?city={{ city | urlencode }}&topic={{ selected_topics[0] | urlencode }}"
        class="inline-flex items-center gap-2 text-sm text-[#A8512F] hover:text-[#8A4226] hover:underline transition-colors">
-      <i class="ph ph-plus-circle"></i> Hiányzik egy közösség? Küldd be →
+      <i class="ph ph-plus-circle"></i> {{ t('explore_submit_cta') }}
     </a>
   </div>
   {% endif %}

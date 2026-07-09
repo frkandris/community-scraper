@@ -961,10 +961,9 @@ async def public_home(request: Request, city: str = ""):
         if site == "kozossegek":
             topic_counts = _hu_topic_counts()
         else:
-            # meetapedia interest grid: international counts (global minus HU) so
-            # HU-heavy topics (Folk Traditions…) don't dominate the intl site.
-            _glob, _hu = _global_topic_counts(), _hu_topic_counts()
-            topic_counts = {k: v - _hu.get(k, 0) for k, v in _glob.items() if v - _hu.get(k, 0) > 0}
+            # meetapedia serves HU cities too, so its stats include them —
+            # keeping the totals consistent with the browsable content.
+            topic_counts = _global_topic_counts()
         venue_counts = {k: v for k, v in (get_venue_counts(_db()) if app_state.db_path else {}).items() if k in site_city_names}
         person_counts = {k: v for k, v in (get_person_counts(_db()) if app_state.db_path else {}).items() if k in site_city_names}
         city_totals = dict(get_city_totals(_db())) if app_state.db_path else {}
@@ -1716,11 +1715,6 @@ async def public_map_en(request: Request):
 
 
 @_fastapi.get("/submit-community", response_class=HTMLResponse)
-async def submit_community_en(request: Request):
-    qs = str(request.url.query)
-    return RedirectResponse("/kozosseg-bekuldes" + (f"?{qs}" if qs else ""), status_code=302)
-
-
 @_fastapi.get("/kozosseg-bekuldes", response_class=HTMLResponse)
 async def submit_community_get(request: Request, city: str = "", topic: str = ""):
     init_db(_db())
@@ -1741,6 +1735,7 @@ async def submit_community_get(request: Request, city: str = "", topic: str = ""
     })
 
 
+@_fastapi.post("/submit-community")
 @_fastapi.post("/kozosseg-bekuldes")
 async def submit_community_post(
     request: Request,
@@ -1757,7 +1752,7 @@ async def submit_community_post(
         _db(), name.strip(), city.strip(), topic.strip(),
         source_url.strip(), submitter_email.strip() or None,
     )
-    return RedirectResponse("/kozosseg-bekuldes?submitted=1", status_code=302)
+    return RedirectResponse(lang_context(request)["submit_url"] + "?submitted=1", status_code=302)
 
 
 @_fastapi.get("/robots.txt")

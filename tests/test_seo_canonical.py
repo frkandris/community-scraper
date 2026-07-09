@@ -114,3 +114,19 @@ def test_meetapedia_home_title_is_english(seo_client):
     r = seo_client.get("/", headers=MEET)
     assert "Find your community" in r.text
     assert "Találd meg a közösséged" not in r.text
+
+
+def test_submit_page_english_on_meetapedia(seo_client):
+    """Regression: the submit page was fully hardcoded Hungarian on both sites."""
+    r = seo_client.get("/submit-community", headers=MEET)
+    assert r.status_code == 200
+    assert "Submit a community" in r.text
+    assert "Küldd be" not in r.text
+    assert "Válassz várost" not in r.text
+
+
+def test_submit_page_hungarian_on_kozossegek(seo_client):
+    r = seo_client.get("/kozosseg-bekuldes", headers=KOZ)
+    assert r.status_code == 200
+    assert "Közösség beküldése" in r.text
+    assert "Válassz várost" in r.text
