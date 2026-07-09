@@ -27,6 +27,13 @@ class ExtractorRateLimitError(Exception):
         super().__init__(f"Rate limited for {wait_seconds:.0f}s")
 
 
+class ExtractorUnavailableError(Exception):
+    """Raised when extraction could not run at all — transient API/network error,
+    or every provider exhausted. Callers MUST treat this as "no result" and skip
+    caching; caching an empty result would permanently record "0 communities"
+    under the current fingerprint and the page would never be retried."""
+
+
 SYSTEM_PROMPT = """\
 You are a data extraction assistant. Identify community groups and clubs from web page text.
 
@@ -496,7 +503,7 @@ class _ApiExtractor:
                 )
         except Exception as exc:
             log.warning("api_request_failed", provider=self.__class__.__name__, label=label, error=str(exc))
-            return {}
+            raise ExtractorUnavailableError(f"{self.__class__.__name__}: {exc}") from exc
         if resp.status_code == 402:
             raise ExtractorQuotaError(f"{self.__class__.__name__} billing limit (HTTP 402)")
         if resp.status_code == 429:
@@ -505,7 +512,8 @@ class _ApiExtractor:
         if resp.status_code >= 400:
             log.warning("api_request_failed", provider=self.__class__.__name__, label=label,
                         status=resp.status_code, body=resp.text[:200])
-            return {}
+            raise ExtractorUnavailableError(
+                f"{self.__class__.__name__}: HTTP {resp.status_code}")
         return resp.json()
 
     async def extract(
@@ -560,7 +568,7 @@ class _ApiExtractor:
             data = await self._post(payload, label=source_url)
             raw = data.get("choices", [{}])[0].get("message", {}).get("content", "")
             return _parse_venues(raw, city, locale, source_url)
-        except ExtractorQuotaError:
+        except (ExtractorQuotaError, ExtractorRateLimitError, ExtractorUnavailableError):
             raise
         except Exception as exc:
             log.debug("api_extract_venues_failed", provider=self.__class__.__name__,
@@ -590,7 +598,7 @@ class _ApiExtractor:
             data = await self._post(payload, label=source_url)
             raw = data.get("choices", [{}])[0].get("message", {}).get("content", "")
             return _parse_persons(raw, city, topic, locale, source_url)
-        except ExtractorQuotaError:
+        except (ExtractorQuotaError, ExtractorRateLimitError, ExtractorUnavailableError):
             raise
         except Exception as exc:
             log.warning("api_extract_persons_failed", provider=self.__class__.__name__,
@@ -616,7 +624,7 @@ class _ApiExtractor:
             data = await self._post(payload, label=record.name)
             raw = data.get("choices", [{}])[0].get("message", {}).get("content", "")
             return _apply_enrich(record, json.loads(raw))
-        except ExtractorQuotaError:
+        except (ExtractorQuotaError, ExtractorRateLimitError, ExtractorUnavailableError):
             raise
         except Exception as exc:
             log.debug("api_enrich_failed", provider=self.__class__.__name__,
@@ -674,6 +682,61 @@ class FallbackExtractor:
                 return i
         return None
 
+    _RATE_LIMIT_MAX_WAIT = 300.0
+
+    @property
+    def exhausted(self) -> bool:
+        """True when no provider is configured or every provider is permanently
+        exhausted (HTTP 402) for this run."""
+        return not self.primaries or all(self._exhausted)
+
+    async def _call(self, method: str, label: str, *args, **kwargs):
+        """Run `method` on the first available provider with failover.
+
+        - ExtractorQuotaError  → provider permanently skipped for this run
+        - ExtractorRateLimitError → provider blocked until the window passes;
+          if every provider is only rate-limited, waits out the shortest window
+          (max 5 min) and retries instead of failing the page
+        - ExtractorUnavailableError (transient API/network) → retried once
+
+        Raises ExtractorUnavailableError when the call could not run anywhere.
+        Callers must treat that as "no result" and skip caching — never as an
+        empty result.
+        """
+        last_error = "no extraction provider configured"
+        for round_no in range(2):
+            transient_seen = False
+            for i, primary in enumerate(self.primaries):
+                if not self._available(i):
+                    continue
+                try:
+                    return await getattr(primary, method)(*args, **kwargs)
+                except ExtractorRateLimitError as exc:
+                    self._blocked_until[i] = time.monotonic() + exc.wait_seconds
+                    last_error = f"rate limited ({exc.wait_seconds:.0f}s)"
+                    log.warning("extractor_rate_limited", provider=primary.__class__.__name__,
+                                label=label, wait_s=exc.wait_seconds)
+                except ExtractorQuotaError as exc:
+                    self._exhausted[i] = True
+                    last_error = str(exc)
+                    log.warning("extractor_quota_exhausted",
+                                provider=primary.__class__.__name__, reason=str(exc))
+                except ExtractorUnavailableError as exc:
+                    transient_seen = True
+                    last_error = str(exc)
+            if round_no == 0 and not self.exhausted:
+                if transient_seen:
+                    continue  # one immediate retry for transient API/network errors
+                waits = [self._blocked_until[i] - time.monotonic()
+                         for i in range(len(self.primaries)) if not self._exhausted[i]]
+                wait = min(waits) if waits else -1.0
+                if 0 < wait <= self._RATE_LIMIT_MAX_WAIT:
+                    log.info("extractor_awaiting_rate_limit", wait_s=round(wait, 1), label=label)
+                    await asyncio.sleep(wait + 0.1)
+                    continue
+            break
+        raise ExtractorUnavailableError(f"{method} unavailable: {last_error}")
+
     @property
     def model_fingerprint(self) -> str:
         idx = self._first_available()
@@ -726,83 +789,25 @@ class FallbackExtractor:
 
     async def extract(self, text: str, city: str, topic: str, locale: str,
                       source_url: str, false_positive_examples: str = "") -> list[CommunityRecord]:
-        for i, primary in enumerate(self.primaries):
-            if not self._available(i):
-                continue
-            try:
-                return await primary.extract(text, city, topic, locale, source_url, false_positive_examples)
-            except ExtractorRateLimitError as exc:
-                self._blocked_until[i] = time.monotonic() + exc.wait_seconds
-                log.warning("extractor_rate_limited", provider=primary.__class__.__name__,
-                            label=source_url, wait_s=exc.wait_seconds)
-            except ExtractorQuotaError as exc:
-                log.warning("extractor_quota_exhausted", provider=primary.__class__.__name__, reason=str(exc))
-                self._exhausted[i] = True
-        return []
+        return await self._call("extract", source_url, text, city, topic, locale,
+                                source_url, false_positive_examples)
 
     async def enrich(self, record: CommunityRecord, page_text: str,
                      false_positive_examples: str = "") -> CommunityRecord:
-        for i, primary in enumerate(self.primaries):
-            if not self._available(i):
-                continue
-            try:
-                return await primary.enrich(record, page_text, false_positive_examples)
-            except ExtractorRateLimitError as exc:
-                self._blocked_until[i] = time.monotonic() + exc.wait_seconds
-                log.warning("extractor_rate_limited", provider=primary.__class__.__name__,
-                            label=record.name, wait_s=exc.wait_seconds)
-            except ExtractorQuotaError as exc:
-                log.warning("extractor_quota_exhausted", provider=primary.__class__.__name__, reason=str(exc))
-                self._exhausted[i] = True
-        return record
+        return await self._call("enrich", record.name, record, page_text, false_positive_examples)
 
     async def extract_venues(self, text: str, city: str, locale: str,
                              source_url: str,
                              valid_topics: list[str] | None = None) -> list[VenueRecord]:
-        for i, primary in enumerate(self.primaries):
-            if not self._available(i):
-                continue
-            try:
-                return await primary.extract_venues(text, city, locale, source_url,
-                                                    valid_topics=valid_topics)
-            except ExtractorRateLimitError as exc:
-                self._blocked_until[i] = time.monotonic() + exc.wait_seconds
-                log.warning("extractor_rate_limited", provider=primary.__class__.__name__,
-                            label=source_url, wait_s=exc.wait_seconds)
-            except ExtractorQuotaError as exc:
-                log.warning("extractor_quota_exhausted", provider=primary.__class__.__name__, reason=str(exc))
-                self._exhausted[i] = True
-        return []
+        return await self._call("extract_venues", source_url, text, city, locale,
+                                source_url, valid_topics=valid_topics)
 
     async def extract_persons(self, text: str, city: str, topic: str, locale: str,
                               source_url: str,
                               community_names: list[str] | None = None) -> list[PersonRecord]:
-        for i, primary in enumerate(self.primaries):
-            if not self._available(i):
-                continue
-            try:
-                return await primary.extract_persons(text, city, topic, locale, source_url, community_names)
-            except ExtractorRateLimitError as exc:
-                self._blocked_until[i] = time.monotonic() + exc.wait_seconds
-                log.warning("extractor_rate_limited", provider=primary.__class__.__name__,
-                            label=source_url, wait_s=exc.wait_seconds)
-            except ExtractorQuotaError as exc:
-                log.warning("extractor_quota_exhausted", provider=primary.__class__.__name__, reason=str(exc))
-                self._exhausted[i] = True
-        return []
+        return await self._call("extract_persons", source_url, text, city, topic,
+                                locale, source_url, community_names)
 
     async def chat(self, user_msg: str, temperature: float = 0.3) -> str:
         """Free-form chat completion with provider fallback."""
-        for i, primary in enumerate(self.primaries):
-            if not self._available(i):
-                continue
-            try:
-                return await primary.chat(user_msg, temperature)
-            except ExtractorRateLimitError as exc:
-                self._blocked_until[i] = time.monotonic() + exc.wait_seconds
-                log.warning("extractor_rate_limited", provider=primary.__class__.__name__,
-                            label="chat", wait_s=exc.wait_seconds)
-            except ExtractorQuotaError as exc:
-                log.warning("extractor_quota_exhausted", provider=primary.__class__.__name__, reason=str(exc))
-                self._exhausted[i] = True
-        return ""
+        return await self._call("chat", "chat", user_msg, temperature)

@@ -44,7 +44,7 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 
 **Topic tiering**: cities with `topic_tier: core` in `cities.yaml` (currently the 260 smallest Swedish kommuner) only run `pipeline.core_topics` from `settings.yaml`; tiered-out pairs are fully frozen (no search, no re-extraction). `_tier_allows()` in `pipeline.py` is the single gate, also used by `/admin/api/search/jobs`.
 
-**Search cost rules**: every search is saved to `search_cache` — even empty results and Full Refresh runs (an unsaved empty search is re-paid every run). `FallbackSearchClient.search_all(stop_after=…)` stops issuing paid queries once enough unique URLs are collected. `search.dataforseo_mode: standard` (opt-in) uses the 70%-cheaper task queue with minutes of latency.
+**Search cost rules**: every *successful* search is saved to `search_cache` — even empty results and Full Refresh runs (an unsaved empty search is re-paid every run). Provider failures raise (`SearchQuotaError` / `ExtractorUnavailableError`) and are NOT cached: the pair/page is skipped with a `search_failed`/`extract_failed` pair-log counter and retried next run. Never convert these errors to empty results — caching an empty extraction under the current fingerprint is permanent silent data loss. `FallbackSearchClient.search_all(stop_after=…)` stops issuing paid queries once enough unique URLs are collected. `search.dataforseo_mode: standard` (opt-in) uses the 70%-cheaper task queue with minutes of latency.
 
 **Cache**: everything goes through `cache.py` (a thin facade over `db.py`). Each scraped URL gets a row in `cache_pages`. The extraction cache is fingerprint-keyed: SHA-256[:12] of `SYSTEM_PROMPT + model_name`. Changing either invalidates all cached extractions automatically.
 

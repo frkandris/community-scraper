@@ -224,6 +224,13 @@ class FallbackSearchClient:
         import time
         return time.monotonic() < self._blocked_until[i]
 
+    @property
+    def exhausted(self) -> bool:
+        """True when no provider is configured or every provider hit a quota
+        error this run. Callers must skip searching (and must NOT record an
+        empty search_cache entry — the pair was not actually searched)."""
+        return not self.primaries or all(b == float("inf") for b in self._blocked_until)
+
     def _block_provider(self, i: int, primary) -> None:
         self._blocked_until[i] = float("inf")
         log.warning("search_quota_exhausted", provider=type(primary).__name__)
@@ -254,9 +261,13 @@ class FallbackSearchClient:
         provider ran all remaining queries and the combined total is still empty,
         the next provider retries the full set.
         """
+        if self.exhausted:
+            raise SearchQuotaError("no search provider available")
+
         combined: list[SearchResult] = []
         seen_urls: set[str] = set()
         remaining = list(queries)
+        hit_quota = False
 
         for i, primary in enumerate(self.primaries):
             if self._is_provider_blocked(i) or not remaining:
@@ -276,6 +287,7 @@ class FallbackSearchClient:
             except SearchQuotaError as exc:
                 log.warning("search_quota_error", provider=type(primary).__name__, reason=str(exc))
                 self._block_provider(i, primary)
+                hit_quota = True
                 remaining = [q for q in remaining if q not in provider_done]
                 continue
             if combined:
@@ -283,6 +295,10 @@ class FallbackSearchClient:
             log.info("search_empty_try_next", provider=type(primary).__name__, queries=queries)
             # total empty → let the next provider retry the full set
             remaining = list(queries)
+        if not combined and hit_quota:
+            # Nothing was successfully searched — this is a provider failure,
+            # not a legitimate empty result. Callers must not cache it.
+            raise SearchQuotaError("search providers exhausted before any result")
         return combined
 
 

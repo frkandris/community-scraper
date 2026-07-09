@@ -95,6 +95,7 @@ def test_empty_search_result_is_cached(tmp_path):
     topics = [TopicConfig(name="running", search_terms={"hu": ["futás"]})]
 
     class FakeFallback:
+        exhausted = False
         def __init__(self, primaries): ...
         async def search_all(self, queries, locale="en", num_results=10, stop_after=None):
             return []

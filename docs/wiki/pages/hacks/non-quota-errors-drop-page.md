@@ -1,16 +1,22 @@
 ---
 type: Hack
-title: Non-402/429 Extractor Errors Silently Drop the Page
-description: Any non-402/429 extractor error returns {} and the page is silently treated as having no communities — and since the 2026-07 cleanup there is no fallback provider at all.
+title: Extractor Errors No Longer Cache Empty Results (fixed)
+description: FIXED 2026-07-09 — transient/quota extractor failures now raise ExtractorUnavailableError; the pipeline skips caching so the page is retried next run.
 tags: [extraction, errors, fallback, gotcha]
 timestamp: 2026-07-09
 resource: scraper/extract.py
 ---
 
-# Non-402/429 Extractor Errors Silently Drop the Page
+# Extractor Errors No Longer Cache Empty Results (fixed 2026-07-09)
 
-*In `_ApiExtractor._post`: network exceptions and any HTTP ≥ 400 other than 402/429 are logged and return `{}`. Only 402 (`ExtractorQuotaError`) and 429 (`ExtractorRateLimitError`) engage the fallback chain.*
+**Historical bug:** `_ApiExtractor._post` returned `{}` on network errors and non-402/429 HTTP failures, so a transient DeepSeek 500 was parsed as "0 communities" and **cached under the current fingerprint — permanent silent data loss** (the page was never retried; broad excepts even swallowed rate-limit errors into empty persons/venues caches).
 
-Consequence (sharper since Groq was removed in the 2026-07 cleanup): a **500/503 from DeepSeek has nowhere to fall through** — the page is silently treated as "no communities found" and dropped. Transient primary-provider outages therefore cause silent data loss for that page (it will be retried next run only if its fingerprint still marks it not-done). See [[extraction-layer]] and [[extraction-provider-fallback-chain]].
+**Current model:**
+- `_post` raises **`ExtractorUnavailableError`** on network errors / non-402/429 HTTP failures.
+- `FallbackExtractor._call` (shared failover runner): quota → provider exhausted for the run; rate-limit → waits out the shortest window (max 5 min) and retries instead of failing the page; transient → one immediate retry; otherwise raises `ExtractorUnavailableError`.
+- The pipeline catches it per-page and **skips `save_extracted`** — the raw text stays cached, the page is retried next run. `extract_failed` counts land in the pair log; `run_completed_with_failures` summarizes at run end.
+- `FallbackExtractor.exhausted` lets the pipeline fail fast for the rest of a run after a 402.
+
+See [[extraction-layer]] and [[extraction-provider-fallback-chain]].
 
 Related edge case: `Retry-After` is parsed with `float(...)`; an HTTP-date-style header (not seconds) would raise inside `_post` outside the caught path and propagate as a generic error rather than a clean rate-limit.

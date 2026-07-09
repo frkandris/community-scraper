@@ -8,11 +8,12 @@ from typing import TYPE_CHECKING, Any, Callable
 
 import structlog
 
-from .extract import DeepSeekExtractor, FallbackExtractor, get_extract_fingerprint
+from .extract import (DeepSeekExtractor, ExtractorUnavailableError,
+                      FallbackExtractor, get_extract_fingerprint)
 from .false_positives import build_prompt_section
 from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
-from .search import DataForSEOClient, FallbackSearchClient, build_queries
+from .search import DataForSEOClient, FallbackSearchClient, SearchQuotaError, build_queries
 from .db import get_search_cache, save_search_cache, get_covered_pairs, upsert_venues, upsert_persons, delete_leader_persons_for_community, load_cache_page, find_community_by_id, get_fully_processed_pairs
 from .store import save_results
 
@@ -168,6 +169,9 @@ async def _enrich_record(
         t0 = time.monotonic()
         try:
             enriched = await extractor.enrich(record, text, false_positive_examples=enrich_fp_examples)
+        except ExtractorUnavailableError as exc:
+            log.warning("enrich_unavailable_skipped", community=record.name, reason=str(exc))
+            return record  # best-effort: record proceeds unenriched
         finally:
             if timing is not None:
                 timing["extract"] += time.monotonic() - t0
@@ -336,6 +340,13 @@ async def run_pipeline(
         await asyncio.to_thread(detect_all, config.db_path)
     except Exception as exc:
         log.warning("post_run_duplicate_scan_failed", error=str(exc))
+    failed_search = sum(1 for p in pair_logs if p.get("search_failed"))
+    failed_extract = sum(p.get("extract_failed", 0) for p in pair_logs)
+    if failed_search or failed_extract:
+        log.warning("run_completed_with_failures",
+                    search_failed_pairs=failed_search,
+                    extract_failed_pages=failed_extract,
+                    note="failed items were NOT cached and will be retried next run")
     return pair_logs, total_new
 
 
@@ -404,10 +415,24 @@ async def _run_full(
                 search_cache_hit = True
                 log.info("search_cache_hit", city=city.name, topic=topic.name, urls=len(urls))
             else:
-                search_results = await searxng.search_all(
-                    queries, locale=city.locale, num_results=config.search_results_per_query,
-                    stop_after=config.search_max_pages * 2,
-                )
+                if searxng.exhausted:
+                    # Provider down/quota gone: skip WITHOUT caching, so the pair is
+                    # retried next run instead of being recorded as "searched, empty".
+                    pair_logs.append({"city": city.name, "topic": topic.name,
+                                      "queries": queries, "search_failed": True})
+                    log.warning("search_unavailable_pair_skipped", city=city.name, topic=topic.name)
+                    continue
+                try:
+                    search_results = await searxng.search_all(
+                        queries, locale=city.locale, num_results=config.search_results_per_query,
+                        stop_after=config.search_max_pages * 2,
+                    )
+                except SearchQuotaError as exc:
+                    pair_logs.append({"city": city.name, "topic": topic.name,
+                                      "queries": queries, "search_failed": True})
+                    log.warning("search_unavailable_pair_skipped", city=city.name,
+                                topic=topic.name, reason=str(exc))
+                    continue
                 _blocked_domains = config.fetch_blocked_domains
                 search_results = [
                     r for r in search_results
@@ -436,6 +461,8 @@ async def _run_full(
                 "cache_hits_scrape": 0,
                 "cache_hits_extract": 0,
                 "records_extracted": 0,
+                "search_failed": False,
+                "extract_failed": 0,
             }
 
             urls_to_fetch = []
@@ -494,6 +521,12 @@ async def _run_full(
                         community_cache_hit = True
 
                 if not community_cache_hit and run_communities:
+                    if extractor.exhausted:
+                        # LLM quota gone for this run: leave the page un-extracted
+                        # (cached raw text stays; next run picks it up). Do NOT
+                        # cache an empty result.
+                        pair_log["extract_failed"] += 1
+                        continue
                     if on_progress:
                         on_progress("extract", url)
                     t0 = time.monotonic()
@@ -505,6 +538,10 @@ async def _run_full(
                                 all_fps, city=city.name, topic=topic.name
                             ),
                         )
+                    except ExtractorUnavailableError as exc:
+                        pair_log["extract_failed"] += 1
+                        log.warning("extract_unavailable_page_skipped", url=url, reason=str(exc))
+                        continue
                     finally:
                         extract_dur = time.monotonic() - t0
                         if on_progress:
@@ -702,6 +739,9 @@ async def _run_ai_only(
                     community_cache_hit = True
 
                 if not community_cache_hit and run_communities:
+                    if extractor.exhausted:
+                        pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
+                        continue
                     if on_progress:
                         on_progress("extract", url)
                     try:
@@ -709,6 +749,10 @@ async def _run_ai_only(
                             text=text, city=city.name, topic=topic.name,
                             locale=city.locale, source_url=url,
                         )
+                    except ExtractorUnavailableError as exc:
+                        pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
+                        log.warning("extract_unavailable_page_skipped", url=url, reason=str(exc))
+                        continue
                     finally:
                         if on_progress:
                             on_progress(None, None)
