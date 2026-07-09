@@ -13,7 +13,8 @@
   <style>
     .brand-gradient { background: linear-gradient(135deg, #8A4226 0%, #A8512F 30%, #C2613A 65%, #E88E6B 100%); }
   </style>
-  <link rel="canonical" href="{{ site_url }}{% block canonical_path %}{{ request.url.path }}{% endblock %}">
+  <link rel="canonical" href="{{ canonical_base or site_url }}{% block canonical_path %}{{ request.url.path }}{% endblock %}">
+  {% if page_noindex %}<meta name="robots" content="noindex">{% endif %}
   <meta name="description" content="{{ self.og_desc() }}">
   {% block og_meta %}
   <meta property="og:site_name" content="{{ site_name }}">

@@ -773,6 +773,19 @@ def _site_cities(request: Request) -> list:
     return cities
 
 
+def _canonical_base(request: Request, city_name: str) -> str:
+    """Canonical domain for a city-scoped public page.
+
+    Hungarian-city pages are served with identical paths on both domains;
+    kozossegek.com is their canonical home so Google doesn't consolidate the
+    duplicates toward meetapedia.com. Everything else self-canonicalizes.
+    """
+    from .i18n import _detect_site
+    if _detect_site(request) == "kozossegek" or city_name in _hu_city_names():
+        return "https://kozossegek.com"
+    return "https://meetapedia.com"
+
+
 def _global_topic_counts() -> dict[str, int]:
     return get_topic_counts(_db())
 
@@ -1177,6 +1190,8 @@ async def _render_explore(
         "city_persons": city_persons,
         "topic_url_slugs": topic_url_slugs,
         "city_coords_for_js": city_coords_for_js,
+        "canonical_base": _canonical_base(request, city) if city else None,
+        "page_noindex": bool(city and topic and total == 0),
         **lang_context(request),
     })
 
@@ -1699,6 +1714,10 @@ async def sitemap(request: Request):
 
     is_meetapedia = ctx.get("site") == "meetapedia"
     if is_meetapedia:
+        # HU-city pages canonicalize to kozossegek.com — a sitemap must only
+        # list canonical URLs, so they are omitted here.
+        site_city_names -= _hu_city_names()
+    if is_meetapedia:
         static_paths = ["/", "/about", "/map", "/cities", "/explore", "/submit-community"]
         venue_prefix = "/venue/"
         person_prefix = "/person/"
@@ -1723,6 +1742,8 @@ async def sitemap(request: Request):
                 topic_sl = _topic_url_slug(topic_name, city_locale)
                 locs.append(f"{base}/{city_sl}/{topic_sl}")
                 for record in get_communities(_db(), city_name, topic_name):
+                    if not (record.get("description") or "").strip():
+                        continue  # thin page, noindexed — keep out of the sitemap
                     name_sl = _slugify(record.get("name", ""))
                     if name_sl:
                         locs.append(f"{base}/{city_sl}/{name_sl}")
@@ -3840,6 +3861,7 @@ async def public_venue_detail(request: Request, city_slug: str, venue_slug: str)
         "topic_url_slugs": topic_url_slugs,
         "topic_icons": TOPIC_ICONS,
         "topic_labels": TOPIC_LABELS,
+        "canonical_base": _canonical_base(request, city_name),
         **lang_context(request),
     })
 
@@ -3900,6 +3922,7 @@ async def public_person_detail(request: Request, city_slug: str, name_slug: str)
         "city_slug": city_slug,
         "topic_icons": TOPIC_ICONS,
         "topic_labels": TOPIC_LABELS,
+        "canonical_base": _canonical_base(request, city_name),
         **lang_context(request),
     })
 
@@ -3952,6 +3975,8 @@ async def public_city_segment(
             "all_cities": sorted((c.name for c in (app_state.cities or [])), key=_hu_sort_key),
             "all_topic_names": [(t.name, TOPIC_LABELS.get(t.name, t.name.replace("_", " ").title()))
                                 for t in (app_state.topics or [])],
+            "canonical_base": _canonical_base(request, city_name),
+            "page_noindex": not (record.get("description") or "").strip(),
             **lang_context(request),
         })
     return RedirectResponse(f"/{city_slug}", status_code=302)
