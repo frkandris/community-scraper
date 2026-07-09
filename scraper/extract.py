@@ -507,7 +507,12 @@ class _ApiExtractor:
         if resp.status_code == 402:
             raise ExtractorQuotaError(f"{self.__class__.__name__} billing limit (HTTP 402)")
         if resp.status_code == 429:
-            retry_after = float(resp.headers.get("retry-after", _API_RETRY_DEFAULT_WAIT))
+            # Retry-After may be an HTTP-date (RFC 7231) — never let a parse
+            # error escape the typed-error model and abort the run.
+            try:
+                retry_after = float(resp.headers.get("retry-after", _API_RETRY_DEFAULT_WAIT))
+            except (TypeError, ValueError):
+                retry_after = float(_API_RETRY_DEFAULT_WAIT)
             raise ExtractorRateLimitError(retry_after)
         if resp.status_code >= 400:
             log.warning("api_request_failed", provider=self.__class__.__name__, label=label,

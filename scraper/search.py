@@ -11,6 +11,12 @@ class SearchQuotaError(Exception):
     """Raised when the search API returns a rate-limit or payment-required error."""
 
 
+class SearchUnavailableError(Exception):
+    """Raised when a search could not run (network error, 5xx, bad response,
+    queue timeout). Callers MUST NOT record the pair as searched — caching an
+    empty result here would permanently mark it done without ever searching."""
+
+
 # DataForSEO location codes: https://api.dataforseo.com/v3/serp/google/locations
 # (GET endpoint returns the full list; these are the most common ones)
 LOCALE_TO_DATAFORSEO_LOCATION: dict[str, int] = {
@@ -85,7 +91,7 @@ class DataForSEOClient:
                 resp = await client.post(self._BASE, json=payload, headers=headers)
         except Exception as exc:
             log.warning("dataforseo_request_failed", query=query, error=str(exc))
-            return []
+            raise SearchUnavailableError(f"DataForSEO request failed: {exc}") from exc
 
         if resp.status_code == 402:
             raise SearchQuotaError("DataForSEO: insufficient credits (HTTP 402)")
@@ -93,13 +99,13 @@ class DataForSEOClient:
             raise SearchQuotaError("DataForSEO: rate limited (HTTP 429)")
         if resp.status_code >= 400:
             log.warning("dataforseo_http_error", query=query, status=resp.status_code)
-            return []
+            raise SearchUnavailableError(f"DataForSEO HTTP {resp.status_code}")
 
         try:
             data = resp.json()
-        except Exception:
+        except Exception as exc:
             log.warning("dataforseo_bad_json", query=query)
-            return []
+            raise SearchUnavailableError("DataForSEO returned invalid JSON") from exc
 
         top = data.get("status_code", 0)
         if top == 40201:
@@ -107,7 +113,7 @@ class DataForSEOClient:
         if top not in (20000, 20100):
             log.warning("dataforseo_api_error", query=query, status_code=top,
                         message=data.get("status_message", ""))
-            return []
+            raise SearchUnavailableError(f"DataForSEO API status {top}")
 
         results = self._parse_tasks(data)
         log.info("dataforseo_results", query=query, found=len(results))
@@ -144,13 +150,13 @@ class DataForSEOClient:
                                          headers=headers)
         except Exception as exc:
             log.warning("dataforseo_task_post_failed", query=query, error=str(exc))
-            return []
+            raise SearchUnavailableError(f"DataForSEO task_post failed: {exc}") from exc
         if resp.status_code in (402, 429):
             raise SearchQuotaError(f"DataForSEO: HTTP {resp.status_code}")
         try:
             data = resp.json()
-        except Exception:
-            return []
+        except Exception as exc:
+            raise SearchUnavailableError("DataForSEO task_post returned invalid JSON") from exc
         if data.get("status_code") == 40201:
             raise SearchQuotaError("DataForSEO: insufficient credits (40201)")
         tasks = data.get("tasks") or []
@@ -160,7 +166,7 @@ class DataForSEOClient:
         if not task_id:
             log.warning("dataforseo_task_post_no_id", query=query,
                         status=data.get("status_code"))
-            return []
+            raise SearchUnavailableError("DataForSEO task_post returned no task id")
 
         import time
         deadline = time.monotonic() + self._STANDARD_TIMEOUT_SECONDS
@@ -183,7 +189,7 @@ class DataForSEOClient:
                 raise SearchQuotaError("DataForSEO: task quota exhausted (40201)")
             # 40601/40602 = task queued / in progress — keep polling
         log.warning("dataforseo_task_timeout", query=query, task_id=task_id)
-        return []
+        raise SearchUnavailableError("DataForSEO standard task timed out")
 
     async def search_all(
         self,
@@ -268,6 +274,7 @@ class FallbackSearchClient:
         seen_urls: set[str] = set()
         remaining = list(queries)
         hit_quota = False
+        hit_transient = False
 
         for i, primary in enumerate(self.primaries):
             if self._is_provider_blocked(i) or not remaining:
@@ -290,6 +297,12 @@ class FallbackSearchClient:
                 hit_quota = True
                 remaining = [q for q in remaining if q not in provider_done]
                 continue
+            except SearchUnavailableError as exc:
+                # transient: give up on this provider for THIS call only
+                log.warning("search_unavailable", provider=type(primary).__name__, reason=str(exc))
+                hit_transient = True
+                remaining = [q for q in remaining if q not in provider_done]
+                continue
             if combined:
                 return combined
             log.info("search_empty_try_next", provider=type(primary).__name__, queries=queries)
@@ -299,6 +312,8 @@ class FallbackSearchClient:
             # Nothing was successfully searched — this is a provider failure,
             # not a legitimate empty result. Callers must not cache it.
             raise SearchQuotaError("search providers exhausted before any result")
+        if not combined and hit_transient:
+            raise SearchUnavailableError("search failed before any result")
         return combined
 
 

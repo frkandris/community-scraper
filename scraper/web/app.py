@@ -3347,6 +3347,11 @@ async def run_detail(request: Request, run_id: int):
     if not run:
         return RedirectResponse("/admin", status_code=302)
     pair_logs = json.loads(run["search_log"]) if run.get("search_log") else []
+    # Older runs may contain minimal failure entries without the full key set the
+    # template sums/iterates — merge defaults so historical rows can't 500 the page.
+    from ..pipeline import _new_pair_log
+    pair_logs = [{**_new_pair_log(p.get("city", ""), p.get("topic", ""), p.get("queries", [])), **p}
+                 for p in pair_logs]
     return templates.TemplateResponse(request, "run_detail.html", {
         "run": run,
         "pair_logs": pair_logs,

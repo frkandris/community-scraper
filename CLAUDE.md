@@ -40,7 +40,7 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 
 **Done-pair pre-filter**: `run_pipeline()` calls `get_fully_processed_pairs(db_path, current_fp)` (one SQL query) before inner loops and passes the complement as `pairs_filter`. Pairs with a `search_cache` entry AND all `cache_pages` at the current `extract_fingerprint` are skipped entirely — no loop iteration, no log entry. Fully-covered cities should not appear in the log.
 
-**Scheduler**: cron is opt-in — `schedule.cron_enabled: false` by default (no scheduled runs). When enabled, `schedule.cron` fires `_scheduled_run` (preset `35 16 * * *` UTC = DeepSeek off-peak window start). Pipeline otherwise starts via manual button presses or `auto_run_on_startup`.
+**Scheduler**: the cost-saver twin schedule is ON (`schedule.saver_enabled: true`): a `search_only` collector (01:00→16:20 UTC, DataForSEO standard mode, zero LLM) and an `ai_only` extractor (16:35→00:20 UTC, inside DeepSeek's off-peak discount window). Runs are boxed by `run_pipeline(stop_at=…)` and stop gracefully at the window end; unfinished pairs carry over. The legacy combined cron (`cron_enabled`) is off. Manual runs still work; note `dataforseo_mode: standard` makes manual search slow (queue mode).
 
 **Topic tiering**: cities with `topic_tier: core` in `cities.yaml` (currently the 260 smallest Swedish kommuner) only run `pipeline.core_topics` from `settings.yaml`; tiered-out pairs are fully frozen (no search, no re-extraction). `_tier_allows()` in `pipeline.py` is the single gate, also used by `/admin/api/search/jobs`.
 

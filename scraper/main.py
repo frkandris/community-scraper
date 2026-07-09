@@ -2,7 +2,7 @@ import argparse
 import asyncio
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import structlog
@@ -89,6 +89,31 @@ def _settings_auto_run_on_startup() -> bool:
     return False
 
 
+def _settings_schedule() -> dict:
+    """The full schedule: block from settings.yaml ({} on any error)."""
+    try:
+        settings = yaml.safe_load((CONFIG_DIR / "settings.yaml").read_text(encoding="utf-8")) or {}
+        schedule = settings.get("schedule", {})
+        return schedule if isinstance(schedule, dict) else {}
+    except Exception:
+        return {}
+
+
+def _next_window_end(start: "datetime", hhmm: str) -> "datetime | None":
+    """First occurrence of HH:MM (UTC) strictly after `start` — handles windows
+    that cross midnight (e.g. extract 16:35 → 00:20 next day)."""
+    try:
+        hour, minute = (int(p) for p in hhmm.strip().split(":"))
+        candidate = start.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if candidate <= start:
+            candidate += timedelta(days=1)
+        return candidate
+    except Exception:
+        log = structlog.get_logger()
+        log.warning("invalid_window_end", value=hhmm)
+        return None
+
+
 def _settings_cron_enabled() -> bool:
     """schedule.cron_enabled — off by default. When on, the cron in settings.yaml
     actually schedules runs. Pair it with an off-peak time: DeepSeek discounts
@@ -147,53 +172,45 @@ async def main() -> None:
         app_state.current_city = city
         app_state.current_topic = topic
 
-    async def _scheduled_run() -> None:
+    async def _cron_run(run_mode: str, mode_label: str, until_hhmm: str | None) -> None:
+        """Shared scheduled runner: Hungary → Sweden → world, optionally boxed
+        into a UTC time window (stop_at from until_hhmm)."""
         if app_state.is_running:
-            log.info("scheduled_run_skipped", reason="already_running")
+            log.info("scheduled_run_skipped", reason="already_running", mode=run_mode)
             return
         app_state.is_running = True
-        app_state.current_run_mode = "smart"
+        app_state.current_run_mode = mode_label
         app_state._run_task = asyncio.current_task()
         started = datetime.now(timezone.utc)
-        run_id = start_run(db_path, started, "full")
+        stop_at = _next_window_end(started, until_hhmm) if until_hhmm else None
+        run_id = start_run(db_path, started, run_mode)
         success = False
         pair_logs: list = []
         hu_cities = [c for c in (app_state.cities or []) if c.country == "Hungary"]
         se_cities = [c for c in (app_state.cities or []) if c.country == "Sweden"]
         intl_cities = [c for c in (app_state.cities or []) if c.country not in {"Hungary", "Sweden"}]
         try:
-            pair_logs, _ = await run_pipeline(
-                hu_cities,
-                app_state.topics,
-                app_state.pipeline_cfg,
-                cache=app_state.cache_manager,
-                on_progress=_on_progress,
-                on_pair_start=_on_pair_start,
-            )
-            if se_cities:
-                se_logs, _ = await run_pipeline(
-                    se_cities,
+            for group in (hu_cities, se_cities, intl_cities):
+                if not group:
+                    continue
+                if stop_at and datetime.now(timezone.utc) >= stop_at:
+                    log.info("scheduled_run_window_closed", mode=run_mode)
+                    break
+                group_logs, _ = await run_pipeline(
+                    group,
                     app_state.topics,
                     app_state.pipeline_cfg,
                     cache=app_state.cache_manager,
+                    run_mode=run_mode,
                     on_progress=_on_progress,
                     on_pair_start=_on_pair_start,
+                    stop_at=stop_at,
                 )
-                pair_logs += se_logs
-            if intl_cities:
-                intl_logs, _ = await run_pipeline(
-                    intl_cities,
-                    app_state.topics,
-                    app_state.pipeline_cfg,
-                    cache=app_state.cache_manager,
-                    on_progress=_on_progress,
-                    on_pair_start=_on_pair_start,
-                )
-                pair_logs += intl_logs
+                pair_logs += group_logs
             app_state.last_run_at = datetime.now(timezone.utc)
             success = True
         except Exception as exc:
-            log.error("scheduled_run_failed", error=str(exc))
+            log.error("scheduled_run_failed", error=str(exc), mode=run_mode)
         finally:
             app_state.is_running = False
             app_state.current_phase = None
@@ -203,6 +220,17 @@ async def main() -> None:
             app_state.current_topic = None
             finish_run(db_path, run_id, datetime.now(timezone.utc), success,
                        json.dumps(pair_logs) if pair_logs else None)
+
+    async def _scheduled_run() -> None:
+        await _cron_run("full", "smart", None)
+
+    async def _search_collector_run() -> None:
+        # DataForSEO gyűjtögetés: search + fetch, zero LLM (standard mode ajánlott)
+        await _cron_run("search_only", "collect", _settings_schedule().get("search_until"))
+
+    async def _offpeak_extract_run() -> None:
+        # DeepSeek off-peak: extract the already-collected pages only
+        await _cron_run("ai_only", "re-ai", _settings_schedule().get("extract_until"))
 
     scheduler = AsyncIOScheduler()
     scheduler.start()
@@ -216,7 +244,28 @@ async def main() -> None:
             misfire_grace_time=900,
         )
         log.info("scheduler_cron_enabled", cron=cron_expr, version=app_state.version)
-    else:
+
+    schedule_cfg = _settings_schedule()
+    if schedule_cfg.get("saver_enabled"):
+        # Cost-saver twin jobs: search collects cheaply during the day; extraction
+        # runs only in DeepSeek's off-peak window on the already-collected pages.
+        # Complementary *_until windows keep the two from overlapping (single-run
+        # guard would otherwise skip one).
+        for job_fn, cron_key, default_cron in (
+            (_search_collector_run, "search_cron", "0 1 * * *"),
+            (_offpeak_extract_run, "extract_cron", "35 16 * * *"),
+        ):
+            m, h, d, mo, dow = _cron_fields(str(schedule_cfg.get(cron_key) or default_cron))
+            scheduler.add_job(
+                job_fn, CronTrigger(minute=m, hour=h, day=d, month=mo, day_of_week=dow),
+                misfire_grace_time=3600,
+            )
+        log.info("scheduler_saver_enabled",
+                 search_cron=schedule_cfg.get("search_cron"),
+                 search_until=schedule_cfg.get("search_until"),
+                 extract_cron=schedule_cfg.get("extract_cron"),
+                 extract_until=schedule_cfg.get("extract_until"))
+    if not _settings_cron_enabled() and not schedule_cfg.get("saver_enabled"):
         log.info("scheduler_started_paused", cron=cron_expr, version=app_state.version)
 
     async def _startup_run() -> None:
@@ -227,7 +276,7 @@ async def main() -> None:
             # Interrupted (redeploy) or failed → re-run same mode until it succeeds
             # Revalidate can't run from here, fall back to ai_only
             prev_mode = last_row["run_mode"]
-            startup_mode = prev_mode if prev_mode in ("full", "ai_only") else "ai_only"
+            startup_mode = prev_mode if prev_mode in ("full", "ai_only", "search_only") else "ai_only"
             reason = "interrupted" if last_row["finished_at"] is None else "failed"
             log.info("startup_run_retry", reason=reason, prev_mode=prev_mode, startup_mode=startup_mode)
         else:

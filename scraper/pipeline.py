@@ -13,7 +13,8 @@ from .extract import (DeepSeekExtractor, ExtractorUnavailableError,
 from .false_positives import build_prompt_section
 from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
-from .search import DataForSEOClient, FallbackSearchClient, SearchQuotaError, build_queries
+from .search import (DataForSEOClient, FallbackSearchClient, SearchQuotaError,
+                     SearchUnavailableError, build_queries)
 from .db import get_search_cache, save_search_cache, get_covered_pairs, upsert_venues, upsert_persons, delete_leader_persons_for_community, load_cache_page, find_community_by_id, get_fully_processed_pairs
 from .store import save_results
 
@@ -198,6 +199,34 @@ async def _enrich_record(
     return record
 
 
+def _window_closed(stop_at) -> bool:
+    """True when a stop_at deadline is set and has passed (aware UTC datetime)."""
+    if stop_at is None:
+        return False
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc) >= stop_at
+
+
+def _new_pair_log(city_name: str, topic_name: str, queries: list[str]) -> dict:
+    """Full-key pair log. run_detail.html sums/iterates these keys with strict
+    Jinja Undefined — every pair log (including failure entries) must carry all
+    of them."""
+    return {
+        "city": city_name,
+        "topic": topic_name,
+        "queries": queries,
+        "search_cache_hit": False,
+        "urls_found": 0,
+        "fetched_urls": [],
+        "fetch_failed": 0,
+        "cache_hits_scrape": 0,
+        "cache_hits_extract": 0,
+        "records_extracted": 0,
+        "search_failed": False,
+        "extract_failed": 0,
+    }
+
+
 def _tier_allows(city: "CityConfig", topic_name: str, core_topics: list[str]) -> bool:
     """topic_tier='core' cities only run core_topics; empty core_topics disables tiering."""
     return city.topic_tier != "core" or not core_topics or topic_name in core_topics
@@ -261,7 +290,15 @@ async def run_pipeline(
     run_persons: bool = True,
     on_progress: Callable[[str | None, str | None], None] | None = None,
     on_pair_start: "Callable[[str, str], None] | None" = None,
+    stop_at: "Any | None" = None,
 ) -> tuple[list[dict], int]:
+    """stop_at: optional aware datetime (UTC) — pair loops stop gracefully once
+    reached, so a run can be boxed into a time window (e.g. DeepSeek off-peak)."""
+    # run_mode="search_only": search + fetch + cache raw text, zero LLM calls.
+    # Pairs collect cheaply (DataForSEO standard mode); a later ai_only run
+    # extracts the cached pages when DeepSeek is in its off-peak window.
+    if run_mode == "search_only":
+        run_communities = run_venues = run_persons = False
     _skip_scraped = skip_scraped if skip_scraped is not None else config.cache_skip_scraped
     _skip_extracted = skip_extracted if skip_extracted is not None else config.cache_skip_extracted
 
@@ -302,33 +339,35 @@ async def run_pipeline(
         total_new, pair_logs = await _run_ai_only(
             cities, topics, config, extractor, cache, _skip_extracted, run_stats, on_progress,
             run_communities=run_communities, run_venues=run_venues, run_persons=run_persons,
-            on_pair_start=on_pair_start, pairs_filter=pairs_to_run,
+            on_pair_start=on_pair_start, pairs_filter=pairs_to_run, stop_at=stop_at,
         )
     else:
-        reai_new, reai_logs = await _run_ai_only(
-            cities, topics, config, extractor, cache, _skip_extracted, run_stats, on_progress,
-            run_communities=run_communities, run_venues=run_venues, run_persons=run_persons,
-            on_pair_start=on_pair_start, pairs_filter=pairs_to_run,
-        )
+        reai_new, reai_logs = (0, [])
+        if run_mode != "search_only":  # search_only never touches the LLM
+            reai_new, reai_logs = await _run_ai_only(
+                cities, topics, config, extractor, cache, _skip_extracted, run_stats, on_progress,
+                run_communities=run_communities, run_venues=run_venues, run_persons=run_persons,
+                on_pair_start=on_pair_start, pairs_filter=pairs_to_run, stop_at=stop_at,
+            )
         full_new, full_logs = await _run_full(
             cities, topics, config, extractor, cache, _skip_scraped, _skip_extracted, run_stats, on_progress,
             run_communities=run_communities, run_venues=run_venues, run_persons=run_persons,
-            on_pair_start=on_pair_start, pairs_filter=pairs_to_run,
+            on_pair_start=on_pair_start, pairs_filter=pairs_to_run, stop_at=stop_at,
         )
         total_new = reai_new + full_new
         pair_logs = reai_logs + full_logs
 
-    if run_mode == "full":
+    if run_mode in ("full", "search_only"):
         covered = get_covered_pairs(config.db_path)
         uncovered = all_pairs - covered - done_pairs
-        if uncovered:
+        if uncovered and not _window_closed(stop_at):
             log.info("catchup_pass_start", pairs=len(uncovered))
             catchup_new, catchup_logs = await _run_full(
                 cities, topics, config, extractor, cache,
                 _skip_scraped, _skip_extracted, run_stats, on_progress,
                 run_communities=run_communities, run_venues=run_venues,
                 run_persons=run_persons, pairs_filter=uncovered,
-                on_pair_start=on_pair_start,
+                on_pair_start=on_pair_start, stop_at=stop_at,
             )
             total_new += catchup_new
             pair_logs += catchup_logs
@@ -365,6 +404,7 @@ async def _run_full(
     run_persons: bool = True,
     pairs_filter: set[tuple[str, str]] | None = None,
     on_pair_start: "Callable[[str, str], None] | None" = None,
+    stop_at: "Any | None" = None,
 ) -> tuple[int, list[dict]]:
     search_primaries: list = []
     if config.dataforseo_login and config.dataforseo_password:
@@ -397,6 +437,9 @@ async def _run_full(
             # but direct _run_full callers may pass no filter).
             if not _tier_allows(city, topic.name, config.core_topics):
                 continue
+            if _window_closed(stop_at):
+                log.info("run_window_closed", city=city.name, topic=topic.name)
+                return total_new, pair_logs
             await asyncio.sleep(0)
             if on_pair_start:
                 on_pair_start(city.name, topic.name)
@@ -418,8 +461,8 @@ async def _run_full(
                 if searxng.exhausted:
                     # Provider down/quota gone: skip WITHOUT caching, so the pair is
                     # retried next run instead of being recorded as "searched, empty".
-                    pair_logs.append({"city": city.name, "topic": topic.name,
-                                      "queries": queries, "search_failed": True})
+                    pair_logs.append({**_new_pair_log(city.name, topic.name, queries),
+                                      "search_failed": True})
                     log.warning("search_unavailable_pair_skipped", city=city.name, topic=topic.name)
                     continue
                 try:
@@ -427,9 +470,9 @@ async def _run_full(
                         queries, locale=city.locale, num_results=config.search_results_per_query,
                         stop_after=config.search_max_pages * 2,
                     )
-                except SearchQuotaError as exc:
-                    pair_logs.append({"city": city.name, "topic": topic.name,
-                                      "queries": queries, "search_failed": True})
+                except (SearchQuotaError, SearchUnavailableError) as exc:
+                    pair_logs.append({**_new_pair_log(city.name, topic.name, queries),
+                                      "search_failed": True})
                     log.warning("search_unavailable_pair_skipped", city=city.name,
                                 topic=topic.name, reason=str(exc))
                     continue
@@ -450,20 +493,8 @@ async def _run_full(
                 save_search_cache(config.db_path, city.name, topic.name, all_urls, queries)
 
             fetched: list[tuple[str, str]] = []
-            pair_log: dict = {
-                "city": city.name,
-                "topic": topic.name,
-                "queries": queries,
-                "search_cache_hit": search_cache_hit,
-                "urls_found": urls_found,
-                "fetched_urls": [],
-                "fetch_failed": 0,
-                "cache_hits_scrape": 0,
-                "cache_hits_extract": 0,
-                "records_extracted": 0,
-                "search_failed": False,
-                "extract_failed": 0,
-            }
+            pair_log = {**_new_pair_log(city.name, topic.name, queries),
+                        "search_cache_hit": search_cache_hit, "urls_found": urls_found}
 
             urls_to_fetch = []
             for url in urls:
@@ -677,6 +708,7 @@ async def _run_ai_only(
     run_persons: bool = True,
     on_pair_start: "Callable[[str, str], None] | None" = None,
     pairs_filter: "set[tuple[str, str]] | None" = None,
+    stop_at: "Any | None" = None,
 ) -> tuple[int, list[dict]]:
     if not cache:
         log.warning("ai_only_mode_no_cache")
@@ -698,6 +730,9 @@ async def _run_ai_only(
         for topic in topics:
             if pairs_filter is not None and (city.name, topic.name) not in pairs_filter:
                 continue
+            if _window_closed(stop_at):
+                log.info("run_window_closed", city=city.name, topic=topic.name)
+                return total_new, pair_logs
             await asyncio.sleep(0)
             if on_pair_start:
                 on_pair_start(city.name, topic.name)

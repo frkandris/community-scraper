@@ -88,3 +88,4 @@ frontmatter. See [SCHEMA.md](SCHEMA.md) for conventions.
 - [[deployment-coolify]] — Docker on Coolify; volumes; env vars
 - [[adding-city-topic]] — config files + app.py dicts + i18n labels to update in lockstep
 - [[local-search-worker]] — REMOVED 2026-07-09; post-mortem of the browser-driven search experiment
+- [[cost-saver-schedule]] — twin crons: cheap search collection all day, DeepSeek only in the off-peak window

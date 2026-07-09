@@ -10,8 +10,9 @@ search:
   max_pages_per_topic: 5
   rate_limit_seconds: 1.5
   # "live" = instant, $2/1K queries. "standard" = task queue, $0.6/1K (70% cheaper)
-  # but each query takes ~0.5-5 minutes — only sensible for long unattended sweeps.
-  dataforseo_mode: live
+  # but each query takes ~0.5-5 minutes. Fine for the unattended saver collector;
+  # note manual dashboard runs also use this mode.
+  dataforseo_mode: standard
 
 fetch:
   timeout_seconds: 15
@@ -60,8 +61,20 @@ cache:
   search_ttl_days: 3650
 
 schedule:
-  # 16:35 UTC = start of DeepSeek's off-peak window (UTC 16:30-00:30, ~50-75% cheaper).
-  # Only takes effect when cron_enabled is true.
+  # Legacy single combined run (search+extract together). Off by default —
+  # the saver twin jobs below are the cost-optimized replacement.
   cron: "35 16 * * *"
   cron_enabled: false
   auto_run_on_startup: false
+  # ── Cost-saver twin schedule (time-rich, money-tight) ──────────────────────
+  # Two independent daily jobs that never overlap:
+  #  * search collector: search_only mode — DataForSEO (standard, $0.6/1K)
+  #    gyűjtöget + fetches pages, ZERO LLM calls. Runs 01:00 → 16:20 UTC.
+  #  * off-peak extractor: ai_only mode — DeepSeek runs ONLY on the already
+  #    collected pages, inside its discount window (UTC 16:30-00:30, ~50-75%
+  #    cheaper). Runs 16:35 → 00:20 UTC, stops gracefully at the window end.
+  saver_enabled: true
+  search_cron: "0 1 * * *"
+  search_until: "16:20"
+  extract_cron: "35 16 * * *"
+  extract_until: "00:20"
