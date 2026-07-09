@@ -16,7 +16,7 @@ from urllib.parse import quote as _url_quote, urlsplit
 import httpx
 import structlog
 import yaml
-from fastapi import APIRouter, BackgroundTasks, FastAPI, Form, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Body, FastAPI, Form, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -113,6 +113,11 @@ DATA_DIR = BASE_DIR / "data"
 
 _ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
 _ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+# Shared secret for the local browser-driven search worker (see docs/wiki local-search-worker).
+# Machine-to-machine, so its write endpoints are exempt from the same-origin CSRF check when
+# a matching X-Worker-Token is presented (Basic auth is still required). Empty = worker disabled.
+_SEARCH_WORKER_TOKEN = os.environ.get("SEARCH_WORKER_TOKEN", "")
+_WORKER_WRITE_PATHS = ("/admin/api/search/ingest",)
 
 TOPIC_ICONS: dict[str, str] = {
     "running": "person-simple-run",
@@ -257,6 +262,14 @@ class _BasicAuth:
         method = scope.get("method", "GET").upper()
         if method in ("GET", "HEAD", "OPTIONS"):
             return True
+
+        # Machine-to-machine search worker: a valid X-Worker-Token bypasses the
+        # same-origin (CSRF) check on its allow-listed write endpoints. CSRF protects
+        # browser sessions, not token-authenticated API calls; Basic auth still applies.
+        if _SEARCH_WORKER_TOKEN and scope.get("path", "") in _WORKER_WRITE_PATHS:
+            token = headers.get(b"x-worker-token", b"").decode("latin-1")
+            if hmac.compare_digest(token, _SEARCH_WORKER_TOKEN):
+                return True
 
         host = headers.get(b"host", b"").decode("latin-1")
         origin = headers.get(b"origin", b"").decode("latin-1")
@@ -2689,6 +2702,70 @@ async def api_coverage_cell(city: str = "", topic: str = ""):
         "current_fp_count": cell.get("current_fp_count", 0),
         "is_done": (city, topic) in done_pairs,
     }
+
+
+@admin.get("/api/search/jobs")
+async def api_search_jobs(limit: int = 50, country: str = ""):
+    """List (city, topic) pairs that still need a Google search, with ready-built
+    queries, for the local browser-driven search worker to run.
+
+    A pair is returned when it has no fresh search_cache entry. Scoped by ?country=
+    and capped at ?limit=. See docs/wiki local-search-worker.
+    """
+    from ..db import get_search_cache
+    from ..search import build_queries
+    if not app_state.db_path:
+        return {"jobs": [], "count": 0}
+    ttl = getattr(app_state.pipeline_cfg, "search_cache_ttl_days", 3650)
+    cities = app_state.cities or []
+    topics = app_state.topics or []
+    if country:
+        cities = [c for c in cities if c.country == country]
+    limit = max(1, min(int(limit), 500))
+    jobs: list[dict] = []
+    for city in cities:
+        for topic in topics:
+            if get_search_cache(app_state.db_path, city.name, topic.name, ttl) is not None:
+                continue  # already searched within TTL
+            terms = topic.search_terms.get(city.locale) or topic.search_terms.get("en", [])
+            queries = build_queries(city.name, city.search_variants, terms)
+            if not queries:
+                continue
+            jobs.append({
+                "city": city.name,
+                "topic": topic.name,
+                "locale": city.locale,
+                "queries": queries,
+            })
+            if len(jobs) >= limit:
+                return {"jobs": jobs, "count": len(jobs)}
+    return {"jobs": jobs, "count": len(jobs)}
+
+
+@admin.post("/api/search/ingest")
+async def api_search_ingest(payload: dict = Body(...)):
+    """Store the URL list a search worker found for one (city, topic) pair into
+    search_cache, exactly as the in-process search step would. The next pipeline
+    run then finds the search pre-populated and skips its own search for the pair.
+    """
+    from ..db import save_search_cache
+    if not app_state.db_path:
+        return JSONResponse({"error": "no db"}, status_code=400)
+    city = str(payload.get("city", "")).strip()
+    topic = str(payload.get("topic", "")).strip()
+    if not city or not topic:
+        return JSONResponse({"error": "city and topic are required"}, status_code=400)
+    known_cities = {c.name for c in (app_state.cities or [])}
+    known_topics = {t.name for t in (app_state.topics or [])}
+    if known_cities and city not in known_cities:
+        return JSONResponse({"error": f"unknown city: {city}"}, status_code=400)
+    if known_topics and topic not in known_topics:
+        return JSONResponse({"error": f"unknown topic: {topic}"}, status_code=400)
+    urls = [str(u) for u in (payload.get("urls") or []) if str(u).startswith(("http://", "https://"))]
+    queries = [str(q) for q in (payload.get("queries") or [])]
+    save_search_cache(app_state.db_path, city, topic, urls, queries)
+    log.info("search_worker_ingest", city=city, topic=topic, url_count=len(urls))
+    return {"ok": True, "city": city, "topic": topic, "url_count": len(urls)}
 
 
 @admin.post("/api/restamp-fingerprints")

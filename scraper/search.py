@@ -296,8 +296,9 @@ class GooglePlaywrightSearchClient:
 
     _CAPTCHA_MARKERS = ("/sorry/", "recaptcha", "g-recaptcha", "unusual traffic")
 
-    def __init__(self, rate_limit_seconds: float = 8.0):
+    def __init__(self, rate_limit_seconds: float = 8.0, headless: bool = True):
         self.rate_limit_seconds = rate_limit_seconds
+        self.headless = headless
         self._pw = None
         self._browser = None
         self._context = None
@@ -309,7 +310,7 @@ class GooglePlaywrightSearchClient:
             from playwright.async_api import async_playwright
             self._pw = await async_playwright().start()
             self._browser = await self._pw.chromium.launch(
-                headless=True,
+                headless=self.headless,
                 args=["--no-sandbox", "--disable-dev-shm-usage"],
             )
             self._context = await self._browser.new_context(
