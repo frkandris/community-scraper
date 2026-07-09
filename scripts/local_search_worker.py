@@ -42,12 +42,18 @@ _MAC_UA = (
 )
 
 try:
-    from scraper.search import GooglePlaywrightSearchClient, SearchQuotaError
+    from scraper.search import (
+        DuckDuckGoSearchClient,
+        GooglePlaywrightSearchClient,
+        SearchQuotaError,
+    )
 except ImportError:
     sys.stderr.write(
         "Could not import scraper.search — run from the repo root with PYTHONPATH=.\n"
     )
     raise
+
+_ENGINES = {"duckduckgo": DuckDuckGoSearchClient, "google": GooglePlaywrightSearchClient}
 
 
 def _parse_args() -> argparse.Namespace:
@@ -65,6 +71,8 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--max-delay", type=float, default=20.0, help="Max seconds between searches (jitter)")
     p.add_argument("--captcha-cooldown", type=float, default=900.0,
                    help="Seconds to wait after a CAPTCHA in headless mode")
+    p.add_argument("--engine", choices=list(_ENGINES), default="duckduckgo",
+                   help="Search engine to drive (default: duckduckgo — Google CAPTCHAs automation)")
     p.add_argument("--headful", action="store_true",
                    help="Show the browser (lets you solve a CAPTCHA by hand)")
     p.add_argument("--user-data-dir", default=os.path.expanduser("~/.cs_search_profile"),
@@ -127,7 +135,11 @@ async def _handle_captcha(client: GooglePlaywrightSearchClient, args: argparse.N
 
 async def _warmup(args: argparse.Namespace) -> int:
     """Open the persistent profile on google.com and wait, so the human can accept
-    consent / sign into Google. Seeds ~/.cs_search_profile for unattended runs."""
+    consent / sign into Google. Seeds ~/.cs_search_profile for unattended runs.
+    Only relevant for --engine google; DuckDuckGo needs no warm-up."""
+    if args.engine != "google":
+        print(f"--warmup is only needed for --engine google; {args.engine} needs no warm-up.")
+        return 0
     client = GooglePlaywrightSearchClient(
         rate_limit_seconds=1.0, headless=False,
         user_data_dir=args.user_data_dir, context_locale=args.browser_locale,
@@ -160,10 +172,12 @@ async def run(args: argparse.Namespace) -> int:
     processed = 0
     total_urls = 0
 
-    client = GooglePlaywrightSearchClient(
+    client_cls = _ENGINES[args.engine]
+    # DuckDuckGo needs no persistent profile; only pass one for Google.
+    udd = args.user_data_dir if args.engine == "google" else None
+    client = client_cls(
         rate_limit_seconds=args.min_delay, headless=not args.headful,
-        user_data_dir=args.user_data_dir, context_locale=args.browser_locale,
-        user_agent=_MAC_UA,
+        user_data_dir=udd, context_locale=args.browser_locale, user_agent=_MAC_UA,
     )
     await client.start()
     if client._context is None:  # persistent mode leaves _browser None; _context is the signal

@@ -9,6 +9,19 @@ from .models import SearchResult
 log = structlog.get_logger()
 
 
+def _async_playwright_factory():
+    """Prefer patchright (a patched Playwright that hides the CDP automation
+    signals Google/DDG/Bing fingerprint) over vanilla playwright when installed.
+    Identical async API, so it's a drop-in. Install: pip install patchright &&
+    patchright install chromium."""
+    try:
+        from patchright.async_api import async_playwright
+        return async_playwright
+    except ImportError:
+        from playwright.async_api import async_playwright
+        return async_playwright
+
+
 class SearchQuotaError(Exception):
     """Raised when the search API returns a rate-limit or payment-required error."""
 
@@ -332,8 +345,7 @@ class GooglePlaywrightSearchClient:
 
     async def start(self) -> None:
         try:
-            from playwright.async_api import async_playwright
-            self._pw = await async_playwright().start()
+            self._pw = await _async_playwright_factory()().start()
             # --disable-blink-features=AutomationControlled removes the
             # navigator.webdriver=true flag Google keys on; the init script masks
             # the remaining automation tells.
@@ -491,6 +503,142 @@ class GooglePlaywrightSearchClient:
         if elapsed < self.rate_limit_seconds:
             await asyncio.sleep(self.rate_limit_seconds - elapsed)
         self._last_request_time = time.monotonic()
+
+
+class DuckDuckGoSearchClient:
+    """Browser-driven DuckDuckGo search — scrapes the static html.duckduckgo.com
+    results page. Far more automation-tolerant than Google (no CAPTCHA on normal
+    use), so it's the engine of choice for the local search worker.
+
+    Shares the browser/persistent-profile/stealth machinery shape with the Google
+    client, but DDG needs none of it — a plain ephemeral context works.
+    """
+
+    _ANOMALY_MARKERS = ("anomaly", "unusual traffic", "blocked",
+                        "if this persists", "please email us")
+
+    def __init__(self, rate_limit_seconds: float = 4.0, headless: bool = True,
+                 user_data_dir: str | None = None, context_locale: str = "en-US",
+                 user_agent: str | None = None):
+        self.rate_limit_seconds = rate_limit_seconds
+        self.headless = headless
+        self.user_data_dir = user_data_dir
+        self.context_locale = context_locale
+        self.user_agent = user_agent or GooglePlaywrightSearchClient._DEFAULT_UA
+        self._pw = None
+        self._browser = None
+        self._context = None
+        self._last_request_time: float = 0.0
+
+    async def start(self) -> None:
+        try:
+            self._pw = await _async_playwright_factory()().start()
+            args = ["--no-sandbox", "--disable-dev-shm-usage"]
+            ctx_opts = {
+                "user_agent": self.user_agent,
+                "locale": self.context_locale,
+                "viewport": {"width": 1280, "height": 800},
+            }
+            if self.user_data_dir:
+                self._context = await self._pw.chromium.launch_persistent_context(
+                    self.user_data_dir, headless=self.headless, args=args, **ctx_opts,
+                )
+                self._browser = None
+            else:
+                self._browser = await self._pw.chromium.launch(headless=self.headless, args=args)
+                self._context = await self._browser.new_context(**ctx_opts)
+            log.info("duckduckgo_search_started")
+        except Exception as exc:
+            log.warning("duckduckgo_search_start_failed", error=str(exc))
+
+    async def stop(self) -> None:
+        try:
+            if self._context:
+                await self._context.close()
+            if self._browser:
+                await self._browser.close()
+            if self._pw:
+                await self._pw.stop()
+        except Exception as exc:
+            log.debug("duckduckgo_search_stop_error", error=str(exc))
+
+    async def _rate_limit(self) -> None:
+        import time
+        elapsed = time.monotonic() - self._last_request_time
+        if elapsed < self.rate_limit_seconds:
+            await asyncio.sleep(self.rate_limit_seconds - elapsed)
+        self._last_request_time = time.monotonic()
+
+    @staticmethod
+    def _clean_url(href: str) -> str | None:
+        """DDG links are often /l/?uddg=<encoded-real-url> redirects; decode them."""
+        if not href:
+            return None
+        if href.startswith("//"):
+            href = "https:" + href
+        if "uddg=" in href:
+            from urllib.parse import parse_qs, urlsplit, unquote
+            qs = parse_qs(urlsplit(href).query)
+            target = qs.get("uddg", [None])[0]
+            return unquote(target) if target else None
+        return href if href.startswith("http") else None
+
+    async def search(self, query: str, locale: str = "en",
+                     num_results: int = 10) -> list[SearchResult]:
+        if not self._context:
+            return []
+        await self._rate_limit()
+
+        hl = locale.split("-")[0] if "-" in locale else locale
+        if hl == "no":
+            hl = "nb"
+        gl, lang = LOCALE_TO_SERPER.get(hl, ("us", "en"))
+        kl = f"{gl}-{lang}"  # DDG region, e.g. se-sv, hu-hu
+        url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}&kl={kl}"
+
+        page = None
+        try:
+            page = await self._context.new_page()
+            resp = await page.goto(url, timeout=20_000, wait_until="domcontentloaded")
+            await asyncio.sleep(0.5)
+
+            if resp is not None and resp.status >= 400:
+                raise SearchQuotaError(f"DuckDuckGo HTTP {resp.status}")
+            body = (await page.content()).lower()
+            if "result__a" not in body and any(m in body for m in self._ANOMALY_MARKERS):
+                raise SearchQuotaError("DuckDuckGo anomaly / rate-limit page")
+
+            rows = await page.eval_on_selector_all(
+                "div.result:not(.result--ad) a.result__a",
+                "els => els.map(e => ({href: e.getAttribute('href'), title: e.innerText}))",
+            )
+            results: list[SearchResult] = []
+            for r in rows:
+                clean = self._clean_url(r.get("href", ""))
+                if clean and "duckduckgo.com" not in clean:
+                    results.append(SearchResult(url=clean, title=(r.get("title") or "").strip()))
+                if len(results) >= num_results:
+                    break
+            return results
+        except SearchQuotaError:
+            raise
+        except Exception as exc:
+            log.warning("duckduckgo_search_error", query=query, error=str(exc))
+            return []
+        finally:
+            if page:
+                await page.close()
+
+    async def search_all(self, queries: list[str], locale: str = "en",
+                         num_results: int = 10) -> list[SearchResult]:
+        seen: set[str] = set()
+        combined: list[SearchResult] = []
+        for q in queries:
+            for r in await self.search(q, locale=locale, num_results=num_results):
+                if r.url not in seen:
+                    seen.add(r.url)
+                    combined.append(r)
+        return combined
 
 
 class FallbackSearchClient:

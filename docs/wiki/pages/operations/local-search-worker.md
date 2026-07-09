@@ -66,6 +66,21 @@ PYTHONPATH=. python scripts/local_search_worker.py --warmup --browser-locale sv-
 
 It opens the persistent profile on google.com; accept the cookie consent, run a search or two, and — most effective — **sign into a Google account**. A logged-in session almost never triggers search CAPTCHAs. Subsequent unattended runs reuse the warmed profile.
 
+## Status / findings (2026-07-09)
+
+The infrastructure works end-to-end (auth, token, `/jobs` → search → `/ingest` → `search_cache`), but **reliably scraping search results from a driven browser did not pan out**:
+
+- **Google** CAPTCHAs the automated browser on the *first* query — with every mitigation tried: residential IP, headful real Chromium, a **logged-in Google account** in a persistent profile, stealth (webdriver mask + `AutomationControlled` off + matched locale + no `num=`), and **patchright** (patched Playwright that hides CDP automation signals). Google's detection goes beyond what these defeat.
+- **DuckDuckGo** `html.`/`lite.` endpoints hard-return **HTTP 403/202** to scrapers; the SPA served the `static-pages/418.html` bot-block with vanilla Playwright and a **202 shell (no rendered results)** with patchright — patchright measurably helped the fingerprint (418 → 202) but results still didn't render/scrape, and the result XHR (`links.duckduckgo.com/d.js`) didn't fire.
+- **Bing** returns a 200 result-less shell (challenge) to the driven browser.
+- Rapid testing likely temporarily rate-limited the residential IP across engines, which would need a cooldown before any fair retry.
+
+**Conclusion:** `patchright` is integrated and does hide the Playwright/CDP fingerprint (worth keeping), but the search engines' additional server-side/heuristic defenses block reliable result scraping. **Keep DataForSEO/Serper server-side as the actual search path.** The worker infra (endpoints, `scripts/local_search_worker.py`, engine flag, DDG client, persistent profile) remains for future refinement — e.g. a proper DDG `vqd`/XHR extractor, much slower pacing (minutes between queries), or a residential-proxy pool.
+
+## Setup for the browser engines
+
+`--engine duckduckgo` (default) or `--engine google`. Both route through **patchright** when installed (`pip install patchright && patchright install chromium`), falling back to vanilla playwright otherwise.
+
 ## Notes
 
 - The worker does **not** fetch or extract — it only fills `search_cache`. Run a normal pipeline afterward to fetch+extract the new URLs.
