@@ -2700,6 +2700,39 @@ async def api_coverage_cell(city: str = "", topic: str = ""):
     }
 
 
+@admin.post("/api/reset-city")
+async def api_reset_city(city: str = Form("")):
+    """Full fresh start for one city: wipe its communities/venues/persons,
+    search_cache and cache_pages rows, so every pair re-searches from scratch.
+
+    Needed because green pairs (any visible community) are skipped by the
+    done-pair pre-filter forever — clearing caches alone would leave old bad
+    results in place. NB: cache_pages.city is last-write-wins, so pages shared
+    with another city may also be cleared (they simply re-fetch next run).
+    """
+    from ..db import _connect, init_db
+    city = city.strip()
+    if not city or not app_state.db_path:
+        return JSONResponse({"error": "city is required"}, status_code=400)
+    known = {c.name for c in (app_state.cities or [])}
+    if known and city not in known:
+        return JSONResponse({"error": f"unknown city: {city}"}, status_code=400)
+    init_db(app_state.db_path)
+    counts = {}
+    with _connect(app_state.db_path) as conn:
+        for label, sql in [
+            ("communities", "DELETE FROM communities WHERE city=?"),
+            ("venues", "DELETE FROM venues WHERE city=?"),
+            ("persons", "DELETE FROM persons WHERE city=?"),
+            ("search_cache", "DELETE FROM search_cache WHERE city=?"),
+            ("cache_pages", "DELETE FROM cache_pages WHERE city=?"),
+        ]:
+            counts[label] = conn.execute(sql, (city,)).rowcount
+        conn.commit()
+    log.info("city_reset", city=city, **counts)
+    return {"ok": True, "city": city, "deleted": counts}
+
+
 @admin.post("/api/restamp-fingerprints")
 async def api_restamp_fingerprints():
     """Restamp all cache_pages rows to the current runtime extract fingerprint.
@@ -2770,10 +2803,10 @@ async def trigger_run(
     if app_state.is_running:
         return JSONResponse({"ok": False, "error": "already running"})
 
-    if run_mode not in ("full", "ai_only"):
+    if run_mode not in ("full", "ai_only", "search_only"):
         run_mode = "full"
     app_state.is_running = True
-    app_state.current_run_mode = "re-ai" if run_mode == "ai_only" else "smart"
+    app_state.current_run_mode = {"ai_only": "re-ai", "search_only": "collect"}.get(run_mode, "smart")
     _skip_scraped = (skip_scraped == "on")
     _skip_extracted = (skip_extracted == "on")
     _run_communities = (run_communities == "on")
