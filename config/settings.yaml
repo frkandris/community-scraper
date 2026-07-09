@@ -78,3 +78,7 @@ schedule:
   search_until: "16:20"
   extract_cron: "35 16 * * *"
   extract_until: "00:20"
+  # Daily summary email (traffic + changes per site + runs). Recipient =
+  # REPORT_EMAIL or FEEDBACK_EMAIL env; sent via Resend. 04:30 UTC = 06:30 CEST.
+  report_enabled: true
+  report_cron: "30 4 * * *"

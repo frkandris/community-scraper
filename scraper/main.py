@@ -265,6 +265,19 @@ async def main() -> None:
                  search_until=schedule_cfg.get("search_until"),
                  extract_cron=schedule_cfg.get("extract_cron"),
                  extract_until=schedule_cfg.get("extract_until"))
+    if _settings_schedule().get("report_enabled"):
+        async def _daily_report_job() -> None:
+            from .report import send_daily_report
+            hu = {c.name for c in (app_state.cities or []) if c.country == "Hungary"}
+            try:
+                await send_daily_report(db_path, hu)
+            except Exception as exc:
+                log.error("daily_report_failed", error=str(exc))
+        rm, rh, rd, rmo, rdow = _cron_fields(str(_settings_schedule().get("report_cron") or "30 4 * * *"))
+        scheduler.add_job(_daily_report_job, CronTrigger(
+            minute=rm, hour=rh, day=rd, month=rmo, day_of_week=rdow), misfire_grace_time=3600)
+        log.info("scheduler_report_enabled", cron=_settings_schedule().get("report_cron"))
+
     if not _settings_cron_enabled() and not schedule_cfg.get("saver_enabled"):
         log.info("scheduler_started_paused", cron=cron_expr, version=app_state.version)
 

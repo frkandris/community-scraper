@@ -267,6 +267,41 @@ class _BasicAuth:
 
 
 _fastapi = FastAPI(title="Community Scraper")
+
+
+_BOT_UA_MARKERS = ("bot", "spider", "crawl", "curl", "wget", "python-", "headless",
+                   "facebookexternalhit", "preview", "monitor", "lighthouse")
+_UNTRACKED_PREFIXES = ("/admin", "/static", "/api", "/healthz", "/robots",
+                       "/sitemap", "/set-lang", "/unsubscribe", "/source")
+
+
+@_fastapi.middleware("http")
+async def _count_pageview(request: Request, call_next):
+    """Lightweight server-side visitor counter for the daily report email.
+    Counts public GET page hits per site per UTC day; uniques via a salted
+    ip+ua day-hash. Bots (by UA marker) and utility paths are skipped."""
+    response = await call_next(request)
+    try:
+        path = request.url.path
+        if (request.method == "GET" and app_state.db_path
+                and response.status_code < 400
+                and not any(path.startswith(p) for p in _UNTRACKED_PREFIXES)
+                and "text/html" in (response.headers.get("content-type") or "")):
+            ua = (request.headers.get("user-agent") or "").lower()
+            if ua and not any(m in ua for m in _BOT_UA_MARKERS):
+                import asyncio as _asyncio
+                import hashlib as _hashlib
+                from datetime import datetime as _dt, timezone as _tz
+                from .i18n import _detect_site as _ds
+                from ..db import record_pageview
+                day = _dt.now(_tz.utc).strftime("%Y-%m-%d")
+                ip = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()                     or (request.client.host if request.client else "")
+                vh = _hashlib.sha256(f"{day}|{ip}|{ua}".encode()).hexdigest()[:16]
+                await _asyncio.to_thread(record_pageview, app_state.db_path, day,
+                                         _ds(request), vh)
+    except Exception:
+        pass  # tracking must never break a page
+    return response
 app = _BasicAuth(_fastapi)
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 templates.env.filters["urlencode"] = lambda s: _url_quote(str(s), safe="")
@@ -2746,6 +2781,17 @@ async def api_coverage_cell(city: str = "", topic: str = ""):
         "current_fp_count": cell.get("current_fp_count", 0),
         "is_done": (city, topic) in done_pairs,
     }
+
+
+@admin.post("/api/send-daily-report")
+async def api_send_daily_report(day: str = Form("")):
+    """Send the daily summary email now (optional ?day=YYYY-MM-DD, default yesterday)."""
+    from ..report import send_daily_report
+    if not app_state.db_path:
+        return JSONResponse({"error": "no db"}, status_code=400)
+    hu = _hu_city_names()
+    result = await send_daily_report(app_state.db_path, hu, day.strip() or None)
+    return JSONResponse(result, status_code=200 if result.get("ok") else 400)
 
 
 @admin.post("/api/reset-city")

@@ -366,6 +366,22 @@ def init_db(db_path: Path) -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_outclick_clicked_at ON outclick_events(clicked_at)"
         )
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS traffic_daily (
+                day       TEXT NOT NULL,
+                site      TEXT NOT NULL,
+                pageviews INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (day, site)
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS traffic_visitors (
+                day          TEXT NOT NULL,
+                site         TEXT NOT NULL,
+                visitor_hash TEXT NOT NULL,
+                PRIMARY KEY (day, site, visitor_hash)
+            )
+        """)
 
         conn.commit()
 
@@ -2442,3 +2458,122 @@ def get_outclick_stats(db_path: Path) -> dict:
         ],
         "by_type": [{"type": r[0], "cnt": r[1]} for r in by_type],
     }
+
+
+# ── Daily traffic + report ────────────────────────────────────────────────────
+
+def record_pageview(db_path: Path, day: str, site: str, visitor_hash: str) -> None:
+    """One public page hit. Lightweight server-side counter (bot-filtered by the
+    caller); uniques approximated by a per-day visitor hash."""
+    with _connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO traffic_daily(day, site, pageviews) VALUES(?,?,1)"
+            " ON CONFLICT(day, site) DO UPDATE SET pageviews = pageviews + 1",
+            (day, site))
+        conn.execute(
+            "INSERT OR IGNORE INTO traffic_visitors(day, site, visitor_hash) VALUES(?,?,?)",
+            (day, site, visitor_hash))
+        conn.commit()
+
+
+def get_traffic_for_day(db_path: Path, day: str) -> dict:
+    """{site: {"pageviews": n, "visitors": m}} for one UTC day."""
+    if not db_path.exists():
+        return {}
+    out: dict = {}
+    with _connect(db_path) as conn:
+        for site, pv in conn.execute(
+                "SELECT site, pageviews FROM traffic_daily WHERE day=?", (day,)).fetchall():
+            out[site] = {"pageviews": pv, "visitors": 0}
+        for site, uniq in conn.execute(
+                "SELECT site, COUNT(*) FROM traffic_visitors WHERE day=? GROUP BY site",
+                (day,)).fetchall():
+            out.setdefault(site, {"pageviews": 0, "visitors": 0})["visitors"] = uniq
+    return out
+
+
+def get_daily_summary(db_path: Path, start_iso: str, end_iso: str,
+                      hu_cities: set) -> dict:
+    """Changes between two ISO timestamps, split into 'hu' / 'intl' scopes."""
+    empty = {"new_communities": 0, "changed_communities": 0, "change_rows": 0,
+             "new_venues": 0, "new_persons": 0, "pages_scraped": 0,
+             "pages_extracted": 0, "searches": 0}
+    result = {"hu": dict(empty), "intl": dict(empty), "runs": [],
+              "totals": {"hu": 0, "intl": 0, "covered_pairs_hu": 0, "covered_pairs_intl": 0}}
+    if not db_path.exists():
+        return result
+
+    def scope(city: str) -> str:
+        return "hu" if city in hu_cities else "intl"
+
+    with _connect(db_path) as conn:
+        for city, cnt in conn.execute("""
+            SELECT c.city, COUNT(*) FROM communities c
+            JOIN (SELECT community_id, MIN(changed_at) AS fs FROM community_history
+                  WHERE field='__created__' GROUP BY community_id) h
+              ON h.community_id = c.community_id
+            WHERE c.hidden = 0 AND h.fs >= ? AND h.fs < ?
+            GROUP BY c.city
+        """, (start_iso, end_iso)).fetchall():
+            result[scope(city)]["new_communities"] += cnt
+
+        for city, ids, rows in conn.execute("""
+            SELECT c.city, COUNT(DISTINCT ch.community_id), COUNT(*)
+            FROM community_history ch
+            JOIN communities c ON c.community_id = ch.community_id
+            WHERE ch.field != '__created__' AND ch.changed_at >= ? AND ch.changed_at < ?
+            GROUP BY c.city
+        """, (start_iso, end_iso)).fetchall():
+            result[scope(city)]["changed_communities"] += ids
+            result[scope(city)]["change_rows"] += rows
+
+        for table, id_col, target, key in (
+            ("venue_history", "venue_id", "venues", "new_venues"),
+            ("person_history", "person_id", "persons", "new_persons"),
+        ):
+            for city, cnt in conn.execute(f"""
+                SELECT t.city, COUNT(*) FROM {target} t
+                JOIN (SELECT {id_col} AS eid, MIN(changed_at) AS fs FROM {table}
+                      WHERE field='__created__' GROUP BY {id_col}) h
+                  ON h.eid = t.{id_col}
+                WHERE h.fs >= ? AND h.fs < ?
+                GROUP BY t.city
+            """, (start_iso, end_iso)).fetchall():
+                result[scope(city)][key] += cnt
+
+        for col, key in (("scraped_at", "pages_scraped"), ("extracted_at", "pages_extracted")):
+            for city, cnt in conn.execute(
+                    f"SELECT city, COUNT(*) FROM cache_pages WHERE {col} >= ? AND {col} < ? GROUP BY city",
+                    (start_iso, end_iso)).fetchall():
+                result[scope(city or "")][key] += cnt
+
+        for city, cnt in conn.execute(
+                "SELECT city, COUNT(*) FROM search_cache WHERE cached_at >= ? AND cached_at < ? GROUP BY city",
+                (start_iso, end_iso)).fetchall():
+            result[scope(city)]["searches"] += cnt
+
+        for row in conn.execute(
+                "SELECT id, run_mode, started_at, finished_at, success, search_log"
+                " FROM runs WHERE started_at >= ? AND started_at < ? ORDER BY started_at",
+                (start_iso, end_iso)).fetchall():
+            run = {"id": row[0], "mode": row[1], "started_at": row[2],
+                   "finished_at": row[3], "success": bool(row[4]),
+                   "pairs": 0, "records": 0, "search_failed": 0, "extract_failed": 0}
+            if row[5]:
+                try:
+                    logs = json.loads(row[5])
+                    run["pairs"] = len(logs)
+                    run["records"] = sum(p.get("records_extracted", 0) for p in logs)
+                    run["search_failed"] = sum(1 for p in logs if p.get("search_failed"))
+                    run["extract_failed"] = sum(p.get("extract_failed", 0) for p in logs)
+                except Exception:
+                    pass
+            result["runs"].append(run)
+
+        for city, cnt in conn.execute(
+                "SELECT city, COUNT(*) FROM communities WHERE hidden=0 GROUP BY city").fetchall():
+            result["totals"][scope(city)] += cnt
+        for city, cnt in conn.execute(
+                "SELECT city, COUNT(*) FROM search_cache GROUP BY city").fetchall():
+            result["totals"]["covered_pairs_" + scope(city)] += cnt
+    return result
