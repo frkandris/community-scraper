@@ -1,7 +1,7 @@
 {% extends "public_base.html" %}
 {% block title %}{{ person.name }} – {{ site_name }}{% endblock %}
 {% block og_image_url %}/static/img/og/{% if community_entries %}{{ community_entries[0].topic or 'default' }}{% else %}default{% endif %}.png{% endblock %}
-{% block og_desc %}{{ bio or (person.name ~ ' – közösségi személy, ' ~ city ~ '.') }}{% endblock %}
+{% block og_desc %}{{ bio or t('person_og_desc', name=person.name, city=city) }}{% endblock %}
 {% block content %}
 
 <!-- Mini gradient strip -->

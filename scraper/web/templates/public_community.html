@@ -76,7 +76,7 @@
     {% set social_set = r.social_links | list %}
     {% if has_website or r.social_links or all_sources %}
     <div class="mb-6 pb-6 border-b border-[#F5F2EC]">
-      <p class="text-xs font-semibold text-[#8C8478] uppercase tracking-[0.08em] mb-3">{{ t('community_get_involved') }}</p>
+      <p class="text-xs font-semibold text-[#8C8478] uppercase tracking-[0.08em] mb-3">{% if has_website or r.social_links %}{{ t('community_get_involved') }}{% else %}{{ t('community_source_links') }}{% endif %}</p>
       <div class="flex flex-col gap-2">
         {# Primary website #}
         {% if has_website %}
@@ -161,7 +161,7 @@
       <div class="space-y-3">
         {{ detail_row('map-pin',  t('community_location'),  r.location) }}
         {{ detail_row('calendar', t('community_schedule'),  r.meeting_schedule) }}
-        {{ detail_row('repeat',   t('community_frequency'),  r.frequency) }}
+        {{ detail_row('repeat',   t('community_frequency'),  r.frequency if r.frequency and r.frequency|lower not in ('rendszeres', 'regular', 'rendszeresen') else None) }}
       </div>
     </div>
     {% endif %}

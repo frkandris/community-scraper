@@ -1137,6 +1137,30 @@ def get_fully_processed_pairs(db_path: Path, current_fp: str) -> set[tuple[str, 
     return result
 
 
+def get_recently_added_communities(db_path: Path, limit: int = 30) -> list[dict]:
+    """Latest first-seen visible communities (first __created__ history row per id)."""
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        rows = conn.execute("""
+            SELECT c.data, h.first_seen FROM communities c
+            JOIN (SELECT community_id, MIN(changed_at) AS first_seen
+                  FROM community_history WHERE field='__created__'
+                  GROUP BY community_id) h ON h.community_id = c.community_id
+            WHERE c.hidden = 0
+            ORDER BY h.first_seen DESC LIMIT ?
+        """, (limit,)).fetchall()
+    out = []
+    for data_str, first_seen in rows:
+        try:
+            d = json.loads(data_str)
+        except Exception:
+            continue
+        d["first_seen"] = first_seen
+        out.append(d)
+    return out
+
+
 def get_city_totals(db_path: Path) -> list[tuple[str, int]]:
     if not db_path.exists():
         return []

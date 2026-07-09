@@ -1,6 +1,6 @@
 {% extends "public_base.html" %}
 {% block title %}Térkép – {{ site_name }}{% endblock %}
-{% block og_desc %}Magyar városok közösségei interaktív térképen – kattints egy városra és fedezd fel a helyi közösségeket.{% endblock %}
+{% block og_desc %}{{ t('map_og_desc') }}{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
@@ -56,12 +56,12 @@ const _communityPlural = {{ t('map_n_communities') | tojson }};
 const _exploreBtn = {{ t('map_explore_btn') | tojson }};
 
 cities.forEach(city => {
-  const radius = Math.max(7, Math.min(22, 5 + Math.sqrt(city.count) * 1.6));
+  const radius = Math.max(4, Math.min(14, 3 + Math.sqrt(city.count) * 1.1));
 
   const marker = L.circleMarker([city.lat, city.lng], {
     radius: radius,
     fillColor: '#C2613A',
-    fillOpacity: 0.82,
+    fillOpacity: 0.55,
     color: '#8A4226',
     weight: 1.5,
   }).addTo(map);
@@ -79,7 +79,7 @@ cities.forEach(city => {
     this.openPopup();
   });
   marker.on('mouseout', function () {
-    this.setStyle({ radius, fillOpacity: 0.82 });
+    this.setStyle({ radius, fillOpacity: 0.55 });
   });
   marker.on('click', function () {
     window.location.href = '{{ explore_url }}?city=' + encodeURIComponent(city.name);

@@ -1,6 +1,6 @@
 {% extends "public_base.html" %}
 {% block title %}Helyszínek – {{ site_name }}{% endblock %}
-{% block og_desc %}Helyszínek és közösségi terek, ahol érdeklődési csoportok találkoznak Magyarország-szerte.{% endblock %}
+{% block og_desc %}{{ t('venues_og_desc') }}{% endblock %}
 {% block content %}
 
 {% macro _venue_card(v) %}

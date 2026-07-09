@@ -5,7 +5,7 @@
 {% block head %}<meta name="robots" content="noindex, nofollow">{% endblock %}
 
 {% block content %}
-<div class="bg-gradient-to-br from-[#A8512F] to-[#7A3A21] text-white py-10 px-4">
+<div class="brand-gradient text-white py-10 px-4">
   <div class="max-w-2xl mx-auto">
     <h1 class="text-3xl font-bold mb-6">{{ t('search_title') }}</h1>
     <form action="/kereses" method="get" class="flex gap-2">
@@ -37,7 +37,7 @@
 
   {% if communities %}
   <section class="mb-8">
-    <h2 class="text-base font-semibold text-[#1C1917] mb-3">Közösségek</h2>
+    <h2 class="text-base font-semibold text-[#1C1917] mb-3">{{ t('search_section_communities') }}</h2>
     <div class="space-y-2">
       {% for c in communities %}
       {% set city_sl = c.city | slugify %}
@@ -48,6 +48,7 @@
         <div class="min-w-0">
           <div class="font-medium text-[#1C1917] group-hover:text-[#A8512F] transition-colors truncate">{{ c.name }}</div>
           <div class="text-xs text-[#8C8478]">{{ c.city }} · {{ topic_labels.get(c.topic, c.topic) }}</div>
+          {% if c.description %}<div class="text-xs text-[#B5ADA0] truncate mt-0.5">{{ c.description | truncate(120, True, '…') }}</div>{% endif %}
         </div>
       </a>
       {% endfor %}
@@ -57,7 +58,7 @@
 
   {% if venues %}
   <section class="mb-8">
-    <h2 class="text-base font-semibold text-[#1C1917] mb-3">Helyszínek</h2>
+    <h2 class="text-base font-semibold text-[#1C1917] mb-3">{{ t('search_section_venues') }}</h2>
     <div class="space-y-2">
       {% for v in venues %}
       {% set city_sl = v.city | slugify %}
@@ -77,7 +78,7 @@
 
   {% if persons %}
   <section class="mb-8">
-    <h2 class="text-base font-semibold text-[#1C1917] mb-3">Emberek</h2>
+    <h2 class="text-base font-semibold text-[#1C1917] mb-3">{{ t('search_section_people') }}</h2>
     <div class="space-y-2">
       {% for p in persons %}
       {% set city_sl = p.city | slugify %}

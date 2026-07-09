@@ -1,6 +1,6 @@
 {% extends "public_base.html" %}
 {% block head %}{% if schema_json %}<script type="application/ld+json">{{ schema_json | safe }}</script>{% endif %}{% endblock %}
-{% block og_desc %}{% if city and total > 0 %}{{ total }} közösség {{ city }}-ban/-ben.{% elif city %}Közösségek {{ city }}-ban/-ben – fedezd fel az érdeklődési köröket.{% else %}Fedezd fel a helyi közösségeket Magyarországon.{% endif %}{% endblock %}
+{% block og_desc %}{% if city and total > 0 %}{{ t('explore_og_city_count', total=total, city=city) }}{% elif city %}{{ t('explore_og_city', city=city) }}{% else %}{{ t('explore_og_generic') }}{% endif %}{% endblock %}
 {% block title %}
   {% if city and selected_topics %}
     {{ city }} · {% for t in selected_topics %}{{ topic_labels.get(t, t.replace('_', ' ').title()) }}{% if not loop.last %}, {% endif %}{% endfor %} – {{ site_name }}
@@ -212,7 +212,7 @@
       {% endfor %}
     </form>
     {% else %}
-    <div class="flex items-center gap-1.5 flex-wrap" id="topic-chips">
+    <div class="flex items-center gap-1.5 flex-wrap sticky top-[57px] z-10 bg-[#FAFAF8]/95 backdrop-blur py-2" id="topic-chips">
       {% for t in topics %}
       {% if available_topics.get(t.name, 0) > 0 %}
       <button type="button" onclick="filterTopic('{{ t.name }}')"
@@ -252,6 +252,14 @@
 
       {% if r.description %}
       <p class="text-sm text-[#6A6259] leading-relaxed line-clamp-2">{{ r.description }}</p>
+      {% endif %}
+
+      {% set _when = r.meeting_schedule or (r.frequency if r.frequency and r.frequency|lower not in ('rendszeres', 'regular') else None) %}
+      {% if _when or r.fee %}
+      <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#8C8478] mt-auto">
+        {% if _when %}<span class="inline-flex items-center gap-1"><i class="ph ph-clock"></i>{{ _when | truncate(44, True, '…') }}</span>{% endif %}
+        {% if r.fee %}<span class="inline-flex items-center gap-1"><i class="ph ph-coins"></i>{{ r.fee | truncate(26, True, '…') }}</span>{% endif %}
+      </div>
       {% endif %}
 
     </div>
@@ -440,4 +448,23 @@
   });
 })();
 </script>
+{% if nearby_cities %}
+<div class="max-w-6xl mx-auto px-4 sm:px-6 pb-10">
+  <div class="mt-4 pt-6 border-t border-[#EAE5DB]">
+    <h2 class="text-base font-semibold text-[#1C1917] mb-3 flex items-center gap-2">
+      <i class="ph ph-map-trifold text-[#C2613A]"></i>{{ t('nearby_cities_heading') }}
+    </h2>
+    <div class="flex flex-wrap gap-2">
+      {% for nc in nearby_cities %}
+      <a href="/{{ nc.slug }}"
+         class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-white border border-[#EAE5DB] hover:border-[#E88E6B] hover:bg-[#FDF0EA] transition-colors">
+        <span class="font-medium text-[#2E2B29]">{{ nc.name }}</span>
+        <span class="text-xs font-bold text-[#C2613A]">{{ nc.count }}</span>
+        <span class="text-[11px] text-[#B5ADA0]">{{ nc.km }} km</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}

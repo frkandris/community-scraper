@@ -923,10 +923,26 @@ async def public_home(request: Request, city: str = ""):
     topics = app_state.topics or []
     topic_url_slugs = {t.name: _topic_url_slug(t.name, "hu") for t in topics}
     if site not in _home_stats_cache:
-        topic_counts = _hu_topic_counts() if site == "kozossegek" else _global_topic_counts()
+        if site == "kozossegek":
+            topic_counts = _hu_topic_counts()
+        else:
+            # meetapedia interest grid: international counts (global minus HU) so
+            # HU-heavy topics (Folk Traditions…) don't dominate the intl site.
+            _glob, _hu = _global_topic_counts(), _hu_topic_counts()
+            topic_counts = {k: v - _hu.get(k, 0) for k, v in _glob.items() if v - _hu.get(k, 0) > 0}
         venue_counts = {k: v for k, v in (get_venue_counts(_db()) if app_state.db_path else {}).items() if k in site_city_names}
         person_counts = {k: v for k, v in (get_person_counts(_db()) if app_state.db_path else {}).items() if k in site_city_names}
         city_totals = dict(get_city_totals(_db())) if app_state.db_path else {}
+        # Popularity ranking: topic diversity first, then count excluding the
+        # generic 'other' bucket — stops small towns with 100 'Egyéb/Nyugdíjas'
+        # rows from outranking real cities.
+        from ..db import get_city_topic_counts as _gctc, get_recently_added_communities
+        per_city_topics = _gctc(_db()) if app_state.db_path else {}
+        def _pop_key(name: str, count: int):
+            t = per_city_topics.get(name, {})
+            diverse = sum(1 for k, v in t.items() if k != "other" and v > 0)
+            adj = count - t.get("other", 0)
+            return (-diverse, -adj, _hu_sort_key(name))
         city_list = sorted(
             [{
                 "name": c.name,
@@ -936,13 +952,15 @@ async def public_home(request: Request, city: str = ""):
                 "lat": CITY_COORDS.get(c.name, (None, None))[0],
                 "lng": CITY_COORDS.get(c.name, (None, None))[1],
             } for c in site_cities],
-            key=lambda x: (-x["count"], _hu_sort_key(x["name"])),
+            key=lambda x: _pop_key(x["name"], x["count"]),
         )
+        recent = [r for r in get_recently_added_communities(_db(), limit=40)
+                  if r.get("city") in site_city_names][:6] if app_state.db_path else []
         # meetapedia: top 3 cities per country, sorted by total count desc
         country_city_groups: dict = {}
         if site == "meetapedia":
             for c in city_list:
-                if c["country"]:
+                if c["country"] and c["count"] > 0:  # no empty city chips
                     country_city_groups.setdefault(c["country"], []).append(c)
             country_city_groups = dict(sorted(
                 country_city_groups.items(),
@@ -951,6 +969,7 @@ async def public_home(request: Request, city: str = ""):
             for k in country_city_groups:
                 country_city_groups[k] = country_city_groups[k][:3]
         _home_stats_cache[site] = {
+            "recent_communities": recent,
             "topic_counts": topic_counts,
             "total_records": sum(topic_counts.values()),
             "total_venues": sum(venue_counts.values()),
@@ -971,6 +990,7 @@ async def public_home(request: Request, city: str = ""):
         "selected_city": city,
         "topic_counts": topic_counts,
         "topic_url_slugs": topic_url_slugs,
+        "recent_communities": _home_stats_cache[site].get("recent_communities", []),
         "total_records": _home_stats_cache[site]["total_records"],
         "total_venues": _home_stats_cache[site]["total_venues"],
         "total_persons": _home_stats_cache[site]["total_persons"],
@@ -995,6 +1015,33 @@ async def healthz():
         "db": "ok" if db_ok else "error",
         "total_records": total_records,
     }
+
+
+def _nearby_cities(request: Request, city_name: str, limit: int = 6) -> list[dict]:
+    """Closest same-site cities with data — internal-linking block for city pages."""
+    import math
+    origin = CITY_COORDS.get(city_name)
+    if not origin or not app_state.db_path:
+        return []
+    from ..db import get_city_totals
+    totals = dict(get_city_totals(_db()))
+    out = []
+    for c in _site_cities(request):
+        if c.name == city_name or totals.get(c.name, 0) <= 0:
+            continue
+        coords = CITY_COORDS.get(c.name)
+        if not coords:
+            continue
+        dlat = math.radians(coords[0] - origin[0])
+        dlng = math.radians(coords[1] - origin[1])
+        a = (math.sin(dlat / 2) ** 2
+             + math.cos(math.radians(origin[0])) * math.cos(math.radians(coords[0]))
+             * math.sin(dlng / 2) ** 2)
+        km = 6371 * 2 * math.asin(math.sqrt(a))
+        out.append({"name": c.name, "slug": _slugify(c.name),
+                    "count": totals[c.name], "km": round(km)})
+    out.sort(key=lambda x: x["km"])
+    return out[:limit]
 
 
 async def _render_explore(
@@ -1186,6 +1233,7 @@ async def _render_explore(
         "city_coords_for_js": city_coords_for_js,
         "canonical_base": _canonical_base(request, city) if city else None,
         "page_noindex": bool(city and topic and total == 0),
+        "nearby_cities": _nearby_cities(request, city) if city else [],
         **lang_context(request),
     })
 
@@ -3777,7 +3825,8 @@ async def public_venues(request: Request, city: str = "", topic: str = ""):
     for v in filtered:
         city_map[v.get("city") or "—"].append(v)
     city_sections = [
-        {"name": ci, "venues": vs} for ci, vs in sorted(city_map.items())
+        {"name": ci, "venues": vs}
+        for ci, vs in sorted(city_map.items(), key=lambda kv: (-len(kv[1]), _hu_sort_key(kv[0])))
     ]
 
     return templates.TemplateResponse(request, "public_venues.html", {
@@ -3857,7 +3906,14 @@ async def public_search(request: Request):
     if app_state.db_path and len(q) >= 2:
         init_db(app_state.db_path)
         results = search_all(app_state.db_path, q)
-    communities = results["communities"]
+    seen_ids: set = set()
+    communities = []
+    for c in results["communities"]:
+        cid = c.get("community_id") or (c.get("name", ""), c.get("city", ""))
+        if cid in seen_ids:
+            continue  # same community indexed under multiple topics
+        seen_ids.add(cid)
+        communities.append(c)
     venues = results["venues"]
     persons = results["persons"]
     total = len(communities) + len(venues) + len(persons)

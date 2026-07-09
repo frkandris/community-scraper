@@ -1,6 +1,6 @@
 {% extends "public_base.html" %}
-{% block title %}{{ site_name }} – Találd meg a közösséged{% endblock %}
-{% block og_desc %}{{ total_records }} közösség {{ cities | length }} városban Magyarországon. Találd meg a hozzád hasonló érdeklődésű embereket.{% endblock %}
+{% block title %}{{ site_name }} – {{ t('home_title') }}{% endblock %}
+{% block og_desc %}{{ t('home_og_desc', total=total_records, cities=cities | length) }}{% endblock %}
 {% block content %}
 
 <!-- Gradient hero — full bleed -->
@@ -86,6 +86,23 @@
             <i class="ph ph-list-bullets"></i>
             {{ t('home_all_cities') }}
           </a>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if recent_communities %}
+      <div class="space-y-3 pt-2">
+        <h2 class="text-sm font-semibold text-[#1C1917]">{{ t('home_recent_heading') }}</h2>
+        <div class="flex flex-col gap-1.5">
+          {% for r in recent_communities %}
+          <a href="/{{ r.city | slugify }}/{{ r.name | slugify }}"
+             class="flex items-center gap-2.5 bg-white rounded-lg border border-[#EAE5DB] px-3 py-2
+                    hover:border-[#E88E6B] hover:bg-[#FDF0EA] transition-colors group min-w-0">
+            <i class="ph ph-{{ topic_icons.get(r.topic, 'circle') }} text-[#C2613A] text-sm shrink-0"></i>
+            <span class="text-sm font-medium text-[#2E2B29] group-hover:text-[#8A4226] truncate">{{ r.name }}</span>
+            <span class="text-xs text-[#8C8478] shrink-0 ml-auto">{{ r.city }}</span>
+          </a>
+          {% endfor %}
         </div>
       </div>
       {% endif %}

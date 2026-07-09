@@ -107,3 +107,10 @@ def test_meetapedia_sitemap_omits_hu_cities(seo_client):
     xml = seo_client.get("/sitemap.xml", headers=MEET).text
     assert "budapest" not in xml
     assert "meetapedia.com/stockholm" in xml
+
+
+def test_meetapedia_home_title_is_english(seo_client):
+    """SEO regression: the intl site's <title> was hardcoded Hungarian once."""
+    r = seo_client.get("/", headers=MEET)
+    assert "Find your community" in r.text
+    assert "Találd meg a közösséged" not in r.text
