@@ -33,6 +33,15 @@ _METRICS = [
     ("pages_extracted", "AI-feldolgozott oldal"),
 ]
 
+_STOCK_METRICS = [
+    ("communities", "Közösség"),
+    ("venues", "Helyszín"),
+    ("persons", "Személy"),
+    ("pages_cached", "Cache-elt oldal"),
+    ("pages_extracted", "AI-feldolgozott oldal"),
+    ("covered_pairs", "Lekeresett város–téma páros"),
+]
+
 
 def fetch_ga4_traffic(day: str) -> dict | None:
     """Visitors per hostname from the GA4 Data API for one day.
@@ -110,6 +119,20 @@ def build_report_html(day: str, summary: dict, traffic: dict,
         _ROW.format(label=label, hu=hu[k], intl=intl[k], total=hu[k] + intl[k])
         for k, label in _METRICS)
 
+    # Older summaries have no "stock" — fall back to the totals we do have.
+    stock = summary.get("stock") or {
+        "hu": {"communities": totals["hu"], "covered_pairs": totals["covered_pairs_hu"]},
+        "intl": {"communities": totals["intl"], "covered_pairs": totals["covered_pairs_intl"]},
+    }
+
+    def s_site(sc: str, key: str) -> int:
+        return stock.get(sc, {}).get(key, 0)
+
+    stock_rows = "".join(
+        _ROW.format(label=label, hu=s_site("hu", k), intl=s_site("intl", k),
+                    total=s_site("hu", k) + s_site("intl", k))
+        for k, label in _STOCK_METRICS)
+
     runs_html = ""
     if summary["runs"]:
         items = []
@@ -167,12 +190,15 @@ def build_report_html(day: str, summary: dict, traffic: dict,
 
   {runs_html}
 
-  <h3 style="margin:18px 0 6px">Állomány</h3>
-  <p style="margin:0;font-size:14px">
-    Közösségek: <b>{totals["hu"]}</b> magyar + <b>{totals["intl"]}</b> nemzetközi
-    = <b>{totals["hu"] + totals["intl"]}</b><br>
-    Lefedett város–téma párosok (legalább egyszer lekeresve):
-    {totals["covered_pairs_hu"]} magyar + {totals["covered_pairs_intl"]} nemzetközi</p>
+  <h3 style="margin:18px 0 6px">Állomány (aktuális összesen)</h3>
+  <table style="border-collapse:collapse;font-size:14px">
+    <tr style="color:#8C8478;font-size:12px">
+      <td style="padding:4px 12px 4px 0"></td>
+      <td align="right" style="padding:4px 8px">Magyar</td>
+      <td align="right" style="padding:4px 8px">Nemzetközi</td>
+      <td align="right" style="padding:4px 0 4px 8px">Össz</td></tr>
+    {stock_rows}
+  </table>
 
   <p style="color:#B5ADA0;font-size:11px;margin-top:20px">
     közösségek.com napi riport · <a href="https://kozossegek.com/admin" style="color:#A8512F">admin</a></p>

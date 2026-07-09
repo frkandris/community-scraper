@@ -47,6 +47,10 @@ def test_daily_summary_scopes(tmp_path):
     assert s["hu"]["new_communities"] == 1
     assert s["intl"]["new_communities"] == 1
     assert s["totals"]["hu"] == 1 and s["totals"]["intl"] == 1
+    # current stock (not just the diff)
+    assert s["stock"]["hu"]["communities"] == 1
+    assert s["stock"]["intl"]["communities"] == 1
+    assert s["stock"]["hu"]["venues"] == 0 and s["stock"]["hu"]["pages_cached"] == 0
 
 
 def test_report_html_contains_sections_and_numbers():
@@ -70,6 +74,30 @@ def test_report_html_contains_sections_and_numbers():
     for frag in ("Napi összefoglaló — 2026-07-09", "kozossegek.com", "meetapedia.com",
                  "Új közösség", ">5<", ">3<", ">8<", "search_only", "hibák: 2 keresés",
                  "11000", "13000"):
+        assert frag in html, f"hiányzik: {frag}"
+
+
+def test_report_html_stock_section():
+    """The Állomány table shows current totals per scope, not just the diff."""
+    empty = {k: 0 for k in ("new_communities", "changed_communities", "change_rows",
+                            "new_venues", "new_persons", "pages_scraped",
+                            "pages_extracted", "searches")}
+    summary = {
+        "hu": dict(empty), "intl": dict(empty), "runs": [],
+        "totals": {"hu": 700, "intl": 300, "covered_pairs_hu": 50, "covered_pairs_intl": 20},
+        "stock": {
+            "hu": {"communities": 700, "venues": 400, "persons": 90,
+                   "pages_cached": 5000, "pages_extracted": 4800, "covered_pairs": 50},
+            "intl": {"communities": 300, "venues": 100, "persons": 10,
+                     "pages_cached": 2000, "pages_extracted": 1500, "covered_pairs": 20},
+        },
+    }
+    _, html = build_report_html("2026-07-09", summary, {})
+    assert "Állomány (aktuális összesen)" in html
+    for frag in (">700<", ">300<", ">1000<",     # communities hu/intl/total
+                 ">400<", ">500<",               # venues hu + total
+                 ">5000<", ">7000<",             # pages cached hu + total
+                 ">6300<", ">70<"):              # pages extracted total, covered pairs total
         assert frag in html, f"hiányzik: {frag}"
 
 

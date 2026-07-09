@@ -2498,8 +2498,11 @@ def get_daily_summary(db_path: Path, start_iso: str, end_iso: str,
     empty = {"new_communities": 0, "changed_communities": 0, "change_rows": 0,
              "new_venues": 0, "new_persons": 0, "pages_scraped": 0,
              "pages_extracted": 0, "searches": 0}
+    stock_empty = {"communities": 0, "venues": 0, "persons": 0,
+                   "pages_cached": 0, "pages_extracted": 0, "covered_pairs": 0}
     result = {"hu": dict(empty), "intl": dict(empty), "runs": [],
-              "totals": {"hu": 0, "intl": 0, "covered_pairs_hu": 0, "covered_pairs_intl": 0}}
+              "totals": {"hu": 0, "intl": 0, "covered_pairs_hu": 0, "covered_pairs_intl": 0},
+              "stock": {"hu": dict(stock_empty), "intl": dict(stock_empty)}}
     if not db_path.exists():
         return result
 
@@ -2573,7 +2576,21 @@ def get_daily_summary(db_path: Path, start_iso: str, end_iso: str,
         for city, cnt in conn.execute(
                 "SELECT city, COUNT(*) FROM communities WHERE hidden=0 GROUP BY city").fetchall():
             result["totals"][scope(city)] += cnt
+            result["stock"][scope(city)]["communities"] += cnt
         for city, cnt in conn.execute(
                 "SELECT city, COUNT(*) FROM search_cache GROUP BY city").fetchall():
             result["totals"]["covered_pairs_" + scope(city)] += cnt
+            result["stock"][scope(city)]["covered_pairs"] += cnt
+
+        for table, key in (("venues", "venues"), ("persons", "persons")):
+            for city, cnt in conn.execute(
+                    f"SELECT city, COUNT(*) FROM {table} GROUP BY city").fetchall():
+                result["stock"][scope(city or "")][key] += cnt
+        for city, cnt in conn.execute(
+                "SELECT city, COUNT(*) FROM cache_pages GROUP BY city").fetchall():
+            result["stock"][scope(city or "")]["pages_cached"] += cnt
+        for city, cnt in conn.execute(
+                "SELECT city, COUNT(*) FROM cache_pages WHERE extracted_at IS NOT NULL"
+                " GROUP BY city").fetchall():
+            result["stock"][scope(city or "")]["pages_extracted"] += cnt
     return result
