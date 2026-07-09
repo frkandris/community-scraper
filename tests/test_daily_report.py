@@ -95,3 +95,26 @@ def test_middleware_counts_public_html_only(tmp_path):
         assert t.get("kozossegek", {}).get("pageviews", 0) == 1
     finally:
         app_state.db_path, app_state.cities, app_state.topics = old_db, old_cities, old_topics
+
+
+def test_report_html_ga4_mode():
+    summary = {
+        "hu": {k: 0 for k in ("new_communities", "changed_communities", "change_rows",
+                              "new_venues", "new_persons", "pages_scraped",
+                              "pages_extracted", "searches")},
+        "intl": {k: 0 for k in ("new_communities", "changed_communities", "change_rows",
+                                "new_venues", "new_persons", "pages_scraped",
+                                "pages_extracted", "searches")},
+        "runs": [], "totals": {"hu": 0, "intl": 0,
+                               "covered_pairs_hu": 0, "covered_pairs_intl": 0},
+    }
+    traffic = {"kozossegek": {"pageviews": 3, "visitors": 2}}
+    ga4 = {"kozossegek": {"visitors": 87, "sessions": 110, "pageviews": 240},
+           "meetapedia": {"visitors": 13, "sessions": 15, "pageviews": 30}}
+    subject, html = build_report_html("2026-07-09", summary, traffic, ga4)
+    assert "100 látogató" in subject          # GA4 wins over the server counter
+    assert "Látogatók (GA4)" in html and "Munkamenet" in html
+    assert ">87<" in html and ">125<" in html  # per-site + total sessions
+    # without GA4: falls back to the server counter
+    subject2, html2 = build_report_html("2026-07-09", summary, traffic, None)
+    assert "2 látogató" in subject2 and "(GA4)" not in html2

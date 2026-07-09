@@ -34,7 +34,60 @@ _METRICS = [
 ]
 
 
-def build_report_html(day: str, summary: dict, traffic: dict) -> tuple[str, str]:
+def fetch_ga4_traffic(day: str) -> dict | None:
+    """Visitors per hostname from the GA4 Data API for one day.
+
+    Requires GA4_PROPERTY_ID and GA4_CREDENTIALS_JSON (service-account key JSON
+    content) env vars; the SA email must be a Viewer on the GA4 property.
+    Returns {site: {"visitors": n, "sessions": n, "pageviews": n}} with sites
+    mapped from hostName (kozossegek/meetapedia), or None when not configured
+    or on any error — the email then falls back to the server-side counter.
+    """
+    import json as _json
+    property_id = os.environ.get("GA4_PROPERTY_ID", "")
+    creds_json = os.environ.get("GA4_CREDENTIALS_JSON", "")
+    if not property_id or not creds_json:
+        return None
+    try:
+        import httpx
+        from google.oauth2 import service_account
+        from google.auth.transport.requests import Request as _GARequest
+
+        info = _json.loads(creds_json)
+        creds = service_account.Credentials.from_service_account_info(
+            info, scopes=["https://www.googleapis.com/auth/analytics.readonly"])
+        creds.refresh(_GARequest())
+
+        body = {
+            "dateRanges": [{"startDate": day, "endDate": day}],
+            "dimensions": [{"name": "hostName"}],
+            "metrics": [{"name": "activeUsers"}, {"name": "sessions"},
+                        {"name": "screenPageViews"}],
+        }
+        resp = httpx.post(
+            f"https://analyticsdata.googleapis.com/v1beta/properties/{property_id}:runReport",
+            json=body, headers={"Authorization": f"Bearer {creds.token}"}, timeout=30.0)
+        resp.raise_for_status()
+        out: dict = {}
+        for row in resp.json().get("rows", []):
+            host = (row["dimensionValues"][0]["value"] or "").removeprefix("www.")
+            site = ("kozossegek" if "kozossegek" in host
+                    else "meetapedia" if "meetapedia" in host else None)
+            if not site:
+                continue
+            vals = [int(v["value"]) for v in row["metricValues"]]
+            agg = out.setdefault(site, {"visitors": 0, "sessions": 0, "pageviews": 0})
+            agg["visitors"] += vals[0]
+            agg["sessions"] += vals[1]
+            agg["pageviews"] += vals[2]
+        return out
+    except Exception as exc:
+        log.warning("ga4_fetch_failed", error=str(exc))
+        return None
+
+
+def build_report_html(day: str, summary: dict, traffic: dict,
+                      ga4: dict | None = None) -> tuple[str, str]:
     """Returns (subject, html)."""
     hu, intl = summary["hu"], summary["intl"]
     totals = summary["totals"]
@@ -42,8 +95,14 @@ def build_report_html(day: str, summary: dict, traffic: dict) -> tuple[str, str]
     def t_site(site: str, key: str) -> int:
         return traffic.get(site, {}).get(key, 0)
 
+    def g_site(site: str, key: str) -> int:
+        return (ga4 or {}).get(site, {}).get(key, 0)
+
     total_new = hu["new_communities"] + intl["new_communities"]
-    total_visitors = t_site("kozossegek", "visitors") + t_site("meetapedia", "visitors")
+    if ga4 is not None:
+        total_visitors = g_site("kozossegek", "visitors") + g_site("meetapedia", "visitors")
+    else:
+        total_visitors = t_site("kozossegek", "visitors") + t_site("meetapedia", "visitors")
     subject = (f"[közösségek] Napi összefoglaló {day} — "
                f"{total_new} új közösség, {total_visitors} látogató")
 
@@ -75,24 +134,26 @@ def build_report_html(day: str, summary: dict, traffic: dict) -> tuple[str, str]
   <h2 style="margin:0 0 2px">Napi összefoglaló — {day}</h2>
   <p style="margin:0 0 16px;color:#8C8478;font-size:13px">közösségek.com + meetapedia.com</p>
 
-  <h3 style="margin:0 0 6px">Látogatók</h3>
+  <h3 style="margin:0 0 6px">Látogatók{" (GA4)" if ga4 is not None else ""}</h3>
   <table style="border-collapse:collapse;font-size:14px">
     <tr style="color:#8C8478;font-size:12px">
       <td style="padding:4px 12px 4px 0"></td>
       <td align="right" style="padding:4px 8px">Látogató</td>
+      {"<td align='right' style='padding:4px 8px'>Munkamenet</td>" if ga4 is not None else ""}
       <td align="right" style="padding:4px 0 4px 8px">Oldalletöltés</td></tr>
-    <tr><td style="padding:4px 12px 4px 0">kozossegek.com</td>
-      <td align="right" style="padding:4px 8px;font-weight:600">{t_site("kozossegek", "visitors")}</td>
-      <td align="right" style="padding:4px 0 4px 8px">{t_site("kozossegek", "pageviews")}</td></tr>
-    <tr><td style="padding:4px 12px 4px 0">meetapedia.com</td>
-      <td align="right" style="padding:4px 8px;font-weight:600">{t_site("meetapedia", "visitors")}</td>
-      <td align="right" style="padding:4px 0 4px 8px">{t_site("meetapedia", "pageviews")}</td></tr>
+    {"".join(
+        f"<tr><td style='padding:4px 12px 4px 0'>{site}.com</td>"
+        f"<td align='right' style='padding:4px 8px;font-weight:600'>{g_site(site, 'visitors') if ga4 is not None else t_site(site, 'visitors')}</td>"
+        + (f"<td align='right' style='padding:4px 8px'>{g_site(site, 'sessions')}</td>" if ga4 is not None else "")
+        + f"<td align='right' style='padding:4px 0 4px 8px'>{g_site(site, 'pageviews') if ga4 is not None else t_site(site, 'pageviews')}</td></tr>"
+        for site in ("kozossegek", "meetapedia"))}
     <tr style="border-top:1px solid #EAE5DB"><td style="padding:4px 12px 4px 0;font-weight:700">Összesen</td>
       <td align="right" style="padding:4px 8px;font-weight:700">{total_visitors}</td>
-      <td align="right" style="padding:4px 0 4px 8px;font-weight:700">{t_site("kozossegek", "pageviews") + t_site("meetapedia", "pageviews")}</td></tr>
+      {f"<td align='right' style='padding:4px 8px;font-weight:700'>{g_site('kozossegek', 'sessions') + g_site('meetapedia', 'sessions')}</td>" if ga4 is not None else ""}
+      <td align="right" style="padding:4px 0 4px 8px;font-weight:700">{(g_site("kozossegek", "pageviews") + g_site("meetapedia", "pageviews")) if ga4 is not None else (t_site("kozossegek", "pageviews") + t_site("meetapedia", "pageviews"))}</td></tr>
   </table>
   <p style="color:#B5ADA0;font-size:11px;margin:4px 0 16px">
-    Szerveroldali számláló (botok kiszűrve); a GA4 részletes adataihoz lásd az Analyticset.</p>
+    {"Forrás: Google Analytics 4. Szerveroldali számláló (bot-szűrt): " + str(t_site("kozossegek", "visitors") + t_site("meetapedia", "visitors")) + " látogató." if ga4 is not None else "Szerveroldali számláló (botok kiszűrve); GA4-bekötéshez GA4_PROPERTY_ID + GA4_CREDENTIALS_JSON env kell."}</p>
 
   <h3 style="margin:0 0 6px">Változások</h3>
   <table style="border-collapse:collapse;font-size:14px">
@@ -136,7 +197,8 @@ async def send_daily_report(db_path: Path, hu_cities: set, day: str | None = Non
 
     summary = get_daily_summary(db_path, start_iso, end_iso, hu_cities)
     traffic = get_traffic_for_day(db_path, day)
-    subject, html = build_report_html(day, summary, traffic)
+    ga4 = fetch_ga4_traffic(day)
+    subject, html = build_report_html(day, summary, traffic, ga4)
 
     import resend
     resend.api_key = api_key
