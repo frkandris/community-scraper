@@ -2831,6 +2831,15 @@ async def trigger_run(
         started = datetime.now(timezone.utc)
         from ..db import finish_run as _finish_run, start_run as _start_run
         _run_id = _start_run(app_state.db_path, started, run_mode) if app_state.db_path else None
+        # Manual collector runs get the same window box as the cron: stop before
+        # the off-peak extract window opens, so a big collection started midday
+        # can't occupy is_running for days and starve the nightly extraction.
+        stop_at = None
+        if run_mode == "search_only":
+            from ..main import _next_window_end, _settings_schedule
+            until = _settings_schedule().get("search_until")
+            if until:
+                stop_at = _next_window_end(started, str(until))
         success = False
         pair_logs: list = []
         total_new = 0
@@ -2848,6 +2857,7 @@ async def trigger_run(
                 run_persons=_run_persons,
                 on_progress=_on_progress,
                 on_pair_start=_on_pair_start,
+                stop_at=stop_at,
             )
             app_state.last_run_at = datetime.now(timezone.utc)
             success = True
