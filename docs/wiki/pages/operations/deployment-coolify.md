@@ -21,8 +21,8 @@ Persist only the runtime dirs, never the whole `/app` tree (that would hide upda
 ## Environment variables
 
 - **Required:** `ADMIN_PASSWORD` (gates the entire `/admin` UI; unset → 503). `ADMIN_USER` defaults to `admin`.
-- **Search:** `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD`, `SERPER_DEV_API_KEY`. All optional — missing just drops that provider (Google Playwright is free and always primary).
-- **Extraction:** `DEEPSEEK_API_KEY`, `GROQ_API_KEY`. Optional; missing drops that provider.
+- **Search:** `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` (the sole search provider since the 2026-07 cleanup).
+- **Extraction:** `DEEPSEEK_API_KEY` (the sole extractor). `GROQ_API_KEY`, `SERPER_DEV_API_KEY`, `SEARCH_WORKER_TOKEN` are obsolete — remove them from Coolify.
 - **Email (Resend):** `RESEND_API_KEY`, `FEEDBACK_EMAIL`, `RESEND_FROM`. Optional — missing = silent no-op on `/subscribe`, `/report-not-community`, `/suggest-edit`, `/claim-community`.
 
 ## CSS build

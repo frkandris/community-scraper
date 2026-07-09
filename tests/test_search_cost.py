@@ -94,18 +94,12 @@ def test_empty_search_result_is_cached(tmp_path):
     cities = [CityConfig(name="Budapest", locale="hu", search_variants=[])]
     topics = [TopicConfig(name="running", search_terms={"hu": ["futás"]})]
 
-    class FakeGoogle:
-        def __init__(self, *a, **k): ...
-        async def start(self): ...
-        async def stop(self): ...
-
     class FakeFallback:
         def __init__(self, primaries): ...
         async def search_all(self, queries, locale="en", num_results=10, stop_after=None):
             return []
 
-    with patch("scraper.pipeline.GooglePlaywrightSearchClient", FakeGoogle), \
-         patch("scraper.pipeline.FallbackSearchClient", FakeFallback):
+    with patch("scraper.pipeline.FallbackSearchClient", FakeFallback):
         asyncio.run(_run_full(
             cities, topics, cfg, FallbackExtractor(primaries=[]), None,
             True, True, {}, None,

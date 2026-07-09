@@ -55,7 +55,6 @@ def load_config_from_docs(
     ]
     cache_cfg = settings.get("cache", {})
     deepseek_cfg = settings.get("deepseek", {})
-    groq_cfg = settings.get("groq", {})
     pipeline_cfg = PipelineConfig(
         search_results_per_query=settings["search"]["results_per_query"],
         search_max_pages=settings["search"]["max_pages_per_topic"],
@@ -72,7 +71,6 @@ def load_config_from_docs(
         cache_skip_extracted=cache_cfg.get("skip_extracted", True),
         search_cache_ttl_days=cache_cfg.get("search_ttl_days", 7),
         enrich_communities=pipeline_settings.get("enrich_communities", True),
-        serper_api_key=os.environ.get("SERPER_DEV_API_KEY", ""),
         dataforseo_login=os.environ.get("DATAFORSEO_LOGIN", ""),
         dataforseo_password=os.environ.get("DATAFORSEO_PASSWORD", ""),
         deepseek_api_key=os.environ.get("DEEPSEEK_API_KEY", ""),
@@ -81,12 +79,6 @@ def load_config_from_docs(
         deepseek_timeout=deepseek_cfg.get("timeout_seconds", 60),
         deepseek_max_text_chars=deepseek_cfg.get("max_text_chars", 8000),
         deepseek_rate_limit_seconds=deepseek_cfg.get("rate_limit_seconds", 1.0),
-        groq_api_key=os.environ.get("GROQ_API_KEY", ""),
-        groq_model=groq_cfg.get("model", "llama-3.3-70b-versatile"),
-        groq_temperature=groq_cfg.get("temperature", 0.1),
-        groq_timeout=groq_cfg.get("timeout_seconds", 60),
-        groq_max_text_chars=groq_cfg.get("max_text_chars", 4000),
-        groq_rate_limit_seconds=groq_cfg.get("rate_limit_seconds", 4.0),
     )
     return cities, topics, pipeline_cfg
 

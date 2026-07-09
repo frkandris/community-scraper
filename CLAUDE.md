@@ -26,9 +26,9 @@ pip install -e ".[dev]"
 
 The scraper discovers community groups for each `(city, topic)` pair:
 
-1. **Search** (`search.py`): Google Playwright → DataForSEO → Serper fallback chain. `GooglePlaywrightSearchClient` uses headless Chromium to scrape Google directly (no API key, 8 s delay between requests). CAPTCHA detection raises `SearchQuotaError` which rolls to DataForSEO. Quota errors permanently skip a provider for the run.
-2. **Fetch** (`fetch.py`): `httpx` + `trafilatura` to extract clean page text. Blocked domains (Facebook, Instagram, TikTok, LinkedIn, YouTube, Reddit, Twitter/X) return `None` immediately. `playwright_domains` in `settings.yaml` controls Playwright-fetched domains (currently empty for page fetching — Playwright is used for Google search, not page fetching).
-3. **Extract** (`extract.py`): DeepSeek → Groq fallback chain. Both share `_ApiExtractor` base. The `FallbackExtractor` wraps them with per-provider `_exhausted` and `_blocked_until` state.
+1. **Search** (`search.py`): DataForSEO only (`DataForSEOClient`, live or standard mode). Quota errors (`SearchQuotaError`) permanently skip the provider for the run via `FallbackSearchClient` (kept as a single-provider wrapper so a fallback can be re-added with one line).
+2. **Fetch** (`fetch.py`): `httpx` + `trafilatura` to extract clean page text. Blocked domains (Facebook, Instagram, TikTok, LinkedIn, YouTube, Reddit, Twitter/X) return `None` immediately. `playwright_domains` in `settings.yaml` controls Playwright-fetched domains (currently empty — the Playwright fetcher is dormant).
+3. **Extract** (`extract.py`): DeepSeek only (`DeepSeekExtractor` on the `_ApiExtractor` base). `FallbackExtractor` wraps it with `_exhausted` / `_blocked_until` state; a second provider can be re-added as another primary.
 4. **Store** (`store.py` → `db.py`): Upsert to SQLite `communities` table, merging `source_urls` on conflict.
 
 The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
@@ -117,4 +117,4 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 
 ## Deployment
 
-Runs on Coolify (Hetzner) via Docker. Persist only `/app/data` (SQLite) and `/app/config` (YAML edits). Do not mount a volume over the entire `/app/` tree. Required env vars: `ADMIN_PASSWORD`. Optional API keys: `DEEPSEEK_API_KEY`, `GROQ_API_KEY`, `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD`, `SERPER_DEV_API_KEY`. Email notifications (`/subscribe`, `/report-not-community`, `/suggest-edit`, `/claim-community`): `RESEND_API_KEY`, `FEEDBACK_EMAIL` (recipient), `RESEND_FROM` (sender, e.g. `noreply@kozossegek.com`). All optional — missing = silent no-op.
+Runs on Coolify (Hetzner) via Docker. Persist only `/app/data` (SQLite) and `/app/config` (YAML edits). Do not mount a volume over the entire `/app/` tree. Required env vars: `ADMIN_PASSWORD`. Optional API keys: `DEEPSEEK_API_KEY`, `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD`. Email notifications (`/subscribe`, `/report-not-community`, `/suggest-edit`, `/claim-community`): `RESEND_API_KEY`, `FEEDBACK_EMAIL` (recipient), `RESEND_FROM` (sender, e.g. `noreply@kozossegek.com`). All optional — missing = silent no-op.

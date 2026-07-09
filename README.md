@@ -9,9 +9,9 @@ by city and interest topic, then serves them at **közösségek.com** (HU) and *
 For each `(city, topic)` pair it:
 
 1. Generates search queries in the city's language.
-2. Searches the web — DataForSEO → Serper fallback chain.
+2. Searches the web — DataForSEO.
 3. Fetches and cleans pages (`httpx` + `trafilatura`). Social media domains (Facebook, Instagram, etc.) are blocked immediately.
-4. Runs LLM extraction — DeepSeek → Groq fallback chain.
+4. Runs LLM extraction — DeepSeek.
 5. Saves structured community, venue, and person records to SQLite.
 6. Serves the data through a public website and a password-protected admin UI.
 
@@ -23,9 +23,9 @@ The scheduled **Smart run** works in two phases, both city-ordered (largest citi
 
 ```
 pipeline.py
-  └── search.py      (DataForSEO / Serper)
+  └── search.py      (DataForSEO)
   └── fetch.py       (httpx + trafilatura; social domains blocked)
-  └── extract.py     (DeepSeek / Groq)
+  └── extract.py     (DeepSeek)
   └── store.py       (SQLite via db.py)
 
 web/app.py           (FastAPI — public site + /admin)
@@ -78,10 +78,8 @@ Two domains, one container. `_detect_site(request)` reads the `Host` header and 
 |----------|-------------|
 | `ADMIN_PASSWORD` | Required — gates the entire `/admin` UI |
 | `DEEPSEEK_API_KEY` | Primary LLM extraction (recommended) |
-| `GROQ_API_KEY` | Fallback LLM extraction |
 | `DATAFORSEO_LOGIN` | Primary search (recommended) |
 | `DATAFORSEO_PASSWORD` | Primary search |
-| `SERPER_DEV_API_KEY` | Fallback search |
 
 ## Deployment
 

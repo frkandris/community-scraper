@@ -16,7 +16,7 @@ from urllib.parse import quote as _url_quote, urlsplit
 import httpx
 import structlog
 import yaml
-from fastapi import APIRouter, BackgroundTasks, Body, FastAPI, Form, Query, Request
+from fastapi import APIRouter, BackgroundTasks, FastAPI, Form, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -94,11 +94,11 @@ from ..extract import (ENRICH_SCHEMA, ENRICH_SYSTEM_PROMPT, EXTRACTION_SCHEMA,
                        VENUE_SCHEMA, VENUE_SYSTEM_PROMPT, VENUE_USER_PROMPT_TEMPLATE,
                        PERSON_SCHEMA, PERSON_SYSTEM_PROMPT, PERSON_USER_PROMPT_TEMPLATE,
                        PROMPT_KEYS, get_prompt, set_prompt_override,
-                       DeepSeekExtractor, FallbackExtractor, GroqExtractor)
+                       DeepSeekExtractor, FallbackExtractor)
 from ..fetch import fetch_and_clean
 from ..models import CommunityRecord
 from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline, scrape_submitted_url, reextract_community, reextract_with_search_fallback
-from ..search import DataForSEOClient, FallbackSearchClient, SerperSearchClient
+from ..search import DataForSEOClient, FallbackSearchClient
 from ..store import patch_results, save_results
 from .i18n import get_topic_labels, lang_context
 from .log_stream import broadcaster
@@ -113,11 +113,6 @@ DATA_DIR = BASE_DIR / "data"
 
 _ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
 _ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
-# Shared secret for the local browser-driven search worker (see docs/wiki local-search-worker).
-# Machine-to-machine, so its write endpoints are exempt from the same-origin CSRF check when
-# a matching X-Worker-Token is presented (Basic auth is still required). Empty = worker disabled.
-_SEARCH_WORKER_TOKEN = os.environ.get("SEARCH_WORKER_TOKEN", "")
-_WORKER_WRITE_PATHS = ("/admin/api/search/ingest",)
 
 TOPIC_ICONS: dict[str, str] = {
     "running": "person-simple-run",
@@ -262,14 +257,6 @@ class _BasicAuth:
         method = scope.get("method", "GET").upper()
         if method in ("GET", "HEAD", "OPTIONS"):
             return True
-
-        # Machine-to-machine search worker: a valid X-Worker-Token bypasses the
-        # same-origin (CSRF) check on its allow-listed write endpoints. CSRF protects
-        # browser sessions, not token-authenticated API calls; Basic auth still applies.
-        if _SEARCH_WORKER_TOKEN and scope.get("path", "") in _WORKER_WRITE_PATHS:
-            token = headers.get(b"x-worker-token", b"").decode("latin-1")
-            if hmac.compare_digest(token, _SEARCH_WORKER_TOKEN):
-                return True
 
         host = headers.get(b"host", b"").decode("latin-1")
         origin = headers.get(b"origin", b"").decode("latin-1")
@@ -441,8 +428,6 @@ async def _build_software_info() -> dict:
     cfg = app_state.pipeline_cfg
     if cfg and cfg.dataforseo_login:
         search_info = {"label": "DataForSEO", "status": "ok", "backend": "dataforseo"}
-    elif cfg and cfg.serper_api_key:
-        search_info = {"label": "Serper", "status": "ok", "backend": "serper"}
     else:
         search_info = {"label": "Search", "status": "no key", "backend": "none"}
     return {
@@ -1263,7 +1248,7 @@ async def public_source_page(request: Request, url_hash: str):
         return RedirectResponse("/", status_code=302)
 
     cfg = app_state.pipeline_cfg
-    max_text_chars = cfg.groq_max_text_chars if cfg else 6000
+    max_text_chars = cfg.deepseek_max_text_chars if cfg else 6000
 
     extract_user_prompt = ""
     if entry.get("raw_text") and entry.get("topic") and entry.get("city"):
@@ -1805,8 +1790,6 @@ def _get_run_scopes() -> dict:
     # Best currently active model (same priority as pipeline extractor selection)
     if cfg.deepseek_api_key:
         model = cfg.deepseek_model or "deepseek-chat"
-    elif cfg.groq_api_key:
-        model = cfg.groq_model or "llama-3.1-70b-versatile"
     else:
         return {}
     try:
@@ -2031,7 +2014,7 @@ def _reload_fp_history(key: str) -> None:
 
 
 async def _ai_chat(user_msg: str, temperature: float = 0.3) -> str:
-    """Chat via the configured extractor chain (DeepSeek → Groq → Ollama)."""
+    """Chat via the configured extractor (DeepSeek)."""
     cfg = app_state.pipeline_cfg
     if not cfg:
         raise RuntimeError("Pipeline not configured")
@@ -2704,74 +2687,6 @@ async def api_coverage_cell(city: str = "", topic: str = ""):
     }
 
 
-@admin.get("/api/search/jobs")
-async def api_search_jobs(limit: int = 50, country: str = ""):
-    """List (city, topic) pairs that still need a Google search, with ready-built
-    queries, for the local browser-driven search worker to run.
-
-    A pair is returned when it has no fresh search_cache entry. Scoped by ?country=
-    and capped at ?limit=. See docs/wiki local-search-worker.
-    """
-    from ..db import get_search_cache
-    from ..pipeline import _tier_allows
-    from ..search import build_queries
-    if not app_state.db_path:
-        return {"jobs": [], "count": 0}
-    ttl = getattr(app_state.pipeline_cfg, "search_cache_ttl_days", 3650)
-    core_topics = getattr(app_state.pipeline_cfg, "core_topics", []) or []
-    cities = app_state.cities or []
-    topics = app_state.topics or []
-    if country:
-        cities = [c for c in cities if c.country == country]
-    limit = max(1, min(int(limit), 500))
-    jobs: list[dict] = []
-    for city in cities:
-        for topic in topics:
-            if not _tier_allows(city, topic.name, core_topics):
-                continue
-            if get_search_cache(app_state.db_path, city.name, topic.name, ttl) is not None:
-                continue  # already searched within TTL
-            terms = topic.search_terms.get(city.locale) or topic.search_terms.get("en", [])
-            queries = build_queries(city.name, city.search_variants, terms)
-            if not queries:
-                continue
-            jobs.append({
-                "city": city.name,
-                "topic": topic.name,
-                "locale": city.locale,
-                "queries": queries,
-            })
-            if len(jobs) >= limit:
-                return {"jobs": jobs, "count": len(jobs)}
-    return {"jobs": jobs, "count": len(jobs)}
-
-
-@admin.post("/api/search/ingest")
-async def api_search_ingest(payload: dict = Body(...)):
-    """Store the URL list a search worker found for one (city, topic) pair into
-    search_cache, exactly as the in-process search step would. The next pipeline
-    run then finds the search pre-populated and skips its own search for the pair.
-    """
-    from ..db import save_search_cache
-    if not app_state.db_path:
-        return JSONResponse({"error": "no db"}, status_code=400)
-    city = str(payload.get("city", "")).strip()
-    topic = str(payload.get("topic", "")).strip()
-    if not city or not topic:
-        return JSONResponse({"error": "city and topic are required"}, status_code=400)
-    known_cities = {c.name for c in (app_state.cities or [])}
-    known_topics = {t.name for t in (app_state.topics or [])}
-    if known_cities and city not in known_cities:
-        return JSONResponse({"error": f"unknown city: {city}"}, status_code=400)
-    if known_topics and topic not in known_topics:
-        return JSONResponse({"error": f"unknown topic: {topic}"}, status_code=400)
-    urls = [str(u) for u in (payload.get("urls") or []) if str(u).startswith(("http://", "https://"))]
-    queries = [str(q) for q in (payload.get("queries") or [])]
-    save_search_cache(app_state.db_path, city, topic, urls, queries)
-    log.info("search_worker_ingest", city=city, topic=topic, url_count=len(urls))
-    return {"ok": True, "city": city, "topic": topic, "url_count": len(urls)}
-
-
 @admin.post("/api/restamp-fingerprints")
 async def api_restamp_fingerprints():
     """Restamp all cache_pages rows to the current runtime extract fingerprint.
@@ -2938,7 +2853,7 @@ async def status():
 
 
 def _build_extractor(cfg):
-    """Build the extractor chain (DeepSeek → Groq) from PipelineConfig."""
+    """Build the extractor (DeepSeek) from PipelineConfig."""
     primaries = []
     if cfg.deepseek_api_key:
         primaries.append(DeepSeekExtractor(
@@ -2946,13 +2861,6 @@ def _build_extractor(cfg):
             temperature=cfg.deepseek_temperature, timeout_seconds=cfg.deepseek_timeout,
             max_text_chars=cfg.deepseek_max_text_chars,
             rate_limit_seconds=cfg.deepseek_rate_limit_seconds,
-        ))
-    if cfg.groq_api_key:
-        primaries.append(GroqExtractor(
-            api_key=cfg.groq_api_key, model=cfg.groq_model,
-            temperature=cfg.groq_temperature, timeout_seconds=cfg.groq_timeout,
-            max_text_chars=cfg.groq_max_text_chars,
-            rate_limit_seconds=cfg.groq_rate_limit_seconds,
         ))
     return FallbackExtractor(primaries=primaries)
 
@@ -3212,7 +3120,7 @@ async def cache_detail(request: Request, url_hash: str):
     schema_records = store_records or (entry.get("records") or [])
     schema_json = records_to_jsonld(schema_records)
 
-    max_text_chars = app_state.pipeline_cfg.groq_max_text_chars if app_state.pipeline_cfg else 6000
+    max_text_chars = app_state.pipeline_cfg.deepseek_max_text_chars if app_state.pipeline_cfg else 6000
 
     extract_user_prompt = ""
     if entry.get("raw_text") and entry.get("topic") and entry.get("city"):
@@ -3401,10 +3309,6 @@ async def cache_run_enrich(url_hash: str):
                 search_primaries.append(DataForSEOClient(
                     cfg.dataforseo_login, cfg.dataforseo_password,
                     rate_limit_seconds=cfg.search_rate_limit,
-                ))
-            if cfg.serper_api_key:
-                search_primaries.append(SerperSearchClient(
-                    cfg.serper_api_key, rate_limit_seconds=cfg.search_rate_limit,
                 ))
             searxng = FallbackSearchClient(primaries=search_primaries)
             semaphore = asyncio.Semaphore(cfg.fetch_max_concurrent)

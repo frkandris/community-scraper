@@ -1,13 +1,20 @@
 ---
 type: Runbook
-title: Local Browser-Driven Search Worker
-description: Offload Google search to your own machine's browser (residential IP) via Playwright, feeding results into production's search_cache through an admin ingest API.
+title: Local Browser-Driven Search Worker (removed)
+description: REMOVED 2026-07-09 — browser-driven search never beat engine bot detection; kept as post-mortem. Code in git history.
 tags: [operations, search, playwright, worker, captcha, dataforseo]
 timestamp: 2026-07-09
 resource: scripts/local_search_worker.py
 ---
 
-# Local Browser-Driven Search Worker
+# Local Browser-Driven Search Worker (REMOVED 2026-07-09)
+
+> **Removed in the provider cleanup** — the browser-driven search never got past
+> engine-side bot detection (see findings below), so the worker script
+> (`scripts/local_search_worker.py`), the `/admin/api/search/{jobs,ingest}`
+> endpoints, the `SEARCH_WORKER_TOKEN` plumbing, and the Google/DuckDuckGo
+> Playwright clients were deleted. This page is kept as a post-mortem record;
+> the code lives in git history (commits 627a337..9c5aba7).
 
 *Runs Google searches from your own machine (residential IP, far less CAPTCHA than the datacenter) and posts the URL lists into production's `search_cache`. The pipeline then finds the search pre-populated and skips its own search step.*
 

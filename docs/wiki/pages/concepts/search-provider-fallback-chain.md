@@ -1,7 +1,7 @@
 ---
 type: Concept
 title: Search Provider Fallback Chain
-description: Google Playwright → DataForSEO → Serper, with per-run exhaustion tracking.
+description: DataForSEO is the sole search provider (2026-07 cleanup); FallbackSearchClient remains as a single-provider wrapper with per-run exhaustion.
 tags: [search, fallback, providers, captcha]
 timestamp: 2026-07-09
 resource: scraper/search.py
@@ -36,3 +36,8 @@ Rate limit error → temporary block until `wait_seconds` has passed
 
 - [[playwright-vs-blocked-domain-ordering]]
 - [[extraction-provider-fallback-chain]]
+
+
+## 2026-07-09: provider cleanup
+
+Google Playwright search, Serper, and the experimental DuckDuckGo client were **removed** — unused in practice (the Playwright client always CAPTCHA'd on the datacenter IP, Serper had no credits in use). **DataForSEO is the only provider** (live or standard mode). `FallbackSearchClient` remains as a thin wrapper for exhaustion state and easy re-addition. The historical chain below is kept for context.

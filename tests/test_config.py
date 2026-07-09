@@ -50,7 +50,7 @@ def test_load_config_from_docs_builds_runtime_config(tmp_path: Path):
 
     assert cities[0].name == "Budapest"
     assert topics[0].name == "running"
-    assert cfg.serper_api_key is not None
+    assert cfg.dataforseo_mode == "live"
 
 
 def test_load_config_from_docs_rejects_invalid_shapes(tmp_path: Path):

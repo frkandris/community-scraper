@@ -5,13 +5,6 @@ deepseek:
   max_text_chars: 8000
   rate_limit_seconds: 1.0
 
-groq:
-  model: llama-3.3-70b-versatile
-  temperature: 0.1
-  timeout_seconds: 60
-  max_text_chars: 3000
-  rate_limit_seconds: 7.0
-
 search:
   results_per_query: 10
   max_pages_per_topic: 5

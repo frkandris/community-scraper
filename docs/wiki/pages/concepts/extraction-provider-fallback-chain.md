@@ -1,7 +1,7 @@
 ---
 type: Concept
 title: Extraction Provider Fallback Chain
-description: DeepSeek → Groq, with permanent exhaustion and temporary rate-limit state per provider.
+description: DeepSeek is the sole extractor (2026-07 cleanup); FallbackExtractor remains as a single-provider wrapper.
 tags: [llm, extraction, fallback, providers]
 timestamp: 2026-07-09
 resource: scraper/extract.py
@@ -38,3 +38,8 @@ Groq: 3000 chars (truncates long pages)
 
 - [[extraction-fingerprint-cache]]
 - [[search-provider-fallback-chain]]
+
+
+## 2026-07-09: provider cleanup
+
+`GroqExtractor` was **removed** (unused fallback). **DeepSeek is the only extractor.** `FallbackExtractor` and the canonical-fingerprint machinery remain — with a single primary, `canonical_* == model_fingerprint` trivially, but the structure allows re-adding a fallback with one primaries.append. Consequence: a DeepSeek outage now means extraction simply fails for that page (no fallback) — see [[non-quota-errors-drop-page]].

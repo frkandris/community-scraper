@@ -1,27 +1,27 @@
 ---
 type: Subsystem
 title: Extraction Layer
-description: DeepSeek → Groq LLM extraction of communities, venues, and persons from page text, with four prompt families, live-editable prompts, and fingerprint-keyed caching.
-tags: [extraction, llm, deepseek, groq, prompts, fingerprint]
+description: DeepSeek LLM extraction of communities, venues, and persons from page text, with four prompt families, live-editable prompts, and fingerprint-keyed caching.
+tags: [extraction, llm, deepseek, prompts, fingerprint]
 timestamp: 2026-07-09
 resource: scraper/extract.py
 ---
 
 # Extraction Layer
 
-*`FallbackExtractor` (DeepSeek → Groq) turns clean page text into `CommunityRecord` / `VenueRecord` / `PersonRecord` objects via four separate prompt+schema families.*
+*`FallbackExtractor` (DeepSeek only since the 2026-07 provider cleanup) turns clean page text into `CommunityRecord` / `VenueRecord` / `PersonRecord` objects via four separate prompt+schema families.*
 
 See [[extraction-provider-fallback-chain]], [[extraction-fingerprint-cache]], [[community-record]], [[joinable-quality-gate]].
 
 ## Providers
 
-`_ApiExtractor` is the shared OpenAI-compatible base. `DeepSeekExtractor` (`api.deepseek.com/v1`, `deepseek-chat`) is primary; `GroqExtractor` (`api.groq.com/openai/v1`, `llama-3.3-70b-versatile`) is fallback. Per-provider state: `_exhausted[i]` (permanent, set on HTTP 402 `ExtractorQuotaError`) and `_blocked_until[i]` (temporary, set on HTTP 429 `ExtractorRateLimitError`, respects `Retry-After`, default 60 s). State is per-instance; a new `FallbackExtractor` is built each run, so exhaustion resets.
+`_ApiExtractor` is the shared OpenAI-compatible base; `DeepSeekExtractor` (`api.deepseek.com/v1`, `deepseek-chat`) is the **only** provider since the 2026-07 cleanup (GroqExtractor removed). Per-provider state on the wrapper: `_exhausted[i]` (permanent, HTTP 402) and `_blocked_until[i]` (temporary, HTTP 429 with `Retry-After`, default 60 s); a new `FallbackExtractor` is built each run.
 
-**Only 402/429 trigger the fallback.** Network errors and any other HTTP ≥ 400 are logged and return `{}` — the page is silently treated as "no communities." A 500 from DeepSeek does **not** fall through to Groq. See [[non-quota-errors-drop-page]].
+**Errors:** any non-402/429 failure returns `{}` — the page is silently treated as "no communities" and, with no fallback provider, a DeepSeek outage simply drops pages for that run. See [[non-quota-errors-drop-page]].
 
 ## Effective config beats class defaults
 
-Runtime config (settings.yaml) overrides class defaults: Groq's effective truncation is **3000 chars** (class default 4000) and rate limit **7.0 s** (class default 4.0). The YAML wins — a latent surprise if settings are trimmed. Community extraction uses `temperature` (0.1); venue/person/enrich hard-code `temperature 0.0` (only community extraction is stochastic).
+Runtime config (settings.yaml) overrides class defaults — the YAML wins, a latent surprise if settings are trimmed. Community extraction uses `temperature` (0.1); venue/person/enrich hard-code `temperature 0.0` (only community extraction is stochastic).
 
 ## Four prompt+schema families
 

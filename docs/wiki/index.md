@@ -17,9 +17,9 @@ frontmatter. See [SCHEMA.md](SCHEMA.md) for conventions.
 ## Subsystems
 
 - [[persistence-layer]] — db.py owns SQL, cache.py is a JSON-blob facade, store.py merges/dedups
-- [[search-layer]] — Google Playwright → DataForSEO → Serper behind a block/exhaust state machine
+- [[search-layer]] — DataForSEO (live/standard) behind the FallbackSearchClient wrapper
 - [[fetch-layer]] — httpx + trafilatura (html2text fallback); blocked domains and optional Playwright fetch
-- [[extraction-layer]] — DeepSeek → Groq; four prompt families; live-editable prompts; fingerprint cache
+- [[extraction-layer]] — DeepSeek; four prompt families; live-editable prompts; fingerprint cache
 - [[pipeline-orchestration]] — run_pipeline sequences ai_only + full with a done-pair pre-filter
 - [[duplicate-detection]] — same-city fuzzy dedup of communities/venues/persons; idempotent re-scans
 - [[web-app]] — public + /admin routers, pure-ASGI Basic auth, app_state, coverage page
@@ -36,8 +36,8 @@ frontmatter. See [SCHEMA.md](SCHEMA.md) for conventions.
 ## Concepts
 
 - [[community-identity]] — community_id (stable URL slug) vs record_key (topic-aware DB uniqueness)
-- [[search-provider-fallback-chain]] — Google Playwright → DataForSEO → Serper with per-run exhaustion
-- [[extraction-provider-fallback-chain]] — DeepSeek → Groq; different models = different fingerprints
+- [[search-provider-fallback-chain]] — DataForSEO-only since 2026-07; history of the removed chain
+- [[extraction-provider-fallback-chain]] — DeepSeek-only since 2026-07; fingerprints still per prompt+model
 - [[joinable-quality-gate]] — only joinable=True records survive; a 3-condition AND rule
 - [[false-positive-injection]] — admin negatives appended to the prompt; do NOT invalidate the cache
 - [[done-pair-url-hash-not-city-topic]] — done detection resolves URLs to hashes, never JOINs on city/topic
@@ -87,4 +87,4 @@ frontmatter. See [SCHEMA.md](SCHEMA.md) for conventions.
 - [[run-modes-and-startup]] — how to trigger runs; the startup escalation state machine
 - [[deployment-coolify]] — Docker on Coolify; volumes; env vars
 - [[adding-city-topic]] — config files + app.py dicts + i18n labels to update in lockstep
-- [[local-search-worker]] — offload Google search to your machine's browser, feeding search_cache via an admin API
+- [[local-search-worker]] — REMOVED 2026-07-09; post-mortem of the browser-driven search experiment

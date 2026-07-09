@@ -434,14 +434,12 @@ _API_ENRICH_SUFFIX = (
     "website, contact, social_links, email, phone."
 )
 # Keep old names as aliases for backward compat
-_GROQ_EXTRACT_SUFFIX = _API_EXTRACT_SUFFIX
-_GROQ_ENRICH_SUFFIX  = _API_ENRICH_SUFFIX
 
 _API_RETRY_DEFAULT_WAIT = 60
 
 
 class _ApiExtractor:
-    """Base class for OpenAI-compatible API extractors (DeepSeek, Groq, …)."""
+    """Base class for OpenAI-compatible API extractors (DeepSeek, …)."""
 
     _BASE_URL: str = ""
 
@@ -651,26 +649,11 @@ class DeepSeekExtractor(_ApiExtractor):
         super().__init__(api_key, model, temperature, timeout_seconds, max_text_chars, rate_limit_seconds)
 
 
-class GroqExtractor(_ApiExtractor):
-    _BASE_URL = "https://api.groq.com/openai/v1"
-
-    def __init__(
-        self,
-        api_key: str,
-        model: str = "llama-3.3-70b-versatile",
-        temperature: float = 0.1,
-        timeout_seconds: int = 60,
-        max_text_chars: int = 4000,
-        rate_limit_seconds: float = 4.0,
-    ):
-        super().__init__(api_key, model, temperature, timeout_seconds, max_text_chars, rate_limit_seconds)
-
-
 _GROQ_RETRY_DEFAULT_WAIT = _API_RETRY_DEFAULT_WAIT
 
 
 class FallbackExtractor:
-    """Chain of API extractors (DeepSeek → Groq).
+    """Chain of API extractors (currently DeepSeek only; the chain structure stays so a fallback provider can be re-added with one line).
 
     Tries primaries left-to-right.
     - ExtractorQuotaError  → permanent skip for that provider

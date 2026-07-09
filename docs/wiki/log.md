@@ -3,6 +3,7 @@
 Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
 ## 2026-07-09
+- **Deprecation**: Provider cleanup — only DeepSeek (LLM) and DataForSEO (search) remain. Removed: GroqExtractor, SerperSearchClient, GooglePlaywrightSearchClient, DuckDuckGoSearchClient, the local search worker (script + /admin/api/search endpoints + SEARCH_WORKER_TOKEN), dead locale tables, groq settings block. FallbackSearchClient/FallbackExtractor stay as single-provider wrappers. Updated: [[search-layer]], [[extraction-layer]], [[search-provider-fallback-chain]], [[extraction-provider-fallback-chain]], [[local-search-worker]] (removal note), [[deployment-coolify]] (obsolete env vars), hack pages.
 - **Creation**: [[cost-optimization-2026-07]] — empty-search caching (recurring-leak fix), query short-circuit (`stop_after`), venue extraction gated on communities, canonical venue/person fingerprints, opt-in off-peak cron, DataForSEO standard mode, topic tiering (260 small Swedish kommuner → 12 core topics; −6,240 pairs).
 - **Update**: [[scheduler-disabled-no-cron]] (cron now opt-in), [[extraction-fingerprints]] + [[canonical-fingerprint-provider-shift]] (venue/person canonical fix landed).
 - **Creation**: [[local-search-worker]] — new `scripts/local_search_worker.py` + `/admin/api/search/{jobs,ingest}` endpoints let a residential-IP browser do Google searches and feed `search_cache`, replacing datacenter DataForSEO calls. `GooglePlaywrightSearchClient` gained a `headless` param.

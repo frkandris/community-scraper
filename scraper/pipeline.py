@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING, Any, Callable
 
 import structlog
 
-from .extract import DeepSeekExtractor, FallbackExtractor, GroqExtractor, get_extract_fingerprint
+from .extract import DeepSeekExtractor, FallbackExtractor, get_extract_fingerprint
 from .false_positives import build_prompt_section
 from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
-from .search import DataForSEOClient, FallbackSearchClient, GooglePlaywrightSearchClient, SerperSearchClient, build_queries
+from .search import DataForSEOClient, FallbackSearchClient, build_queries
 from .db import get_search_cache, save_search_cache, get_covered_pairs, upsert_venues, upsert_persons, delete_leader_persons_for_community, load_cache_page, find_community_by_id, get_fully_processed_pairs
 from .store import save_results
 
@@ -227,7 +227,6 @@ class PipelineConfig:
     fetch_blocked_domains: list[str]
     db_path: Path
     fetch_playwright_domains: list[str] = field(default_factory=list)
-    serper_api_key: str = ""
     dataforseo_login: str = ""
     dataforseo_password: str = ""
     deepseek_api_key: str = ""
@@ -236,12 +235,6 @@ class PipelineConfig:
     deepseek_timeout: int = 60
     deepseek_max_text_chars: int = 8000
     deepseek_rate_limit_seconds: float = 1.0
-    groq_api_key: str = ""
-    groq_model: str = "llama-3.3-70b-versatile"
-    groq_temperature: float = 0.1
-    groq_timeout: int = 60
-    groq_max_text_chars: int = 4000
-    groq_rate_limit_seconds: float = 4.0
     cache_skip_scraped: bool = True
     cache_skip_extracted: bool = True
     search_cache_ttl_days: int = 7
@@ -277,15 +270,6 @@ async def run_pipeline(
             timeout_seconds=config.deepseek_timeout,
             max_text_chars=config.deepseek_max_text_chars,
             rate_limit_seconds=config.deepseek_rate_limit_seconds,
-        ))
-    if config.groq_api_key:
-        primaries.append(GroqExtractor(
-            api_key=config.groq_api_key,
-            model=config.groq_model,
-            temperature=config.groq_temperature,
-            timeout_seconds=config.groq_timeout,
-            max_text_chars=config.groq_max_text_chars,
-            rate_limit_seconds=config.groq_rate_limit_seconds,
         ))
     extractor: FallbackExtractor = FallbackExtractor(primaries=primaries)
     log.info("extractor", primaries=[p.model for p in primaries])
@@ -371,18 +355,13 @@ async def _run_full(
     pairs_filter: set[tuple[str, str]] | None = None,
     on_pair_start: "Callable[[str, str], None] | None" = None,
 ) -> tuple[int, list[dict]]:
-    google_search = GooglePlaywrightSearchClient(rate_limit_seconds=8.0)
-    await google_search.start()
-
-    search_primaries: list = [google_search]
+    search_primaries: list = []
     if config.dataforseo_login and config.dataforseo_password:
         search_primaries.append(DataForSEOClient(
             config.dataforseo_login, config.dataforseo_password,
             rate_limit_seconds=config.search_rate_limit,
             mode=config.dataforseo_mode,
         ))
-    if config.serper_api_key:
-        search_primaries.append(SerperSearchClient(config.serper_api_key, rate_limit_seconds=config.search_rate_limit))
     searxng: FallbackSearchClient = FallbackSearchClient(primaries=search_primaries)
     log.info("search_client", primaries=[type(p).__name__ for p in search_primaries])
     semaphore = asyncio.Semaphore(config.fetch_max_concurrent)
@@ -644,7 +623,6 @@ async def _run_full(
 
     if pw_fetcher:
         await pw_fetcher.stop()
-    await google_search.stop()
     return total_new, pair_logs
 
 
@@ -832,15 +810,6 @@ async def scrape_submitted_url(
             max_text_chars=config.deepseek_max_text_chars,
             rate_limit_seconds=config.deepseek_rate_limit_seconds,
         ))
-    if config.groq_api_key:
-        primaries.append(GroqExtractor(
-            api_key=config.groq_api_key,
-            model=config.groq_model,
-            temperature=config.groq_temperature,
-            timeout_seconds=config.groq_timeout,
-            max_text_chars=config.groq_max_text_chars,
-            rate_limit_seconds=config.groq_rate_limit_seconds,
-        ))
     extractor: FallbackExtractor = FallbackExtractor(primaries=primaries)
 
     text = await fetch_and_clean(url, blocked_domains=[], timeout_seconds=15)
@@ -896,15 +865,6 @@ async def reextract_community(
             max_text_chars=config.deepseek_max_text_chars,
             rate_limit_seconds=config.deepseek_rate_limit_seconds,
         ))
-    if config.groq_api_key:
-        primaries.append(GroqExtractor(
-            api_key=config.groq_api_key,
-            model=config.groq_model,
-            temperature=config.groq_temperature,
-            timeout_seconds=config.groq_timeout,
-            max_text_chars=config.groq_max_text_chars,
-            rate_limit_seconds=config.groq_rate_limit_seconds,
-        ))
     extractor: FallbackExtractor = FallbackExtractor(primaries=primaries)
 
     all_fps = load_false_positives(db_path)
@@ -951,8 +911,6 @@ async def reextract_with_search_fallback(
             config.dataforseo_login, config.dataforseo_password,
             rate_limit_seconds=config.search_rate_limit,
         ))
-    if config.serper_api_key:
-        search_primaries.append(SerperSearchClient(config.serper_api_key, rate_limit_seconds=config.search_rate_limit))
     if not search_primaries:
         log.warning("reextract_search_fallback_no_client", community_id=community_id)
         return False
@@ -976,15 +934,6 @@ async def reextract_with_search_fallback(
             timeout_seconds=config.deepseek_timeout,
             max_text_chars=config.deepseek_max_text_chars,
             rate_limit_seconds=config.deepseek_rate_limit_seconds,
-        ))
-    if config.groq_api_key:
-        ext_primaries.append(GroqExtractor(
-            api_key=config.groq_api_key,
-            model=config.groq_model,
-            temperature=config.groq_temperature,
-            timeout_seconds=config.groq_timeout,
-            max_text_chars=config.groq_max_text_chars,
-            rate_limit_seconds=config.groq_rate_limit_seconds,
         ))
     if not ext_primaries:
         return False
