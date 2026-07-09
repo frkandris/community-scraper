@@ -385,10 +385,12 @@ class GooglePlaywrightSearchClient:
         if hl == "no":
             hl = "nb"
         gl = LOCALE_TO_SERPER.get(hl, ("us", "en"))[0]
+        # NB: no &num= param — Google actively CAPTCHA-blocks the num parameter as a
+        # scraping tell (since ~2025). The default page returns ~10 results anyway;
+        # callers cap with results[:num_results].
         url = (
             f"https://www.google.com/search"
             f"?q={quote_plus(query)}"
-            f"&num={min(num_results, 10)}"
             f"&hl={hl}&gl={gl}"
         )
 

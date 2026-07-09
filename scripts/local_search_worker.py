@@ -166,7 +166,7 @@ async def run(args: argparse.Namespace) -> int:
         user_agent=_MAC_UA,
     )
     await client.start()
-    if client._browser is None:
+    if client._context is None:  # persistent mode leaves _browser None; _context is the signal
         sys.stderr.write("Failed to start Chromium — is `playwright install chromium` done?\n")
         return 1
 
