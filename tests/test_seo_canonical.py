@@ -132,15 +132,29 @@ def test_submit_page_hungarian_on_kozossegek(seo_client):
     assert "Válassz várost" in r.text
 
 
-def test_cities_page_country_filter_on_meetapedia(seo_client):
-    """Home country headings link to /cities?country=X — one country's cities."""
-    r = seo_client.get("/cities?country=Sweden", headers=MEET)
+def test_country_page_path_based(seo_client):
+    """Home country headings link to the SEO path form /cities/<slug>."""
+    r = seo_client.get("/cities/sweden", headers=MEET)
     assert r.status_code == 200
     assert "Stockholm" in r.text
     assert "Budapest" not in r.text
     assert "magyar város" not in r.text  # count line must be i18n'd
+    assert _canonical(r.text) == "https://meetapedia.com/cities/sweden"
 
 
-def test_cities_page_unknown_country_falls_back_to_all(seo_client):
-    r = seo_client.get("/cities?country=Narnia", headers=MEET)
-    assert "Stockholm" in r.text and "Budapest" in r.text
+def test_country_query_param_redirects_to_path(seo_client):
+    r = seo_client.get("/cities?country=Sweden", headers=MEET, follow_redirects=False)
+    assert r.status_code == 301
+    assert r.headers["location"] == "/cities/sweden"
+
+
+def test_unknown_country_slug_redirects_to_cities(seo_client):
+    r = seo_client.get("/cities/narnia", headers=MEET, follow_redirects=False)
+    assert r.status_code == 302
+    assert r.headers["location"] == "/cities"
+
+
+def test_meetapedia_sitemap_lists_country_pages(seo_client):
+    xml = seo_client.get("/sitemap.xml", headers=MEET).text
+    assert "meetapedia.com/cities/sweden" in xml
+    assert "/cities/hungary" not in xml  # HU content is kozossegek-canonical

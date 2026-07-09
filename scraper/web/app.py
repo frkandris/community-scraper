@@ -1626,18 +1626,18 @@ async def public_map(request: Request):
     })
 
 
-@_fastapi.get("/cities", response_class=HTMLResponse)
-@_fastapi.get("/varosok", response_class=HTMLResponse)
-async def public_cities(request: Request, requested: str = "", country: str = ""):
+def _country_from_slug(slug: str) -> str | None:
+    for c in (app_state.cities or []):
+        if c.country and _slugify(c.country) == slug:
+            return c.country
+    return None
+
+
+def _render_cities_page(request: Request, requested: str, country: str):
     city_totals = dict(get_city_totals(_db())) if app_state.db_path else {}
     site_cities = _site_cities(request)
-    country = country.strip()
     if country:
-        filtered = [c for c in site_cities if c.country == country]
-        if filtered:
-            site_cities = filtered
-        else:
-            country = ""
+        site_cities = [c for c in site_cities if c.country == country]
     cities_list = sorted(
         [{"name": c.name, "slug": _slugify(c.name), "count": city_totals.get(c.name, 0)} for c in site_cities],
         key=lambda c: (-c["count"], _hu_sort_key(c["name"])),
@@ -1649,6 +1649,29 @@ async def public_cities(request: Request, requested: str = "", country: str = ""
         "country_filter": country,
         **lang_context(request),
     })
+
+
+@_fastapi.get("/cities", response_class=HTMLResponse)
+@_fastapi.get("/varosok", response_class=HTMLResponse)
+async def public_cities(request: Request, requested: str = "", country: str = ""):
+    country = country.strip()
+    if country:
+        # legacy query-param form → permanent redirect to the path-based URL
+        cities_url = lang_context(request)["cities_url"]
+        slug = _slugify(country)
+        if _country_from_slug(slug):
+            return RedirectResponse(f"{cities_url}/{slug}", status_code=301)
+        return RedirectResponse(cities_url, status_code=302)
+    return _render_cities_page(request, requested, "")
+
+
+@_fastapi.get("/cities/{country_slug}", response_class=HTMLResponse)
+@_fastapi.get("/varosok/{country_slug}", response_class=HTMLResponse)
+async def public_cities_country(request: Request, country_slug: str):
+    country = _country_from_slug(country_slug)
+    if not country or not any(c.country == country for c in _site_cities(request)):
+        return RedirectResponse(lang_context(request)["cities_url"], status_code=302)
+    return _render_cities_page(request, "", country)
 
 
 @_fastapi.post("/varosok/kerelem")
@@ -1807,6 +1830,16 @@ async def sitemap(request: Request):
 
     if app_state.db_path:
         init_db(app_state.db_path)
+
+        if is_meetapedia:
+            # country landing pages (/cities/<slug>) — only countries with live
+            # content; Hungary is omitted because HU content is kozossegek-canonical
+            totals = dict(get_city_totals(_db()))
+            countries = sorted({
+                c.country for c in (app_state.cities or [])
+                if c.country and c.name in site_city_names and totals.get(c.name, 0) > 0
+            })
+            locs.extend(f"{base}/cities/{_slugify(cn)}" for cn in countries)
 
         counts = get_city_topic_counts(_db())
         for city_name, topics in counts.items():

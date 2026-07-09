@@ -1,12 +1,12 @@
 {% extends "public_base.html" %}
-{% block title %}{{ country_filter or t('cities_title') }} – {{ site_name }}{% endblock %}
+{% block title %}{% if country_filter %}{{ t('cities_in_country', country=country_filter) }}{% else %}{{ t('cities_title') }}{% endif %} – {{ site_name }}{% endblock %}
 {% block og_desc %}{{ t('cities_og_desc') }}{% endblock %}
 {% block content %}
 
 <div class="brand-gradient relative overflow-hidden">
   <div class="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 relative">
     <p class="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">{{ t('nav_discover') }}</p>
-    <h1 class="text-xl sm:text-2xl font-black tracking-[-0.025em] text-white leading-tight">{{ country_filter or t('cities_title') }}</h1>
+    <h1 class="text-xl sm:text-2xl font-black tracking-[-0.025em] text-white leading-tight">{% if country_filter %}{{ t('cities_in_country', country=country_filter) }}{% else %}{{ t('cities_title') }}{% endif %}</h1>
     <p class="text-sm text-white/75 mt-1">{{ t('cities_count', n=total_cities) }}</p>
     {% if country_filter %}
     <a href="{{ cities_url }}" class="inline-block text-xs text-white/70 hover:text-white mt-1 transition-colors">{{ t('cities_all_countries') }}</a>

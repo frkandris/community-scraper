@@ -45,7 +45,7 @@
       {% if site == 'meetapedia' %}
       {% for country, cities in country_city_groups.items() %}
       <div class="space-y-3">
-        <a href="{{ cities_url }}?country={{ country | urlencode }}"
+        <a href="{{ cities_url }}/{{ country | slugify }}"
            class="group inline-flex items-center gap-1">
           <h2 class="text-sm font-semibold text-[#1C1917] group-hover:text-[#8A4226] transition-colors">{{ country }}</h2>
           <i class="ph ph-caret-right text-xs text-[#B5ADA0] group-hover:text-[#8A4226] transition-colors"></i>
