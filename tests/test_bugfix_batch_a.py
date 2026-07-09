@@ -95,3 +95,18 @@ def test_recategorize_key_collision_no_crash(tmp_path):
     apply_recategorize_suggestion(db, rk_other, "chess")  # must not raise
     assert get_communities(db, "Budapest", "other") == []
     assert len(get_communities(db, "Budapest", "chess")) == 1
+
+
+def test_timeline_new_communities_dedups_recreate(tmp_path):
+    """delete+reinsert re-logs __created__ — the timeline must count each id once."""
+    from scraper.db import get_activity_timeline, _connect
+    db = _db(tmp_path)
+    with _connect(db) as conn:
+        for ts in ("2026-07-09T01:00:00+00:00", "2026-07-09T05:00:00+00:00"):
+            conn.execute(
+                "INSERT INTO community_history (community_id, changed_at, changed_by, field, old_value, new_value)"
+                " VALUES ('abc123', ?, 'scraper', '__created__', NULL, 'X')", (ts,))
+        conn.commit()
+    rows = get_activity_timeline(db, "24h")
+    total_new = sum(r.get("new_communities", 0) for r in rows.values()) if isinstance(rows, dict) else sum(r.get("new_communities", 0) for r in rows)
+    assert total_new <= 1, f"same community_id counted {total_new}x"

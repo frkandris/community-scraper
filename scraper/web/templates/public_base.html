@@ -19,7 +19,7 @@
   {% block og_meta %}
   <meta property="og:site_name" content="{{ site_name }}">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="{{ site_url }}{{ request.url.path }}">
+  <meta property="og:url" content="{{ canonical_base or site_url }}{{ request.url.path }}">
   <meta property="og:title" content="{{ self.title() | trim }}">
   <meta property="og:description" content="{% block og_desc %}{{ t('home_subtitle') }}{% endblock %}">
   <meta property="og:image" content="{{ site_url }}{% block og_image_url %}/static/img/og/default.png{% endblock %}">

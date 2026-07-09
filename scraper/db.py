@@ -2355,10 +2355,17 @@ def get_activity_timeline(db_path: Path, period: str) -> list[dict]:
             WHERE json_extract(data,'$.enrich_extracted_at') >= {since_sql}
             GROUP BY 1
         """, "enrich_ai")
+        # MIN(changed_at) per community_id — delete+reinsert cycles (topic
+        # replace, dedup churn) re-log __created__ and would double-count.
         _run(conn, f"""
-            SELECT {strftime_col.format(col='changed_at')}, COUNT(*)
-            FROM community_history
-            WHERE field='__created__' AND changed_at >= {since_sql}
+            SELECT {strftime_col.format(col='first_seen')}, COUNT(*)
+            FROM (
+                SELECT community_id, MIN(changed_at) AS first_seen
+                FROM community_history
+                WHERE field='__created__'
+                GROUP BY community_id
+            )
+            WHERE first_seen >= {since_sql}
             GROUP BY 1
         """, "new_communities")
         _run(conn, f"""

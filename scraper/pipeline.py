@@ -626,7 +626,10 @@ async def _run_full(
                 # ── Venue extraction (with fingerprint cache) ────────────────
                 # Gated on community_names like person extraction: pages with no
                 # communities (the majority) skip the venue LLM call entirely.
-                if run_venues and community_names and not (cache and cache.get_venue_extracted(
+                # Cost gate: skip the venue LLM call on 0-community pages — but only
+                # when the communities pass ran; a venues-only run (run_communities
+                # off) must extract unconditionally or it would be a no-op.
+                if run_venues and (community_names or not run_communities) and not (cache and cache.get_venue_extracted(
                         url, fingerprint=extractor.canonical_venue_fingerprint) is not None):
                     try:
                         _topic_slugs = [t.name for t in topics]
@@ -810,8 +813,8 @@ async def _run_ai_only(
                     community_names = [r.name for r in joinable]
 
                 # ── Venue extraction (with fingerprint cache) ────────────────
-                # Gated on community_names — no communities, no venue LLM call.
-                if run_venues and community_names and cache.get_venue_extracted(
+                # Gated on community_names — except for venues-only runs (see _run_full).
+                if run_venues and (community_names or not run_communities) and cache.get_venue_extracted(
                         url, fingerprint=extractor.canonical_venue_fingerprint) is None:
                     try:
                         _topic_slugs = [t.name for t in topics]
@@ -897,10 +900,17 @@ async def scrape_submitted_url(
         return False
 
     all_fps = load_false_positives(db_path)
-    records = await extractor.extract(
-        text=text, city=city, topic=topic, locale="hu", source_url=url,
-        false_positive_examples=build_prompt_section(all_fps, city=city, topic=topic),
-    )
+    try:
+        records = await extractor.extract(
+            text=text, city=city, topic=topic, locale="hu", source_url=url,
+            false_positive_examples=build_prompt_section(all_fps, city=city, topic=topic),
+        )
+    except ExtractorUnavailableError as exc:
+        # BackgroundTasks has no error surface — log loudly; the submission stays
+        # approved and can be re-run from the admin cache page.
+        log.error("scrape_submitted_url_extract_failed", city=city, topic=topic,
+                  url=url, reason=str(exc))
+        return False
     save_results(city, topic, records, db_path)
     log.info("scrape_submitted_url_done", city=city, topic=topic, url=url, found=len(records))
     return True
@@ -947,10 +957,15 @@ async def reextract_community(
     extractor: FallbackExtractor = FallbackExtractor(primaries=primaries)
 
     all_fps = load_false_positives(db_path)
-    records = await extractor.extract(
-        text=text, city=city, topic=topic, locale=record.get("locale", "hu"), source_url=source_url,
-        false_positive_examples=build_prompt_section(all_fps, city=city, topic=topic),
-    )
+    try:
+        records = await extractor.extract(
+            text=text, city=city, topic=topic, locale=record.get("locale", "hu"), source_url=source_url,
+            false_positive_examples=build_prompt_section(all_fps, city=city, topic=topic),
+        )
+    except ExtractorUnavailableError as exc:
+        log.error("reextract_community_extract_failed", community_id=community_id,
+                  reason=str(exc))
+        return False
     save_results(city, topic, records, db_path)
     log.info("reextract_community_done", community_id=community_id, found=len(records))
     return True
