@@ -19,7 +19,7 @@ resource: scraper/extract.py
 
 `model_fingerprint` returns the **first-available** provider's fingerprint — so when DeepSeek is exhausted, pages extracted by Groq get stored under Groq's fingerprint, which never matches the done-pairs check (that always uses `primaries[0]`). `canonical_fingerprint` always returns `primaries[0].model_fingerprint`, and the community cache read/write path uses it, so every extraction — whichever provider ran — is stored under the key the done-pairs check looks for. See [[canonical-fingerprint-provider-shift]].
 
-**Incomplete fix:** the canonical treatment was applied to communities only. `venue_fingerprint`/`person_fingerprint` still use the provider-shifting variants, so venues/persons extracted by Groq can be re-extracted when DeepSeek recovers.
+**Update 2026-07-09:** the canonical treatment now covers venues and persons too (`canonical_venue_fingerprint` / `canonical_person_fingerprint` on `FallbackExtractor`; all pipeline cache read/write sites switched). The provider-shift re-extraction churn is closed.
 
 ## Not affected by false positives
 

@@ -9,12 +9,11 @@ resource: scraper/main.py
 
 # Scheduler Registered But Empty (No Cron Jobs)
 
-*`main()` starts an `AsyncIOScheduler` and stores it on `app_state.scheduler`, but **never calls `add_job`**. `CronTrigger` is imported yet unused; `schedule.cron` in settings is parsed but never wired to a trigger.*
+*Updated 2026-07-09: the cron is now wired but **opt-in** — `schedule.cron_enabled: false` by default. When enabled, `schedule.cron` (preset to `35 16 * * *` UTC, the start of DeepSeek's off-peak discount window) schedules `_scheduled_run` with a 900 s misfire grace.*
 
-Despite `config/settings.yaml` setting `cron: "* * * * *"` (every minute), **no periodic runs happen.** Runs are triggered only by:
+With `cron_enabled: false` (the default), **no periodic runs happen.** Runs are triggered only by:
 
 1. **Startup** — `if _settings_auto_run_on_startup(): asyncio.create_task(_startup_run())`, gated on `schedule.auto_run_on_startup` (default `false`).
 2. **Manual** — `POST /admin/api/run`.
 3. **CLI** — `--run-once` (runs all cities together, no HU/SE/intl split).
-
-The scheduler object exists as scaffolding for future cron re-activation. Anyone expecting the settings cron to fire will get nothing — flag this. See [[pipeline-run-modes]] and [[pipeline-orchestration]].
+4. **Cron** — only when `schedule.cron_enabled: true`; pairing it with the off-peak window (UTC 16:30–00:30) halves DeepSeek costs. See [[cost-optimization-2026-07]], [[pipeline-run-modes]] and [[pipeline-orchestration]].

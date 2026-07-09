@@ -194,12 +194,20 @@ async def _enrich_record(
     return record
 
 
+def _tier_allows(city: "CityConfig", topic_name: str, core_topics: list[str]) -> bool:
+    """topic_tier='core' cities only run core_topics; empty core_topics disables tiering."""
+    return city.topic_tier != "core" or not core_topics or topic_name in core_topics
+
+
 @dataclass
 class CityConfig:
     name: str
     locale: str
     search_variants: list[str]
     country: str = ""
+    # "full" = all topics; "core" = only PipelineConfig.core_topics (small towns
+    # where most niche topics can't yield results — cuts search + LLM spend).
+    topic_tier: str = "full"
 
 
 @dataclass
@@ -238,6 +246,9 @@ class PipelineConfig:
     cache_skip_extracted: bool = True
     search_cache_ttl_days: int = 7
     enrich_communities: bool = True
+    dataforseo_mode: str = "live"  # "standard" = task queue, 70% cheaper, minutes latency
+    # Topics still searched for topic_tier="core" cities; empty = tiering disabled.
+    core_topics: list[str] = field(default_factory=list)
 
 
 async def run_pipeline(
@@ -283,8 +294,11 @@ async def run_pipeline(
     total_new = 0
     pair_logs: list[dict] = []
 
-    # Pre-compute done pairs (searched + all pages extracted with current FP) to skip entirely
-    all_pairs = {(c.name, t.name) for c in cities for t in topics}
+    # Pre-compute done pairs (searched + all pages extracted with current FP) to skip entirely.
+    # Tier-filtered: "core"-tier cities only pair with core_topics (see CityConfig.topic_tier),
+    # which also keeps the catch-up pass from re-searching tiered-out pairs.
+    all_pairs = {(c.name, t.name) for c in cities for t in topics
+                 if _tier_allows(c, t.name, config.core_topics)}
     current_fp = get_extract_fingerprint(primaries[0].model if primaries else "deepseek-chat")
     done_pairs = get_fully_processed_pairs(config.db_path, current_fp) if _skip_extracted else set()
     pairs_to_run = all_pairs - done_pairs
@@ -365,6 +379,7 @@ async def _run_full(
         search_primaries.append(DataForSEOClient(
             config.dataforseo_login, config.dataforseo_password,
             rate_limit_seconds=config.search_rate_limit,
+            mode=config.dataforseo_mode,
         ))
     if config.serper_api_key:
         search_primaries.append(SerperSearchClient(config.serper_api_key, rate_limit_seconds=config.search_rate_limit))
@@ -388,6 +403,10 @@ async def _run_full(
         for topic in topics:
             if pairs_filter is not None and (city.name, topic.name) not in pairs_filter:
                 continue
+            # Tier guard (belt-and-suspenders — all_pairs is already tier-filtered,
+            # but direct _run_full callers may pass no filter).
+            if not _tier_allows(city, topic.name, config.core_topics):
+                continue
             await asyncio.sleep(0)
             if on_pair_start:
                 on_pair_start(city.name, topic.name)
@@ -408,6 +427,7 @@ async def _run_full(
             else:
                 search_results = await searxng.search_all(
                     queries, locale=city.locale, num_results=config.search_results_per_query,
+                    stop_after=config.search_max_pages * 2,
                 )
                 _blocked_domains = config.fetch_blocked_domains
                 search_results = [
@@ -415,10 +435,15 @@ async def _run_full(
                     if not any(d in r.url for d in _blocked_domains)
                 ]
                 log.info("search_done", city=city.name, topic=topic.name, urls=len(search_results))
-                urls = [r.url for r in search_results][:config.search_max_pages]
+                all_urls = [r.url for r in search_results]
+                urls = all_urls[:config.search_max_pages]
                 urls_found = len(search_results)
-                if use_search_cache and urls:
-                    save_search_cache(config.db_path, city.name, topic.name, urls, queries)
+                # Always record the search — even in Full Refresh mode and even when it
+                # found nothing. An unsaved empty result is re-paid on every run (and
+                # twice per run via the catch-up pass); an empty cached list correctly
+                # marks the pair as done. The full (uncapped) URL list is stored; reads
+                # apply [:search_max_pages].
+                save_search_cache(config.db_path, city.name, topic.name, all_urls, queries)
 
             fetched: list[tuple[str, str]] = []
             pair_log: dict = {
@@ -552,8 +577,10 @@ async def _run_full(
                     community_names = [r.name for r in final_records]
 
                 # ── Venue extraction (with fingerprint cache) ────────────────
-                if run_venues and not (cache and cache.get_venue_extracted(
-                        url, fingerprint=extractor.venue_fingerprint) is not None):
+                # Gated on community_names like person extraction: pages with no
+                # communities (the majority) skip the venue LLM call entirely.
+                if run_venues and community_names and not (cache and cache.get_venue_extracted(
+                        url, fingerprint=extractor.canonical_venue_fingerprint) is not None):
                     try:
                         _topic_slugs = [t.name for t in topics]
                         venues = await extractor.extract_venues(
@@ -563,7 +590,7 @@ async def _run_full(
                             log.info("venues_extracted", url=url, found=len(venues))
                         if cache:
                             cache.save_venue_extracted(url, [v.model_dump() for v in venues],
-                                                       fingerprint=extractor.venue_fingerprint,
+                                                       fingerprint=extractor.canonical_venue_fingerprint,
                                                        model=extractor.model)
                     except Exception as exc:
                         log.warning("venues_extract_error", url=url, error=str(exc))
@@ -572,7 +599,7 @@ async def _run_full(
                 if community_names:
                     _person_cache = cache.get_person_extracted(
                         url, city.name, topic.name,
-                        fingerprint=extractor.person_fingerprint) if cache else None
+                        fingerprint=extractor.canonical_person_fingerprint) if cache else None
                     if _person_cache is not None:
                         if _person_cache:
                             log.debug("person_cache_hit", url=url, cached=len(_person_cache))
@@ -590,7 +617,7 @@ async def _run_full(
                             if cache:
                                 cache.save_person_extracted(url, city.name, topic.name,
                                                             [p.model_dump() for p in persons],
-                                                            fingerprint=extractor.person_fingerprint,
+                                                            fingerprint=extractor.canonical_person_fingerprint,
                                                             model=extractor.model)
                         except Exception as exc:
                             log.warning("persons_extract_error", url=url, error=str(exc))
@@ -726,8 +753,9 @@ async def _run_ai_only(
                     community_names = [r.name for r in joinable]
 
                 # ── Venue extraction (with fingerprint cache) ────────────────
-                if run_venues and cache.get_venue_extracted(
-                        url, fingerprint=extractor.venue_fingerprint) is None:
+                # Gated on community_names — no communities, no venue LLM call.
+                if run_venues and community_names and cache.get_venue_extracted(
+                        url, fingerprint=extractor.canonical_venue_fingerprint) is None:
                     try:
                         _topic_slugs = [t.name for t in topics]
                         venues = await extractor.extract_venues(
@@ -736,7 +764,7 @@ async def _run_ai_only(
                             upsert_venues(config.db_path, [v.model_dump() for v in venues])
                             log.info("venues_extracted", url=url, found=len(venues))
                         cache.save_venue_extracted(url, [v.model_dump() for v in venues],
-                                                   fingerprint=extractor.venue_fingerprint,
+                                                   fingerprint=extractor.canonical_venue_fingerprint,
                                                    model=extractor.model)
                     except Exception as exc:
                         log.warning("venues_extract_error", url=url, error=str(exc))
@@ -744,7 +772,7 @@ async def _run_ai_only(
                 # ── Person extraction (with fingerprint cache) ───────────────
                 if community_names:
                     _person_cache = cache.get_person_extracted(
-                        url, city.name, topic.name, fingerprint=extractor.person_fingerprint)
+                        url, city.name, topic.name, fingerprint=extractor.canonical_person_fingerprint)
                     if _person_cache is not None:
                         if _person_cache:
                             log.debug("person_cache_hit", url=url, cached=len(_person_cache))
@@ -761,7 +789,7 @@ async def _run_ai_only(
                                          communities=len(community_names))
                             cache.save_person_extracted(url, city.name, topic.name,
                                                         [p.model_dump() for p in persons],
-                                                        fingerprint=extractor.person_fingerprint,
+                                                        fingerprint=extractor.canonical_person_fingerprint,
                                                         model=extractor.model)
                         except Exception as exc:
                             log.warning("persons_extract_error", url=url, error=str(exc))

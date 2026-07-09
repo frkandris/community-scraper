@@ -1478,6 +1478,7 @@ cities:
     country: Sweden
     locale: sv
     search_variants: [Täby, Taby, "Täby Sverige"]
+    topic_tier: core
   - name: Sollentuna
     country: Sweden
     locale: sv
@@ -1486,1040 +1487,1299 @@ cities:
     country: Sweden
     locale: sv
     search_variants: [Skellefteå, Skelleftea, "Skellefteå Sverige"]
+    topic_tier: core
   - name: Kalmar
     country: Sweden
     locale: sv
     search_variants: [Kalmar, "Kalmar Sverige"]
+    topic_tier: core
   - name: Mölndal
     country: Sweden
     locale: sv
     search_variants: [Mölndal, Molndal, "Mölndal Sverige"]
+    topic_tier: core
   - name: Varberg
     country: Sweden
     locale: sv
     search_variants: [Varberg, "Varberg Sverige"]
+    topic_tier: core
   - name: Norrtälje
     country: Sweden
     locale: sv
     search_variants: [Norrtälje, Norrtalje, "Norrtälje Sverige"]
+    topic_tier: core
   - name: Karlskrona
     country: Sweden
     locale: sv
     search_variants: [Karlskrona, "Karlskrona Sverige"]
+    topic_tier: core
   - name: Östersund
     country: Sweden
     locale: sv
     search_variants: [Östersund, Ostersund, "Östersund Sverige"]
+    topic_tier: core
   - name: Visby
     country: Sweden
     locale: sv
     search_variants: [Visby, Gotland, "Visby Sverige"]
+    topic_tier: core
   - name: Falun
     country: Sweden
     locale: sv
     search_variants: [Falun, "Falun Sverige"]
+    topic_tier: core
   - name: Trollhättan
     country: Sweden
     locale: sv
     search_variants: [Trollhättan, Trollhattan, "Trollhättan Sverige"]
+    topic_tier: core
   - name: Skövde
     country: Sweden
     locale: sv
     search_variants: [Skövde, Skovde, "Skövde Sverige"]
+    topic_tier: core
   - name: Nyköping
     country: Sweden
     locale: sv
     search_variants: [Nyköping, Nykoping, "Nyköping Sverige"]
+    topic_tier: core
   - name: Sundbyberg
     country: Sweden
     locale: sv
     search_variants: [Sundbyberg, "Sundbyberg Sverige"]
+    topic_tier: core
   - name: Uddevalla
     country: Sweden
     locale: sv
     search_variants: [Uddevalla, "Uddevalla Sverige"]
+    topic_tier: core
   - name: Örnsköldsvik
     country: Sweden
     locale: sv
     search_variants: [Örnsköldsvik, Ornskoldsvik, "Örnsköldsvik Sverige"]
+    topic_tier: core
   - name: Märsta
     country: Sweden
     locale: sv
     search_variants: [Märsta, Marsta, Sigtuna, "Märsta Sverige"]
+    topic_tier: core
   - name: Hässleholm
     country: Sweden
     locale: sv
     search_variants: [Hässleholm, Hassleholm, "Hässleholm Sverige"]
+    topic_tier: core
   - name: Borlänge
     country: Sweden
     locale: sv
     search_variants: [Borlänge, Borlange, "Borlänge Sverige"]
+    topic_tier: core
   - name: Upplands Väsby
     country: Sweden
     locale: sv
     search_variants: ["Upplands Väsby", "Upplands Vasby", "Upplands Väsby Sverige"]
+    topic_tier: core
   - name: Kungälv
     country: Sweden
     locale: sv
     search_variants: [Kungälv, Kungalv, "Kungälv Sverige"]
+    topic_tier: core
   - name: Åkersberga
     country: Sweden
     locale: sv
     search_variants: [Åkersberga, Akersberga, "Åkersberga Sverige"]
+    topic_tier: core
   - name: Tyresö
     country: Sweden
     locale: sv
     search_variants: [Tyresö, Tyreso, "Tyresö Sverige"]
+    topic_tier: core
   - name: Enköping
     country: Sweden
     locale: sv
     search_variants: [Enköping, Enkoping, "Enköping Sverige"]
+    topic_tier: core
   - name: Lidingö
     country: Sweden
     locale: sv
     search_variants: [Lidingö, Lidingo, "Lidingö Sverige"]
+    topic_tier: core
   - name: Landskrona
     country: Sweden
     locale: sv
     search_variants: [Landskrona, "Landskrona Sverige"]
+    topic_tier: core
   - name: Trelleborg
     country: Sweden
     locale: sv
     search_variants: [Trelleborg, "Trelleborg Sverige"]
+    topic_tier: core
   - name: Falkenberg
     country: Sweden
     locale: sv
     search_variants: [Falkenberg, "Falkenberg Sverige"]
+    topic_tier: core
   - name: Gustavsberg
     country: Sweden
     locale: sv
     search_variants: [Gustavsberg, Värmdö, Varmdo, "Gustavsberg Sverige"]
+    topic_tier: core
   - name: Ängelholm
     country: Sweden
     locale: sv
     search_variants: [Ängelholm, Angelholm, "Ängelholm Sverige"]
+    topic_tier: core
   - name: Lerum
     country: Sweden
     locale: sv
     search_variants: [Lerum, "Lerum Sverige"]
+    topic_tier: core
   - name: Motala
     country: Sweden
     locale: sv
     search_variants: [Motala, "Motala Sverige"]
+    topic_tier: core
   - name: Alingsås
     country: Sweden
     locale: sv
     search_variants: [Alingsås, Alingsas, "Alingsås Sverige"]
+    topic_tier: core
   - name: Piteå
     country: Sweden
     locale: sv
     search_variants: [Piteå, Pitea, "Piteå Sverige"]
+    topic_tier: core
   - name: Partille
     country: Sweden
     locale: sv
     search_variants: [Partille, "Partille Sverige"]
+    topic_tier: core
   - name: Lidköping
     country: Sweden
     locale: sv
     search_variants: [Lidköping, Lidkoping, "Lidköping Sverige"]
+    topic_tier: core
   - name: Vänersborg
     country: Sweden
     locale: sv
     search_variants: [Vänersborg, Vanersborg, "Vänersborg Sverige"]
+    topic_tier: core
   - name: Mölnlycke
     country: Sweden
     locale: sv
     search_variants: [Mölnlycke, Molnlycke, Härryda, "Mölnlycke Sverige"]
+    topic_tier: core
   - name: Strängnäs
     country: Sweden
     locale: sv
     search_variants: [Strängnäs, Strangnas, "Strängnäs Sverige"]
+    topic_tier: core
   - name: Sandviken
     country: Sweden
     locale: sv
     search_variants: [Sandviken, "Sandviken Sverige"]
+    topic_tier: core
   - name: Hudiksvall
     country: Sweden
     locale: sv
     search_variants: [Hudiksvall, "Hudiksvall Sverige"]
+    topic_tier: core
   - name: Västervik
     country: Sweden
     locale: sv
     search_variants: [Västervik, Vastervik, "Västervik Sverige"]
+    topic_tier: core
   - name: Vallentuna
     country: Sweden
     locale: sv
     search_variants: [Vallentuna, "Vallentuna Sverige"]
+    topic_tier: core
   - name: Eslöv
     country: Sweden
     locale: sv
     search_variants: [Eslöv, Eslov, "Eslöv Sverige"]
+    topic_tier: core
   - name: Värnamo
     country: Sweden
     locale: sv
     search_variants: [Värnamo, Varnamo, "Värnamo Sverige"]
+    topic_tier: core
   - name: Katrineholm
     country: Sweden
     locale: sv
     search_variants: [Katrineholm, "Katrineholm Sverige"]
+    topic_tier: core
   - name: Falköping
     country: Sweden
     locale: sv
     search_variants: [Falköping, Falkoping, "Falköping Sverige"]
+    topic_tier: core
   - name: Kävlinge
     country: Sweden
     locale: sv
     search_variants: [Kävlinge, Kavlinge, "Kävlinge Sverige"]
+    topic_tier: core
   - name: Ystad
     country: Sweden
     locale: sv
     search_variants: [Ystad, "Ystad Sverige"]
+    topic_tier: core
   - name: Karlshamn
     country: Sweden
     locale: sv
     search_variants: [Karlshamn, "Karlshamn Sverige"]
+    topic_tier: core
   - name: Nässjö
     country: Sweden
     locale: sv
     search_variants: [Nässjö, Nassjo, "Nässjö Sverige"]
+    topic_tier: core
   - name: Nynäshamn
     country: Sweden
     locale: sv
     search_variants: [Nynäshamn, Nynashamn, "Nynäshamn Sverige"]
+    topic_tier: core
   - name: Karlskoga
     country: Sweden
     locale: sv
     search_variants: [Karlskoga, "Karlskoga Sverige"]
+    topic_tier: core
   - name: Mjölby
     country: Sweden
     locale: sv
     search_variants: [Mjölby, Mjolby, "Mjölby Sverige"]
+    topic_tier: core
   - name: Boden
     country: Sweden
     locale: sv
     search_variants: [Boden, "Boden Sverige"]
+    topic_tier: core
   - name: Ronneby
     country: Sweden
     locale: sv
     search_variants: [Ronneby, "Ronneby Sverige"]
+    topic_tier: core
   - name: Gislaved
     country: Sweden
     locale: sv
     search_variants: [Gislaved, "Gislaved Sverige"]
+    topic_tier: core
   - name: Höganäs
     country: Sweden
     locale: sv
     search_variants: [Höganäs, Hoganas, "Höganäs Sverige"]
+    topic_tier: core
   - name: Ljungby
     country: Sweden
     locale: sv
     search_variants: [Ljungby, "Ljungby Sverige"]
+    topic_tier: core
   - name: Stenungsund
     country: Sweden
     locale: sv
     search_variants: [Stenungsund, "Stenungsund Sverige"]
+    topic_tier: core
   - name: Staffanstorp
     country: Sweden
     locale: sv
     search_variants: [Staffanstorp, "Staffanstorp Sverige"]
+    topic_tier: core
   - name: Vetlanda
     country: Sweden
     locale: sv
     search_variants: [Vetlanda, "Vetlanda Sverige"]
+    topic_tier: core
   - name: Ludvika
     country: Sweden
     locale: sv
     search_variants: [Ludvika, "Ludvika Sverige"]
+    topic_tier: core
   - name: Oskarshamn
     country: Sweden
     locale: sv
     search_variants: [Oskarshamn, "Oskarshamn Sverige"]
+    topic_tier: core
   - name: Laholm
     country: Sweden
     locale: sv
     search_variants: [Laholm, "Laholm Sverige"]
+    topic_tier: core
   - name: Bollnäs
     country: Sweden
     locale: sv
     search_variants: [Bollnäs, Bollnas, "Bollnäs Sverige"]
+    topic_tier: core
   - name: Köping
     country: Sweden
     locale: sv
     search_variants: [Köping, Koping, "Köping Sverige"]
+    topic_tier: core
   - name: Arvika
     country: Sweden
     locale: sv
     search_variants: [Arvika, "Arvika Sverige"]
+    topic_tier: core
   - name: Ulricehamn
     country: Sweden
     locale: sv
     search_variants: [Ulricehamn, "Ulricehamn Sverige"]
+    topic_tier: core
   - name: Mariestad
     country: Sweden
     locale: sv
     search_variants: [Mariestad, "Mariestad Sverige"]
+    topic_tier: core
   - name: Härnösand
     country: Sweden
     locale: sv
     search_variants: [Härnösand, Harnosand, "Härnösand Sverige"]
+    topic_tier: core
   - name: Söderhamn
     country: Sweden
     locale: sv
     search_variants: [Söderhamn, Soderhamn, "Söderhamn Sverige"]
+    topic_tier: core
   - name: Kristinehamn
     country: Sweden
     locale: sv
     search_variants: [Kristinehamn, "Kristinehamn Sverige"]
+    topic_tier: core
   - name: Bålsta
     country: Sweden
     locale: sv
     search_variants: [Bålsta, Balsta, Håbo, "Bålsta Sverige"]
+    topic_tier: core
   - name: Lindesberg
     country: Sweden
     locale: sv
     search_variants: [Lindesberg, "Lindesberg Sverige"]
+    topic_tier: core
   - name: Kumla
     country: Sweden
     locale: sv
     search_variants: [Kumla, "Kumla Sverige"]
+    topic_tier: core
   - name: Sala
     country: Sweden
     locale: sv
     search_variants: [Sala, "Sala Sverige"]
+    topic_tier: core
   - name: Kiruna
     country: Sweden
     locale: sv
     search_variants: [Kiruna, "Kiruna Sverige"]
+    topic_tier: core
   - name: Avesta
     country: Sweden
     locale: sv
     search_variants: [Avesta, "Avesta Sverige"]
+    topic_tier: core
   - name: Knivsta
     country: Sweden
     locale: sv
     search_variants: [Knivsta, "Knivsta Sverige"]
+    topic_tier: core
   - name: Finspång
     country: Sweden
     locale: sv
     search_variants: [Finspång, Finspang, "Finspång Sverige"]
+    topic_tier: core
   - name: Mora
     country: Sweden
     locale: sv
     search_variants: [Mora, "Mora Sverige"]
+    topic_tier: core
   - name: Östhammar
     country: Sweden
     locale: sv
     search_variants: [Östhammar, Osthammar, "Östhammar Sverige"]
+    topic_tier: core
   - name: Tierp
     country: Sweden
     locale: sv
     search_variants: [Tierp, "Tierp Sverige"]
+    topic_tier: core
   - name: Arlöv
     country: Sweden
     locale: sv
     search_variants: [Arlöv, Arlov, Burlöv, "Arlöv Sverige"]
+    topic_tier: core
   - name: Nybro
     country: Sweden
     locale: sv
     search_variants: [Nybro, "Nybro Sverige"]
+    topic_tier: core
   - name: Alvesta
     country: Sweden
     locale: sv
     search_variants: [Alvesta, "Alvesta Sverige"]
+    topic_tier: core
   - name: Sjöbo
     country: Sweden
     locale: sv
     search_variants: [Sjöbo, Sjobo, "Sjöbo Sverige"]
+    topic_tier: core
   - name: Simrishamn
     country: Sweden
     locale: sv
     search_variants: [Simrishamn, "Simrishamn Sverige"]
+    topic_tier: core
   - name: Skara
     country: Sweden
     locale: sv
     search_variants: [Skara, "Skara Sverige"]
+    topic_tier: core
   - name: Tranås
     country: Sweden
     locale: sv
     search_variants: [Tranås, Tranas, "Tranås Sverige"]
+    topic_tier: core
   - name: Ljusdal
     country: Sweden
     locale: sv
     search_variants: [Ljusdal, "Ljusdal Sverige"]
+    topic_tier: core
   - name: Sollefteå
     country: Sweden
     locale: sv
     search_variants: [Sollefteå, Solleftea, "Sollefteå Sverige"]
+    topic_tier: core
   - name: Höör
     country: Sweden
     locale: sv
     search_variants: [Höör, Hoor, "Höör Sverige"]
+    topic_tier: core
   - name: Klippan
     country: Sweden
     locale: sv
     search_variants: [Klippan, "Klippan Sverige"]
+    topic_tier: core
   - name: Eksjö
     country: Sweden
     locale: sv
     search_variants: [Eksjö, Eksjo, "Eksjö Sverige"]
+    topic_tier: core
   - name: Älmhult
     country: Sweden
     locale: sv
     search_variants: [Älmhult, Almhult, "Älmhult Sverige"]
+    topic_tier: core
   - name: Timrå
     country: Sweden
     locale: sv
     search_variants: [Timrå, Timra, "Timrå Sverige"]
+    topic_tier: core
   - name: Sölvesborg
     country: Sweden
     locale: sv
     search_variants: [Sölvesborg, Solvesborg, "Sölvesborg Sverige"]
+    topic_tier: core
   - name: Salem
     country: Sweden
     locale: sv
     search_variants: [Salem, "Salem Sverige"]
+    topic_tier: core
   - name: Kramfors
     country: Sweden
     locale: sv
     search_variants: [Kramfors, "Kramfors Sverige"]
+    topic_tier: core
   - name: Skurup
     country: Sweden
     locale: sv
     search_variants: [Skurup, "Skurup Sverige"]
+    topic_tier: core
   - name: Gällivare
     country: Sweden
     locale: sv
     search_variants: [Gällivare, Gallivare, "Gällivare Sverige"]
+    topic_tier: core
   - name: Skoghall
     country: Sweden
     locale: sv
     search_variants: [Skoghall, Hammarö, Hammaro, "Skoghall Sverige"]
+    topic_tier: core
   - name: Hallstahammar
     country: Sweden
     locale: sv
     search_variants: [Hallstahammar, "Hallstahammar Sverige"]
+    topic_tier: core
   - name: Åstorp
     country: Sweden
     locale: sv
     search_variants: [Åstorp, Astorp, "Åstorp Sverige"]
+    topic_tier: core
   - name: Mörbylånga
     country: Sweden
     locale: sv
     search_variants: [Mörbylånga, Morbylunga, "Mörbylånga Sverige"]
+    topic_tier: core
   - name: Leksand
     country: Sweden
     locale: sv
     search_variants: [Leksand, "Leksand Sverige"]
+    topic_tier: core
   - name: Bjuv
     country: Sweden
     locale: sv
     search_variants: [Bjuv, "Bjuv Sverige"]
+    topic_tier: core
   - name: Hallsberg
     country: Sweden
     locale: sv
     search_variants: [Hallsberg, "Hallsberg Sverige"]
+    topic_tier: core
   - name: Båstad
     country: Sweden
     locale: sv
     search_variants: [Båstad, Bastad, "Båstad Sverige"]
+    topic_tier: core
   - name: Skärhamn
     country: Sweden
     locale: sv
     search_variants: [Skärhamn, Skarhamn, Tjörn, "Skärhamn Sverige"]
+    topic_tier: core
   - name: Vara
     country: Sweden
     locale: sv
     search_variants: [Vara, "Vara Sverige"]
+    topic_tier: core
   - name: Krokom
     country: Sweden
     locale: sv
     search_variants: [Krokom, "Krokom Sverige"]
+    topic_tier: core
   - name: Hörby
     country: Sweden
     locale: sv
     search_variants: [Hörby, Horby, "Hörby Sverige"]
+    topic_tier: core
   - name: Henån
     country: Sweden
     locale: sv
     search_variants: [Henån, Henan, Orust, "Henån Sverige"]
+    topic_tier: core
   - name: Vimmerby
     country: Sweden
     locale: sv
     search_variants: [Vimmerby, "Vimmerby Sverige"]
+    topic_tier: core
   - name: Kalix
     country: Sweden
     locale: sv
     search_variants: [Kalix, "Kalix Sverige"]
+    topic_tier: core
   - name: Flen
     country: Sweden
     locale: sv
     search_variants: [Flen, "Flen Sverige"]
+    topic_tier: core
   - name: Hedemora
     country: Sweden
     locale: sv
     search_variants: [Hedemora, "Hedemora Sverige"]
+    topic_tier: core
   - name: Vaggeryd
     country: Sweden
     locale: sv
     search_variants: [Vaggeryd, Skillingaryd, "Vaggeryd Sverige"]
+    topic_tier: core
   - name: Trosa
     country: Sweden
     locale: sv
     search_variants: [Trosa, "Trosa Sverige"]
+    topic_tier: core
   - name: Säffle
     country: Sweden
     locale: sv
     search_variants: [Säffle, Saffle, "Säffle Sverige"]
+    topic_tier: core
   - name: Söderköping
     country: Sweden
     locale: sv
     search_variants: [Söderköping, Soderkoping, "Söderköping Sverige"]
+    topic_tier: core
   - name: Svalöv
     country: Sweden
     locale: sv
     search_variants: [Svalöv, Svalov, "Svalöv Sverige"]
+    topic_tier: core
   - name: Lilla Edet
     country: Sweden
     locale: sv
     search_variants: ["Lilla Edet", "Lilla Edet Sverige"]
+    topic_tier: core
   - name: Heby
     country: Sweden
     locale: sv
     search_variants: [Heby, "Heby Sverige"]
+    topic_tier: core
   - name: Arboga
     country: Sweden
     locale: sv
     search_variants: [Arboga, "Arboga Sverige"]
+    topic_tier: core
   - name: Lysekil
     country: Sweden
     locale: sv
     search_variants: [Lysekil, "Lysekil Sverige"]
+    topic_tier: core
   - name: Broby
     country: Sweden
     locale: sv
     search_variants: [Broby, "Östra Göinge", "Broby Sverige"]
+    topic_tier: core
   - name: Tomelilla
     country: Sweden
     locale: sv
     search_variants: [Tomelilla, "Tomelilla Sverige"]
+    topic_tier: core
   - name: Strömstad
     country: Sweden
     locale: sv
     search_variants: [Strömstad, Stromstad, "Strömstad Sverige"]
+    topic_tier: core
   - name: Habo
     country: Sweden
     locale: sv
     search_variants: [Habo, "Habo Sverige"]
+    topic_tier: core
   - name: Hultsfred
     country: Sweden
     locale: sv
     search_variants: [Hultsfred, "Hultsfred Sverige"]
+    topic_tier: core
   - name: Sunne
     country: Sweden
     locale: sv
     search_variants: [Sunne, "Sunne Sverige"]
+    topic_tier: core
   - name: Götene
     country: Sweden
     locale: sv
     search_variants: [Götene, Gotene, "Götene Sverige"]
+    topic_tier: core
   - name: Mönsterås
     country: Sweden
     locale: sv
     search_variants: [Mönsterås, Monsteras, "Mönsterås Sverige"]
+    topic_tier: core
   - name: Fagersta
     country: Sweden
     locale: sv
     search_variants: [Fagersta, "Fagersta Sverige"]
+    topic_tier: core
   - name: Öckerö
     country: Sweden
     locale: sv
     search_variants: [Öckerö, Ockero, "Öckerö Sverige"]
+    topic_tier: core
   - name: Osby
     country: Sweden
     locale: sv
     search_variants: [Osby, "Osby Sverige"]
+    topic_tier: core
   - name: Järpen
     country: Sweden
     locale: sv
     search_variants: [Järpen, Jarpen, Åre, "Järpen Sverige"]
+    topic_tier: core
   - name: Olofström
     country: Sweden
     locale: sv
     search_variants: [Olofström, Olofstrom, "Olofström Sverige"]
+    topic_tier: core
   - name: Tidaholm
     country: Sweden
     locale: sv
     search_variants: [Tidaholm, "Tidaholm Sverige"]
+    topic_tier: core
   - name: Tanumshede
     country: Sweden
     locale: sv
     search_variants: [Tanumshede, Tanum, "Tanumshede Sverige"]
+    topic_tier: core
   - name: Vårgårda
     country: Sweden
     locale: sv
     search_variants: [Vårgårda, Vargarda, "Vårgårda Sverige"]
+    topic_tier: core
   - name: Bromölla
     country: Sweden
     locale: sv
     search_variants: [Bromölla, Bromolla, "Bromölla Sverige"]
+    topic_tier: core
   - name: Nykvarn
     country: Sweden
     locale: sv
     search_variants: [Nykvarn, "Nykvarn Sverige"]
+    topic_tier: core
   - name: Lycksele
     country: Sweden
     locale: sv
     search_variants: [Lycksele, "Lycksele Sverige"]
+    topic_tier: core
   - name: Kil
     country: Sweden
     locale: sv
     search_variants: [Kil, "Kil Sverige"]
+    topic_tier: core
   - name: Oxelösund
     country: Sweden
     locale: sv
     search_variants: [Oxelösund, Oxelosund, "Oxelösund Sverige"]
+    topic_tier: core
   - name: Tranemo
     country: Sweden
     locale: sv
     search_variants: [Tranemo, "Tranemo Sverige"]
+    topic_tier: core
   - name: Tingsryd
     country: Sweden
     locale: sv
     search_variants: [Tingsryd, "Tingsryd Sverige"]
+    topic_tier: core
   - name: Vaxholm
     country: Sweden
     locale: sv
     search_variants: [Vaxholm, "Vaxholm Sverige"]
+    topic_tier: core
   - name: Åmål
     country: Sweden
     locale: sv
     search_variants: [Åmål, Amal, "Åmål Sverige"]
+    topic_tier: core
   - name: Sävsjö
     country: Sweden
     locale: sv
     search_variants: [Sävsjö, Savsjo, "Sävsjö Sverige"]
+    topic_tier: core
   - name: Åtvidaberg
     country: Sweden
     locale: sv
     search_variants: [Åtvidaberg, Atvidaberg, "Åtvidaberg Sverige"]
+    topic_tier: core
   - name: Askersund
     country: Sweden
     locale: sv
     search_variants: [Askersund, "Askersund Sverige"]
+    topic_tier: core
   - name: Forshaga
     country: Sweden
     locale: sv
     search_variants: [Forshaga, "Forshaga Sverige"]
+    topic_tier: core
   - name: Hagfors
     country: Sweden
     locale: sv
     search_variants: [Hagfors, "Hagfors Sverige"]
+    topic_tier: core
   - name: Gnesta
     country: Sweden
     locale: sv
     search_variants: [Gnesta, "Gnesta Sverige"]
+    topic_tier: core
   - name: Tibro
     country: Sweden
     locale: sv
     search_variants: [Tibro, "Tibro Sverige"]
+    topic_tier: core
   - name: Torsby
     country: Sweden
     locale: sv
     search_variants: [Torsby, "Torsby Sverige"]
+    topic_tier: core
   - name: Edsbyn
     country: Sweden
     locale: sv
     search_variants: [Edsbyn, Ovanåker, "Edsbyn Sverige"]
+    topic_tier: core
   - name: Säter
     country: Sweden
     locale: sv
     search_variants: [Säter, Sater, "Säter Sverige"]
+    topic_tier: core
   - name: Rättvik
     country: Sweden
     locale: sv
     search_variants: [Rättvik, Rattvik, "Rättvik Sverige"]
+    topic_tier: core
   - name: Strömsund
     country: Sweden
     locale: sv
     search_variants: [Strömsund, Stromsund, "Strömsund Sverige"]
+    topic_tier: core
   - name: Smedjebacken
     country: Sweden
     locale: sv
     search_variants: [Smedjebacken, "Smedjebacken Sverige"]
+    topic_tier: core
   - name: Borgholm
     country: Sweden
     locale: sv
     search_variants: [Borgholm, Öland, "Borgholm Sverige"]
+    topic_tier: core
   - name: Svenljunga
     country: Sweden
     locale: sv
     search_variants: [Svenljunga, "Svenljunga Sverige"]
+    topic_tier: core
   - name: Nora
     country: Sweden
     locale: sv
     search_variants: [Nora, "Nora Sverige"]
+    topic_tier: core
   - name: Örkelljunga
     country: Sweden
     locale: sv
     search_variants: [Örkelljunga, Orkelljunga, "Örkelljunga Sverige"]
+    topic_tier: core
   - name: Djurås
     country: Sweden
     locale: sv
     search_variants: [Djurås, Djuras, Gagnef, "Djurås Sverige"]
+    topic_tier: core
   - name: Munkedal
     country: Sweden
     locale: sv
     search_variants: [Munkedal, "Munkedal Sverige"]
+    topic_tier: core
   - name: Malung
     country: Sweden
     locale: sv
     search_variants: [Malung, "Malung Sverige"]
+    topic_tier: core
   - name: Sveg
     country: Sweden
     locale: sv
     search_variants: [Sveg, Härjedalen, Harjedalen, "Sveg Sverige"]
+    topic_tier: core
   - name: Hyltebruk
     country: Sweden
     locale: sv
     search_variants: [Hyltebruk, Hylte, "Hyltebruk Sverige"]
+    topic_tier: core
   - name: Kisa
     country: Sweden
     locale: sv
     search_variants: [Kisa, Kinda, "Kisa Sverige"]
+    topic_tier: core
   - name: Markaryd
     country: Sweden
     locale: sv
     search_variants: [Markaryd, "Markaryd Sverige"]
+    topic_tier: core
   - name: Bollebygd
     country: Sweden
     locale: sv
     search_variants: [Bollebygd, "Bollebygd Sverige"]
+    topic_tier: core
   - name: Surahammar
     country: Sweden
     locale: sv
     search_variants: [Surahammar, "Surahammar Sverige"]
+    topic_tier: core
   - name: Årjäng
     country: Sweden
     locale: sv
     search_variants: [Årjäng, Arjang, "Årjäng Sverige"]
+    topic_tier: core
   - name: Filipstad
     country: Sweden
     locale: sv
     search_variants: [Filipstad, "Filipstad Sverige"]
+    topic_tier: core
   - name: Skutskär
     country: Sweden
     locale: sv
     search_variants: [Skutskär, Skutskar, Älvkarleby, "Skutskär Sverige"]
+    topic_tier: core
   - name: Herrljunga
     country: Sweden
     locale: sv
     search_variants: [Herrljunga, "Herrljunga Sverige"]
+    topic_tier: core
   - name: Hjo
     country: Sweden
     locale: sv
     search_variants: [Hjo, "Hjo Sverige"]
+    topic_tier: core
   - name: Bergsjö
     country: Sweden
     locale: sv
     search_variants: [Bergsjö, Bergsjo, Nordanstig, "Bergsjö Sverige"]
+    topic_tier: core
   - name: Degerfors
     country: Sweden
     locale: sv
     search_variants: [Degerfors, "Degerfors Sverige"]
+    topic_tier: core
   - name: Vännäs
     country: Sweden
     locale: sv
     search_variants: [Vännäs, Vannas, "Vännäs Sverige"]
+    topic_tier: core
   - name: Hofors
     country: Sweden
     locale: sv
     search_variants: [Hofors, "Hofors Sverige"]
+    topic_tier: core
   - name: Töreboda
     country: Sweden
     locale: sv
     search_variants: [Töreboda, Toreboda, "Töreboda Sverige"]
+    topic_tier: core
   - name: Mellerud
     country: Sweden
     locale: sv
     search_variants: [Mellerud, "Mellerud Sverige"]
+    topic_tier: core
   - name: Gnosjö
     country: Sweden
     locale: sv
     search_variants: [Gnosjö, Gnosjo, "Gnosjö Sverige"]
+    topic_tier: core
   - name: Haparanda
     country: Sweden
     locale: sv
     search_variants: [Haparanda, "Haparanda Sverige"]
+    topic_tier: core
   - name: Kungshamn
     country: Sweden
     locale: sv
     search_variants: [Kungshamn, Sotenäs, "Kungshamn Sverige"]
+    topic_tier: core
   - name: Ånge
     country: Sweden
     locale: sv
     search_variants: [Ånge, Ange, "Ånge Sverige"]
+    topic_tier: core
   - name: Bengtsfors
     country: Sweden
     locale: sv
     search_variants: [Bengtsfors, "Bengtsfors Sverige"]
+    topic_tier: core
   - name: Åseda
     country: Sweden
     locale: sv
     search_variants: [Åseda, Aseda, Uppvidinge, "Åseda Sverige"]
+    topic_tier: core
   - name: Grums
     country: Sweden
     locale: sv
     search_variants: [Grums, "Grums Sverige"]
+    topic_tier: core
   - name: Emmaboda
     country: Sweden
     locale: sv
     search_variants: [Emmaboda, "Emmaboda Sverige"]
+    topic_tier: core
   - name: Vingåker
     country: Sweden
     locale: sv
     search_variants: [Vingåker, Vingaker, "Vingåker Sverige"]
+    topic_tier: core
   - name: Fjugesta
     country: Sweden
     locale: sv
     search_variants: [Fjugesta, Lekeberg, "Fjugesta Sverige"]
+    topic_tier: core
   - name: Kungsör
     country: Sweden
     locale: sv
     search_variants: [Kungsör, Kungsor, "Kungsör Sverige"]
+    topic_tier: core
   - name: Charlottenberg
     country: Sweden
     locale: sv
     search_variants: [Charlottenberg, Eda, "Charlottenberg Sverige"]
+    topic_tier: core
   - name: Lessebo
     country: Sweden
     locale: sv
     search_variants: [Lessebo, "Lessebo Sverige"]
+    topic_tier: core
   - name: Älvsbyn
     country: Sweden
     locale: sv
     search_variants: [Älvsbyn, Alvsbyn, "Älvsbyn Sverige"]
+    topic_tier: core
   - name: Mullsjö
     country: Sweden
     locale: sv
     search_variants: [Mullsjö, Mullsjo, "Mullsjö Sverige"]
+    topic_tier: core
   - name: Valdemarsvik
     country: Sweden
     locale: sv
     search_variants: [Valdemarsvik, "Valdemarsvik Sverige"]
+    topic_tier: core
   - name: Vadstena
     country: Sweden
     locale: sv
     search_variants: [Vadstena, "Vadstena Sverige"]
+    topic_tier: core
   - name: Svenstavik
     country: Sweden
     locale: sv
     search_variants: [Svenstavik, Berg, "Svenstavik Sverige"]
+    topic_tier: core
   - name: Perstorp
     country: Sweden
     locale: sv
     search_variants: [Perstorp, "Perstorp Sverige"]
+    topic_tier: core
   - name: Karlsborg
     country: Sweden
     locale: sv
     search_variants: [Karlsborg, "Karlsborg Sverige"]
+    topic_tier: core
   - name: Nordmaling
     country: Sweden
     locale: sv
     search_variants: [Nordmaling, "Nordmaling Sverige"]
+    topic_tier: core
   - name: Torsås
     country: Sweden
     locale: sv
     search_variants: [Torsås, Torsas, "Torsås Sverige"]
+    topic_tier: core
   - name: Orsa
     country: Sweden
     locale: sv
     search_variants: [Orsa, "Orsa Sverige"]
+    topic_tier: core
   - name: Aneby
     country: Sweden
     locale: sv
     search_variants: [Aneby, "Aneby Sverige"]
+    topic_tier: core
   - name: Älvdalen
     country: Sweden
     locale: sv
     search_variants: [Älvdalen, Alvdalen, "Älvdalen Sverige"]
+    topic_tier: core
   - name: Vansbro
     country: Sweden
     locale: sv
     search_variants: [Vansbro, "Vansbro Sverige"]
+    topic_tier: core
   - name: Robertsfors
     country: Sweden
     locale: sv
     search_variants: [Robertsfors, "Robertsfors Sverige"]
+    topic_tier: core
   - name: Hällefors
     country: Sweden
     locale: sv
     search_variants: [Hällefors, Hallefors, "Hällefors Sverige"]
+    topic_tier: core
   - name: Färgelanda
     country: Sweden
     locale: sv
     search_variants: [Färgelanda, Fargelanda, "Färgelanda Sverige"]
+    topic_tier: core
   - name: Vilhelmina
     country: Sweden
     locale: sv
     search_variants: [Vilhelmina, "Vilhelmina Sverige"]
+    topic_tier: core
   - name: Arvidsjaur
     country: Sweden
     locale: sv
     search_variants: [Arvidsjaur, "Arvidsjaur Sverige"]
+    topic_tier: core
   - name: Bräcke
     country: Sweden
     locale: sv
     search_variants: [Bräcke, Bracke, "Bräcke Sverige"]
+    topic_tier: core
   - name: Ockelbo
     country: Sweden
     locale: sv
     search_variants: [Ockelbo, "Ockelbo Sverige"]
+    topic_tier: core
   - name: Pajala
     country: Sweden
     locale: sv
     search_variants: [Pajala, "Pajala Sverige"]
+    topic_tier: core
   - name: Grästorp
     country: Sweden
     locale: sv
     search_variants: [Grästorp, Grastorp, "Grästorp Sverige"]
+    topic_tier: core
   - name: Storuman
     country: Sweden
     locale: sv
     search_variants: [Storuman, "Storuman Sverige"]
+    topic_tier: core
   - name: Nossebro
     country: Sweden
     locale: sv
     search_variants: [Nossebro, Essunga, "Nossebro Sverige"]
+    topic_tier: core
   - name: Boxholm
     country: Sweden
     locale: sv
     search_variants: [Boxholm, "Boxholm Sverige"]
+    topic_tier: core
   - name: Vindeln
     country: Sweden
     locale: sv
     search_variants: [Vindeln, "Vindeln Sverige"]
+    topic_tier: core
   - name: Laxå
     country: Sweden
     locale: sv
     search_variants: [Laxå, Laxa, "Laxå Sverige"]
+    topic_tier: core
   - name: Norberg
     country: Sweden
     locale: sv
     search_variants: [Norberg, "Norberg Sverige"]
+    topic_tier: core
   - name: Ödeshög
     country: Sweden
     locale: sv
     search_variants: [Ödeshög, Odeshog, "Ödeshög Sverige"]
+    topic_tier: core
   - name: Hammarstrand
     country: Sweden
     locale: sv
     search_variants: [Hammarstrand, Ragunda, "Hammarstrand Sverige"]
+    topic_tier: core
   - name: Högsby
     country: Sweden
     locale: sv
     search_variants: [Högsby, Hogsby, "Högsby Sverige"]
+    topic_tier: core
   - name: Gullspång
     country: Sweden
     locale: sv
     search_variants: [Gullspång, Gullspang, Hova, "Gullspång Sverige"]
+    topic_tier: core
   - name: Jokkmokk
     country: Sweden
     locale: sv
     search_variants: [Jokkmokk, "Jokkmokk Sverige"]
+    topic_tier: core
   - name: Ed
     country: Sweden
     locale: sv
     search_variants: [Ed, "Dals-Ed", "Ed Sverige"]
+    topic_tier: core
   - name: Kopparberg
     country: Sweden
     locale: sv
     search_variants: [Kopparberg, Ljusnarsberg, "Kopparberg Sverige"]
+    topic_tier: core
   - name: Skinnskatteberg
     country: Sweden
     locale: sv
     search_variants: [Skinnskatteberg, "Skinnskatteberg Sverige"]
+    topic_tier: core
   - name: Övertorneå
     country: Sweden
     locale: sv
     search_variants: [Övertorneå, Overtornea, "Övertorneå Sverige"]
+    topic_tier: core
   - name: Norsjö
     country: Sweden
     locale: sv
     search_variants: [Norsjö, Norsjo, "Norsjö Sverige"]
+    topic_tier: core
   - name: Storfors
     country: Sweden
     locale: sv
     search_variants: [Storfors, "Storfors Sverige"]
+    topic_tier: core
   - name: Munkfors
     country: Sweden
     locale: sv
     search_variants: [Munkfors, "Munkfors Sverige"]
+    topic_tier: core
   - name: Österbymo
     country: Sweden
     locale: sv
     search_variants: [Österbymo, Osterbymo, Ydre, "Österbymo Sverige"]
+    topic_tier: core
   - name: Överkalix
     country: Sweden
     locale: sv
     search_variants: [Överkalix, Overkalix, "Överkalix Sverige"]
+    topic_tier: core
   - name: Malå
     country: Sweden
     locale: sv
     search_variants: [Malå, Mala, "Malå Sverige"]
+    topic_tier: core
   - name: Åsele
     country: Sweden
     locale: sv
     search_variants: [Åsele, Asele, "Åsele Sverige"]
+    topic_tier: core
   - name: Arjeplog
     country: Sweden
     locale: sv
     search_variants: [Arjeplog, "Arjeplog Sverige"]
+    topic_tier: core
   - name: Sorsele
     country: Sweden
     locale: sv
     search_variants: [Sorsele, "Sorsele Sverige"]
+    topic_tier: core
   - name: Bjurholm
     country: Sweden
     locale: sv
     search_variants: [Bjurholm, "Bjurholm Sverige"]
+    topic_tier: core
   - name: Dorotea
     country: Sweden
     locale: sv
     search_variants: [Dorotea, "Dorotea Sverige"]
+    topic_tier: core
   - name: Ale
     country: Sweden
     locale: sv
     search_variants: [Ale, "Nödinge-Nol", "Ale Sverige"]
+    topic_tier: core
   - name: Danderyd
     country: Sweden
     locale: sv
     search_variants: [Danderyd, Djursholm, "Danderyd Sverige"]
+    topic_tier: core
   - name: Lomma
     country: Sweden
     locale: sv
     search_variants: [Lomma, "Lomma Sverige"]
+    topic_tier: core
   - name: Vellinge
     country: Sweden
     locale: sv
     search_variants: [Vellinge, "Vellinge Sverige"]
+    topic_tier: core
   - name: Kinna
     country: Sweden
     locale: sv
     search_variants: [Kinna, Mark, "Kinna Sverige"]
+    topic_tier: core
   - name: Svedala
     country: Sweden
     locale: sv
     search_variants: [Svedala, "Svedala Sverige"]
+    topic_tier: core
   - name: Ekerö
     country: Sweden
     locale: sv
     search_variants: [Ekerö, Ekero, "Ekerö Sverige"]
+    topic_tier: core
   - name: Upplands-Bro
     country: Sweden
     locale: sv
     search_variants: [Upplands-Bro, Kungsängen, "Upplands-Bro Sverige"]
 
   # Austria
+    topic_tier: core
   - name: Vienna
     country: Austria
     locale: de

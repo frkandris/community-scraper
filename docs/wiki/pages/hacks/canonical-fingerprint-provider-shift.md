@@ -17,6 +17,6 @@ When DeepSeek is exhausted mid-run, extraction shifts to Groq. If cache reads/wr
 
 The community cache read/write path uses `canonical_fingerprint`, so every extraction — whichever provider actually ran — is stored under the same key the done-pairs check looks for.
 
-## Incomplete
+## Completed 2026-07-09
 
-The canonical fix was applied to **communities only**. `venue_fingerprint`/`person_fingerprint` still use the provider-shifting variants, so venues/persons extracted by Groq can be re-extracted when DeepSeek recovers. See [[extraction-fingerprints]].
+Originally communities-only; now `canonical_venue_fingerprint` and `canonical_person_fingerprint` exist and every pipeline venue/person cache read/write uses them. See [[extraction-fingerprints]].

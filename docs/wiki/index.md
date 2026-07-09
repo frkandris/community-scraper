@@ -49,7 +49,8 @@ frontmatter. See [SCHEMA.md](SCHEMA.md) for conventions.
 - [[search-ttl-3650-days]] — TTL ~10 years: index the world first, worry about freshness later
 - [[sweden-pipeline-priority]] — Sweden runs second after Hungary (290 municipalities)
 - [[hungary-sweden-intl-three-passes]] — three sequential run_pipeline calls; order = business priority
-- [[scheduler-disabled-no-cron]] — the AsyncIOScheduler is started but never given a job
+- [[scheduler-disabled-no-cron]] — cron is opt-in (`cron_enabled`); preset to DeepSeek's off-peak window
+- [[cost-optimization-2026-07]] — eight levers cutting DataForSEO + LLM spend (empty-search caching, short-circuit, tiering…)
 - [[doc-drift-project-readme]] — PROJECT.md/README.md describe retired providers; trust the code
 
 ## Hacks

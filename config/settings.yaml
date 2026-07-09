@@ -16,6 +16,9 @@ search:
   results_per_query: 10
   max_pages_per_topic: 5
   rate_limit_seconds: 1.5
+  # "live" = instant, $2/1K queries. "standard" = task queue, $0.6/1K (70% cheaper)
+  # but each query takes ~0.5-5 minutes — only sensible for long unattended sweeps.
+  dataforseo_mode: live
 
 fetch:
   timeout_seconds: 15
@@ -41,6 +44,22 @@ pipeline:
     - Budapest
     - London
   enrich_communities: true
+  # Topics searched for cities marked `topic_tier: core` in cities.yaml (small towns
+  # where niche topics can't yield results). Tiered-out pairs are fully frozen:
+  # no search, no re-extraction. Empty list = tiering disabled.
+  core_topics:
+    - running
+    - music
+    - choir
+    - dance
+    - hiking
+    - cycling
+    - fitness
+    - board_games
+    - volunteering
+    - religion
+    - senior
+    - baby
 
 cache:
   skip_scraped: true
@@ -48,5 +67,8 @@ cache:
   search_ttl_days: 3650
 
 schedule:
-  cron: "* * * * *"
+  # 16:35 UTC = start of DeepSeek's off-peak window (UTC 16:30-00:30, ~50-75% cheaper).
+  # Only takes effect when cron_enabled is true.
+  cron: "35 16 * * *"
+  cron_enabled: false
   auto_run_on_startup: false

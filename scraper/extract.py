@@ -720,6 +720,18 @@ class FallbackExtractor:
         return self.primaries[idx].person_fingerprint if idx is not None else (self.primaries[0].person_fingerprint if self.primaries else "")
 
     @property
+    def canonical_venue_fingerprint(self) -> str:
+        """primaries[0]'s venue fingerprint — same rationale as canonical_fingerprint:
+        venue results extracted by the fallback provider must be cached under the
+        primary's key, or they get re-extracted once the primary recovers."""
+        return self.primaries[0].venue_fingerprint if self.primaries else ""
+
+    @property
+    def canonical_person_fingerprint(self) -> str:
+        """primaries[0]'s person fingerprint — see canonical_venue_fingerprint."""
+        return self.primaries[0].person_fingerprint if self.primaries else ""
+
+    @property
     def enrich_fingerprint(self) -> str:
         idx = self._first_available()
         return self.primaries[idx].enrich_fingerprint if idx is not None else (self.primaries[0].enrich_fingerprint if self.primaries else "")

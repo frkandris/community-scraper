@@ -2713,10 +2713,12 @@ async def api_search_jobs(limit: int = 50, country: str = ""):
     and capped at ?limit=. See docs/wiki local-search-worker.
     """
     from ..db import get_search_cache
+    from ..pipeline import _tier_allows
     from ..search import build_queries
     if not app_state.db_path:
         return {"jobs": [], "count": 0}
     ttl = getattr(app_state.pipeline_cfg, "search_cache_ttl_days", 3650)
+    core_topics = getattr(app_state.pipeline_cfg, "core_topics", []) or []
     cities = app_state.cities or []
     topics = app_state.topics or []
     if country:
@@ -2725,6 +2727,8 @@ async def api_search_jobs(limit: int = 50, country: str = ""):
     jobs: list[dict] = []
     for city in cities:
         for topic in topics:
+            if not _tier_allows(city, topic.name, core_topics):
+                continue
             if get_search_cache(app_state.db_path, city.name, topic.name, ttl) is not None:
                 continue  # already searched within TTL
             terms = topic.search_terms.get(city.locale) or topic.search_terms.get("en", [])

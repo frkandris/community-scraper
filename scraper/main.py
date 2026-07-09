@@ -89,6 +89,21 @@ def _settings_auto_run_on_startup() -> bool:
     return False
 
 
+def _settings_cron_enabled() -> bool:
+    """schedule.cron_enabled — off by default. When on, the cron in settings.yaml
+    actually schedules runs. Pair it with an off-peak time: DeepSeek discounts
+    ~50-75% between UTC 16:30 and 00:30, so a nightly run in that window halves
+    the LLM bill."""
+    try:
+        settings = yaml.safe_load((CONFIG_DIR / "settings.yaml").read_text(encoding="utf-8")) or {}
+        schedule = settings.get("schedule", {})
+        if isinstance(schedule, dict):
+            return bool(schedule.get("cron_enabled", False))
+    except Exception:
+        return False
+    return False
+
+
 async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true")
@@ -192,7 +207,17 @@ async def main() -> None:
     scheduler = AsyncIOScheduler()
     scheduler.start()
     app_state.scheduler = scheduler
-    log.info("scheduler_started_paused", cron=cron_expr, version=app_state.version)
+    if _settings_cron_enabled():
+        minute, hour, day, month, day_of_week = _cron_fields(cron_expr)
+        scheduler.add_job(
+            _scheduled_run, CronTrigger(
+                minute=minute, hour=hour, day=day, month=month, day_of_week=day_of_week,
+            ),
+            misfire_grace_time=900,
+        )
+        log.info("scheduler_cron_enabled", cron=cron_expr, version=app_state.version)
+    else:
+        log.info("scheduler_started_paused", cron=cron_expr, version=app_state.version)
 
     async def _startup_run() -> None:
         await asyncio.sleep(5)

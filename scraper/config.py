@@ -43,6 +43,7 @@ def load_config_from_docs(
             country=c.get("country", ""),
             locale=str(c["locale"]),  # str() guards against PyYAML parsing "no" as bool
             search_variants=c.get("search_variants", [c["name"]]),
+            topic_tier=str(c.get("topic_tier", "full")),
         )
         for c in cities_items
     ]
@@ -59,6 +60,8 @@ def load_config_from_docs(
         search_results_per_query=settings["search"]["results_per_query"],
         search_max_pages=settings["search"]["max_pages_per_topic"],
         search_rate_limit=settings["search"]["rate_limit_seconds"],
+        dataforseo_mode=settings["search"].get("dataforseo_mode", "live"),
+        core_topics=pipeline_settings.get("core_topics", []) or [],
         fetch_timeout=settings["fetch"]["timeout_seconds"],
         fetch_min_text_length=settings["fetch"]["min_text_length"],
         fetch_max_concurrent=settings["fetch"]["max_concurrent"],

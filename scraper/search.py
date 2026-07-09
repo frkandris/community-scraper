@@ -198,16 +198,29 @@ class SerperSearchClient:
 
 
 class DataForSEOClient:
-    """DataForSEO Google Organic SERP — live mode, $2/1K queries.
+    """DataForSEO Google Organic SERP.
+
+    Two modes:
+    - "live" (default): live/regular endpoint, $2/1K queries, instant.
+    - "standard": task_post + task_get polling, $0.6/1K queries (70% cheaper),
+      but results take ~0.5–5 minutes. Fine for the batch pipeline; keep "live"
+      for anything latency-sensitive (e.g. enrichment).
+
     Works reliably from datacenter IPs; raises SearchQuotaError on depleted credits.
     Auth: Basic HTTP with login:password (base64-encoded).
     """
 
     _BASE = "https://api.dataforseo.com/v3/serp/google/organic/live/regular"
+    _TASK_POST = "https://api.dataforseo.com/v3/serp/google/organic/task_post"
+    _TASK_GET = "https://api.dataforseo.com/v3/serp/google/organic/task_get/regular"
+    _STANDARD_POLL_SECONDS = 10.0
+    _STANDARD_TIMEOUT_SECONDS = 300.0
 
-    def __init__(self, login: str, password: str, rate_limit_seconds: float = 1.0):
+    def __init__(self, login: str, password: str, rate_limit_seconds: float = 1.0,
+                 mode: str = "live"):
         import base64
         self.rate_limit_seconds = rate_limit_seconds
+        self.mode = mode if mode in ("live", "standard") else "live"
         self._last_request_time: float = 0.0
         raw = f"{login}:{password}".encode()
         self._auth_header = f"Basic {base64.b64encode(raw).decode()}"
@@ -226,6 +239,8 @@ class DataForSEOClient:
         location_code = LOCALE_TO_DATAFORSEO_LOCATION.get(lang)
         if location_code:
             task["location_code"] = location_code
+        if self.mode == "standard":
+            return await self._search_standard(task, query, num_results)
         payload = [task]
         headers = {"Authorization": self._auth_header, "Content-Type": "application/json"}
         try:
@@ -257,6 +272,12 @@ class DataForSEOClient:
                         message=data.get("status_message", ""))
             return []
 
+        results = self._parse_tasks(data)
+        log.info("dataforseo_results", query=query, found=len(results))
+        return results[:num_results]
+
+    @staticmethod
+    def _parse_tasks(data: dict) -> list[SearchResult]:
         results: list[SearchResult] = []
         for task in data.get("tasks", []):
             task_status = task.get("status_code", 0)
@@ -274,8 +295,58 @@ class DataForSEOClient:
                         title=item.get("title") or "",
                         snippet=item.get("description") or "",
                     ))
-        log.info("dataforseo_results", query=query, found=len(results))
-        return results[:num_results]
+        return results
+
+    async def _search_standard(self, task: dict, query: str,
+                               num_results: int) -> list[SearchResult]:
+        """Queue-mode search: task_post ($0.6/1K) then poll task_get until done."""
+        headers = {"Authorization": self._auth_header, "Content-Type": "application/json"}
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(self._TASK_POST, json=[{**task, "priority": 1}],
+                                         headers=headers)
+        except Exception as exc:
+            log.warning("dataforseo_task_post_failed", query=query, error=str(exc))
+            return []
+        if resp.status_code in (402, 429):
+            raise SearchQuotaError(f"DataForSEO: HTTP {resp.status_code}")
+        try:
+            data = resp.json()
+        except Exception:
+            return []
+        if data.get("status_code") == 40201:
+            raise SearchQuotaError("DataForSEO: insufficient credits (40201)")
+        tasks = data.get("tasks") or []
+        task_id = tasks[0].get("id") if tasks else None
+        if tasks and tasks[0].get("status_code") == 40201:
+            raise SearchQuotaError("DataForSEO: task quota exhausted (40201)")
+        if not task_id:
+            log.warning("dataforseo_task_post_no_id", query=query,
+                        status=data.get("status_code"))
+            return []
+
+        import time
+        deadline = time.monotonic() + self._STANDARD_TIMEOUT_SECONDS
+        while time.monotonic() < deadline:
+            await asyncio.sleep(self._STANDARD_POLL_SECONDS)
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    poll = await client.get(f"{self._TASK_GET}/{task_id}", headers=headers)
+                pdata = poll.json()
+            except Exception as exc:
+                log.warning("dataforseo_task_get_failed", query=query, error=str(exc))
+                continue
+            ptasks = pdata.get("tasks") or []
+            status = ptasks[0].get("status_code", 0) if ptasks else 0
+            if status == 20000:
+                results = self._parse_tasks(pdata)
+                log.info("dataforseo_results", query=query, found=len(results), mode="standard")
+                return results[:num_results]
+            if status == 40201:
+                raise SearchQuotaError("DataForSEO: task quota exhausted (40201)")
+            # 40601/40602 = task queued / in progress — keep polling
+        log.warning("dataforseo_task_timeout", query=query, task_id=task_id)
+        return []
 
     async def search_all(
         self,
@@ -685,19 +756,49 @@ class FallbackSearchClient:
         return []
 
     async def search_all(self, queries: list[str], locale: str = "en",
-                         num_results: int = 10) -> list[SearchResult]:
+                         num_results: int = 10,
+                         stop_after: int | None = None) -> list[SearchResult]:
+        """Run queries left-to-right across providers, deduplicating by URL.
+
+        stop_after: stop issuing further (paid) queries once this many unique
+        results have been collected. The pipeline caps fetched pages anyway, so
+        extra queries past that point only cost money. None = run all queries.
+
+        Failover semantics: quota error blocks the provider and the *remaining*
+        queries move to the next one (already-collected results are kept). If a
+        provider ran all remaining queries and the combined total is still empty,
+        the next provider retries the full set.
+        """
+        combined: list[SearchResult] = []
+        seen_urls: set[str] = set()
+        remaining = list(queries)
+
         for i, primary in enumerate(self.primaries):
-            if self._is_provider_blocked(i):
+            if self._is_provider_blocked(i) or not remaining:
                 continue
+            provider_done: list[str] = []
             try:
-                results = await primary.search_all(queries, locale=locale, num_results=num_results)
-                if results:
-                    return results
-                log.info("search_empty_try_next", provider=type(primary).__name__, queries=queries)
+                for query in remaining:
+                    if stop_after is not None and len(combined) >= stop_after:
+                        log.info("search_stop_after_reached", collected=len(combined),
+                                 skipped_queries=len(remaining) - len(provider_done))
+                        return combined
+                    for r in await primary.search(query, locale=locale, num_results=num_results):
+                        if r.url not in seen_urls:
+                            seen_urls.add(r.url)
+                            combined.append(r)
+                    provider_done.append(query)
             except SearchQuotaError as exc:
                 log.warning("search_quota_error", provider=type(primary).__name__, reason=str(exc))
                 self._block_provider(i, primary)
-        return []
+                remaining = [q for q in remaining if q not in provider_done]
+                continue
+            if combined:
+                return combined
+            log.info("search_empty_try_next", provider=type(primary).__name__, queries=queries)
+            # total empty → let the next provider retry the full set
+            remaining = list(queries)
+        return combined
 
 
 def build_queries(

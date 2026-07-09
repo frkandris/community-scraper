@@ -3,6 +3,8 @@
 Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
 ## 2026-07-09
+- **Creation**: [[cost-optimization-2026-07]] — empty-search caching (recurring-leak fix), query short-circuit (`stop_after`), venue extraction gated on communities, canonical venue/person fingerprints, opt-in off-peak cron, DataForSEO standard mode, topic tiering (260 small Swedish kommuner → 12 core topics; −6,240 pairs).
+- **Update**: [[scheduler-disabled-no-cron]] (cron now opt-in), [[extraction-fingerprints]] + [[canonical-fingerprint-provider-shift]] (venue/person canonical fix landed).
 - **Creation**: [[local-search-worker]] — new `scripts/local_search_worker.py` + `/admin/api/search/{jobs,ingest}` endpoints let a residential-IP browser do Google searches and feed `search_cache`, replacing datacenter DataForSEO calls. `GooglePlaywrightSearchClient` gained a `headless` param.
 - **Update**: Migrated the wiki to the combined Karpathy + OKF v0.1 format — rewrote SCHEMA.md, added `okf_version: "0.1"` to index.md, gave every page YAML frontmatter (`type` required), and switched log.md to date-grouped newest-first.
 - **Creation**: New subsystem pages from a full-codebase sweep — [[persistence-layer]], [[search-layer]], [[fetch-layer]], [[extraction-layer]], [[pipeline-orchestration]], [[duplicate-detection]], [[web-app]], [[i18n-and-site-detection]].

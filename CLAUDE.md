@@ -40,7 +40,11 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 
 **Done-pair pre-filter**: `run_pipeline()` calls `get_fully_processed_pairs(db_path, current_fp)` (one SQL query) before inner loops and passes the complement as `pairs_filter`. Pairs with a `search_cache` entry AND all `cache_pages` at the current `extract_fingerprint` are skipped entirely — no loop iteration, no log entry. Fully-covered cities should not appear in the log.
 
-**Scheduler**: cron job is registered but has no jobs — automatic scheduled runs are disabled. Pipeline only starts via manual button presses or `auto_run_on_startup` (see `config/settings.yaml → schedule.auto_run_on_startup`).
+**Scheduler**: cron is opt-in — `schedule.cron_enabled: false` by default (no scheduled runs). When enabled, `schedule.cron` fires `_scheduled_run` (preset `35 16 * * *` UTC = DeepSeek off-peak window start). Pipeline otherwise starts via manual button presses or `auto_run_on_startup`.
+
+**Topic tiering**: cities with `topic_tier: core` in `cities.yaml` (currently the 260 smallest Swedish kommuner) only run `pipeline.core_topics` from `settings.yaml`; tiered-out pairs are fully frozen (no search, no re-extraction). `_tier_allows()` in `pipeline.py` is the single gate, also used by `/admin/api/search/jobs`.
+
+**Search cost rules**: every search is saved to `search_cache` — even empty results and Full Refresh runs (an unsaved empty search is re-paid every run). `FallbackSearchClient.search_all(stop_after=…)` stops issuing paid queries once enough unique URLs are collected. `search.dataforseo_mode: standard` (opt-in) uses the 70%-cheaper task queue with minutes of latency.
 
 **Cache**: everything goes through `cache.py` (a thin facade over `db.py`). Each scraped URL gets a row in `cache_pages`. The extraction cache is fingerprint-keyed: SHA-256[:12] of `SYSTEM_PROMPT + model_name`. Changing either invalidates all cached extractions automatically.
 
@@ -95,7 +99,7 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 
 **Playwright vs. blocked ordering**: `fetch_and_clean()` checks `playwright_fetcher.matches(url)` *before* `_is_blocked()`. A domain in both lists gets fetched by Playwright, not blocked. Keep social-media domains out of `playwright_domains` entirely.
 
-**Person extraction skip**: in `_run_full` and `_run_ai_only`, the person cache lookup and AI call are skipped entirely when `community_names` is empty for a URL. No communities → no persons to extract. Saves one DB read per URL (the majority of URLs in most topic runs yield 0 communities).
+**Person + venue extraction skip**: in `_run_full` and `_run_ai_only`, both the person AND venue cache lookups and AI calls are skipped entirely when `community_names` is empty for a URL. No communities → no persons/venues to extract (the majority of URLs yield 0 communities). Venue/person cache read/write uses `canonical_venue_fingerprint` / `canonical_person_fingerprint` (always primaries[0]) so fallback-provider extractions don't re-run when DeepSeek recovers.
 
 **settings.yaml schedule flags**: `schedule.auto_run_on_startup: true/false` controls whether the pipeline runs automatically on deploy/restart (read at startup, not hot-reloaded). The cron job slot exists but is intentionally empty — automatic scheduled runs are disabled.
 
