@@ -130,3 +130,17 @@ def test_submit_page_hungarian_on_kozossegek(seo_client):
     assert r.status_code == 200
     assert "Közösség beküldése" in r.text
     assert "Válassz várost" in r.text
+
+
+def test_cities_page_country_filter_on_meetapedia(seo_client):
+    """Home country headings link to /cities?country=X — one country's cities."""
+    r = seo_client.get("/cities?country=Sweden", headers=MEET)
+    assert r.status_code == 200
+    assert "Stockholm" in r.text
+    assert "Budapest" not in r.text
+    assert "magyar város" not in r.text  # count line must be i18n'd
+
+
+def test_cities_page_unknown_country_falls_back_to_all(seo_client):
+    r = seo_client.get("/cities?country=Narnia", headers=MEET)
+    assert "Stockholm" in r.text and "Budapest" in r.text

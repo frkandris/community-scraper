@@ -1626,10 +1626,18 @@ async def public_map(request: Request):
     })
 
 
+@_fastapi.get("/cities", response_class=HTMLResponse)
 @_fastapi.get("/varosok", response_class=HTMLResponse)
-async def public_cities(request: Request, requested: str = ""):
+async def public_cities(request: Request, requested: str = "", country: str = ""):
     city_totals = dict(get_city_totals(_db())) if app_state.db_path else {}
     site_cities = _site_cities(request)
+    country = country.strip()
+    if country:
+        filtered = [c for c in site_cities if c.country == country]
+        if filtered:
+            site_cities = filtered
+        else:
+            country = ""
     cities_list = sorted(
         [{"name": c.name, "slug": _slugify(c.name), "count": city_totals.get(c.name, 0)} for c in site_cities],
         key=lambda c: (-c["count"], _hu_sort_key(c["name"])),
@@ -1638,13 +1646,9 @@ async def public_cities(request: Request, requested: str = ""):
         "cities_list": cities_list,
         "total_cities": len(cities_list),
         "requested": requested,
+        "country_filter": country,
         **lang_context(request),
     })
-
-
-@_fastapi.get("/cities", response_class=HTMLResponse)
-async def public_cities_en(request: Request):
-    return RedirectResponse("/varosok", status_code=302)
 
 
 @_fastapi.post("/varosok/kerelem")
