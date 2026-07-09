@@ -28,7 +28,7 @@ _METRICS = [
     ("change_rows", "Mezőváltozás"),
     ("new_venues", "Új helyszín"),
     ("new_persons", "Új személy"),
-    ("searches", "Keresett pár"),
+    ("searches", "Lekeresett város–téma páros"),
     ("pages_scraped", "Letöltött oldal"),
     ("pages_extracted", "AI-feldolgozott oldal"),
 ]
@@ -63,7 +63,7 @@ def build_report_html(day: str, summary: dict, traffic: dict) -> tuple[str, str]
                          f" (nem cache-elve, újrapróbálva)</span>")
             items.append(
                 f"<li style='margin:3px 0'>{state} <b>{r['mode']}</b> · "
-                f"{(r['started_at'] or '')[11:16]} UTC · {r['pairs']} pár · "
+                f"{(r['started_at'] or '')[11:16]} UTC · {r['pairs']} város–téma páros · "
                 f"{r['records']} rekord{fails}</li>")
         runs_html = ("<h3 style='margin:18px 0 6px'>Futások</h3>"
                      f"<ul style='margin:0;padding-left:18px'>{''.join(items)}</ul>")
@@ -110,8 +110,8 @@ def build_report_html(day: str, summary: dict, traffic: dict) -> tuple[str, str]
   <p style="margin:0;font-size:14px">
     Közösségek: <b>{totals["hu"]}</b> magyar + <b>{totals["intl"]}</b> nemzetközi
     = <b>{totals["hu"] + totals["intl"]}</b><br>
-    Lefedett (keresett) párok: {totals["covered_pairs_hu"]} magyar +
-    {totals["covered_pairs_intl"]} nemzetközi</p>
+    Lefedett város–téma párosok (legalább egyszer lekeresve):
+    {totals["covered_pairs_hu"]} magyar + {totals["covered_pairs_intl"]} nemzetközi</p>
 
   <p style="color:#B5ADA0;font-size:11px;margin-top:20px">
     közösségek.com napi riport · <a href="https://kozossegek.com/admin" style="color:#A8512F">admin</a></p>
