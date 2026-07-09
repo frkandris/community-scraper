@@ -1,3 +1,12 @@
+---
+type: Concept
+title: Community Identity
+description: Two keys: community_id (stable URL slug) vs record_key (topic-aware DB uniqueness).
+tags: [identity, hashing, keys]
+timestamp: 2026-07-09
+resource: scraper/models.py
+---
+
 # Community Identity
 
 *A community's identity is determined by two separate keys with different purposes.*

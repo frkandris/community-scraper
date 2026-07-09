@@ -1,3 +1,12 @@
+---
+type: Architecture
+title: Pipeline Run Modes
+description: full / ai_only / revalidate control how much work runs per city×topic pair.
+tags: [pipeline, run-modes, orchestration]
+timestamp: 2026-07-09
+resource: scraper/pipeline.py
+---
+
 # Pipeline Run Modes
 
 *Three modes control how much work the pipeline does per city×topic pair.*

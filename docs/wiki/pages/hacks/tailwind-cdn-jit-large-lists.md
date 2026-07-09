@@ -1,3 +1,12 @@
+---
+type: Hack
+title: Tailwind CDN JIT: Never Server-Render Large Lists
+description: The CDN JIT scans the full initial DOM before paint; load big admin lists via JSON + DocumentFragment.
+tags: [tailwind, cdn, performance, admin]
+timestamp: 2026-07-09
+resource: scraper/web/templates
+---
+
 # Tailwind CDN JIT: Never Server-Render Large Lists
 
 *The Tailwind CDN JIT scanner runs over the initial DOM before the page becomes visible — server-rendering thousands of rows causes a multi-second freeze.*

@@ -1,3 +1,12 @@
+---
+type: Post-mortem
+title: Coverage Page 500 (2026-05-30)
+description: app_state.cities/topics are dataclasses, not dicts; dict-style access 500s any route touching them.
+tags: [incident, coverage, app-state, dataclass]
+timestamp: 2026-07-09
+resource: scraper/web/app.py
+---
+
 # Post-mortem: Coverage Page 500 Error (2026-05-30)
 
 ## Summary

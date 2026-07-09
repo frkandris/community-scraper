@@ -1,0 +1,58 @@
+---
+type: Runbook
+title: Local Browser-Driven Search Worker
+description: Offload Google search to your own machine's browser (residential IP) via Playwright, feeding results into production's search_cache through an admin ingest API.
+tags: [operations, search, playwright, worker, captcha, dataforseo]
+timestamp: 2026-07-09
+resource: scripts/local_search_worker.py
+---
+
+# Local Browser-Driven Search Worker
+
+*Runs Google searches from your own machine (residential IP, far less CAPTCHA than the datacenter) and posts the URL lists into production's `search_cache`. The pipeline then finds the search pre-populated and skips its own search step.*
+
+Motivation: the server-side [[search-layer|GooglePlaywrightSearchClient]] gets CAPTCHA'd on Hetzner's datacenter IP and falls back to paid DataForSEO. Doing the search from a residential IP avoids both.
+
+## Topology
+
+```
+your Mac                              production (Hetzner)
+──────────                            ────────────────────
+local_search_worker.py                GET  /admin/api/search/jobs   → pairs + prebuilt queries
+  ├ GET jobs ──────────────────────▶  (skips pairs already in search_cache within TTL)
+  ├ Playwright Google search (delays)
+  └ POST ingest ───────────────────▶  POST /admin/api/search/ingest → writes search_cache
+                                       next pipeline run skips search for those pairs
+```
+
+Only the **search** step moves to the laptop; fetch, extract, and the DB stay in production.
+
+## Server endpoints (`app.py`)
+
+- `GET /admin/api/search/jobs?limit=&country=` — returns `{jobs: [{city, topic, locale, queries}]}` for pairs with no fresh `search_cache` entry; queries are built server-side via `build_queries` so the worker needs no config.
+- `POST /admin/api/search/ingest` — body `{city, topic, queries, urls}` → `save_search_cache` (URLs validated to http(s), unknown city/topic rejected).
+
+**Auth:** both are under `/admin`, so Basic auth applies. The POST also needs a matching `X-Worker-Token` header — this bypasses the same-origin CSRF check ([[web-app]]) for the machine-to-machine call. Set `SEARCH_WORKER_TOKEN` on the server (empty = ingest disabled).
+
+## Running the worker
+
+```bash
+# one-time on your machine
+pip install -e ".[dev]" && playwright install chromium
+
+PYTHONPATH=. python scripts/local_search_worker.py \
+  --base-url https://kozossegek.com \
+  --admin-user admin --admin-password "$ADMIN_PASSWORD" \
+  --worker-token "$SEARCH_WORKER_TOKEN" \
+  --country Hungary --headful
+```
+
+Key flags: `--headful` (visible browser — lets you solve a CAPTCHA by hand), `--country`, `--batch` (jobs per API pull), `--max-jobs`, `--min-delay`/`--max-delay` (jittered spacing on top of the client's 8 s), `--captcha-cooldown` (headless back-off), `--once`. Env fallbacks: `WORKER_BASE_URL`, `ADMIN_USER`, `ADMIN_PASSWORD`, `SEARCH_WORKER_TOKEN`.
+
+The worker reuses `GooglePlaywrightSearchClient` (now with a `headless` param), so consent handling, CAPTCHA detection, snippet scraping, and rate limiting come for free. On a CAPTCHA it pauses for manual solve (`--headful`) or cools down.
+
+## Notes
+
+- The worker does **not** fetch or extract — it only fills `search_cache`. Run a normal pipeline afterward to fetch+extract the new URLs.
+- Idempotent: re-running skips pairs already cached within the TTL ([[search-ttl-3650-days]]).
+- Keep DataForSEO/Serper configured as a server-side fallback for pairs the worker hasn't reached.

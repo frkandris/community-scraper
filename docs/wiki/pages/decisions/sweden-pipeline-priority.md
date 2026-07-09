@@ -1,3 +1,12 @@
+---
+type: Decision
+title: Sweden as Second Pipeline Priority
+description: Sweden runs after Hungary because its 290-municipality list is large.
+tags: [decision, pipeline, priority, sweden]
+timestamp: 2026-07-09
+resource: scraper/main.py
+---
+
 # Decision: Sweden as Second Pipeline Priority (After Hungary)
 
 *Added in May 2026 when 290 Swedish municipalities were added to the config.*

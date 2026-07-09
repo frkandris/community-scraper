@@ -1,3 +1,12 @@
+---
+type: Hack
+title: LLM Prompt Example Language Biases Output
+description: Non-English example strings in SYSTEM_PROMPT make the LLM emit that language for all cities; keep examples English.
+tags: [llm, prompt, language-bias, i18n]
+timestamp: 2026-07-09
+resource: scraper/extract.py
+---
+
 # LLM Prompts With Non-English Examples Bias Output Language
 
 If the `SYSTEM_PROMPT` in `extract.py` contains example values in a specific language (e.g. Hungarian), the LLM will produce descriptions and field values in that language for **all** cities, regardless of the source page language.

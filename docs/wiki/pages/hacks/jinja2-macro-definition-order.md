@@ -1,3 +1,12 @@
+---
+type: Hack
+title: Jinja2 Macros Must Be Defined Before Use
+description: Jinja2 does not hoist macro definitions; a macro called before its block fails at render, silently if the branch is skipped.
+tags: [jinja2, templates, macros]
+timestamp: 2026-07-09
+resource: scraper/web/templates
+---
+
 # Jinja2: Macros Must Be Defined Before They're Called
 
 *Jinja2 does NOT hoist macro definitions. A macro called before its `{% macro %}` block is defined causes `UndefinedError` at render time — and silently succeeds if the calling branch is never reached.*

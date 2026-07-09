@@ -1,3 +1,12 @@
+---
+type: Post-mortem
+title: Coverage Amber Cells Never Turned Blue (2026-06-04)
+description: get_fully_processed_pairs() and get_city_topic_states() disagreed on which URLs count as done.
+tags: [incident, coverage, fingerprint, url-hash]
+timestamp: 2026-07-09
+resource: scraper/db.py
+---
+
 # Coverage Amber Cells Never Turned Blue
 
 **Date:** 2026-06-04  

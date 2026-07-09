@@ -1,9 +1,22 @@
 # Wiki Log
 
-Append-only chronological record of all wiki operations.
+Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
----
+## 2026-07-09
+- **Creation**: [[local-search-worker]] — new `scripts/local_search_worker.py` + `/admin/api/search/{jobs,ingest}` endpoints let a residential-IP browser do Google searches and feed `search_cache`, replacing datacenter DataForSEO calls. `GooglePlaywrightSearchClient` gained a `headless` param.
+- **Update**: Migrated the wiki to the combined Karpathy + OKF v0.1 format — rewrote SCHEMA.md, added `okf_version: "0.1"` to index.md, gave every page YAML frontmatter (`type` required), and switched log.md to date-grouped newest-first.
+- **Creation**: New subsystem pages from a full-codebase sweep — [[persistence-layer]], [[search-layer]], [[fetch-layer]], [[extraction-layer]], [[pipeline-orchestration]], [[duplicate-detection]], [[web-app]], [[i18n-and-site-detection]].
+- **Creation**: Data-model pages — [[sqlite-schema]], [[community-record]], [[person-record]], [[venue-record]], [[extraction-fingerprints]].
+- **Creation**: Concept pages — [[joinable-quality-gate]], [[false-positive-injection]], [[done-pair-url-hash-not-city-topic]], [[fuzzy-dedup-and-record-key]], [[history-created-sentinel-overcounting]].
+- **Creation**: Decisions — [[hungary-sweden-intl-three-passes]], [[scheduler-disabled-no-cron]], [[doc-drift-project-readme]].
+- **Creation**: Hacks — [[canonical-fingerprint-provider-shift]], [[pyyaml-no-norway-boolean]], [[searchquotaerror-reraise-ordering]], [[non-quota-errors-drop-page]], [[get-prompt-empty-override-falls-back]], [[name-json-tail-bleed]], [[cache-blob-read-modify-write]], [[shared-run-task-slot]], [[url-hash-triplicated]].
+- **Creation**: SEO + post-mortem for this session's work — [[indexing-strategy]], [[seo-cross-domain-canonical]], [[2026-06-seo-traffic-collapse]].
+- **Creation**: Operations runbooks — [[run-modes-and-startup]], [[deployment-coolify]], [[adding-city-topic]].
 
-2026-05-30 | init | Created wiki structure. Pre-populated pages from codebase knowledge: architecture, hacks, post-mortems, decisions, concepts.
-2026-05-30 | session-2 | Coverage page enhancements (country dropdown, 5 cell states, jump-to-active, live JS highlight 5s poll, rotated topic headers). Pipeline done-pair pre-filter: get_fully_processed_pairs() skips pairs where search_cache exists + all cache_pages carry current extract fingerprint. on_pair_start callback propagated through run_pipeline → _run_full / _run_ai_only; sets app_state.current_city/current_topic. 290 Swedish municipalities completed. search_ttl_days set to 3650 (index world first). Email notifications via Resend on 4 routes.
-2026-06-04 | session-3 | Fixed amber cells never turning blue: get_fully_processed_pairs() now only counts scraped URLs (scraped_at IS NOT NULL) to match get_city_topic_states(). Added coverage cell live-update: /admin/api/coverage/cell endpoint + _refreshCell() JS updates individual badges after pipeline moves on. Added /admin/api/restamp-fingerprints runtime endpoint for fingerprint migrations (init_db() runs before overrides load — static migrations fail in production). Fixed Hungarian AI extraction bias: removed Hungarian example strings from SYSTEM_PROMPT, added explicit language instruction. Fixed Hungarian hardcoded labels on meetapedia community pages (public_community.html now fully i18n via t()). SEO: canonical tags in public_base.html, noindex on /unsubscribe and /kereses, X-Robots-Tag on /out and /set-lang, robots.txt additions, meetapedia sitemap cleanup. Split /admin/stats into 3 sub-pages: adatminoseg (quality cards + city/topic tables), kattintasok (outclick analytics), aktivitas (24h/7d/12m timelines as stacked boxes). New wiki pages: 2026-06-coverage-amber-cells, init-db-before-prompt-overrides, llm-prompt-language-bias.
+## 2026-06-04
+- **Update**: Session-3 — fixed amber cells never turning blue ([[2026-06-coverage-amber-cells]]); added coverage cell live-update + `/admin/api/restamp-fingerprints`; removed Hungarian example bias from SYSTEM_PROMPT ([[llm-prompt-language-bias]]); i18n'd meetapedia community pages; SEO groundwork (canonical, noindex, robots); split `/admin/stats` into 3 sub-pages.
+- **Creation**: [[2026-06-coverage-amber-cells]], [[init-db-before-prompt-overrides]], [[llm-prompt-language-bias]].
+
+## 2026-05-30
+- **Update**: Session-2 — 290 Swedish municipalities; coverage page (country dropdown, 5 cell states, jump-to-active, JS live highlight); pipeline done-pair pre-filter via `get_fully_processed_pairs`; `on_pair_start` callback; `search_ttl_days` → 3650; Resend email notifications on 4 routes.
+- **Creation**: Wiki initialized — pre-populated architecture, hacks, post-mortems, decisions, and concepts from codebase knowledge.

@@ -1,3 +1,12 @@
+---
+type: Hack
+title: init_db() Runs Before Prompt Overrides Load
+description: Fingerprint migrations must use a runtime endpoint, not init_db(), because overrides aren't loaded yet at init.
+tags: [fingerprint, migration, init-db]
+timestamp: 2026-07-09
+resource: scraper/db.py
+---
+
 # init_db() Runs Before Prompt Overrides Load
 
 `init_db()` is called at startup, before the admin prompt overrides are loaded from the database. This means `get_extract_fingerprint()` returns a different value inside `init_db()` than it does during normal request handling.

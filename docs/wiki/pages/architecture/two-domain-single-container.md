@@ -1,3 +1,12 @@
+---
+type: Architecture
+title: Two-Domain Single-Container Architecture
+description: One FastAPI container serves közösségek.com and meetapedia.com via Host-header detection.
+tags: [multi-domain, fastapi, hosting]
+timestamp: 2026-07-09
+resource: scraper/web/app.py
+---
+
 # Two-Domain Single-Container Architecture
 
 *One FastAPI app serves both közösségek.com (Hungarian-first) and meetapedia.com (international) from the same Coolify container.*

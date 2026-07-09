@@ -1,3 +1,12 @@
+---
+type: Hack
+title: Playwright vs. Blocked-Domain Check Order
+description: fetch_and_clean() checks playwright match before blocked; keep social domains out of playwright_domains.
+tags: [fetch, playwright, blocked-domains, ordering]
+timestamp: 2026-07-09
+resource: scraper/fetch.py
+---
+
 # Playwright vs. Blocked Domain Check Order
 
 *`fetch_and_clean()` checks `playwright_fetcher.matches(url)` BEFORE `_is_blocked()`. A domain in both lists gets Playwright-fetched, not blocked.*

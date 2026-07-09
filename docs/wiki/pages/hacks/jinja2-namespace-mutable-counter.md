@@ -1,3 +1,12 @@
+---
+type: Hack
+title: Jinja2 Namespace for Mutable Loop Variables
+description: Use namespace() to mutate an outer variable from inside a {% for %} block.
+tags: [jinja2, templates, scoping]
+timestamp: 2026-07-09
+resource: scraper/web/templates
+---
+
 # Jinja2: Namespace for Mutable Variables Inside Loops
 
 *Jinja2 scoping rules prevent modifying outer variables from inside a `{% for %}` block. Use `{% set ns = namespace(n=0) %}` and `ns.n` instead.*

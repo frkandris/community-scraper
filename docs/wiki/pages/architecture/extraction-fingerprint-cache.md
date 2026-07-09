@@ -1,3 +1,12 @@
+---
+type: Architecture
+title: Extraction Fingerprint Cache
+description: SHA-256[:12] of (SYSTEM_PROMPT + model) keys every extraction; changing either invalidates all cached results.
+tags: [cache, extraction, fingerprint, invalidation]
+timestamp: 2026-07-09
+resource: scraper/extract.py
+---
+
 # Extraction Fingerprint Cache
 
 *Every page extraction is keyed by a SHA-256[:12] hash of `SYSTEM_PROMPT + model_name`, so changing the prompt or model automatically invalidates all cached extractions.*

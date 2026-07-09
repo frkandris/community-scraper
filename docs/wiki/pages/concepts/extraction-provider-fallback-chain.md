@@ -1,3 +1,12 @@
+---
+type: Concept
+title: Extraction Provider Fallback Chain
+description: DeepSeek → Groq, with permanent exhaustion and temporary rate-limit state per provider.
+tags: [llm, extraction, fallback, providers]
+timestamp: 2026-07-09
+resource: scraper/extract.py
+---
+
 # Extraction Provider Fallback Chain
 
 *DeepSeek → Groq. Same pattern as search providers: permanent exhaustion or temporary rate-limiting.*

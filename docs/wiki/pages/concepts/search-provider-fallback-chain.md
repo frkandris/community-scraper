@@ -1,3 +1,12 @@
+---
+type: Concept
+title: Search Provider Fallback Chain
+description: Google Playwright → DataForSEO → Serper, with per-run exhaustion tracking.
+tags: [search, fallback, providers, captcha]
+timestamp: 2026-07-09
+resource: scraper/search.py
+---
+
 # Search Provider Fallback Chain
 
 *Google Playwright → DataForSEO → Serper. Each provider can be permanently exhausted or temporarily rate-limited within a run.*
