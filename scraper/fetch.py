@@ -25,10 +25,18 @@ _HEADERS = {
 }
 
 
+def host_matches_domain(host: str, domain: str) -> bool:
+    """True when host IS the domain or a subdomain of it. Plain substring
+    matching was a false-positive trap: 'x.com' matched linux.com, maxx.com…"""
+    host = host.lower().split(":")[0].lstrip(".")
+    domain = domain.lower().lstrip(".")
+    return host == domain or host.endswith("." + domain)
+
+
 def _is_blocked(url: str, blocked_domains: list[str]) -> bool:
     try:
-        host = urlparse(url).netloc.lower()
-        return any(domain in host for domain in blocked_domains)
+        host = urlparse(url).netloc
+        return any(host_matches_domain(host, d) for d in blocked_domains)
     except Exception:
         return False
 

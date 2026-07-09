@@ -700,17 +700,30 @@ def replace_communities_for_topic(
     records: list[dict],
 ) -> None:
     with _connect(db_path) as conn:
-        # Snapshot existing records before delete so history can diff against them
+        # Snapshot existing records before delete so history can diff against them.
+        # hidden + revalidate_fingerprint are moderation state that must survive
+        # the DELETE+reinsert — otherwise a merged/reported (hidden) community
+        # resurfaces publicly on the next scrape and drops out of revalidation.
         rows = conn.execute(
-            "SELECT data FROM communities WHERE city=? AND topic=?", (city, topic)
+            "SELECT data, hidden, revalidate_fingerprint FROM communities WHERE city=? AND topic=?",
+            (city, topic)
         ).fetchall()
         previous: dict[str, dict] = {}
-        for (data_str,) in rows:
+        moderation: dict[str, tuple] = {}
+        for data_str, hidden, reval_fp in rows:
             d = json.loads(data_str)
-            previous[_community_record_key(d["name"], d["city"], d["topic"])] = d
+            key = _community_record_key(d["name"], d["city"], d["topic"])
+            previous[key] = d
+            if hidden or reval_fp:
+                moderation[key] = (hidden, reval_fp)
 
         conn.execute("DELETE FROM communities WHERE city=? AND topic=?", (city, topic))
         _bulk_upsert_communities(conn, records, previous)
+        for key, (hidden, reval_fp) in moderation.items():
+            conn.execute(
+                "UPDATE communities SET hidden=?, revalidate_fingerprint=? WHERE record_key=?",
+                (hidden, reval_fp, key),
+            )
         conn.commit()
 
 
@@ -1657,21 +1670,18 @@ def get_persons(db_path: Path, city: str, topic: str | None = None) -> list[dict
 
 
 def get_persons_for_community(db_path: Path, community_name: str, city: str) -> list[dict]:
+    """Persons of one community: fetch the city's persons and match community_name
+    by normalized form (the LLM's name variants differ in case/punctuation; the
+    old record_key LIKE anchored on the wrong key segments and never matched)."""
     if not db_path.exists():
         return []
-    key_prefix = f"{_norm(community_name)}|{_norm(city)}|"
+    target = _norm(community_name)
     with _connect(db_path) as conn:
         rows = conn.execute(
-            "SELECT data FROM persons WHERE record_key LIKE ? ORDER BY role, id",
-            (f"%|{_norm(community_name)}|{_norm(city)}",)
+            "SELECT data FROM persons WHERE city=? ORDER BY role, id", (city,)
         ).fetchall()
-        if not rows:
-            # fallback: match by community_name in JSON
-            rows = conn.execute(
-                "SELECT data FROM persons WHERE city=? AND json_extract(data,'$.community_name')=?",
-                (city, community_name)
-            ).fetchall()
-    return [json.loads(r[0]) for r in rows]
+    persons = [json.loads(r[0]) for r in rows]
+    return [p for p in persons if _norm(p.get("community_name", "")) == target]
 
 
 def get_all_persons(db_path: Path) -> list[dict]:
@@ -2179,10 +2189,18 @@ def apply_recategorize_suggestion(db_path: Path, record_key: str, new_topic: str
         old_city = data.get("city", "")
         new_key = _community_record_key(old_name, old_city, new_topic)
         data["topic"] = new_topic
-        conn.execute(
-            "UPDATE communities SET record_key=?, data=? WHERE record_key=?",
-            (new_key, json.dumps(data, ensure_ascii=False), record_key),
-        )
+        try:
+            # The topic COLUMN drives every public query (get_communities,
+            # counts, coverage) — updating only the JSON left records stuck
+            # under the old topic publicly.
+            conn.execute(
+                "UPDATE communities SET record_key=?, topic=?, data=? WHERE record_key=?",
+                (new_key, new_topic, json.dumps(data, ensure_ascii=False), record_key),
+            )
+        except sqlite3.IntegrityError:
+            # A row with new_key already exists (same community already present
+            # under the target topic) — drop this one instead of 500-ing.
+            conn.execute("DELETE FROM communities WHERE record_key=?", (record_key,))
         conn.execute(
             "UPDATE recategorize_suggestions SET status='applied' WHERE record_key=?",
             (record_key,),

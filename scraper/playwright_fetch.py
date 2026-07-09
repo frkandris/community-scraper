@@ -34,8 +34,9 @@ class PlaywrightFetcher:
 
     def matches(self, url: str) -> bool:
         try:
-            host = urlparse(url).netloc.lower()
-            return any(d in host for d in self.domains)
+            from .fetch import host_matches_domain
+            host = urlparse(url).netloc
+            return any(host_matches_domain(host, d) for d in self.domains)
         except Exception:
             return False
 

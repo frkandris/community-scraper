@@ -476,10 +476,10 @@ async def _run_full(
                     log.warning("search_unavailable_pair_skipped", city=city.name,
                                 topic=topic.name, reason=str(exc))
                     continue
-                _blocked_domains = config.fetch_blocked_domains
+                from .fetch import _is_blocked as _url_blocked
                 search_results = [
                     r for r in search_results
-                    if not any(d in r.url for d in _blocked_domains)
+                    if not _url_blocked(r.url, config.fetch_blocked_domains)
                 ]
                 log.info("search_done", city=city.name, topic=topic.name, urls=len(search_results))
                 all_urls = [r.url for r in search_results]

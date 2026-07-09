@@ -2603,7 +2603,7 @@ async def stats_timeline(period: str = "24h"):
     return JSONResponse(rows)
 
 
-_COVERAGE_PAGE_SIZE = 2
+_COVERAGE_PAGE_SIZE = 50  # was 2 — a shipped 'for fast loading during testing' leftover
 
 
 @admin.get("/coverage", response_class=HTMLResponse)
