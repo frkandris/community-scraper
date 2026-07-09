@@ -36,6 +36,11 @@ import sys
 import httpx
 
 # Import the project's search client (run with PYTHONPATH=. from the repo root).
+_MAC_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
+
 try:
     from scraper.search import GooglePlaywrightSearchClient, SearchQuotaError
 except ImportError:
@@ -62,8 +67,17 @@ def _parse_args() -> argparse.Namespace:
                    help="Seconds to wait after a CAPTCHA in headless mode")
     p.add_argument("--headful", action="store_true",
                    help="Show the browser (lets you solve a CAPTCHA by hand)")
+    p.add_argument("--user-data-dir", default=os.path.expanduser("~/.cs_search_profile"),
+                   help="Persistent Chrome profile dir (keeps consent/login cookies to dodge CAPTCHA)")
+    p.add_argument("--browser-locale", default="en-US",
+                   help="Browser context locale, match the search country (e.g. sv-SE for Sweden)")
+    p.add_argument("--warmup", action="store_true",
+                   help="Open the persistent profile on google.com and wait, so you can accept "
+                        "consent / sign into Google once. Do this before unattended runs.")
     p.add_argument("--once", action="store_true", help="Process a single batch then exit")
     args = p.parse_args()
+    if args.warmup:
+        return args  # warmup only needs the browser flags
     if not args.base_url:
         p.error("--base-url (or WORKER_BASE_URL) is required")
     if not args.admin_password:
@@ -93,18 +107,54 @@ async def _ingest(api: httpx.AsyncClient, base_url: str, job: dict, urls: list[s
 
 
 async def _handle_captcha(client: GooglePlaywrightSearchClient, args: argparse.Namespace) -> None:
-    if args.headful:
+    # Manual solve only makes sense with a visible browser AND an interactive
+    # terminal to press Enter in. When run non-interactively (e.g. by an agent /
+    # background job) stdin is not a TTY, so fall back to a cooldown instead of
+    # crashing on EOFError.
+    if args.headful and sys.stdin is not None and sys.stdin.isatty():
         print("\n⚠️  CAPTCHA detected. Solve it in the visible browser window, "
               "then press Enter here to continue…")
+        try:
+            await asyncio.get_event_loop().run_in_executor(None, input)
+            client._consent_done = False  # re-accept consent if the page changed
+            return
+        except EOFError:
+            pass
+    print(f"⚠️  CAPTCHA detected. Cooling down {args.captcha_cooldown:.0f}s "
+          "(run in an interactive terminal with --headful to solve it by hand).")
+    await asyncio.sleep(args.captcha_cooldown)
+
+
+async def _warmup(args: argparse.Namespace) -> int:
+    """Open the persistent profile on google.com and wait, so the human can accept
+    consent / sign into Google. Seeds ~/.cs_search_profile for unattended runs."""
+    client = GooglePlaywrightSearchClient(
+        rate_limit_seconds=1.0, headless=False,
+        user_data_dir=args.user_data_dir, context_locale=args.browser_locale,
+        user_agent=_MAC_UA,
+    )
+    await client.start()
+    if client._context is None:
+        sys.stderr.write("Failed to start Chromium.\n")
+        return 1
+    page = await client._context.new_page()
+    await page.goto("https://www.google.com", wait_until="domcontentloaded")
+    print(f"\nProfile: {args.user_data_dir}\n"
+          "Accept the cookie consent, run a search or two, and (recommended) sign into a\n"
+          "Google account in this window. Then press Enter here to save & close.")
+    try:
         await asyncio.get_event_loop().run_in_executor(None, input)
-        client._consent_done = False  # re-accept consent if the page changed
-    else:
-        print(f"⚠️  CAPTCHA detected. Cooling down {args.captcha_cooldown:.0f}s "
-              "(use --headful to solve it by hand).")
-        await asyncio.sleep(args.captcha_cooldown)
+    except EOFError:
+        print("(no interactive terminal — run --warmup from your own shell)")
+    await client.stop()
+    print("Warmup done — profile saved.")
+    return 0
 
 
 async def run(args: argparse.Namespace) -> int:
+    if args.warmup:
+        return await _warmup(args)
+
     auth = httpx.BasicAuth(args.admin_user, args.admin_password)
     headers = {"X-Worker-Token": args.worker_token}
     processed = 0
@@ -112,6 +162,8 @@ async def run(args: argparse.Namespace) -> int:
 
     client = GooglePlaywrightSearchClient(
         rate_limit_seconds=args.min_delay, headless=not args.headful,
+        user_data_dir=args.user_data_dir, context_locale=args.browser_locale,
+        user_agent=_MAC_UA,
     )
     await client.start()
     if client._browser is None:

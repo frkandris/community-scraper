@@ -296,33 +296,67 @@ class GooglePlaywrightSearchClient:
 
     _CAPTCHA_MARKERS = ("/sorry/", "recaptcha", "g-recaptcha", "unusual traffic")
 
-    def __init__(self, rate_limit_seconds: float = 8.0, headless: bool = True):
+    _DEFAULT_UA = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    )
+
+    def __init__(self, rate_limit_seconds: float = 8.0, headless: bool = True,
+                 user_data_dir: str | None = None, context_locale: str = "en-US",
+                 user_agent: str | None = None):
         self.rate_limit_seconds = rate_limit_seconds
         self.headless = headless
+        # A persistent user-data-dir keeps consent cookies and browsing history
+        # across runs so the profile looks human — the main defense against
+        # Google's automation CAPTCHA. None → ephemeral context (old behavior).
+        self.user_data_dir = user_data_dir
+        self.context_locale = context_locale
+        self.user_agent = user_agent or self._DEFAULT_UA
         self._pw = None
         self._browser = None
         self._context = None
         self._last_request_time: float = 0.0
         self._consent_done = False
 
+    def _stealth_script(self) -> str:
+        primary = self.context_locale.split("-")[0]
+        langs = [self.context_locale, primary] if primary != self.context_locale else [self.context_locale]
+        import json as _json
+        return (
+            "Object.defineProperty(navigator,'webdriver',{get:()=>undefined});"
+            f"Object.defineProperty(navigator,'languages',{{get:()=>{_json.dumps(langs)}}});"
+            "Object.defineProperty(navigator,'plugins',{get:()=>[1,2,3,4,5]});"
+            "window.chrome=window.chrome||{runtime:{}};"
+        )
+
     async def start(self) -> None:
         try:
             from playwright.async_api import async_playwright
             self._pw = await async_playwright().start()
-            self._browser = await self._pw.chromium.launch(
-                headless=self.headless,
-                args=["--no-sandbox", "--disable-dev-shm-usage"],
-            )
-            self._context = await self._browser.new_context(
-                user_agent=(
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/124.0.0.0 Safari/537.36"
-                ),
-                locale="en-US",
-                viewport={"width": 1280, "height": 800},
-            )
-            log.info("google_playwright_search_started")
+            # --disable-blink-features=AutomationControlled removes the
+            # navigator.webdriver=true flag Google keys on; the init script masks
+            # the remaining automation tells.
+            args = [
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-blink-features=AutomationControlled",
+            ]
+            ctx_opts = {
+                "user_agent": self.user_agent,
+                "locale": self.context_locale,
+                "viewport": {"width": 1280, "height": 800},
+            }
+            if self.user_data_dir:
+                self._context = await self._pw.chromium.launch_persistent_context(
+                    self.user_data_dir, headless=self.headless, args=args, **ctx_opts,
+                )
+                self._browser = None  # persistent context owns the browser
+            else:
+                self._browser = await self._pw.chromium.launch(headless=self.headless, args=args)
+                self._context = await self._browser.new_context(**ctx_opts)
+            await self._context.add_init_script(self._stealth_script())
+            log.info("google_playwright_search_started", persistent=bool(self.user_data_dir))
         except Exception as exc:
             log.warning("google_playwright_search_start_failed", error=str(exc))
 

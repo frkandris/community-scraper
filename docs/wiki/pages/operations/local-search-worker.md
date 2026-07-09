@@ -49,7 +49,22 @@ PYTHONPATH=. python scripts/local_search_worker.py \
 
 Key flags: `--headful` (visible browser — lets you solve a CAPTCHA by hand), `--country`, `--batch` (jobs per API pull), `--max-jobs`, `--min-delay`/`--max-delay` (jittered spacing on top of the client's 8 s), `--captcha-cooldown` (headless back-off), `--once`. Env fallbacks: `WORKER_BASE_URL`, `ADMIN_USER`, `ADMIN_PASSWORD`, `SEARCH_WORKER_TOKEN`.
 
-The worker reuses `GooglePlaywrightSearchClient` (now with a `headless` param), so consent handling, CAPTCHA detection, snippet scraping, and rate limiting come for free. On a CAPTCHA it pauses for manual solve (`--headful`) or cools down.
+The worker reuses `GooglePlaywrightSearchClient`, so consent handling, CAPTCHA detection, snippet scraping, and rate limiting come for free. On a CAPTCHA it pauses for manual solve (`--headful` in an interactive terminal) or cools down.
+
+## Beating Google's automation CAPTCHA
+
+Vanilla Playwright Chromium gets CAPTCHA'd by Google on the **first query**, even from a residential IP — Google detects the automation fingerprint, not just the IP. The client therefore supports:
+
+- **Persistent profile** (`--user-data-dir`, default `~/.cs_search_profile`): `launch_persistent_context` keeps consent/login cookies and history across runs, so the profile looks human. This is the main defense.
+- **Stealth**: `--disable-blink-features=AutomationControlled` + an init script masking `navigator.webdriver`/`languages`/`plugins`/`window.chrome`, a macOS UA, and `--browser-locale` matched to the search country (`sv-SE` for Sweden).
+
+**One-time warm-up** (do this in your own terminal before unattended runs):
+
+```bash
+PYTHONPATH=. python scripts/local_search_worker.py --warmup --browser-locale sv-SE
+```
+
+It opens the persistent profile on google.com; accept the cookie consent, run a search or two, and — most effective — **sign into a Google account**. A logged-in session almost never triggers search CAPTCHAs. Subsequent unattended runs reuse the warmed profile.
 
 ## Notes
 
