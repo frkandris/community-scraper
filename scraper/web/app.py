@@ -96,6 +96,8 @@ from ..models import CommunityRecord
 from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline, scrape_submitted_url, reextract_community, reextract_with_search_fallback
 from ..search import DataForSEOClient, FallbackSearchClient
 from ..store import patch_results, save_results
+from ..url_safety import (UnsafeURLError, assert_safe_public_url,
+                          is_public_http_url)
 from .i18n import get_topic_labels, lang_context
 from .log_stream import broadcaster
 from .schema import records_to_jsonld
@@ -342,19 +344,7 @@ _LINK_PLATFORMS = [
 
 
 def _valid_url(url: str) -> bool:
-    from urllib.parse import urlparse
-    try:
-        p = urlparse(url)
-        host = p.netloc.lower()
-        return (
-            p.scheme in ("http", "https")
-            and bool(host)
-            and "." in host
-            and " " not in host
-            and "%20" not in host
-        )
-    except Exception:
-        return False
+    return is_public_http_url(url)
 
 
 def _link_meta(url: str) -> dict:
@@ -1773,6 +1763,8 @@ async def submit_community_post(
 ):
     if not all([name.strip(), city.strip(), topic.strip(), source_url.strip()]):
         return JSONResponse({"error": "missing_required_field"}, status_code=400)
+    if not is_public_http_url(source_url.strip()):
+        return JSONResponse({"error": "invalid_source_url"}, status_code=400)
     init_db(_db())
     save_community_submission(
         _db(), name.strip(), city.strip(), topic.strip(),
@@ -2213,6 +2205,13 @@ async def admin_submission_approve(sub_id: int, background_tasks: BackgroundTask
     sub = next((r for r in sub_rows if r["id"] == sub_id), None)
     if not sub:
         return JSONResponse({"ok": False, "error": "not_found"})
+    try:
+        await assert_safe_public_url(sub["source_url"])
+    except UnsafeURLError as exc:
+        return JSONResponse(
+            {"ok": False, "error": "unsafe_source_url", "detail": str(exc)},
+            status_code=400,
+        )
     resolve_community_submission(_db(), sub_id, "approved")
     background_tasks.add_task(
         scrape_submitted_url,

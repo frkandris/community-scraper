@@ -45,6 +45,7 @@ frontmatter. See [SCHEMA.md](SCHEMA.md) for conventions.
 - [[fuzzy-dedup-and-record-key]] — in-memory fuzzy dedup + record_key derivation duplicated across two files
 - [[history-created-sentinel-overcounting]] — __created__ rows and the MIN(changed_at) dedup (skipped for communities)
 - [[not-community-moderation-flow]] — public reports remain pending; only admin approval hides a community
+- [[server-side-url-safety]] — public-only DNS/IP policy and redirect validation for every server-side fetch
 
 ## Decisions
 
@@ -61,7 +62,7 @@ frontmatter. See [SCHEMA.md](SCHEMA.md) for conventions.
 - [[asyncio-task-cancellation]] — use asyncio.create_task + _run_task; CancelledError is a BaseException
 - [[jinja2-macro-definition-order]] — macros must be defined before they're called; Jinja2 does not hoist
 - [[jinja2-namespace-mutable-counter]] — use namespace() for mutable variables inside Jinja2 loops
-- [[playwright-vs-blocked-domain-ordering]] — Playwright check runs before blocked-domain check
+- [[playwright-vs-blocked-domain-ordering]] — blocked-domain and SSRF checks now precede Playwright
 - [[init-db-before-prompt-overrides]] — fingerprint migrations must use a runtime endpoint, not init_db()
 - [[llm-prompt-language-bias]] — non-English prompt examples bias output language; keep examples English
 - [[canonical-fingerprint-provider-shift]] — pin the cache key to primaries[0] so fallback extractions still count

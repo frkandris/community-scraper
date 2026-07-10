@@ -3,6 +3,8 @@ from urllib.parse import urlparse
 
 import structlog
 
+from .url_safety import UnsafeURLError, assert_safe_public_url
+
 log = structlog.get_logger()
 
 _LOGIN_MARKERS = (
@@ -70,6 +72,18 @@ class PlaywrightFetcher:
                     "Chrome/124.0.0.0 Safari/537.36"
                 )
             )
+
+            async def _guard_request(route) -> None:
+                request_url = route.request.url
+                if request_url.startswith(("http://", "https://")):
+                    try:
+                        await assert_safe_public_url(request_url)
+                    except UnsafeURLError:
+                        await route.abort()
+                        return
+                await route.continue_()
+
+            await context.route("**/*", _guard_request)
             page = await context.new_page()
             await page.goto(
                 url,

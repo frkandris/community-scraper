@@ -1,29 +1,29 @@
 ---
 type: Hack
-title: Playwright vs. Blocked-Domain Check Order
-description: fetch_and_clean() checks playwright match before blocked; keep social domains out of playwright_domains.
+title: Blocked Domains Precede Playwright
+description: URL safety and blocked-domain checks run before Playwright, and browser requests repeat the public-address guard.
 tags: [fetch, playwright, blocked-domains, ordering]
-timestamp: 2026-07-09
+timestamp: 2026-07-10
 resource: scraper/fetch.py
 ---
 
-# Playwright vs. Blocked Domain Check Order
+# Blocked Domains Precede Playwright
 
-*`fetch_and_clean()` checks `playwright_fetcher.matches(url)` BEFORE `_is_blocked()`. A domain in both lists gets Playwright-fetched, not blocked.*
+*Fixed 2026-07-10: Playwright no longer bypasses blocked-domain or SSRF checks.*
 
-## The rule
+## Current rule
 
-If a domain appears in both `playwright_domains` and `blocked_domains`, Playwright wins. The blocked-domain list is only consulted after the Playwright check fails.
+`fetch_and_clean()` validates public URL/DNS safety, then applies `_is_blocked()`, and only then delegates matching URLs to Playwright. A domain in both configuration lists is blocked. The browser context also intercepts every HTTP(S) request and aborts targets that resolve to non-public addresses.
 
-## Why this matters
+## Historical failure mode
 
-Social-media domains (Twitter, Instagram, Facebook, TikTok, LinkedIn, YouTube, Reddit) are in `blocked_domains` and should never be in `playwright_domains`. If you accidentally add `twitter.com` to `playwright_domains`, the block is bypassed and the scraper attempts to Playwright-fetch Twitter — which wastes time and triggers rate limits.
+The old ordering checked `playwright_fetcher.matches(url)` first, so an accidental overlap bypassed the block and launched Chromium against login-walled sites. Configuration no longer carries that security invariant.
 
 ## Current state
 
-`playwright_domains` in `settings.yaml` is intentionally empty. Playwright is used for Google Search (via `GooglePlaywrightSearchClient`) but NOT for page fetching.
+`playwright_domains` in `settings.yaml` remains intentionally empty, so page fetching uses httpx by default.
 
 ## Related
 
 - [[blocked-domains]]
-- [[search-provider-fallback-chain]]
+- [[server-side-url-safety]]

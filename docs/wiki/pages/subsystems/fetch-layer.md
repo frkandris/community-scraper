@@ -1,9 +1,9 @@
 ---
 type: Subsystem
 title: Fetch Layer
-description: httpx + trafilatura (html2text fallback) turns URLs into clean text; blocked domains and an optional Playwright fetcher gate what actually gets fetched.
+description: An SSRF-safe httpx/Playwright fetcher validates public DNS and redirects before trafilatura/html2text turns HTML into clean text.
 tags: [fetch, trafilatura, httpx, playwright, blocked-domains]
-timestamp: 2026-07-09
+timestamp: 2026-07-10
 resource: scraper/fetch.py
 ---
 
@@ -15,13 +15,13 @@ See [[search-layer]] for where URLs come from, [[extraction-layer]] for what con
 
 ## Extraction pipeline
 
-Two-tier: `trafilatura.extract(include_comments=False, include_tables=False)` first; if the result is missing or `< min_text_length` (100), fall back to `html2text` (links + images ignored). Returns `None` if the fallback is also too short, if HTTP status ≥ 400, or if `content-type` lacks `text/html`. trafilatura gives clean article text; html2text is the cruder safety net.
+Two-tier: `trafilatura.extract(include_comments=False, include_tables=False)` first; if the result is missing or `< min_text_length` (100), fall back to `html2text` (links + images ignored). Returns `None` if the fallback is also too short, if HTTP status ≥ 400, if `content-type` lacks `text/html`, or if URL safety rejects the initial/redirect target.
 
-## Check ordering is load-bearing
+## Safety gates and ordering
 
-In `fetch_and_clean`, `playwright_fetcher.matches(url)` is checked **before** `_is_blocked(url)`. A domain in both lists gets Playwright-fetched, bypassing the block — so social-media domains must stay out of `playwright_domains` entirely. See [[playwright-vs-blocked-domain-ordering]].
+Before either httpx or Playwright runs, `fetch_and_clean` applies [[server-side-url-safety]] and the configured blocked-domain list. A domain present in both `playwright_domains` and `blocked_domains` is blocked; Playwright can no longer bypass the policy. Every HTTP redirect and Playwright request is checked again.
 
-Blocked domains (`twitter, x, facebook, instagram, tiktok, linkedin, youtube, reddit`) are login-walled/bot-hostile and return no useful text. They are still valid as `social_links` values on extracted records. Matching is naive **substring-in-host** (`any(domain in host …)`) — shared by the fetch check, the pipeline pre-filter, and `PlaywrightFetcher.matches`; susceptible to false matches on any host merely containing the string.
+Blocked domains (`twitter, x, facebook, instagram, tiktok, linkedin, youtube, reddit`) are login-walled/bot-hostile and return no useful text. They are still valid as `social_links` values on extracted records. Matching uses exact host/subdomain boundaries through `host_matches_domain`.
 
 Blocked URLs are filtered **twice** (pipeline pre-filter + `_is_blocked` inside `fetch_and_clean`) — belt-and-suspenders so cached-URL paths can't slip a blocked URL through.
 

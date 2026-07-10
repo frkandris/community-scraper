@@ -1,10 +1,12 @@
 import asyncio
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import html2text
 import httpx
 import structlog
 import trafilatura
+
+from .url_safety import UnsafeURLError, assert_safe_public_url
 
 log = structlog.get_logger()
 
@@ -60,6 +62,16 @@ async def fetch_and_clean(
     semaphore: asyncio.Semaphore | None = None,
     playwright_fetcher=None,
 ) -> str | None:
+    try:
+        await assert_safe_public_url(url)
+    except UnsafeURLError as exc:
+        log.warning("fetch_unsafe_url_blocked", url=url, reason=str(exc))
+        return None
+
+    if _is_blocked(url, blocked_domains):
+        log.debug("fetch_blocked", url=url)
+        return None
+
     if playwright_fetcher and playwright_fetcher.matches(url):
         async def _playwright_fetch() -> str | None:
             return await playwright_fetcher.fetch(url, min_text_length=min_text_length)
@@ -68,24 +80,43 @@ async def fetch_and_clean(
                 return await _playwright_fetch()
         return await _playwright_fetch()
 
-    if _is_blocked(url, blocked_domains):
-        log.debug("fetch_blocked", url=url)
-        return None
-
     async def _fetch() -> str | None:
         try:
             async with httpx.AsyncClient(
                 timeout=timeout_seconds,
-                follow_redirects=True,
+                follow_redirects=False,
                 headers=_HEADERS,
+                trust_env=False,
             ) as client:
-                resp = await client.get(url)
+                current_url = url
+                resp = None
+                for _redirect_count in range(6):
+                    await assert_safe_public_url(current_url)
+                    if _is_blocked(current_url, blocked_domains):
+                        log.debug("fetch_redirect_blocked", url=current_url)
+                        return None
+                    resp = await client.get(current_url)
+                    if resp.status_code not in {301, 302, 303, 307, 308}:
+                        break
+                    location = resp.headers.get("location")
+                    if not location:
+                        return None
+                    current_url = urljoin(str(resp.url), location)
+                else:
+                    log.warning("fetch_too_many_redirects", url=url)
+                    return None
+
+                if resp is None:
+                    return None
                 if resp.status_code >= 400:
-                    log.warning("fetch_failed", url=url, status=resp.status_code)
+                    log.warning("fetch_failed", url=current_url, status=resp.status_code)
                     return None
                 if "text/html" not in resp.headers.get("content-type", ""):
                     return None
                 return _extract_text(resp.text, min_text_length=min_text_length)
+        except UnsafeURLError as exc:
+            log.warning("fetch_unsafe_redirect_blocked", url=url, reason=str(exc))
+            return None
         except Exception as exc:
             log.debug("fetch_failed", url=url, error=str(exc))
             return None

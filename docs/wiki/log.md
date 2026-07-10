@@ -3,6 +3,7 @@
 Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
 ## 2026-07-10
+- **Creation**: [[server-side-url-safety]] — centralized HTTP(S)/hostname/IP/DNS validation, manual redirect checks, Playwright request interception, and approval-time validation for public community submissions.
 - **Update**: [[done-pair-url-hash-not-city-topic]], [[pipeline-run-modes]], and [[extraction-fingerprints]] — removed the visible-community shortcut, made done detection honor community/venue/person fingerprints and phase flags, and split `search_only` fetch completion from AI freshness.
 - **Creation**: [[unicode-safe-identity-keys]] — centralized community/venue/person record keys in `scraper.identity`, added a reference-preserving `unicode_record_keys_v2` migration, and made non-Latin public slugs non-empty and collision-resistant.
 - **Creation**: [[not-community-moderation-flow]] — pending public reports no longer hide communities through `init_db()`; authenticated approval now performs the visibility change and creates the false-positive example, while dismiss remains non-mutating.

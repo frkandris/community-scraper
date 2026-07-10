@@ -67,6 +67,7 @@ def test_approve_submission_enqueues_scrape(tmp_path):
         app_state.db_path = db
         app_state.pipeline_cfg = _cfg(db)
         with patch("scraper.web.app._ADMIN_PASSWORD", "testpass"), \
+             patch("scraper.web.app.assert_safe_public_url", new_callable=AsyncMock), \
              patch("scraper.web.app.scrape_submitted_url", new_callable=AsyncMock) as mock_scrape:
             resp = TestClient(web_app.app).post(
                 f"/admin/submissions/{row_id}/approve",
@@ -78,6 +79,39 @@ def test_approve_submission_enqueues_scrape(tmp_path):
         rows = get_community_submissions(db, status="approved")
         assert len(rows) == 1
         assert rows[0]["name"] == "Club B"
+    finally:
+        app_state.db_path = old_db
+        app_state.pipeline_cfg = old_cfg
+
+
+def test_approve_submission_rejects_unsafe_url_and_keeps_pending(tmp_path):
+    from scraper.url_safety import UnsafeURLError
+
+    db = _db(tmp_path)
+    row_id = save_community_submission(
+        db, "Club C", "Budapest", "running", "https://unsafe.example.com", None
+    )
+    old_db, old_cfg = app_state.db_path, app_state.pipeline_cfg
+    try:
+        app_state.db_path = db
+        app_state.pipeline_cfg = _cfg(db)
+        with patch("scraper.web.app._ADMIN_PASSWORD", "testpass"), \
+             patch(
+                 "scraper.web.app.assert_safe_public_url",
+                 new_callable=AsyncMock,
+                 side_effect=UnsafeURLError("Host resolves to a non-public IP address"),
+             ), \
+             patch("scraper.web.app.scrape_submitted_url", new_callable=AsyncMock) as mock_scrape:
+            resp = TestClient(web_app.app).post(
+                f"/admin/submissions/{row_id}/approve",
+                headers=_ADMIN_HEADERS,
+            )
+
+        assert resp.status_code == 400
+        assert resp.json()["error"] == "unsafe_source_url"
+        assert not mock_scrape.called
+        assert len(get_community_submissions(db, status="pending")) == 1
+        assert get_community_submissions(db, status="approved") == []
     finally:
         app_state.db_path = old_db
         app_state.pipeline_cfg = old_cfg

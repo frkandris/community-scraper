@@ -93,6 +93,30 @@ def test_post_form_missing_required_field_returns_400(tmp_path):
         app_state.topics = old_topics
 
 
+def test_post_form_rejects_non_public_source_url(tmp_path):
+    db = _db(tmp_path)
+    old_db, old_cities, old_topics = app_state.db_path, app_state.cities, app_state.topics
+    try:
+        _setup_state(db)
+        resp = TestClient(web_app.app).post(
+            "/kozosseg-bekuldes",
+            data={
+                "name": "Belső szolgáltatás",
+                "city": "Budapest",
+                "topic": "running",
+                "source_url": "http://169.254.169.254/latest/meta-data",
+            },
+        )
+
+        assert resp.status_code == 400
+        assert resp.json()["error"] == "invalid_source_url"
+        assert get_community_submissions(db, status="pending") == []
+    finally:
+        app_state.db_path = old_db
+        app_state.cities = old_cities
+        app_state.topics = old_topics
+
+
 def test_get_form_submitted_shows_thank_you(tmp_path):
     db = _db(tmp_path)
     old_db, old_cities, old_topics = app_state.db_path, app_state.cities, app_state.topics
