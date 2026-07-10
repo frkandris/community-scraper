@@ -33,5 +33,6 @@ resource: scraper/pipeline.py
 ## Still open (not implemented)
 
 - Enrichment search results are not cached across re-extractions.
-- `_run_ai_only` still omits false-positive examples.
 - The biggest "don't burn money" rule remains operational: after prompt edits with still-valid results, use `POST /admin/api/restamp-fingerprints` instead of letting the fingerprint change re-extract the world ([[extraction-fingerprint-cache]]).
+
+**Follow-up 2026-07-10:** `_run_ai_only` now receives pair-scoped false-positive examples. Adding/removing one invalidates only that pair's community extraction cache; a global extraction rule still invalidates all. Raw page text is retained, so the correction costs LLM calls but no search/fetch calls.

@@ -7,6 +7,7 @@ from .db import (
     delete_false_positive,
     get_false_positives,
     get_prompt_history,
+    invalidate_extraction_cache,
     upsert_false_positive,
 )
 
@@ -20,13 +21,37 @@ def load(db_path: Path) -> list[dict]:
 def add(db_path: Path, name: str, city: str, topic: str, reason: str,
         source_url: str, fp_type: str = "extraction") -> None:
     upsert_false_positive(db_path, name, city, topic, reason, source_url, fp_type)
+    _invalidate_affected_extractions(db_path, city, topic, source_url, fp_type)
     _record_history(db_path, "extraction" if fp_type == "extraction_rule" else fp_type)
 
 
 def remove(db_path: Path, name: str, city: str, topic: str,
            fp_type: str = "extraction") -> None:
+    existing = next((
+        fp for fp in get_false_positives(db_path)
+        if fp["name"] == name and fp["city"] == city and fp["topic"] == topic
+        and fp.get("fp_type", "extraction") == fp_type
+    ), None)
     delete_false_positive(db_path, name, city, topic, fp_type)
+    _invalidate_affected_extractions(
+        db_path, city, topic, existing.get("source_url", "") if existing else "", fp_type
+    )
     _record_history(db_path, "extraction" if fp_type == "extraction_rule" else fp_type)
+
+
+def _invalidate_affected_extractions(
+    db_path: Path,
+    city: str,
+    topic: str,
+    source_url: str,
+    fp_type: str,
+) -> None:
+    if fp_type == "extraction_rule":
+        invalidate_extraction_cache(db_path)
+    elif fp_type == "extraction":
+        invalidate_extraction_cache(
+            db_path, city=city, topic=topic, urls=[source_url] if source_url else None
+        )
 
 
 def build_prompt_section(fps: list[dict], city: str = "", topic: str = "",

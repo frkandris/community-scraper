@@ -735,7 +735,8 @@ async def _run_ai_only(
         log.warning("ai_only_mode_no_cache")
         return 0, []
 
-    all_scraped = await asyncio.to_thread(cache.get_all_scraped)
+    all_fps = load_false_positives(config.db_path)
+    all_scraped = await asyncio.to_thread(cache.get_scraped_by_search_pair)
     log.info("ai_only_start", cached_pages=len(all_scraped),
              run_communities=run_communities, run_venues=run_venues, run_persons=run_persons)
 
@@ -776,6 +777,9 @@ async def _run_ai_only(
                 continue
 
             log.info("ai_only_processing", city=city.name, topic=topic.name, pages=len(pages))
+            extraction_fp_section = build_prompt_section(
+                all_fps, city=city.name, topic=topic.name
+            )
             records = []
             for url, text in pages:
                 await asyncio.sleep(0)
@@ -804,6 +808,7 @@ async def _run_ai_only(
                         extracted = await extractor.extract(
                             text=text, city=city.name, topic=topic.name,
                             locale=city.locale, source_url=url,
+                            false_positive_examples=extraction_fp_section,
                         )
                     except ExtractorUnavailableError as exc:
                         pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1

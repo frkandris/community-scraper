@@ -1393,6 +1393,85 @@ def clear_all_cache_pages(db_path: Path) -> int:
         return cur.rowcount
 
 
+def invalidate_extraction_cache(
+    db_path: Path,
+    city: str | None = None,
+    topic: str | None = None,
+    urls: list[str] | None = None,
+) -> int:
+    """Remove community extraction results while preserving scraped page text.
+
+    With no city/topic the invalidation is global. For a specific pair, URL
+    hashes come from search_cache as well as cache_pages' denormalized pair
+    columns; explicit URLs cover manually submitted or otherwise uncatalogued
+    source pages.
+    """
+    import hashlib
+
+    if not db_path.exists():
+        return 0
+    if (city is None) != (topic is None):
+        raise ValueError("city and topic must be provided together")
+
+    json_paths = (
+        "'$.records', '$.extracted_at', '$.extract_duration_s',"
+        " '$.extract_fingerprint', '$.extract_model',"
+        " '$.enrich_scraped_at', '$.enrich_scrape_duration_s',"
+        " '$.enrich_extracted_at', '$.enrich_extract_duration_s',"
+        " '$.enrich_count', '$.enrich_model', '$.enrich_log'"
+    )
+    stale_predicate = (
+        "(extracted_at IS NOT NULL OR extract_fingerprint IS NOT NULL"
+        " OR json_extract(data, '$.records') IS NOT NULL)"
+    )
+
+    with _connect(db_path) as conn:
+        if city is None:
+            cur = conn.execute(
+                f"UPDATE cache_pages SET extracted_at=NULL, extract_fingerprint=NULL, "
+                f"data=json_remove(data, {json_paths}) WHERE {stale_predicate}"
+            )
+            conn.commit()
+            return cur.rowcount
+
+        target_hashes = {
+            row[0]
+            for row in conn.execute(
+                "SELECT url_hash FROM cache_pages WHERE city=? AND topic=?",
+                (city, topic),
+            )
+        }
+        search_row = conn.execute(
+            "SELECT urls FROM search_cache WHERE city=? AND topic=?",
+            (city, topic),
+        ).fetchone()
+        if search_row and search_row[0]:
+            target_hashes.update(
+                hashlib.sha256(url.encode()).hexdigest()[:16]
+                for url in json.loads(search_row[0])
+            )
+        target_hashes.update(
+            hashlib.sha256(url.encode()).hexdigest()[:16]
+            for url in (urls or [])
+            if url
+        )
+
+        updated = 0
+        hashes = sorted(target_hashes)
+        for start in range(0, len(hashes), 500):
+            chunk = hashes[start:start + 500]
+            placeholders = ",".join("?" for _ in chunk)
+            cur = conn.execute(
+                f"UPDATE cache_pages SET extracted_at=NULL, extract_fingerprint=NULL, "
+                f"data=json_remove(data, {json_paths}) "
+                f"WHERE url_hash IN ({placeholders}) AND {stale_predicate}",
+                chunk,
+            )
+            updated += cur.rowcount
+        conn.commit()
+        return updated
+
+
 def clear_person_cache(db_path: Path) -> int:
     """Strip person extraction fields from all cache entries, forcing re-extraction."""
     with _connect(db_path) as conn:
@@ -1463,6 +1542,59 @@ def get_all_scraped_cache(db_path: Path) -> list[tuple[str, str, str, str]]:
                 entry.get("city", ""),
                 entry.get("topic", ""),
             ))
+    return result
+
+
+def get_scraped_cache_by_search_pair(db_path: Path) -> list[tuple[str, str, str, str]]:
+    """Return scraped pages attributed by authoritative search-cache URL lists.
+
+    A URL may belong to several pairs, so it may occur more than once. Cached
+    pages absent from search_cache (for example manual submissions) fall back
+    to their denormalized city/topic metadata.
+    """
+    import hashlib
+
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        page_rows = conn.execute(
+            "SELECT url_hash, data FROM cache_pages WHERE scraped_at IS NOT NULL"
+        ).fetchall()
+        search_rows = conn.execute("SELECT city, topic, urls FROM search_cache").fetchall()
+
+    pages: dict[str, tuple[str, str, str, str]] = {}
+    for url_hash, data_json in page_rows:
+        try:
+            entry = json.loads(data_json)
+        except (TypeError, json.JSONDecodeError):
+            continue
+        if isinstance(entry, dict) and entry.get("raw_text") and entry.get("url"):
+            pages[url_hash] = (
+                entry["url"],
+                entry["raw_text"],
+                entry.get("city", ""),
+                entry.get("topic", ""),
+            )
+
+    result: list[tuple[str, str, str, str]] = []
+    linked_hashes: set[str] = set()
+    linked_pairs: set[tuple[str, str, str]] = set()
+    for city, topic, urls_json in search_rows:
+        try:
+            urls = json.loads(urls_json) if urls_json else []
+        except (TypeError, json.JSONDecodeError):
+            continue
+        for url in urls:
+            url_hash = hashlib.sha256(url.encode()).hexdigest()[:16]
+            page = pages.get(url_hash)
+            pair_key = (url_hash, city, topic)
+            if not page or pair_key in linked_pairs:
+                continue
+            result.append((page[0], page[1], city, topic))
+            linked_hashes.add(url_hash)
+            linked_pairs.add(pair_key)
+
+    result.extend(page for url_hash, page in pages.items() if url_hash not in linked_hashes)
     return result
 
 

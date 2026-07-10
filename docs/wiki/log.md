@@ -3,6 +3,7 @@
 Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
 ## 2026-07-10
+- **Update**: [[false-positive-injection]], [[extraction-fingerprints]], and [[pipeline-orchestration]] — `ai_only` now receives pair-scoped negative examples and attributes shared URLs through `search_cache`; add/remove explicitly invalidates the affected community extraction cache, while global rules invalidate all and preserve downloaded text.
 - **Update**: [[shared-run-task-slot]] and [[asyncio-task-cancellation]] — all long-run paths now use one `RunCoordinator`; synchronous reservation prevents overlap and task-identity release prevents stale cleanup from clearing a newer run.
 - **Creation**: [[server-side-url-safety]] — centralized HTTP(S)/hostname/IP/DNS validation, manual redirect checks, Playwright request interception, and approval-time validation for public community submissions.
 - **Update**: [[done-pair-url-hash-not-city-topic]], [[pipeline-run-modes]], and [[extraction-fingerprints]] — removed the visible-community shortcut, made done detection honor community/venue/person fingerprints and phase flags, and split `search_only` fetch completion from AI freshness.

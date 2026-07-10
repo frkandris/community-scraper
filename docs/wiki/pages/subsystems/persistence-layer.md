@@ -31,6 +31,8 @@ The `venue_fingerprint`/`person_fingerprint` columns are idempotently back-fille
 
 Fingerprint-gated reads (`get_extracted`, `get_venue_extracted`, `get_person_extracted`) return `None` (cache miss → re-extract) when the stored fingerprint ≠ current. `save_extracted` nulls all `enrich_*` markers, since a fresh extraction invalidates prior enrichment. Deletes are soft (pop keys out of the blob); only `delete_entry` removes the row.
 
+`invalidate_extraction_cache` is the targeted exception to the facade's read-modify-write pattern: one SQL update removes community extraction and enrichment keys while retaining `raw_text` and independent venue/person results. Pair scope is resolved by URL hash from `search_cache` plus the denormalized pair columns and optional source URL; omitted scope means every cached page. False-positive add/remove uses this path so an `ai_only` run can apply new moderation rules without another fetch. For that pass, `get_scraped_cache_by_search_pair` reconstructs authoritative pair attribution from `search_cache`; unlinked/manual pages fall back to their cache metadata.
+
 ## store.py — merge, patch, dedup
 
 - `save_results` merges NEW records over existing (new wins on `record_key` collision).

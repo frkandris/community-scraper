@@ -3,7 +3,7 @@ type: Subsystem
 title: Extraction Layer
 description: DeepSeek LLM extraction of communities, venues, and persons from page text, with four prompt families, live-editable prompts, and fingerprint-keyed caching.
 tags: [extraction, llm, deepseek, prompts, fingerprint]
-timestamp: 2026-07-09
+timestamp: 2026-07-10
 resource: scraper/extract.py
 ---
 
@@ -33,7 +33,7 @@ Runtime config (settings.yaml) overrides class defaults — the YAML wins, a lat
 
 ## False-positive injection
 
-Negative examples are appended to the system message **at call time, after** `get_prompt(...)`: `get_prompt("extraction_system") + false_positive_examples + _API_EXTRACT_SUFFIX`. Because they land after the fingerprinted prompt, **adding/removing false positives does not invalidate the extraction cache.** See [[false-positive-injection]].
+Negative examples are appended to the system message **at call time, after** `get_prompt(...)`: `get_prompt("extraction_system") + false_positive_examples + _API_EXTRACT_SUFFIX`. Both full and cache-only extraction pass the pair-scoped section. Because it is outside the global fingerprint, `false_positives.add/remove` explicitly invalidates the affected community cache rows (or all rows for a global rule). See [[false-positive-injection]].
 
 ## Person extraction skip
 

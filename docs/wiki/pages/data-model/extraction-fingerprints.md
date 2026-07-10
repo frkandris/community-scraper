@@ -21,6 +21,6 @@ resource: scraper/extract.py
 
 **Update 2026-07-09:** the canonical treatment now covers venues and persons too (`canonical_venue_fingerprint` / `canonical_person_fingerprint` on `FallbackExtractor`; all pipeline cache read/write sites switched). The provider-shift re-extraction churn is closed.
 
-## Not affected by false positives
+## False positives use an explicit invalidation path
 
-False-positive negative examples are appended to the prompt **after** the fingerprinted `get_prompt(...)`, so adding/removing false positives does **not** change the fingerprint or invalidate the cache. See [[false-positive-injection]].
+False-positive negative examples are appended **after** the fingerprinted `get_prompt(...)`, so a pair-level moderation action does not change the global fingerprint. `false_positives.add/remove` instead removes the affected rows' community extraction fields; global extraction rules invalidate all community extraction rows. The next done-pair check then selects precisely the stale scope. See [[false-positive-injection]].

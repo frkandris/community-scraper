@@ -21,6 +21,8 @@ See [[pipeline-run-modes]] for the mode overview, [[done-pair-url-hash-not-city-
 
 When `skip_extracted` is on, `run_pipeline` computes mode-aware `done_pairs` and threads `pairs_filter = all_pairs - done_pairs` into every sub-call. `search_only` checks capped fetch completion. AI modes check community, venue, and person fingerprints according to the enabled phase flags and the same community-presence gates used during extraction. Changing any enabled prompt/model invalidates done-status even when the pair already has visible records.
 
+False-positive changes take the same route without changing the global fingerprint: pair examples explicitly clear only that pair's community extraction metadata, while global extraction rules clear it for all cached pages. Both `_run_ai_only` and `_run_full` pass the current pair-scoped negative examples to the extractor, so the next selected run uses the new rule consistently. `_run_ai_only` also attributes scraped pages through `search_cache` URL hashes rather than last-write-wins `cache_pages.city/topic`; one shared URL can therefore be reprocessed for every pair that uses it.
+
 ## Three geographic passes (main.py)
 
 Both `_scheduled_run` and `_startup_run` partition cities and call `run_pipeline` **three times**: Hungary (339 cities) → Sweden (290) → rest-of-world (145). See [[hungary-sweden-intl-three-passes]]. Each call does its own done-pair pre-filter, its own extractor/search-client construction, and its own `detect_all` (so the dup scan runs 3× per sweep — idempotent). Scale: 774 cities × 36 topics ≈ **27,900 pairs** per sweep, which is why the pre-filter and the 3650-day search-cache TTL matter.
@@ -36,7 +38,3 @@ Both `_scheduled_run` and `_startup_run` partition cities and call `run_pipeline
 ## The scheduler is a no-op
 
 An `AsyncIOScheduler` is started but **never given a job** — `CronTrigger` is imported but unused, and `schedule.cron` in settings is ignored. Runs come only from startup (when `auto_run_on_startup` is true), manual `/admin/api/run`, or `--run-once`. See [[scheduler-disabled-no-cron]].
-
-## Known inconsistency
-
-`_run_ai_only` omits `false_positive_examples` from its `extract()` call, whereas `_run_full` includes them — cache-only re-extractions miss per-pair false-positive hints.

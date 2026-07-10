@@ -40,7 +40,7 @@ frontmatter. See [SCHEMA.md](SCHEMA.md) for conventions.
 - [[search-provider-fallback-chain]] — DataForSEO-only since 2026-07; history of the removed chain
 - [[extraction-provider-fallback-chain]] — DeepSeek-only since 2026-07; fingerprints still per prompt+model
 - [[joinable-quality-gate]] — only joinable=True records survive; a 3-condition AND rule
-- [[false-positive-injection]] — admin negatives appended to the prompt; do NOT invalidate the cache
+- [[false-positive-injection]] — admin negatives feed both extraction paths and explicitly invalidate only the affected community-extraction cache
 - [[done-pair-url-hash-not-city-topic]] — mode-aware done detection checks capped URL hashes and enabled fingerprints
 - [[fuzzy-dedup-and-record-key]] — in-memory fuzzy dedup + record_key derivation duplicated across two files
 - [[history-created-sentinel-overcounting]] — __created__ rows and the MIN(changed_at) dedup (skipped for communities)
