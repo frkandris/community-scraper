@@ -7,7 +7,9 @@ timestamp: 2026-07-09
 resource: scraper/extract.py
 ---
 
-# LLM Prompts With Non-English Examples Bias Output Language
+# LLM Prompt Example Language Biases Output
+
+*Example values inside a system prompt can override the requested source-language behavior.*
 
 If the `SYSTEM_PROMPT` in `extract.py` contains example values in a specific language (e.g. Hungarian), the LLM will produce descriptions and field values in that language for **all** cities, regardless of the source page language.
 

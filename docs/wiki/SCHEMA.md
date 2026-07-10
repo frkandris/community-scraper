@@ -9,7 +9,8 @@ combines two conventions:
   <https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f>
 - **Open Knowledge Format (OKF) v0.1** — every concept page carries YAML frontmatter
   with a required `type` field; links are directed, untyped graph edges; consumers
-  tolerate missing fields and broken links gracefully.
+  tolerate missing fields and broken links gracefully. This repository deliberately
+  applies a stricter lint policy to keep its maintained bundle internally complete.
   <https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md>
 
 The bundle targets `okf_version: "0.1"` (declared in `index.md`).
@@ -43,12 +44,12 @@ Every `.md` under `pages/` MUST begin with YAML frontmatter:
 
 ```yaml
 ---
-type: <concept kind>          # REQUIRED, e.g. Hack, Post-mortem, Decision,
+type: <concept kind>          # PROJECT-REQUIRED, e.g. Hack, Post-mortem, Decision,
                               #   Concept, Architecture, Subsystem, Data-model, Runbook
-title: <human-readable name>  # recommended
-description: <one sentence>    # recommended — mirrored into index.md
-tags: [kebab, case, list]     # recommended
-timestamp: 2026-07-09         # recommended — ISO 8601 last-modified date
+title: <human-readable name>  # PROJECT-REQUIRED; must match the H1 exactly
+description: <one sentence>   # PROJECT-REQUIRED; mirrored into index.md exactly
+tags: [kebab, case, list]     # PROJECT-REQUIRED
+timestamp: 2026-07-09         # PROJECT-REQUIRED — ISO 8601 last-modified date
 resource: scraper/extract.py  # optional — canonical source file/URI the page documents
 ---
 ```
@@ -72,8 +73,8 @@ Conventions:
 Two supported forms; prefer the first:
 
 - **Wikilink (project convention):** `[[page-name]]` — the filename without `.md`. Cheap
-  to write; the index resolves them. A `[[link]]` to a page that doesn't exist yet is a
-  valid TODO marker, not an error.
+  to write; the index resolves them. Every target must exist. For a future-page TODO,
+  use plain text rather than a broken wikilink.
 - **OKF bundle-relative:** `[label](/pages/hacks/foo.md)` — stable across moves; use when
   an exact path matters (e.g. from outside `pages/`).
 
@@ -116,6 +117,10 @@ Periodically check for: contradictions between pages, stale claims the code has 
 past, orphan pages (no inbound links), missing cross-references, missing frontmatter
 `type`, and important concepts lacking a page.
 
+Run `.venv/bin/python scripts/lint_wiki.py`. It validates YAML/frontmatter, exact H1/title
+and index/description mirroring, local resources, broken wikilinks, and page-to-page
+orphans. `--fix-index` mechanically refreshes existing index descriptions before linting.
+
 ## What belongs here
 
 Non-obvious knowledge: design decisions and their rationale, data flow and invariants,
@@ -132,6 +137,6 @@ restate structure for orientation, but the value is the *why* and the *traps*, n
 
 ## Doc drift warning
 
-`PROJECT.md` and `README.md` at the repo root have **drifted** from the current code (they
-still describe the retired Serper→Brave→SearXNG search chain and the Ollama extractor).
-Treat the code and this wiki as authoritative; see [[doc-drift-project-readme]].
+`PROJECT.md` at the repo root has **drifted** from the current code (it still describes
+retired provider chains and old scheduling). `README.md` is current but intentionally
+brief. Treat the code and this linted wiki as authoritative; see [[doc-drift-project-readme]].

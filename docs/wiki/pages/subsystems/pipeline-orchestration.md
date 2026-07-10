@@ -35,6 +35,6 @@ Both `_scheduled_run` and `_startup_run` partition cities and call `run_pipeline
 
 `on_pair_start(city, topic)` and `on_progress(phase, url)` mutate `app_state` progress fields, feeding the coverage live view. `RunCoordinator` reserves the one long-run slot synchronously and owns cancellation/identity-safe cleanup across manual, scheduled, startup, and revalidate paths. See [[shared-run-task-slot]] and [[asyncio-task-cancellation]].
 
-## The scheduler is a no-op
+## Scheduling lives in `main.py`
 
-An `AsyncIOScheduler` is started but **never given a job** — `CronTrigger` is imported but unused, and `schedule.cron` in settings is ignored. Runs come only from startup (when `auto_run_on_startup` is true), manual `/admin/api/run`, or `--run-once`. See [[scheduler-disabled-no-cron]].
+`main.py` registers the enabled cost-saver collector/extractor jobs, optional legacy combined run, and daily report with `AsyncIOScheduler`. Pipeline jobs enter through `_cron_run`, use the same geographic passes and `RunCoordinator` slot as manual/startup work, and persist one run record. See [[scheduler-disabled-no-cron]], [[cost-saver-schedule]], and [[run-modes-and-startup]].

@@ -7,7 +7,7 @@ timestamp: 2026-07-09
 resource: scraper/web/templates
 ---
 
-# Jinja2: Macros Must Be Defined Before They're Called
+# Jinja2 Macros Must Be Defined Before Use
 
 *Jinja2 does NOT hoist macro definitions. A macro called before its `{% macro %}` block is defined causes `UndefinedError` at render time — and silently succeeds if the calling branch is never reached.*
 
@@ -46,4 +46,4 @@ The bug only surfaces when the calling branch is actually reached. A template th
 
 ## Related
 
-- [[jinja2-namespace-pattern]]
+- [[jinja2-namespace-mutable-counter]]

@@ -23,4 +23,4 @@ A pair is fully processed when it has a `search_cache` entry **and** either its 
 
 Unscraped URLs are excluded from the extraction check, and URLs beyond the fetch cap are ignored. Otherwise a permanently failed or never-selected result could keep a pair runnable forever.
 
-The `url_hash` formula is duplicated in three places (`cache.py`, `get_city_topic_states`, `get_fully_processed_pairs`) with no shared constant — see [[url-hash-triplicated]].
+The `url_hash` formula is repeated across cache, DB, pipeline, and web helpers with no shared implementation — see [[url-hash-triplicated]].

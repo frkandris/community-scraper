@@ -7,7 +7,7 @@ timestamp: 2026-07-09
 resource: scraper/db.py
 ---
 
-# Coverage Amber Cells Never Turned Blue
+# Coverage Amber Cells Never Turned Blue (2026-06-04)
 
 **Date:** 2026-06-04  
 **Symptom:** After a pipeline run processed a (city, topic) pair, cells remained amber (searched but not extracted) even after reload and repeated runs.

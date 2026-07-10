@@ -9,87 +9,87 @@ frontmatter. See [SCHEMA.md](SCHEMA.md) for conventions.
 
 ## Architecture
 
-- [[two-domain-single-container]] — One FastAPI container serves közösségek.com and meetapedia.com via Host-header detection
-- [[extraction-fingerprint-cache]] — SHA-256[:12] of (prompt + model) keys all extraction; changing either forces re-extraction
-- [[pipeline-run-modes]] — full / ai_only / search_only / revalidate control how much work runs per pair
-- [[indexing-strategy]] — canonical, thin-page noindex, sitemap scoping, robots, JSON-LD
+- [[two-domain-single-container]] — One FastAPI container serves közösségek.com and meetapedia.com via Host-header detection.
+- [[extraction-fingerprint-cache]] — SHA-256[:12] of each prompt family plus model keys extraction caches; changing either makes the corresponding results stale.
+- [[pipeline-run-modes]] — full / ai_only / search_only / revalidate control how much work runs per city×topic pair.
+- [[indexing-strategy]] — Canonical tags, thin-page noindex, domain-scoped sitemaps, and robots rules that keep the two-domain directory from cannibalizing its own search rankings.
 
 ## Subsystems
 
-- [[persistence-layer]] — db.py owns SQL, cache.py is a JSON-blob facade, store.py merges/dedups
-- [[search-layer]] — DataForSEO (live/standard) behind the FallbackSearchClient wrapper
-- [[fetch-layer]] — httpx + trafilatura (html2text fallback); blocked domains and optional Playwright fetch
-- [[extraction-layer]] — DeepSeek; four prompt families; live-editable prompts; fingerprint cache
-- [[pipeline-orchestration]] — run_pipeline sequences ai_only + full with a done-pair pre-filter
-- [[duplicate-detection]] — same-city fuzzy dedup of communities/venues/persons; idempotent re-scans
-- [[web-app]] — public + /admin routers, pure-ASGI Basic auth, app_state, coverage page
-- [[i18n-and-site-detection]] — Host-based site detection; English-base translations; missing keys render as themselves
+- [[persistence-layer]] — db.py owns all SQL, cache.py is a JSON-blob facade over cache_pages, store.py merges/dedups community records before upsert.
+- [[search-layer]] — DataForSEO is the sole search client (live or standard mode) behind the FallbackSearchClient wrapper with per-run exhaustion state.
+- [[fetch-layer]] — An SSRF-safe httpx/Playwright fetcher validates public DNS and redirects before trafilatura/html2text turns HTML into clean text.
+- [[extraction-layer]] — DeepSeek LLM extraction of communities, venues, and persons from page text, with four prompt families, live-editable prompts, and fingerprint-keyed caching.
+- [[pipeline-orchestration]] — run_pipeline() sequences ai_only + full passes with a done-pair pre-filter; main.py runs it three times (Hungary → Sweden → world).
+- [[duplicate-detection]] — detect_all() finds same-city duplicate communities/venues/persons via URL match and fuzzy name similarity, with a stable canonical key so re-scans are idempotent.
+- [[web-app]] — One FastAPI app with a public router and an /admin router gated by pure-ASGI Basic auth; Hungarian paths are canonical and English paths redirect.
+- [[i18n-and-site-detection]] — _detect_site reads the Host header; lang_context injects an i18n + nav bundle into every template. English is the translation base; missing keys render as themselves.
 
 ## Data model
 
-- [[sqlite-schema]] — every table in scraper.db and its purpose
-- [[community-record]] — the core entity with multilingual auto-cleanup and a stable community_id
-- [[person-record]] — leaders/instructors; two-word name rule; role normalized to 12 values
-- [[venue-record]] — physical locations; spans topics via welcomed_topics
-- [[extraction-fingerprints]] — three fingerprints; canonical variant pins to the primary provider
-- [[unicode-safe-identity-keys]] — NFKC+casefold hashed record keys and stable non-Latin slug fallbacks
+- [[sqlite-schema]] — Every table in scraper.db, its purpose, and its key columns — all created idempotently by init_db().
+- [[community-record]] — The core entity — a pydantic model with aggressive multilingual auto-cleanup and a stable derived community_id.
+- [[person-record]] — Leaders/instructors extracted per community; enforces a two-word name rule and normalizes role to one of 12 values (default "leader").
+- [[venue-record]] — Physical locations that host communities; spans topics via welcomed_topics rather than a topic column.
+- [[extraction-fingerprints]] — Three SHA-256[:12] fingerprints key community, venue, and person cache results; canonical variants stay pinned to the configured primary.
+- [[unicode-safe-identity-keys]] — Entity record keys hash NFKC+casefold canonical text, preventing non-Latin names from collapsing to the same database key.
 
 ## Concepts
 
-- [[community-identity]] — community_id (stable URL slug) vs record_key (topic-aware DB uniqueness)
-- [[search-provider-fallback-chain]] — DataForSEO-only since 2026-07; history of the removed chain
-- [[extraction-provider-fallback-chain]] — DeepSeek-only since 2026-07; fingerprints still per prompt+model
-- [[joinable-quality-gate]] — only joinable=True records survive; a 3-condition AND rule
-- [[false-positive-injection]] — admin negatives feed both extraction paths and explicitly invalidate only the affected community-extraction cache
-- [[done-pair-url-hash-not-city-topic]] — mode-aware done detection checks capped URL hashes and enabled fingerprints
-- [[fuzzy-dedup-and-record-key]] — in-memory fuzzy dedup + record_key derivation duplicated across two files
-- [[history-created-sentinel-overcounting]] — __created__ rows and the MIN(changed_at) dedup (skipped for communities)
-- [[not-community-moderation-flow]] — public reports remain pending; only admin approval hides a community
-- [[server-side-url-safety]] — public-only DNS/IP policy and redirect validation for every server-side fetch
+- [[community-identity]] — Two keys: community_id (stable URL slug) vs record_key (topic-aware DB uniqueness).
+- [[search-provider-fallback-chain]] — DataForSEO is the sole search provider (2026-07 cleanup); FallbackSearchClient remains as a single-provider wrapper with per-run exhaustion.
+- [[extraction-provider-fallback-chain]] — DeepSeek is the sole extractor (2026-07 cleanup); FallbackExtractor remains as a single-provider wrapper.
+- [[joinable-quality-gate]] — The primary quality filter — only records the LLM marks joinable=True survive; a 3-condition AND rule defines it.
+- [[false-positive-injection]] — Admin negatives feed both extraction paths and explicitly invalidate only the affected community-extraction cache.
+- [[done-pair-url-hash-not-city-topic]] — Done-pair detection resolves capped search URLs to hashes and checks every extraction family enabled for the current run mode.
+- [[fuzzy-dedup-and-record-key]] — store.py dedups records in-memory (fuzzy) and upserts through the shared Unicode-safe community record-key helper.
+- [[history-created-sentinel-overcounting]] — Brand-new records log __created__; every activity/report query groups by stable entity ID and MIN(changed_at) to neutralize delete-reinsert churn.
+- [[not-community-moderation-flow]] — Public reports stay pending and cannot hide records; only admin approval hides the community and creates a false-positive example.
+- [[server-side-url-safety]] — Every server-side fetch validates HTTP(S) syntax, public DNS answers, blocked domains, and each redirect target before connecting.
 
 ## Decisions
 
-- [[search-ttl-3650-days]] — TTL ~10 years: index the world first, worry about freshness later
-- [[sweden-pipeline-priority]] — Sweden runs second after Hungary (290 municipalities)
-- [[hungary-sweden-intl-three-passes]] — three sequential run_pipeline calls; order = business priority
-- [[scheduler-disabled-no-cron]] — cron is opt-in (`cron_enabled`); preset to DeepSeek's off-peak window
-- [[cost-optimization-2026-07]] — eight levers cutting DataForSEO + LLM spend (empty-search caching, short-circuit, tiering…)
-- [[doc-drift-project-readme]] — PROJECT.md/README.md describe retired providers; trust the code
+- [[search-ttl-3650-days]] — TTL set to ~10 years: index the world first, worry about freshness later.
+- [[sweden-pipeline-priority]] — Sweden runs after Hungary because its 290-municipality list is large.
+- [[hungary-sweden-intl-three-passes]] — main.py runs run_pipeline three times over partitioned city lists; order is business priority — home market, biggest expansion market, then the long tail.
+- [[scheduler-disabled-no-cron]] — APScheduler registers the enabled twin cost-saver jobs and daily report; the legacy combined cron remains opt-in.
+- [[cost-optimization-2026-07]] — Cost controls reduce paid search and LLM work through caching, query short-circuiting, venue gates, off-peak extraction, standard search, and topic tiers.
+- [[doc-drift-project-readme]] — Root PROJECT.md describes retired providers and scheduling; README.md, code, and this wiki reflect the current system.
 
 ## Hacks
 
-- [[tailwind-cdn-jit-large-lists]] — never server-render large lists; the JIT scanner freezes the page
-- [[asyncio-task-cancellation]] — use asyncio.create_task + _run_task; CancelledError is a BaseException
-- [[jinja2-macro-definition-order]] — macros must be defined before they're called; Jinja2 does not hoist
-- [[jinja2-namespace-mutable-counter]] — use namespace() for mutable variables inside Jinja2 loops
-- [[playwright-vs-blocked-domain-ordering]] — blocked-domain and SSRF checks now precede Playwright
-- [[init-db-before-prompt-overrides]] — fingerprint migrations must use a runtime endpoint, not init_db()
-- [[llm-prompt-language-bias]] — non-English prompt examples bias output language; keep examples English
-- [[canonical-fingerprint-provider-shift]] — pin the cache key to primaries[0] so fallback extractions still count
-- [[pyyaml-no-norway-boolean]] — locale "no" parses as boolean False; cast to str
-- [[searchquotaerror-reraise-ordering]] — re-raise SearchQuotaError before the broad except, or failover breaks
-- [[non-quota-errors-drop-page]] — only 402/429 trigger fallback; other errors silently drop the page
-- [[get-prompt-empty-override-falls-back]] — an empty-string prompt override reverts to the default
-- [[name-json-tail-bleed]] — strip leaked JSON tail off the name field
-- [[cache-blob-read-modify-write]] — cache_pages is a non-transactional read-modify-write blob
-- [[shared-run-task-slot]] — one RunCoordinator owns reservation, cancellation, and task-identity cleanup
-- [[url-hash-triplicated]] — SHA-256(url)[:16] is duplicated in three places; must stay identical
+- [[tailwind-cdn-jit-large-lists]] — The CDN JIT scans the full initial DOM before paint; load big admin lists via JSON + DocumentFragment.
+- [[asyncio-task-cancellation]] — Long runs use asyncio.create_task through RunCoordinator; BackgroundTasks cannot be cancelled and CancelledError is a BaseException.
+- [[jinja2-macro-definition-order]] — Jinja2 does not hoist macro definitions; a macro called before its block fails at render, silently if the branch is skipped.
+- [[jinja2-namespace-mutable-counter]] — Use namespace() to mutate an outer variable from inside a {% for %} block.
+- [[playwright-vs-blocked-domain-ordering]] — URL safety and blocked-domain checks run before Playwright, and browser requests repeat the public-address guard.
+- [[init-db-before-prompt-overrides]] — Fingerprint migrations must use a runtime endpoint, not init_db(), because overrides aren't loaded yet at init.
+- [[llm-prompt-language-bias]] — Non-English example strings in SYSTEM_PROMPT make the LLM emit that language for all cities; keep examples English.
+- [[canonical-fingerprint-provider-shift]] — Canonical community, venue, and person fingerprints always use primaries[0], keeping cache keys stable if fallback providers return.
+- [[pyyaml-no-norway-boolean]] — The Norwegian locale code "no" is read by PyYAML as False; config and search boundaries cast locale keys back to strings.
+- [[searchquotaerror-reraise-ordering]] — DataForSEO and its wrapper preserve quota versus transient errors so the pipeline never caches provider failure as a legitimate empty search.
+- [[non-quota-errors-drop-page]] — FIXED 2026-07-09 — transient/quota extractor failures now raise ExtractorUnavailableError; the pipeline skips caching so the page is retried next run.
+- [[get-prompt-empty-override-falls-back]] — get_prompt uses `or`, so an override set to "" is falsy and falls back to the built-in prompt — you cannot blank a prompt via override.
+- [[name-json-tail-bleed]] — The LLM sometimes appends following JSON fields into the name string; _LEAKED_JSON_RE strips the leaked tail.
+- [[cache-blob-read-modify-write]] — CacheManager reads the JSON blob, mutates it in Python, and writes it back across two separate connections — concurrent writers to the same URL can lose updates.
+- [[shared-run-task-slot]] — Pipeline, scheduled, startup, and revalidate runs reserve one coordinator-owned task slot with identity-safe cleanup.
+- [[url-hash-triplicated]] — SHA-256(url)[:16] is repeated across cache, DB, pipeline, and web paths; every copy must remain byte-for-byte compatible.
 
 ## SEO
 
-- [[seo-cross-domain-canonical]] — HU pages canonicalize to kozossegek.com so Google consolidates correctly
+- [[seo-cross-domain-canonical]] — HU-city pages on meetapedia.com canonicalize to kozossegek.com so Google stops consolidating the duplicate toward the traffic-less domain.
 
 ## Post-mortems
 
-- [[2026-05-coverage-page-500]] — app_state cities/topics are dataclasses, not dicts
-- [[2026-06-coverage-amber-cells]] — get_fully_processed_pairs() and get_city_topic_states() disagreed on which URLs count
-- [[2026-06-seo-traffic-collapse]] — ~20K pages devalued to "Crawled - currently not indexed"; cross-domain duplication
-- [[2026-07-bug-hunt]] — three-batch fix round: moderation survival, domain matching, persons, recategorize + hot-path optimizations
+- [[2026-05-coverage-page-500]] — app_state.cities/topics are dataclasses, not dicts; dict-style access 500s any route touching them.
+- [[2026-06-coverage-amber-cells]] — get_fully_processed_pairs() and get_city_topic_states() disagreed on which URLs count as done.
+- [[2026-06-seo-traffic-collapse]] — kozossegek.com organic clicks fell from ~95/day to ~0 around 2026-06-01 as ~20K pages were devalued to "Crawled - currently not indexed."
+- [[2026-07-bug-hunt]] — Three-agent review found 15+ verified defects; fixed in three batches — moderation survival, domain matching, persons lookup, recategorize, venue scope, timeline dedup, and a set of hot-path optimizations.
 
 ## Operations
 
-- [[run-modes-and-startup]] — how to trigger runs; the startup escalation state machine
-- [[deployment-coolify]] — Docker on Coolify; volumes; env vars
-- [[adding-city-topic]] — config files + app.py dicts + i18n labels to update in lockstep
-- [[local-search-worker]] — REMOVED 2026-07-09; post-mortem of the browser-driven search experiment
-- [[cost-saver-schedule]] — twin crons: cheap search collection all day, DeepSeek only in the off-peak window
+- [[run-modes-and-startup]] — How to trigger runs (dashboard cards, manual, startup) and how the startup escalates revalidate → ai_only → full.
+- [[deployment-coolify]] — Docker on Coolify; persist only /app/data and /app/config; required and optional env vars.
+- [[adding-city-topic]] — The config files plus the app.py dicts and i18n labels you must update in lockstep.
+- [[local-search-worker]] — REMOVED 2026-07-09 — browser-driven search never beat engine bot detection; kept as post-mortem. Code in git history.
+- [[cost-saver-schedule]] — Two independent daily crons — DataForSEO collects cheaply all day (search_only, standard mode), DeepSeek extracts only in its off-peak discount window (ai_only, stop_at-boxed).

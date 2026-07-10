@@ -7,7 +7,9 @@ timestamp: 2026-07-09
 resource: scraper/web/app.py
 ---
 
-# Post-mortem: Coverage Page 500 Error (2026-05-30)
+# Coverage Page 500 (2026-05-30)
+
+*The route treated dataclass configuration objects as dictionaries and crashed on first render.*
 
 ## Summary
 
@@ -40,5 +42,4 @@ When writing code that touches `app_state.cities` or `app_state.topics`, always 
 
 ## Related
 
-- [[app-state-singleton]]
-- [[city-topic-dataclasses]]
+- [[web-app]]

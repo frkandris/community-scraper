@@ -59,4 +59,4 @@ These pairs are subtracted from `all_pairs` before `_run_full` / `_run_ai_only` 
 ## Related
 
 - [[extraction-fingerprint-cache]]
-- [[search-cache]]
+- [[search-ttl-3650-days]]

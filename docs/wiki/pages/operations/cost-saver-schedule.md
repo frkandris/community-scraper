@@ -3,7 +3,7 @@ type: Runbook
 title: Cost-Saver Twin Schedule
 description: Two independent daily crons — DataForSEO collects cheaply all day (search_only, standard mode), DeepSeek extracts only in its off-peak discount window (ai_only, stop_at-boxed).
 tags: [operations, cost, schedule, search-only, off-peak, deepseek, dataforseo]
-timestamp: 2026-07-09
+timestamp: 2026-07-10
 resource: scraper/main.py
 ---
 
@@ -24,7 +24,7 @@ Both use the Hungary → Sweden → world pass order and the shared `_cron_run` 
 
 `run_pipeline(..., stop_at=…)` — `_next_window_end(start, "HH:MM")` computes the first HH:MM UTC after the start (midnight-crossing handled: 16:35 → 00:20 = next day). The pair loops check `_window_closed(stop_at)` and stop gracefully; unfinished pairs simply carry over to the next day (nothing is lost — search results and page texts are cached, un-extracted pages stay fingerprint-stale).
 
-The complementary `*_until` values keep the two jobs from overlapping — only one run may be active (`app_state.is_running`), so an overrunning collector would otherwise make the extract cron skip a day.
+The complementary `*_until` values normally keep the jobs apart. `RunCoordinator` is the final overlap guard: if one window overruns, the next job cannot reserve the shared slot and skips instead of running concurrently. See [[shared-run-task-slot]].
 
 ## `search_only` mode
 
@@ -41,3 +41,4 @@ New `run_pipeline` mode: forces `run_communities/venues/persons = False`, skips 
 - `dataforseo_mode: standard` is global: **manual dashboard runs also search in queue mode** (minutes/query). Flip back to `live` in settings if an interactive run needs instant search.
 - Legacy combined cron (`cron_enabled`) stays available and off.
 - Watch progress on the coverage matrix; searched-but-unextracted pairs show amber until the night pass catches up.
+- Triggering and startup behavior are summarized in [[run-modes-and-startup]].

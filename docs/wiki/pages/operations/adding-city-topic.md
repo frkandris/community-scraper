@@ -9,6 +9,8 @@ resource: config/cities.yaml
 
 # Adding a City or Topic
 
+*Config, routing metadata, coordinates, icons, and translations must move together.*
+
 ## New city
 
 1. Add to `config/cities.yaml`: `name`, `country`, `locale`, `search_variants` (accent-stripped alternates so ASCII search engines match, e.g. `[Győr, Gyor]`).

@@ -25,5 +25,5 @@ The old ordering checked `playwright_fetcher.matches(url)` first, so an accident
 
 ## Related
 
-- [[blocked-domains]]
+- [[fetch-layer]]
 - [[server-side-url-safety]]

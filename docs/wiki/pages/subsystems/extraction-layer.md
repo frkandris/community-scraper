@@ -17,7 +17,7 @@ See [[extraction-provider-fallback-chain]], [[extraction-fingerprint-cache]], [[
 
 `_ApiExtractor` is the shared OpenAI-compatible base; `DeepSeekExtractor` (`api.deepseek.com/v1`, `deepseek-chat`) is the **only** provider since the 2026-07 cleanup (GroqExtractor removed). Per-provider state on the wrapper: `_exhausted[i]` (permanent, HTTP 402) and `_blocked_until[i]` (temporary, HTTP 429 with `Retry-After`, default 60 s); a new `FallbackExtractor` is built each run.
 
-**Errors:** any non-402/429 failure returns `{}` — the page is silently treated as "no communities" and, with no fallback provider, a DeepSeek outage simply drops pages for that run. See [[non-quota-errors-drop-page]].
+**Errors:** HTTP 402 raises `ExtractorQuotaError`, 429 raises `ExtractorRateLimitError`, and network/other HTTP failures raise `ExtractorUnavailableError`. The wrapper can wait out a short rate limit and retries a transient failure once; the pipeline never caches a failed call as an empty result. See [[non-quota-errors-drop-page]].
 
 ## Effective config beats class defaults
 

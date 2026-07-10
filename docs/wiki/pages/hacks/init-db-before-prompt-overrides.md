@@ -9,6 +9,8 @@ resource: scraper/db.py
 
 # init_db() Runs Before Prompt Overrides Load
 
+*Runtime prompt fingerprints are only authoritative after database overrides have loaded.*
+
 `init_db()` is called at startup, before the admin prompt overrides are loaded from the database. This means `get_extract_fingerprint()` returns a different value inside `init_db()` than it does during normal request handling.
 
 ## Consequence

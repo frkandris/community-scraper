@@ -25,11 +25,11 @@ Cost and operational simplicity. Both domains share the same SQLite database, th
 ## Implications
 
 - Nav active-state checks need BOTH HU and EN path prefixes: `_p.startswith('/terkep') or _p.startswith('/map')`  
-  See [[nav-active-state-dual-prefix]]
+  See [[web-app]].
 - Any new route that exists on both domains needs both URL shapes
 - The admin UI has no domain gating — it's always on the internal host
 
 ## Related
 
-- [[lang-context-injection]]
-- [[site-cities-filter]]
+- [[i18n-and-site-detection]]
+- [[web-app]]

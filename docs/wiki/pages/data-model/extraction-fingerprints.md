@@ -1,7 +1,7 @@
 ---
 type: Data-model
 title: Extraction Fingerprints
-description: Three SHA-256[:12] fingerprints (community/venue/person) key the cache; the canonical variant pins to the primary provider so fallback extractions still count as done.
+description: Three SHA-256[:12] fingerprints key community, venue, and person cache results; canonical variants stay pinned to the configured primary.
 tags: [fingerprint, cache, invalidation, providers]
 timestamp: 2026-07-10
 resource: scraper/extract.py
@@ -17,9 +17,9 @@ resource: scraper/extract.py
 
 ## `canonical_fingerprint` — the done-pairs fix
 
-`model_fingerprint` returns the **first-available** provider's fingerprint — so when DeepSeek is exhausted, pages extracted by Groq get stored under Groq's fingerprint, which never matches the done-pairs check (that always uses `primaries[0]`). `canonical_fingerprint` always returns `primaries[0].model_fingerprint`, and the community cache read/write path uses it, so every extraction — whichever provider ran — is stored under the key the done-pairs check looks for. See [[canonical-fingerprint-provider-shift]].
+`model_fingerprint` follows the first available provider; `canonical_fingerprint` always uses `primaries[0]`. DeepSeek is currently the only provider, so the values are equal. The split remains important if a fallback returns: every result must be stored under the same key used by done-pair detection. See [[canonical-fingerprint-provider-shift]] and [[extraction-provider-fallback-chain]].
 
-**Update 2026-07-09:** the canonical treatment now covers venues and persons too (`canonical_venue_fingerprint` / `canonical_person_fingerprint` on `FallbackExtractor`; all pipeline cache read/write sites switched). The provider-shift re-extraction churn is closed.
+The canonical treatment covers venues and persons too (`canonical_venue_fingerprint` / `canonical_person_fingerprint` on `FallbackExtractor`; all pipeline cache read/write sites use them).
 
 ## False positives use an explicit invalidation path
 

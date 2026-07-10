@@ -7,7 +7,7 @@ timestamp: 2026-07-09
 resource: scraper/main.py
 ---
 
-# Decision: Sweden as Second Pipeline Priority (After Hungary)
+# Sweden as Second Pipeline Priority
 
 *Added in May 2026 when 290 Swedish municipalities were added to the config.*
 
@@ -38,4 +38,4 @@ A single call processes cities in the order they appear in `cities.yaml`. Splitt
 ## Related
 
 - [[pipeline-run-modes]]
-- [[cities-yaml-structure]]
+- [[adding-city-topic]]

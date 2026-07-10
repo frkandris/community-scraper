@@ -3,6 +3,7 @@
 Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
 ## 2026-07-10
+- **Update**: Full wiki drift audit — corrected scheduler/provider/history/cache/UI claims, made all frontmatter valid YAML, synchronized all 60 index descriptions, repaired the link graph, and added `scripts/lint_wiki.py` plus a regression test for structure, resources, links, orphans, and log ordering.
 - **Update**: [[web-app]] — aligned stale city-page tests with the intentional communities-only city view, retained topic-specific venues and deduplicated `/emberek`, and removed the unused per-city venue/person queries and template context.
 - **Update**: [[false-positive-injection]], [[extraction-fingerprints]], and [[pipeline-orchestration]] — `ai_only` now receives pair-scoped negative examples and attributes shared URLs through `search_cache`; add/remove explicitly invalidates the affected community extraction cache, while global rules invalidate all and preserve downloaded text.
 - **Update**: [[shared-run-task-slot]] and [[asyncio-task-cancellation]] — all long-run paths now use one `RunCoordinator`; synchronous reservation prevents overlap and task-identity release prevents stale cleanup from clearing a newer run.

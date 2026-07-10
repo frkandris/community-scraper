@@ -1,6 +1,6 @@
 ---
 type: Hack
-title: Tailwind CDN JIT: Never Server-Render Large Lists
+title: "Tailwind CDN JIT: Never Server-Render Large Lists"
 description: The CDN JIT scans the full initial DOM before paint; load big admin lists via JSON + DocumentFragment.
 tags: [tailwind, cdn, performance, admin]
 timestamp: 2026-07-09
@@ -34,4 +34,4 @@ Public pages are not affected because they use server-side pagination and rarely
 
 ## Related
 
-- [[admin-json-endpoint-pattern]]
+- [[web-app]]

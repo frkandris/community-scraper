@@ -7,7 +7,7 @@ timestamp: 2026-07-10
 resource: scraper/web/state.py
 ---
 
-# AsyncIO Task Cancellation: Use create_task, Not BackgroundTasks
+# AsyncIO Task Cancellation
 
 *FastAPI `BackgroundTasks` cannot be cancelled. Long pipeline/revalidate runs use `asyncio.create_task()` and attach the task to `app_state.run_coordinator` so the stop button can cancel the single owner.*
 

@@ -7,7 +7,7 @@ timestamp: 2026-07-10
 resource: scraper/web/app.py
 ---
 
-# Web App
+# Web App (routes, auth, state)
 
 *A single `_fastapi` app serves both domains; `app = _BasicAuth(_fastapi)` wraps it so `/admin/*` is gated. See [[two-domain-single-container]] and [[i18n-and-site-detection]].*
 
@@ -31,7 +31,7 @@ The unfiltered `/{city}` page intentionally lists communities only. City-wide ve
 
 ## Coverage page
 
-City × topic matrix from `get_city_topic_states` + `get_fully_processed_pairs` at the current fingerprint. Five cell states: green (has communities), blue ✓ (done, 0 results), amber ~ (searched but stale fingerprint), gray · (never searched), pulsing ▶ (actively processing). JS polls `/admin/api/coverage/current` every 3 s to move the highlight and refreshes the previous cell via `/admin/api/coverage/cell`. `POST /admin/api/restamp-fingerprints` bulk-updates stale fingerprints to current without reprocessing (turns amber → green). See [[2026-06-coverage-amber-cells]]. Note `_COVERAGE_PAGE_SIZE = 2` looks like a leftover debug constant.
+City × topic matrix from `get_city_topic_states` + `get_fully_processed_pairs` at the current fingerprint. Five cell states: green (has communities), blue ✓ (done, 0 results), amber ~ (searched but stale fingerprint), gray · (never searched), pulsing ▶ (actively processing). It paginates 50 cities at a time; JS polls `/admin/api/coverage/current` every 3 s to move the highlight and refreshes the previous cell via `/admin/api/coverage/cell`. `POST /admin/api/restamp-fingerprints` bulk-updates stale fingerprints to current without reprocessing. See [[2026-06-coverage-amber-cells]].
 
 ## Queue and runs
 
@@ -43,4 +43,4 @@ Both admin and public load the Tailwind CDN JIT runtime (not a build). All utili
 
 ## Flags
 
-`stats_clicks.html` exists but no route renders it (dead template after the outclick-tracking revert). `request_city_en` ignores its form and just 301s to `/varosok` (stub). `_render_explore` does per-topic/per-city DB calls in loops (N+1 risk on large data), mitigated on home by `_home_stats_cache`.
+`request_city_en` ignores its form and just 301s to `/varosok` (stub). `_render_explore` still performs per-topic/per-city DB reads in some branches (N+1 risk on large data); the homepage's heavier totals are memoized in `_home_stats_cache` per site and invalidated after a run.

@@ -1,15 +1,15 @@
 ---
 type: Architecture
 title: Extraction Fingerprint Cache
-description: SHA-256[:12] of (SYSTEM_PROMPT + model) keys every extraction; changing either invalidates all cached results.
+description: SHA-256[:12] of each prompt family plus model keys extraction caches; changing either makes the corresponding results stale.
 tags: [cache, extraction, fingerprint, invalidation]
-timestamp: 2026-07-09
+timestamp: 2026-07-10
 resource: scraper/extract.py
 ---
 
 # Extraction Fingerprint Cache
 
-*Every page extraction is keyed by a SHA-256[:12] hash of `SYSTEM_PROMPT + model_name`, so changing the prompt or model automatically invalidates all cached extractions.*
+*Community, venue, and person extraction each use a SHA-256[:12] hash of their prompt family plus model, so changing one family makes its corresponding cache stale.*
 
 ## The mechanism
 
@@ -40,4 +40,4 @@ The coverage page uses fingerprint data to distinguish:
 ## Related
 
 - [[pipeline-run-modes]]
-- [[prompt-overrides]]
+- [[init-db-before-prompt-overrides]]

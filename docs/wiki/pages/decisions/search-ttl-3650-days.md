@@ -1,13 +1,13 @@
 ---
 type: Decision
 title: search_ttl_days = 3650
-description: TTL set to ~10 years: index the world first, worry about freshness later.
+description: "TTL set to ~10 years: index the world first, worry about freshness later."
 tags: [decision, cache, ttl, coverage]
-timestamp: 2026-07-09
+timestamp: 2026-07-10
 resource: config/settings.yaml
 ---
 
-# Decision: search_ttl_days = 3650 (Never Re-scrape Indexed Pairs)
+# search_ttl_days = 3650
 
 *Changed from 7 days to 3650 (≈10 years) in May 2026.*
 
@@ -35,4 +35,4 @@ Edit `config/settings.yaml → cache → search_ttl_days`. Setting it back to `7
 ## Related
 
 - [[pipeline-run-modes]]
-- [[search-cache]]
+- [[done-pair-url-hash-not-city-topic]]

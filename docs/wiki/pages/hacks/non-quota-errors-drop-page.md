@@ -7,7 +7,7 @@ timestamp: 2026-07-09
 resource: scraper/extract.py
 ---
 
-# Extractor Errors No Longer Cache Empty Results (fixed 2026-07-09)
+# Extractor Errors No Longer Cache Empty Results (fixed)
 
 **Historical bug:** `_ApiExtractor._post` returned `{}` on network errors and non-402/429 HTTP failures, so a transient DeepSeek 500 was parsed as "0 communities" and **cached under the current fingerprint — permanent silent data loss** (the page was never retried; broad excepts even swallowed rate-limit errors into empty persons/venues caches).
 

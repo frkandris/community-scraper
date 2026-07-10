@@ -38,7 +38,7 @@ resource: scraper/db.py
 - `_slugify` lru_cache (774-city linear scans per request got cheap).
 - `clear_person_cache` also nulls the `person_fingerprint` column (scope-stats drift).
 - `apply_community_edit` recomputes `record_key` on name/city/topic edits (stale key caused duplicate rows on next scrape) with collision guard.
-- RTL `lang_dir` uses `RTL_LANGS`; `request_city_en` delegates instead of dropping form data; dead templates (`stats_clicks.html`, `stats.html`) and dead db counters removed; public search LIKE-escapes wildcards; `get_search_cache` got the missing exists-guard; repo is now ruff-clean.
+- RTL `lang_dir` uses `RTL_LANGS`; dead templates/counters were removed; public search LIKE-escapes wildcards; `get_search_cache` got the missing exists-guard; repo became ruff-clean. The English city-request POST remains a redirect-only stub, documented in [[web-app]].
 
 ## Checked-OK worth remembering
 

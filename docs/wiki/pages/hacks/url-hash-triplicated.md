@@ -1,14 +1,16 @@
 ---
 type: Hack
-title: url_hash Formula Is Duplicated in Three Places
-description: SHA-256(url)[:16] is re-implemented in cache.py, get_city_topic_states, and get_fully_processed_pairs with no shared constant — they must stay identical.
+title: url_hash Formula Is Duplicated Across Modules
+description: SHA-256(url)[:16] is repeated across cache, DB, pipeline, and web paths; every copy must remain byte-for-byte compatible.
 tags: [url-hash, duplication, correctness, done-pairs]
-timestamp: 2026-07-09
-resource: scraper/db.py
+timestamp: 2026-07-10
+resource: scraper/cache.py
 ---
 
-# url_hash Formula Is Duplicated in Three Places
+# url_hash Formula Is Duplicated Across Modules
 
-*`hashlib.sha256(url.encode()).hexdigest()[:16]` appears independently in `cache.py:_url_hash`, `db.py:get_city_topic_states`, and `db.py:get_fully_processed_pairs`.*
+*`hashlib.sha256(url.encode()).hexdigest()[:16]` has one canonical meaning but no canonical implementation.*
 
-All three must produce the same hash or [[done-pair-url-hash-not-city-topic|done-pair detection]] silently breaks — a page saved under one hash wouldn't be found under another, so pairs would never be marked done and would reprocess forever. There is no shared helper; changing the hash (algorithm or length) means editing all three. This is the kind of duplication the amber-cells post-mortem ([[2026-06-coverage-amber-cells]]) turned on.
+The formula appears in `cache.py`, several `db.py` pair/cache helpers, pipeline re-extraction, and admin web routes. A mismatch means a saved page cannot be found through search-cache URLs, breaking [[done-pair-url-hash-not-city-topic]], false-positive invalidation, or manual cache actions.
+
+Changing the algorithm or length therefore requires a repository-wide search plus data migration. Centralizing it would be safer; until then, regression coverage around done pairs and shared-URL attribution is the guardrail. See [[2026-06-coverage-amber-cells]] and [[false-positive-injection]].

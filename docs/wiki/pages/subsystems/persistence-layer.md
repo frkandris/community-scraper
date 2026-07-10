@@ -7,9 +7,9 @@ timestamp: 2026-07-10
 resource: scraper/db.py
 ---
 
-# Persistence Layer
+# Persistence Layer (db / cache / store)
 
-*Three files: `db.py` (~2400 lines of raw SQLite functions), `cache.py` (a `CacheManager` facade over the `cache_pages` JSON blob), and `store.py` (community merge/dedup before upsert).*
+*Three files: `db.py` owns raw SQLite functions, `cache.py` is a `CacheManager` facade over the `cache_pages` JSON blob, and `store.py` merges/deduplicates communities before upsert.*
 
 See [[sqlite-schema]] for the full table catalog and [[extraction-fingerprints]] for the fingerprint columns.
 

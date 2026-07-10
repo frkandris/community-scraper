@@ -1,22 +1,20 @@
 ---
 type: Hack
 title: canonical_fingerprint Pins the Cache Key to the Primary Provider
-description: model_fingerprint shifts to the fallback when the primary is exhausted, so cache reads/writes use canonical_fingerprint (always primaries[0]) to match the done-pairs check.
-tags: [fingerprint, cache, providers, deepseek, groq]
-timestamp: 2026-07-09
+description: Canonical community, venue, and person fingerprints always use primaries[0], keeping cache keys stable if fallback providers return.
+tags: [fingerprint, cache, providers, deepseek]
+timestamp: 2026-07-10
 resource: scraper/extract.py
 ---
 
 # canonical_fingerprint Pins the Cache Key to the Primary Provider
 
-*`model_fingerprint` returns the first-**available** provider's fingerprint; `canonical_fingerprint` always returns `primaries[0].model_fingerprint`.*
+*The current one-provider chain makes canonical and active fingerprints equal, but the distinction protects done-pair semantics if a fallback is configured again.*
 
-## The bug it fixes
+## Historical bug
 
-When DeepSeek is exhausted mid-run, extraction shifts to Groq. If cache reads/writes used `model_fingerprint`, those pages would be stored under **Groq's** fingerprint — but the done-pairs check ([[done-pair-url-hash-not-city-topic]]) always computes the fingerprint from `primaries[0]` (DeepSeek). The pages would never match, so the pair would look "not done" forever and be re-extracted every run.
+When DeepSeek → Groq fallback still existed, `model_fingerprint` followed the first available provider. Pages handled by Groq were stored under a different model hash, while done-pair detection computed DeepSeek's hash from `primaries[0]`; those pages looked stale forever.
 
-The community cache read/write path uses `canonical_fingerprint`, so every extraction — whichever provider actually ran — is stored under the same key the done-pairs check looks for.
+Community cache reads/writes therefore use `canonical_fingerprint`, which always returns `primaries[0].model_fingerprint`. The same invariant now covers `canonical_venue_fingerprint` and `canonical_person_fingerprint`. See [[extraction-fingerprints]] and [[done-pair-url-hash-not-city-topic]].
 
-## Completed 2026-07-09
-
-Originally communities-only; now `canonical_venue_fingerprint` and `canonical_person_fingerprint` exist and every pipeline venue/person cache read/write uses them. See [[extraction-fingerprints]].
+Groq was removed in 2026-07 ([[extraction-provider-fallback-chain]]), but retaining this split makes reintroducing a provider safe by default.

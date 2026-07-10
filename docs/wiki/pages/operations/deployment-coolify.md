@@ -3,7 +3,7 @@ type: Runbook
 title: Deployment (Coolify / Hetzner)
 description: Docker on Coolify; persist only /app/data and /app/config; required and optional env vars.
 tags: [operations, deployment, coolify, docker, env]
-timestamp: 2026-07-09
+timestamp: 2026-07-10
 resource: Dockerfile
 ---
 
@@ -32,7 +32,8 @@ Persist only the runtime dirs, never the whole `/app` tree (that would hide upda
 ## Tests / lint
 
 ```
-PYTHONPATH=. .venv/bin/pytest --ignore=tests/test_city_page.py   # test_city_page has a known unrelated failure
-ruff check scraper/
+.venv/bin/pytest -q
+.venv/bin/ruff check .
+.venv/bin/python scripts/lint_wiki.py
 ```
 The repo requires Python ≥ 3.12.

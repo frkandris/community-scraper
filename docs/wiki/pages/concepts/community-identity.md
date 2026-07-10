@@ -1,7 +1,7 @@
 ---
 type: Concept
 title: Community Identity
-description: Two keys: community_id (stable URL slug) vs record_key (topic-aware DB uniqueness).
+description: "Two keys: community_id (stable URL slug) vs record_key (topic-aware DB uniqueness)."
 tags: [identity, hashing, keys]
 timestamp: 2026-07-10
 resource: scraper/models.py
@@ -35,5 +35,5 @@ If a community is re-categorized to a different topic, its `community_id` stays 
 
 ## Related
 
-- [[false-positives]]
-- [[upsert-source-urls-merge]]
+- [[false-positive-injection]]
+- [[persistence-layer]]

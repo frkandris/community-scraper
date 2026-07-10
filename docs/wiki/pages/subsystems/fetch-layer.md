@@ -33,8 +33,8 @@ Blocked URLs are filtered **twice** (pipeline pre-filter + `_is_blocked` inside 
 
 Dormant by default — `playwright_domains: []`, so `pw_fetcher` stays `None`. History lesson (see CHANGELOG 2026-05-15): social domains were moved *out* of `playwright_domains` into `blocked_domains` because launching Chromium for login-walled sites caused 91% CPU / 43 GB disk I/O per run.
 
-When enabled: detects login walls via `_LOGIN_MARKERS` (Facebook/Instagram/Reddit strings) and returns `None` (a rendered login wall has no useful content). Waits 3.0 s for `reddit.com`/SPAs vs 1.5 s otherwise. Reuses `fetch._extract_text` via a late import (avoids a circular dependency). Creates a fresh browser context per URL (isolates cookies), unlike the search client which reuses one context to preserve accepted-consent state.
+When enabled: detects login walls via `_LOGIN_MARKERS` (Facebook/Instagram/Reddit strings) and returns `None` (a rendered login wall has no useful content). Waits 3.0 s for `reddit.com`/SPAs vs 1.5 s otherwise. Reuses `fetch._extract_text` via a late import (avoids a circular dependency) and creates a fresh browser context per URL to isolate cookies.
 
 ## Shared User-Agent
 
-The same Chrome 124 UA string is hardcoded in three places (`fetch._HEADERS`, the Google search context, the Playwright fetcher context). Updating it means editing three files — no single source of truth.
+The same Chrome 124 UA string is hardcoded in `fetch._HEADERS` and the Playwright fetcher context. Updating it means editing both files — there is no single source of truth.

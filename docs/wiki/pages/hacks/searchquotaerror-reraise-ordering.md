@@ -1,20 +1,18 @@
 ---
 type: Hack
-title: SearchQuotaError Must Be Re-Raised Before the Broad except
-description: A provider's `except SearchQuotaError: raise` must precede its `except Exception: return []`, or failover never triggers.
-tags: [search, exceptions, failover, ordering]
-timestamp: 2026-07-09
+title: SearchQuotaError Must Stay Distinct from Transient Failure
+description: DataForSEO and its wrapper preserve quota versus transient errors so the pipeline never caches provider failure as a legitimate empty search.
+tags: [search, exceptions, failover, cache]
+timestamp: 2026-07-10
 resource: scraper/search.py
 ---
 
-# SearchQuotaError Must Be Re-Raised Before the Broad except
+# SearchQuotaError Must Stay Distinct from Transient Failure
 
-> **Mostly historical since 2026-07-09**: the Serper and Google Playwright clients that
-> carried this pattern were removed. The invariant still applies to any future client
-> that pairs a broad `except Exception: return []` with quota signaling.
+*Quota exhaustion, transient provider failure, and a successful zero-result search have different retry/cache semantics.*
 
-*In `SerperSearchClient.search` and `GooglePlaywrightSearchClient.search`, an explicit `except SearchQuotaError: raise` comes before the generic `except Exception: return []`.*
+- `SearchQuotaError`: HTTP 402/429 or DataForSEO quota status; blocks that provider for the rest of the run.
+- `SearchUnavailableError`: network error, other HTTP/API failure, bad JSON, or standard-queue timeout; abandons the provider for this call.
+- `[]`: a search actually ran and found nothing; this is a valid result and is cached so it is not repaid every run.
 
-`SearchQuotaError` is the **only** signal `FallbackSearchClient` catches to roll to the next provider (see [[search-layer]]). If the broad `except Exception` caught it first, the quota error would be converted to `[]`, and the client would never fail over — it would silently return empty results and the paid fallback would never run. The re-raise ordering is a hard-won invariant: the specific handler must precede the catch-all.
-
-Every other exception is intentionally swallowed to `[]` (no failover), which is why a 500 from a search provider does not trigger the fallback either.
+`FallbackSearchClient.search_all` preserves already-collected results, raises a typed error when nothing was successfully searched, and only returns an empty list after legitimate attempts. `_run_full` catches the typed errors before `save_search_cache`. The removed Serper/Google clients once required an explicit `except SearchQuotaError: raise` before a broad handler; the current DataForSEO client avoids that trap by raising typed failures directly. See [[search-provider-fallback-chain]], [[search-layer]], and [[cost-saver-schedule]].
