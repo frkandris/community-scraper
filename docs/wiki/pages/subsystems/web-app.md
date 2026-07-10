@@ -3,7 +3,7 @@ type: Subsystem
 title: Web App (routes, auth, state)
 description: One FastAPI app with a public router and an /admin router gated by pure-ASGI Basic auth; Hungarian paths are canonical and English paths redirect.
 tags: [web, fastapi, routing, auth, app-state, admin]
-timestamp: 2026-07-09
+timestamp: 2026-07-10
 resource: scraper/web/app.py
 ---
 
@@ -23,7 +23,7 @@ The Hungarian path is the canonical handler; the English path 301/302-redirects 
 
 ## `app_state` singleton
 
-Module-global dataclass. **`cities` and `topics` are lists of config objects, not dicts** — always `c.name` / `c.country` / `c.locale`; dict-style access 500s any route touching them (see [[2026-05-coverage-page-500]]). Live-run fields (`current_phase`, `current_city`, `current_topic`, `current_url`, `is_running`, `_run_task`, `current_run_mode`) are mutated in place by pipeline callbacks and read by the coverage live view. `_home_stats_cache` (keyed by site) is invalidated after every run.
+Module-global dataclass. **`cities` and `topics` are lists of config objects, not dicts** — always `c.name` / `c.country` / `c.locale`; dict-style access 500s any route touching them (see [[2026-05-coverage-page-500]]). Pipeline callbacks mutate progress fields read by coverage, while `RunCoordinator` exclusively owns `is_running`, `_run_task`, and `current_run_mode`. `_home_stats_cache` (keyed by site) is invalidated after every run.
 
 ## Coverage page
 
@@ -31,7 +31,7 @@ City × topic matrix from `get_city_topic_states` + `get_fully_processed_pairs` 
 
 ## Queue and runs
 
-Admin I/O ops (scrape/extract/enrich) go through an in-process queue (`queue_items` + `_queue_fns` + a worker task); manual cache-detail buttons use `priority=True`. Runs execute as `asyncio.create_task` stored in `app_state._run_task`; cleanup is split between the run's `finally` and an `add_done_callback` that handles the cancelled case. See [[asyncio-task-cancellation]].
+Admin I/O ops (scrape/extract/enrich) go through an in-process queue (`queue_items` + `_queue_fns` + a worker task); manual cache-detail buttons use `priority=True`. Pipeline, scheduled, startup, and revalidate runs share one coordinator-owned slot and task-identity cleanup. See [[shared-run-task-slot]] and [[asyncio-task-cancellation]].
 
 ## Tailwind CDN JIT
 

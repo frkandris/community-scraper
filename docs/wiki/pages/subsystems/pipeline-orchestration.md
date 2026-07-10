@@ -31,7 +31,7 @@ Both `_scheduled_run` and `_startup_run` partition cities and call `run_pipeline
 
 ## Callbacks and cancellation
 
-`on_pair_start(city, topic)` and `on_progress(phase, url)` mutate `app_state` in place (`current_city`, `current_topic`, `current_phase` ∈ {scrape, extract, enrich_scrape, enrich_extract}), feeding the coverage live view. Every run stores its task in the single shared slot `app_state._run_task`; `POST /admin/api/stop` cancels it. **Trap:** revalidate guards on a *different* flag (`_revalidate_state["running"]`) than the pipeline's `is_running`, so it can clobber `_run_task` and make stop cancel the wrong task. See [[shared-run-task-slot]] and [[asyncio-task-cancellation]].
+`on_pair_start(city, topic)` and `on_progress(phase, url)` mutate `app_state` progress fields, feeding the coverage live view. `RunCoordinator` reserves the one long-run slot synchronously and owns cancellation/identity-safe cleanup across manual, scheduled, startup, and revalidate paths. See [[shared-run-task-slot]] and [[asyncio-task-cancellation]].
 
 ## The scheduler is a no-op
 

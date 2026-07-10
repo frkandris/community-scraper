@@ -4,6 +4,54 @@ from pathlib import Path
 from typing import Any
 
 
+class RunCoordinator:
+    """Own the one cancellable long-running task and its shared UI state."""
+
+    def __init__(self, state: "AppState") -> None:
+        self._state = state
+
+    def reserve(self, mode: str, task: Any = None) -> bool:
+        """Atomically reserve the run slot on the event-loop thread."""
+        if self._state.is_running:
+            return False
+        self._state.is_running = True
+        self._state.current_run_mode = mode
+        self._state._run_task = task
+        if task is not None:
+            task.add_done_callback(self._on_done)
+        return True
+
+    def attach(self, task: Any) -> None:
+        """Attach the task created immediately after an unbound reservation."""
+        if not self._state.is_running or self._state._run_task is not None:
+            raise RuntimeError("run slot is not available for task attachment")
+        self._state._run_task = task
+        task.add_done_callback(self._on_done)
+
+    def release(self, task: Any) -> bool:
+        """Clear state only when the releasing task still owns the slot."""
+        if task is None or self._state._run_task is not task:
+            return False
+        self._state.is_running = False
+        self._state.current_phase = None
+        self._state.current_url = None
+        self._state.current_run_mode = None
+        self._state.current_city = None
+        self._state.current_topic = None
+        self._state._run_task = None
+        return True
+
+    def cancel(self) -> bool:
+        task = self._state._run_task
+        if task is None or task.done():
+            return False
+        task.cancel()
+        return True
+
+    def _on_done(self, task: Any) -> None:
+        self.release(task)
+
+
 @dataclass
 class AppState:
     is_running: bool = False
@@ -26,6 +74,10 @@ class AppState:
     _queue_fns: dict = field(default_factory=dict)    # item_id -> coroutine fn
     _queue_event: Any = None                          # asyncio.Event, lazy
     _queue_worker_task: Any = None
+    run_coordinator: RunCoordinator = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self.run_coordinator = RunCoordinator(self)
 
     def get_queue_event(self):
         import asyncio

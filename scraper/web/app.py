@@ -2275,11 +2275,12 @@ async def admin_revalidate_start(
     """Start a background re-validation of existing communities against the current prompt."""
     if not app_state.db_path or not app_state.pipeline_cfg:
         return JSONResponse({"ok": False, "error": "Not configured"})
-    if _revalidate_state["running"]:
+    if not app_state.run_coordinator.reserve("revalidate"):
         return JSONResponse({"ok": False, "error": "Already running"})
     _city = (city or filter_city).strip()
     _country = filter_country.strip()
-    app_state._run_task = asyncio.create_task(_run_revalidate(_city, topic.strip(), _country))
+    task = asyncio.create_task(_run_revalidate(_city, topic.strip(), _country))
+    app_state.run_coordinator.attach(task)
     return JSONResponse({"ok": True})
 
 
@@ -2290,8 +2291,6 @@ async def admin_revalidate_status():
 
 async def _run_revalidate(city: str, topic: str, country: str = "") -> None:
     _revalidate_state.update({"running": True, "done": 0, "total": 0, "flagged": 0, "skipped": 0, "error": ""})
-    app_state.is_running = True
-    app_state.current_run_mode = "revalidate"
     app_state.current_phase = "revalidate"
     app_state.current_url = None
     started = datetime.now(timezone.utc)
@@ -2405,14 +2404,13 @@ async def _run_revalidate(city: str, topic: str, country: str = "") -> None:
         log.warning("revalidate_failed", error=str(exc))
     finally:
         _revalidate_state["running"] = False
-        app_state.is_running = False
-        app_state.current_phase = None
-        app_state.current_url = None
-        app_state.current_run_mode = None
-        if app_state.db_path and _revalidate_run_id:
-            from ..db import finish_run
-            finish_run(app_state.db_path, _revalidate_run_id, datetime.now(timezone.utc),
-                       success, None, 0)
+        try:
+            if app_state.db_path and _revalidate_run_id:
+                from ..db import finish_run
+                finish_run(app_state.db_path, _revalidate_run_id, datetime.now(timezone.utc),
+                           success, None, 0)
+        finally:
+            app_state.run_coordinator.release(asyncio.current_task())
 
 
 _RECATEGORIZE_AUTO_THRESHOLD = 0.85
@@ -2924,13 +2922,11 @@ async def trigger_run(
     filter_country: str = Form(""),
     filter_city: str = Form(""),
 ):
-    if app_state.is_running:
-        return JSONResponse({"ok": False, "error": "already running"})
-
     if run_mode not in ("full", "ai_only", "search_only"):
         run_mode = "full"
-    app_state.is_running = True
-    app_state.current_run_mode = {"ai_only": "re-ai", "search_only": "collect"}.get(run_mode, "smart")
+    mode_label = {"ai_only": "re-ai", "search_only": "collect"}.get(run_mode, "smart")
+    if not app_state.run_coordinator.reserve(mode_label):
+        return JSONResponse({"ok": False, "error": "already running"})
     _skip_scraped = (skip_scraped == "on")
     _skip_extracted = (skip_extracted == "on")
     _run_communities = (run_communities == "on")
@@ -2988,36 +2984,25 @@ async def trigger_run(
         except Exception as exc:
             log.error("manual_run_failed", error=str(exc))
         finally:
-            app_state.is_running = False
-            app_state.current_phase = None
-            app_state.current_url = None
-            app_state.current_run_mode = None
-            app_state.current_city = None
-            app_state.current_topic = None
             global _home_stats_cache
-            _home_stats_cache = {}
-            if app_state.db_path and _run_id:
-                _finish_run(app_state.db_path, _run_id, datetime.now(timezone.utc),
-                            success,
-                            json.dumps(pair_logs) if pair_logs else None,
-                            total_new)
+            try:
+                _home_stats_cache = {}
+                if app_state.db_path and _run_id:
+                    _finish_run(app_state.db_path, _run_id, datetime.now(timezone.utc),
+                                success,
+                                json.dumps(pair_logs) if pair_logs else None,
+                                total_new)
+            finally:
+                app_state.run_coordinator.release(asyncio.current_task())
 
-    def _clear_cancelled_run(task: asyncio.Task) -> None:
-        if task.cancelled():
-            app_state.is_running = False
-            app_state.current_phase = None
-            app_state.current_url = None
-
-    app_state._run_task = asyncio.create_task(_run())
-    app_state._run_task.add_done_callback(_clear_cancelled_run)
+    task = asyncio.create_task(_run())
+    app_state.run_coordinator.attach(task)
     return JSONResponse({"ok": True})
 
 
 @admin.post("/api/stop")
 async def stop_run():
-    task = app_state._run_task
-    if task and not task.done():
-        task.cancel()
+    if app_state.run_coordinator.cancel():
         log.info("run_cancelled_by_user")
     return RedirectResponse("/admin/", status_code=302)
 

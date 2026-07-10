@@ -72,7 +72,7 @@ frontmatter. See [SCHEMA.md](SCHEMA.md) for conventions.
 - [[get-prompt-empty-override-falls-back]] — an empty-string prompt override reverts to the default
 - [[name-json-tail-bleed]] — strip leaked JSON tail off the name field
 - [[cache-blob-read-modify-write]] — cache_pages is a non-transactional read-modify-write blob
-- [[shared-run-task-slot]] — pipeline and revalidate share one _run_task slot; stop can hit the wrong task
+- [[shared-run-task-slot]] — one RunCoordinator owns reservation, cancellation, and task-identity cleanup
 - [[url-hash-triplicated]] — SHA-256(url)[:16] is duplicated in three places; must stay identical
 
 ## SEO

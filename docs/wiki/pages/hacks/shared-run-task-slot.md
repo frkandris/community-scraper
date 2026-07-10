@@ -1,16 +1,18 @@
 ---
 type: Hack
-title: One Shared _run_task Slot for Pipeline and Revalidate
-description: Pipeline runs and revalidate both store their task in app_state._run_task but guard on different flags, so stop can cancel the wrong task.
+title: Single RunCoordinator Owns the Task Slot
+description: Pipeline, scheduled, startup, and revalidate runs reserve one coordinator-owned task slot with identity-safe cleanup.
 tags: [asyncio, cancellation, revalidate, app-state, gotcha]
-timestamp: 2026-07-09
-resource: scraper/web/app.py
+timestamp: 2026-07-10
+resource: scraper/web/state.py
 ---
 
-# One Shared _run_task Slot for Pipeline and Revalidate
+# Single RunCoordinator Owns the Task Slot
 
-*Every run path assigns its asyncio task to the single slot `app_state._run_task`; `POST /admin/api/stop` cancels whatever is in that slot.*
+*Fixed 2026-07-10: all cancellable long runs reserve, attach, release, and cancel through `app_state.run_coordinator`.*
 
-The pipeline guards concurrency on `app_state.is_running`, but **revalidate guards on a separate flag** (`_revalidate_state["running"]`). So a revalidate can be started while `is_running` is false, overwrite the `_run_task` pointer, and make `/admin/api/stop` cancel the wrong task (or nothing useful). The `is_running` checks mostly prevent overlap for the main pipeline, but the two-flag split is the gap. See [[asyncio-task-cancellation]] and [[pipeline-orchestration]].
+`RunCoordinator.reserve(mode)` synchronously claims the slot before `create_task`, so two route handlers cannot both start. `attach(task)` records the cancellable owner, and scheduled/startup runners reserve with their current task. Revalidate no longer has an independent concurrency guard.
 
-Cleanup is deliberately split: the run's `finally` handles normal completion, while an `add_done_callback(_clear_cancelled_run)` resets `is_running`/`current_phase`/`current_url` for the cancelled case, because a cancelled task's `finally` may not run the intended path.
+Both `finally` and a coordinator-owned done callback call `release(task)`. Release succeeds only if that exact task still owns the slot, so a stale callback/finally cannot clear a newer run. The callback also covers a task cancelled before its coroutine body begins. `/admin/api/stop` delegates to `RunCoordinator.cancel()`.
+
+See [[asyncio-task-cancellation]] and [[pipeline-orchestration]].

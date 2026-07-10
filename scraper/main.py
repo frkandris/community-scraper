@@ -175,12 +175,10 @@ async def main() -> None:
     async def _cron_run(run_mode: str, mode_label: str, until_hhmm: str | None) -> None:
         """Shared scheduled runner: Hungary → Sweden → world, optionally boxed
         into a UTC time window (stop_at from until_hhmm)."""
-        if app_state.is_running:
+        task = asyncio.current_task()
+        if not app_state.run_coordinator.reserve(mode_label, task):
             log.info("scheduled_run_skipped", reason="already_running", mode=run_mode)
             return
-        app_state.is_running = True
-        app_state.current_run_mode = mode_label
-        app_state._run_task = asyncio.current_task()
         started = datetime.now(timezone.utc)
         stop_at = _next_window_end(started, until_hhmm) if until_hhmm else None
         run_id = start_run(db_path, started, run_mode)
@@ -212,14 +210,11 @@ async def main() -> None:
         except Exception as exc:
             log.error("scheduled_run_failed", error=str(exc), mode=run_mode)
         finally:
-            app_state.is_running = False
-            app_state.current_phase = None
-            app_state.current_url = None
-            app_state.current_run_mode = None
-            app_state.current_city = None
-            app_state.current_topic = None
-            finish_run(db_path, run_id, datetime.now(timezone.utc), success,
-                       json.dumps(pair_logs) if pair_logs else None)
+            try:
+                finish_run(db_path, run_id, datetime.now(timezone.utc), success,
+                           json.dumps(pair_logs) if pair_logs else None)
+            finally:
+                app_state.run_coordinator.release(task)
 
     async def _scheduled_run() -> None:
         await _cron_run("full", "smart", None)
@@ -298,12 +293,11 @@ async def main() -> None:
             startup_mode = {"revalidate": "ai_only", "ai_only": "full"}.get(last_mode or "full", "full")
             log.info("startup_run_triggered", last_mode=last_mode, startup_mode=startup_mode)
 
-        if app_state.is_running:
+        mode_label = "re-ai" if startup_mode == "ai_only" else "smart"
+        task = asyncio.current_task()
+        if not app_state.run_coordinator.reserve(mode_label, task):
             log.info("startup_run_skipped", reason="already_running")
             return
-        app_state.is_running = True
-        app_state.current_run_mode = "re-ai" if startup_mode == "ai_only" else "smart"
-        app_state._run_task = asyncio.current_task()
         started = datetime.now(timezone.utc)
         run_id = start_run(db_path, started, startup_mode)
         success = False
@@ -348,14 +342,11 @@ async def main() -> None:
         except Exception as exc:
             log.error("startup_run_failed", error=str(exc))
         finally:
-            app_state.is_running = False
-            app_state.current_phase = None
-            app_state.current_url = None
-            app_state.current_run_mode = None
-            app_state.current_city = None
-            app_state.current_topic = None
-            finish_run(db_path, run_id, datetime.now(timezone.utc), success,
-                       json.dumps(pair_logs) if pair_logs else None)
+            try:
+                finish_run(db_path, run_id, datetime.now(timezone.utc), success,
+                           json.dumps(pair_logs) if pair_logs else None)
+            finally:
+                app_state.run_coordinator.release(task)
 
     if _settings_auto_run_on_startup():
         asyncio.create_task(_startup_run())
