@@ -3,7 +3,7 @@ type: Subsystem
 title: Pipeline Orchestration
 description: run_pipeline() sequences ai_only + full passes with a done-pair pre-filter; main.py runs it three times (Hungary → Sweden → world).
 tags: [pipeline, orchestration, run-modes, done-pairs, scheduler]
-timestamp: 2026-07-09
+timestamp: 2026-07-10
 resource: scraper/pipeline.py
 ---
 
@@ -19,7 +19,7 @@ See [[pipeline-run-modes]] for the mode overview, [[done-pair-url-hash-not-city-
 
 ## Done-pair pre-filter
 
-When `skip_extracted` is on, `run_pipeline` computes `done_pairs = get_fully_processed_pairs(db, current_fp)` and threads `pairs_filter = all_pairs - done_pairs` into every sub-call. A pair is "done" when it was searched **and** every scraped page is extracted under the **current extractor fingerprint**. Changing the model or prompt changes `current_fp`, invalidates done-status, and forces reprocessing — this is the mechanism that re-scrapes the world after a prompt change. `current_fp` uses `primaries[0].model` (defaulting to the literal `"deepseek-chat"`).
+When `skip_extracted` is on, `run_pipeline` computes mode-aware `done_pairs` and threads `pairs_filter = all_pairs - done_pairs` into every sub-call. `search_only` checks capped fetch completion. AI modes check community, venue, and person fingerprints according to the enabled phase flags and the same community-presence gates used during extraction. Changing any enabled prompt/model invalidates done-status even when the pair already has visible records.
 
 ## Three geographic passes (main.py)
 

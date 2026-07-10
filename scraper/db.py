@@ -1162,18 +1162,53 @@ def get_city_topic_states(db_path: Path, current_fp: str) -> dict[str, dict[str,
     return result
 
 
-def get_fully_processed_pairs(db_path: Path, current_fp: str) -> set[tuple[str, str]]:
+def get_collected_pairs(db_path: Path, max_pages: int) -> set[tuple[str, str]]:
+    """Pairs whose capped search-result set has been fetched into cache_pages."""
+    import hashlib
+
+    def _url_hash(url: str) -> str:
+        return hashlib.sha256(url.encode()).hexdigest()[:16]
+
+    if not db_path.exists():
+        return set()
+    with _connect(db_path) as conn:
+        scraped_hashes = {
+            row[0] for row in conn.execute(
+                "SELECT url_hash FROM cache_pages WHERE scraped_at IS NOT NULL"
+            )
+        }
+        search_rows = conn.execute("SELECT city, topic, urls FROM search_cache").fetchall()
+
+    result: set[tuple[str, str]] = set()
+    for city, topic, urls_json in search_rows:
+        urls: list[str] = json.loads(urls_json) if urls_json else []
+        expected = urls[:max_pages]
+        if not expected or all(_url_hash(url) in scraped_hashes for url in expected):
+            result.add((city, topic))
+    return result
+
+
+def get_fully_processed_pairs(
+    db_path: Path,
+    current_fp: str,
+    venue_fp: str | None = None,
+    person_fp: str | None = None,
+    *,
+    run_communities: bool = True,
+    run_venues: bool = False,
+    run_persons: bool = False,
+    max_pages: int | None = None,
+) -> set[tuple[str, str]]:
     """Return (city, topic) pairs that need no pipeline work this run.
 
     cache_pages is keyed by url_hash and city/topic columns are overwritten on
     every save (last-write-wins), so city/topic-based joins are unreliable.
     Instead we check by url_hash, exactly as cache.py does at fetch time.
 
-    A pair is done if it has a search_cache entry AND:
-    - The URL list is empty (search found nothing), OR
-    - Communities already exist for the pair (green circle), OR
-    - Every URL in the search result has been extracted with current fingerprint
-      (all url_hashes appear in cache_pages with extract_fingerprint = current_fp)
+    A pair is done if it has a search_cache entry and every successfully
+    scraped page is current for every extraction family enabled for this run.
+    Venue/person extraction is only expected when the cached community result
+    is non-empty, matching the pipeline's cost gates.
     """
     import hashlib
 
@@ -1183,40 +1218,70 @@ def get_fully_processed_pairs(db_path: Path, current_fp: str) -> set[tuple[str, 
     if not db_path.exists():
         return set()
     with _connect(db_path) as conn:
-        # Pairs that already have at least one community
-        community_pairs: set[tuple[str, str]] = {
-            (r[0], r[1]) for r in conn.execute(
-                "SELECT DISTINCT city, topic FROM communities WHERE hidden = 0"
-            )
-        }
-        # url_hashes successfully scraped (scraped_at IS NOT NULL)
-        scraped_hashes: set[str] = {
-            r[0] for r in conn.execute(
-                "SELECT url_hash FROM cache_pages WHERE scraped_at IS NOT NULL"
-            )
-        }
-        # url_hashes extracted with the current fingerprint (global, city/topic-agnostic)
-        current_fp_hashes: set[str] = {
-            r[0] for r in conn.execute(
-                "SELECT url_hash FROM cache_pages WHERE extract_fingerprint = ?", (current_fp,)
+        pages_by_hash: dict[str, dict] = {
+            row[0]: {
+                "extract_fingerprint": row[1],
+                "venue_fingerprint": row[2],
+                "person_fingerprint": row[3],
+                "data": json.loads(row[4]),
+            }
+            for row in conn.execute(
+                "SELECT url_hash, extract_fingerprint, venue_fingerprint,"
+                " person_fingerprint, data FROM cache_pages"
+                " WHERE scraped_at IS NOT NULL"
             )
         }
         search_rows = conn.execute("SELECT city, topic, urls FROM search_cache").fetchall()
 
-    # Green pairs are always done — communities already exist, no need to re-process
-    result: set[tuple[str, str]] = set(community_pairs)
-    # Blue pairs: searched, all SCRAPED pages extracted with current fp, 0 communities.
-    # Unscraped urls (blocked/failed fetches) are excluded — consistent with get_city_topic_states.
+    result: set[tuple[str, str]] = set()
     for city, topic, urls_json in search_rows:
-        if (city, topic) in result:
-            continue  # already green, skip
         urls: list[str] = json.loads(urls_json) if urls_json else []
+        if max_pages is not None:
+            urls = urls[:max_pages]
         if not urls:
             result.add((city, topic))
-        else:
-            processable = [u for u in urls if _url_hash(u) in scraped_hashes]
-            if processable and all(_url_hash(u) in current_fp_hashes for u in processable):
-                result.add((city, topic))
+            continue
+
+        processable = [
+            pages_by_hash[_url_hash(url)]
+            for url in urls
+            if _url_hash(url) in pages_by_hash
+        ]
+        if not processable:
+            continue
+
+        pair_person_key = f"{city}/{topic}"
+        all_current = True
+        for page in processable:
+            data = page["data"]
+            community_current = (
+                page["extract_fingerprint"] == current_fp
+                and data.get("records") is not None
+            )
+            if (run_communities or run_persons) and not community_current:
+                all_current = False
+                break
+
+            has_communities = community_current and bool(data.get("records"))
+            venue_expected = run_venues and (has_communities or not run_communities)
+            if venue_expected and (
+                not venue_fp or page["venue_fingerprint"] != venue_fp
+            ):
+                all_current = False
+                break
+
+            person_expected = run_persons and has_communities
+            persons_data = data.get("persons_data") or {}
+            if person_expected and (
+                not person_fp
+                or page["person_fingerprint"] != person_fp
+                or pair_person_key not in persons_data
+            ):
+                all_current = False
+                break
+
+        if all_current:
+            result.add((city, topic))
     return result
 
 

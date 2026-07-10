@@ -3,7 +3,7 @@ type: Data-model
 title: Extraction Fingerprints
 description: Three SHA-256[:12] fingerprints (community/venue/person) key the cache; the canonical variant pins to the primary provider so fallback extractions still count as done.
 tags: [fingerprint, cache, invalidation, providers]
-timestamp: 2026-07-09
+timestamp: 2026-07-10
 resource: scraper/extract.py
 ---
 
@@ -13,7 +13,7 @@ resource: scraper/extract.py
 
 ## Three independent fingerprints
 
-`cache_pages` stores `extract_fingerprint` (communities), `venue_fingerprint`, and `person_fingerprint` — as both dedicated columns (fast SQL filtering in `get_scope_stats`, `get_city_topic_states`, `get_fully_processed_pairs`) and inside the JSON blob (source of truth). Each is computed over its own prompt family.
+`cache_pages` stores `extract_fingerprint` (communities), `venue_fingerprint`, and `person_fingerprint` — as both dedicated columns (fast SQL filtering in `get_scope_stats`, `get_city_topic_states`, `get_fully_processed_pairs`) and inside the JSON blob (source of truth). Each is computed over its own prompt family. The pipeline prefilter passes all three current fingerprints and only skips a pair when every enabled family is current.
 
 ## `canonical_fingerprint` — the done-pairs fix
 

@@ -9,13 +9,14 @@ from typing import TYPE_CHECKING, Any, Callable
 import structlog
 
 from .extract import (DeepSeekExtractor, ExtractorUnavailableError,
-                      FallbackExtractor, get_extract_fingerprint)
+                      FallbackExtractor, get_extract_fingerprint,
+                      get_person_fingerprint, get_venue_fingerprint)
 from .false_positives import build_prompt_section
 from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
 from .search import (DataForSEOClient, FallbackSearchClient, SearchQuotaError,
                      SearchUnavailableError, build_queries)
-from .db import get_search_cache, save_search_cache, get_covered_pairs, upsert_venues, upsert_persons, delete_leader_persons_for_community, load_cache_page, find_community_by_id, get_fully_processed_pairs
+from .db import get_search_cache, save_search_cache, get_collected_pairs, get_covered_pairs, upsert_venues, upsert_persons, delete_leader_persons_for_community, load_cache_page, find_community_by_id, get_fully_processed_pairs
 from .store import save_results
 
 if TYPE_CHECKING:
@@ -324,8 +325,25 @@ async def run_pipeline(
     # which also keeps the catch-up pass from re-searching tiered-out pairs.
     all_pairs = {(c.name, t.name) for c in cities for t in topics
                  if _tier_allows(c, t.name, config.core_topics)}
-    current_fp = get_extract_fingerprint(primaries[0].model if primaries else "deepseek-chat")
-    done_pairs = get_fully_processed_pairs(config.db_path, current_fp) if _skip_extracted else set()
+    model = primaries[0].model if primaries else config.deepseek_model
+    current_fp = get_extract_fingerprint(model)
+    venue_fp = get_venue_fingerprint(model)
+    person_fp = get_person_fingerprint(model)
+    done_pairs: set[tuple[str, str]] = set()
+    if _skip_extracted:
+        if run_mode == "search_only":
+            done_pairs = get_collected_pairs(config.db_path, config.search_max_pages)
+        else:
+            done_pairs = get_fully_processed_pairs(
+                config.db_path,
+                current_fp,
+                venue_fp,
+                person_fp,
+                run_communities=run_communities,
+                run_venues=run_venues,
+                run_persons=run_persons,
+                max_pages=config.search_max_pages,
+            )
     pairs_to_run = all_pairs - done_pairs
     skipped = len(all_pairs) - len(pairs_to_run)
     if skipped:

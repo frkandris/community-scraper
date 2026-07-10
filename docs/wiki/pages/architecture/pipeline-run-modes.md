@@ -1,15 +1,15 @@
 ---
 type: Architecture
 title: Pipeline Run Modes
-description: full / ai_only / revalidate control how much work runs per city×topic pair.
+description: full / ai_only / search_only / revalidate control how much work runs per city×topic pair.
 tags: [pipeline, run-modes, orchestration]
-timestamp: 2026-07-09
+timestamp: 2026-07-10
 resource: scraper/pipeline.py
 ---
 
 # Pipeline Run Modes
 
-*Three modes control how much work the pipeline does per city×topic pair.*
+*Four modes control how much work the pipeline does per city×topic pair.*
 
 ## Modes
 
@@ -17,6 +17,7 @@ resource: scraper/pipeline.py
 |------|--------|-------|---------|-----------|
 | `full` | ✓ | ✓ | ✓ | Default scheduled run ("Smart" in UI) |
 | `ai_only` | ✗ | ✗ | ✓ | Re-extract from cached pages; no web requests |
+| `search_only` | ✓ | ✓ | ✗ | Cost-saver collector; cache search results and page text |
 | `revalidate` | ✗ | ✗ | special | Re-validates existing communities for accuracy |
 
 ## Startup progression
@@ -40,24 +41,12 @@ Each group is a separate `run_pipeline()` call so progress is visible in coverag
 
 ## Done-pair pre-filter
 
-Before entering the city×topic loop, `run_pipeline()` calls `get_fully_processed_pairs(db_path, current_fp)` to build a set of pairs to skip entirely:
+Before entering the city×topic loop, `run_pipeline()` chooses a mode-specific prefilter:
 
-```sql
-SELECT sc.city, sc.topic FROM search_cache sc
-WHERE json_array_length(sc.urls) = 0
-  OR (
-    EXISTS (SELECT 1 FROM cache_pages cp WHERE cp.city=sc.city AND cp.topic=sc.topic)
-    AND NOT EXISTS (
-        SELECT 1 FROM cache_pages cp
-        WHERE cp.city=sc.city AND cp.topic=sc.topic
-        AND (cp.extract_fingerprint IS NULL OR cp.extract_fingerprint != ?)
-    )
-  )
-```
+- `search_only` → `get_collected_pairs(db, search_max_pages)`: every selected URL has page text.
+- `full` / `ai_only` → `get_fully_processed_pairs(...)`: every selected scraped URL is current for all enabled community/venue/person fingerprints.
 
-A pair qualifies as "done" if either:
-- The search returned 0 URLs (nothing to extract), OR
-- At least one `cache_pages` row exists AND none have a stale/null fingerprint
+Existing visible communities never override fingerprint freshness. A prompt/model change therefore makes green pairs runnable again, while disabled extraction families do not block completion.
 
 These pairs are subtracted from `all_pairs` before `_run_full` / `_run_ai_only` is called, so there's zero loop overhead — no log entry, no UI update, no DB reads per skipped pair.
 

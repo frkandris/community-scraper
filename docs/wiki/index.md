@@ -11,7 +11,7 @@ frontmatter. See [SCHEMA.md](SCHEMA.md) for conventions.
 
 - [[two-domain-single-container]] — One FastAPI container serves közösségek.com and meetapedia.com via Host-header detection
 - [[extraction-fingerprint-cache]] — SHA-256[:12] of (prompt + model) keys all extraction; changing either forces re-extraction
-- [[pipeline-run-modes]] — full / ai_only / revalidate control how much work runs per pair
+- [[pipeline-run-modes]] — full / ai_only / search_only / revalidate control how much work runs per pair
 - [[indexing-strategy]] — canonical, thin-page noindex, sitemap scoping, robots, JSON-LD
 
 ## Subsystems
@@ -41,7 +41,7 @@ frontmatter. See [SCHEMA.md](SCHEMA.md) for conventions.
 - [[extraction-provider-fallback-chain]] — DeepSeek-only since 2026-07; fingerprints still per prompt+model
 - [[joinable-quality-gate]] — only joinable=True records survive; a 3-condition AND rule
 - [[false-positive-injection]] — admin negatives appended to the prompt; do NOT invalidate the cache
-- [[done-pair-url-hash-not-city-topic]] — done detection resolves URLs to hashes, never JOINs on city/topic
+- [[done-pair-url-hash-not-city-topic]] — mode-aware done detection checks capped URL hashes and enabled fingerprints
 - [[fuzzy-dedup-and-record-key]] — in-memory fuzzy dedup + record_key derivation duplicated across two files
 - [[history-created-sentinel-overcounting]] — __created__ rows and the MIN(changed_at) dedup (skipped for communities)
 - [[not-community-moderation-flow]] — public reports remain pending; only admin approval hides a community
