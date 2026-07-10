@@ -35,6 +35,7 @@ See [[persistence-layer]] for the connection/migration model.
 | `community_submissions` | User-submitted new communities | pending admin approval |
 | `recategorize_suggestions` | AI topic-recategorization proposals | `record_key UNIQUE` |
 | `outclick_events` | Outbound-link click analytics | `link_type` (default `website`), `clicked_at` |
+| `schema_migrations` | One-time migration ledger | `name PRIMARY KEY`, `applied_at` |
 
 ## Notes and traps
 
@@ -43,3 +44,4 @@ See [[persistence-layer]] for the connection/migration model.
 - **Three fingerprint columns** on `cache_pages` are stored both as columns (for fast SQL filtering/counting) and inside the JSON blob (source of truth). See [[extraction-fingerprints]].
 - **`recategorize` mutates `record_key`** when a community's topic changes (recomputes the key, UPDATEs the row) while preserving `community_id`.
 - **`search_cache` TTL is not persisted** — the same row is "valid" or "expired" depending on the caller's `ttl_days` argument at read time.
+- **Identity migration**: `unicode_record_keys_v2` rewrites legacy ASCII-only entity keys and all persisted references; see [[unicode-safe-identity-keys]].

@@ -68,7 +68,7 @@ def test_apply_community_edit_wrong_city(tmp_path):
     # record_key derives from (name, city, topic) — the fixed edit moves the row
     # to its new key (the stale key used to cause duplicate rows on next scrape)
     assert get_community_by_record_key(db, key) is None
-    new_key = key.replace("|budapest|", "|debrecen|")
+    new_key = _community_record_key("Budapest Futók", "Debrecen", "running")
     data = get_community_by_record_key(db, new_key)
     assert data and data["city"] == "Debrecen"
 
@@ -84,7 +84,7 @@ def test_apply_community_edit_name_correction(tmp_path):
     db, key = _community(tmp_path, name="Budpaest Futók")
     apply_community_edit(db, key, "name_correction", "Budapest Futók")
     assert get_community_by_record_key(db, key) is None
-    new_key = key.replace("budpaest_fut_k", "budapest_fut_k")
+    new_key = _community_record_key("Budapest Futók", "Budapest", "running")
     data = get_community_by_record_key(db, new_key)
     assert data and data["name"] == "Budapest Futók"
 
@@ -94,6 +94,6 @@ def test_apply_community_edit_wrong_topic(tmp_path):
     result = apply_community_edit(db, key, "wrong_topic", "fitness")
     assert result is True
     assert get_community_by_record_key(db, key) is None
-    new_key = key.replace("|running", "|fitness")
+    new_key = _community_record_key("Budapest Futók", "Budapest", "fitness")
     data = get_community_by_record_key(db, new_key)
     assert data and data["topic"] == "fitness"

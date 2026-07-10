@@ -8,7 +8,6 @@ import os
 from functools import lru_cache
 import re
 import sys
-import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -92,6 +91,7 @@ from ..extract import (ENRICH_SCHEMA, ENRICH_SYSTEM_PROMPT, EXTRACTION_SCHEMA,
                        VENUE_SCHEMA, PERSON_SCHEMA, PROMPT_KEYS, get_prompt, set_prompt_override,
                        DeepSeekExtractor, FallbackExtractor)
 from ..fetch import fetch_and_clean
+from ..identity import public_slug
 from ..models import CommunityRecord
 from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline, scrape_submitted_url, reextract_community, reextract_with_search_fallback
 from ..search import DataForSEOClient, FallbackSearchClient
@@ -376,8 +376,7 @@ templates.env.filters["link_meta"] = _link_meta
 
 @lru_cache(maxsize=8192)
 def _slugify(text: str) -> str:
-    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
-    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+    return public_slug(text)
 
 
 templates.env.filters["slugify"] = _slugify

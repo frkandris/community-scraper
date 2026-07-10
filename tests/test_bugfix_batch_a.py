@@ -2,6 +2,7 @@
 from pathlib import Path
 
 from scraper.db import (
+    _community_record_key,
     apply_recategorize_suggestion,
     get_communities,
     get_persons_for_community,
@@ -31,7 +32,7 @@ def test_hidden_survives_rescrape(tmp_path):
     """A merged/reported (hidden) community must NOT resurface on re-scrape."""
     db = _db(tmp_path)
     save_results("Budapest", "running", [_rec("Duplikált Klub")], db)
-    rk = "duplik_lt_klub|budapest|running"
+    rk = _community_record_key("Duplikált Klub", "Budapest", "running")
     set_community_hidden(db, rk, True)
     assert get_communities(db, "Budapest", "running") == []
 
@@ -45,7 +46,7 @@ def test_revalidate_fingerprint_survives_rescrape(tmp_path):
     from scraper.db import set_community_revalidate_fingerprint, _connect
     db = _db(tmp_path)
     save_results("Budapest", "running", [_rec("Futó Kör")], db)
-    rk = "fut_k_r|budapest|running"
+    rk = _community_record_key("Futó Kör", "Budapest", "running")
     set_community_revalidate_fingerprint(db, rk, "fp123")
     save_results("Budapest", "running", [_rec("Futó Kör")], db)
     with _connect(db) as conn:
@@ -80,7 +81,7 @@ def test_persons_found_despite_case_difference(tmp_path):
 def test_recategorize_updates_topic_column(tmp_path):
     db = _db(tmp_path)
     save_results("Budapest", "other", [_rec("Sakk Kör", topic="other")], db)
-    rk = "sakk_k_r|budapest|other"
+    rk = _community_record_key("Sakk Kör", "Budapest", "other")
     apply_recategorize_suggestion(db, rk, "chess")
     assert get_communities(db, "Budapest", "other") == []
     chess = get_communities(db, "Budapest", "chess")
@@ -91,7 +92,7 @@ def test_recategorize_key_collision_no_crash(tmp_path):
     db = _db(tmp_path)
     save_results("Budapest", "chess", [_rec("Sakk Kör", topic="chess")], db)
     save_results("Budapest", "other", [_rec("Sakk Kör", topic="other")], db)
-    rk_other = "sakk_k_r|budapest|other"
+    rk_other = _community_record_key("Sakk Kör", "Budapest", "other")
     apply_recategorize_suggestion(db, rk_other, "chess")  # must not raise
     assert get_communities(db, "Budapest", "other") == []
     assert len(get_communities(db, "Budapest", "chess")) == 1

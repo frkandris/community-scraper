@@ -4,19 +4,15 @@ from pathlib import Path
 
 import structlog
 
-from .db import get_communities, replace_communities_for_topic
+from .db import _community_record_key, get_communities, replace_communities_for_topic
 from .duplicates import detect_community_candidates
 from .models import CommunityRecord
 
 log = structlog.get_logger()
 
 
-def _normalize(name: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
-
-
 def _record_key(r: CommunityRecord) -> str:
-    return f"{_normalize(r.name)}|{_normalize(r.city)}|{_normalize(r.topic)}"
+    return _community_record_key(r.name, r.city, r.topic)
 
 
 def _strip_articles(name: str) -> str:

@@ -1,17 +1,17 @@
 import json
-import re
 import sqlite3
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .identity import (
+    community_record_key as _community_record_key,
+    normalized_match_key,
+    person_record_key as _person_record_key,
+    venue_record_key as _venue_record_key,
+)
 
-def _norm(s: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "_", s.lower()).strip("_")
-
-
-def _community_record_key(name: str, city: str, topic: str) -> str:
-    return f"{_norm(name)}|{_norm(city)}|{_norm(topic)}"
+_UNICODE_RECORD_KEYS_MIGRATION = "unicode_record_keys_v2"
 
 
 def _connect(db_path: Path) -> sqlite3.Connection:
@@ -19,6 +19,85 @@ def _connect(db_path: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA busy_timeout = 5000")
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
+
+
+def _migrate_unicode_record_keys(conn: sqlite3.Connection) -> None:
+    """Rewrite legacy ASCII-only keys and every persisted reference once."""
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            name       TEXT PRIMARY KEY,
+            applied_at TEXT NOT NULL
+        )
+    """)
+    if conn.execute(
+        "SELECT 1 FROM schema_migrations WHERE name=?",
+        (_UNICODE_RECORD_KEYS_MIGRATION,),
+    ).fetchone():
+        return
+
+    mappings: dict[str, dict[str, str]] = {
+        "community": {},
+        "venue": {},
+        "person": {},
+    }
+    for old_key, data_json in conn.execute("SELECT record_key, data FROM communities"):
+        data = json.loads(data_json)
+        mappings["community"][old_key] = _community_record_key(
+            data.get("name", ""), data.get("city", ""), data.get("topic", "")
+        )
+    for old_key, data_json in conn.execute("SELECT record_key, data FROM venues"):
+        data = json.loads(data_json)
+        mappings["venue"][old_key] = _venue_record_key(
+            data.get("name", ""), data.get("city", "")
+        )
+    for old_key, data_json in conn.execute("SELECT record_key, data FROM persons"):
+        data = json.loads(data_json)
+        mappings["person"][old_key] = _person_record_key(
+            data.get("name", ""),
+            data.get("city", ""),
+            data.get("role", "leader"),
+            data.get("community_name", ""),
+        )
+
+    table_for_type = {
+        "community": "communities",
+        "venue": "venues",
+        "person": "persons",
+    }
+    for entity_type, key_map in mappings.items():
+        table = table_for_type[entity_type]
+        for old_key, new_key in key_map.items():
+            if old_key == new_key:
+                continue
+            conn.execute(
+                f"UPDATE {table} SET record_key=? WHERE record_key=?",
+                (new_key, old_key),
+            )
+            conn.execute(
+                "UPDATE duplicate_candidates SET winner_key=?"
+                " WHERE entity_type=? AND winner_key=?",
+                (new_key, entity_type, old_key),
+            )
+            conn.execute(
+                "UPDATE duplicate_candidates SET loser_key=?"
+                " WHERE entity_type=? AND loser_key=?",
+                (new_key, entity_type, old_key),
+            )
+            conn.execute(
+                "UPDATE edit_requests SET record_key=?"
+                " WHERE entity_type=? AND record_key=?",
+                (new_key, entity_type, old_key),
+            )
+            if entity_type == "community":
+                conn.execute(
+                    "UPDATE recategorize_suggestions SET record_key=? WHERE record_key=?",
+                    (new_key, old_key),
+                )
+
+    conn.execute(
+        "INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)",
+        (_UNICODE_RECORD_KEYS_MIGRATION, datetime.now(timezone.utc).isoformat()),
+    )
 
 
 def init_db(db_path: Path) -> None:
@@ -370,6 +449,7 @@ def init_db(db_path: Path) -> None:
             )
         """)
 
+        _migrate_unicode_record_keys(conn)
         conn.commit()
 
 
@@ -1484,10 +1564,6 @@ def get_cache_cost_stats(db_path: Path) -> dict:
 
 # ── Venues ────────────────────────────────────────────────────────────────────
 
-def _venue_record_key(name: str, city: str) -> str:
-    return f"{_norm(name)}|{_norm(city)}"
-
-
 def upsert_venues(db_path: Path, records: list[dict]) -> int:
     if not records:
         return 0
@@ -1588,10 +1664,6 @@ def get_venue_person_counts_by_url(db_path: Path) -> dict[str, dict]:
 
 # ── Persons ───────────────────────────────────────────────────────────────────
 
-def _person_record_key(name: str, city: str, role: str, community_name: str) -> str:
-    return f"{_norm(name)}|{_norm(city)}|{_norm(role)}|{_norm(community_name)}"
-
-
 def delete_leader_persons_for_community(db_path: Path, community_name: str, city: str) -> int:
     """Delete all role='leader' persons for a community before re-inserting clean parsed ones."""
     if not db_path.exists():
@@ -1662,13 +1734,16 @@ def get_persons_for_community(db_path: Path, community_name: str, city: str) -> 
     old record_key LIKE anchored on the wrong key segments and never matched)."""
     if not db_path.exists():
         return []
-    target = _norm(community_name)
+    target = normalized_match_key(community_name)
     with _connect(db_path) as conn:
         rows = conn.execute(
             "SELECT data FROM persons WHERE city=? ORDER BY role, id", (city,)
         ).fetchall()
     persons = [json.loads(r[0]) for r in rows]
-    return [p for p in persons if _norm(p.get("community_name", "")) == target]
+    return [
+        p for p in persons
+        if normalized_match_key(p.get("community_name", "")) == target
+    ]
 
 
 def get_all_persons(db_path: Path) -> list[dict]:

@@ -3,7 +3,7 @@ type: Concept
 title: Community Identity
 description: Two keys: community_id (stable URL slug) vs record_key (topic-aware DB uniqueness).
 tags: [identity, hashing, keys]
-timestamp: 2026-07-09
+timestamp: 2026-07-10
 resource: scraper/models.py
 ---
 
@@ -19,9 +19,11 @@ resource: scraper/models.py
 
 ## record_key
 
-`norm(name) | norm(city) | norm(topic)` where `norm()` strips punctuation and lowercases.
+`c2:SHA-256[:24]` over NFKC+casefold canonical `(name, city, topic)` components.
 
 **Purpose**: unique DB constraint. Prevents duplicate rows when the same group is found under different topics. Triggers an upsert (merge `source_urls`) instead of insert on conflict.
+
+The implementation is centralized in `scraper.identity` and preserves non-Latin scripts; see [[unicode-safe-identity-keys]].
 
 ## Why two keys
 

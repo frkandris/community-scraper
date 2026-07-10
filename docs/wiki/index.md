@@ -32,6 +32,7 @@ frontmatter. See [SCHEMA.md](SCHEMA.md) for conventions.
 - [[person-record]] — leaders/instructors; two-word name rule; role normalized to 12 values
 - [[venue-record]] — physical locations; spans topics via welcomed_topics
 - [[extraction-fingerprints]] — three fingerprints; canonical variant pins to the primary provider
+- [[unicode-safe-identity-keys]] — NFKC+casefold hashed record keys and stable non-Latin slug fallbacks
 
 ## Concepts
 

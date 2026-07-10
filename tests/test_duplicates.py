@@ -229,4 +229,5 @@ def test_save_results_detects_cross_topic_duplicates(tmp_path):
     assert len(candidates) >= 1
     assert candidates[0]["entity_type"] == "community"
     assert candidates[0]["signal"] == "fuzzy_name"
-    assert "p_cs" in candidates[0]["winner_key"] or "p_cs" in candidates[0]["loser_key"]
+    assert candidates[0]["winner_key"].startswith("c2:")
+    assert candidates[0]["loser_key"].startswith("c2:")

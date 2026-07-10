@@ -3,6 +3,7 @@
 Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
 ## 2026-07-10
+- **Creation**: [[unicode-safe-identity-keys]] — centralized community/venue/person record keys in `scraper.identity`, added a reference-preserving `unicode_record_keys_v2` migration, and made non-Latin public slugs non-empty and collision-resistant.
 - **Creation**: [[not-community-moderation-flow]] — pending public reports no longer hide communities through `init_db()`; authenticated approval now performs the visibility change and creates the false-positive example, while dismiss remains non-mutating.
 
 ## 2026-07-09

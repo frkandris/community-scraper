@@ -1,17 +1,17 @@
 ---
 type: Concept
 title: Fuzzy Dedup and record_key
-description: store.py dedups records in-memory (fuzzy) and upserts by record_key = norm(name)|norm(city)|norm(topic), a formula duplicated in db.py that must stay identical.
+description: store.py dedups records in-memory (fuzzy) and upserts through the shared Unicode-safe community record-key helper.
 tags: [dedup, record-key, store, normalization]
-timestamp: 2026-07-09
+timestamp: 2026-07-10
 resource: scraper/store.py
 ---
 
 # Fuzzy Dedup and record_key
 
-*`record_key = norm(name)|norm(city)|norm(topic)` where `norm(s) = re.sub(r"[^a-z0-9]+", "_", s.lower()).strip("_")`. It is the UNIQUE upsert key and drives conflict resolution.*
+*`record_key` is a deterministic hash of canonical Unicode identity fields. It is the UNIQUE upsert key and drives conflict resolution.*
 
-The formula is implemented **identically in both `store.py` and `db.py`** with no shared function — they must stay in sync or store-layer dedup and db-layer upsert disagree. `record_key` changes if name/city/topic change; the separate `community_id` is meant to be stable (see [[community-identity]]). Recategorizing a community's topic recomputes `record_key` while preserving `community_id`.
+`store.py`, `db.py`, and duplicate detection all call `scraper.identity.community_record_key`, so their equality semantics cannot drift. `record_key` changes if name/city/topic change; the separate `community_id` is meant to be stable (see [[community-identity]]). Recategorizing a community's topic recomputes `record_key` while preserving `community_id`. See [[unicode-safe-identity-keys]].
 
 ## In-memory fuzzy dedup
 
