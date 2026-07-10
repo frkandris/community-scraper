@@ -3620,7 +3620,7 @@ async def admin_not_community(request: Request):
 
 @admin.post("/not-community/{report_id}/approve")
 async def admin_not_community_approve(report_id: int):
-    """Promote report → false positive list, then delete the report."""
+    """Approve a pending report, hide the record, and teach the extractor."""
     if not app_state.db_path:
         return JSONResponse({"ok": False})
     reports = get_not_community_reports(_db())
@@ -3636,6 +3636,10 @@ async def admin_not_community_approve(report_id: int):
         source_url=r["source_url"] or "",
         fp_type="extraction",
     )
+    record_key = _community_record_key(
+        r["community_name"], r["city"] or "", r["topic"] or ""
+    )
+    set_community_hidden(_db(), record_key, True)
     delete_not_community_report(_db(), report_id)
     return JSONResponse({"ok": True})
 

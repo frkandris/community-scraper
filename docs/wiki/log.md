@@ -2,6 +2,9 @@
 
 Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
+## 2026-07-10
+- **Creation**: [[not-community-moderation-flow]] — pending public reports no longer hide communities through `init_db()`; authenticated approval now performs the visibility change and creates the false-positive example, while dismiss remains non-mutating.
+
 ## 2026-07-09
 - **Creation**: Daily summary email — scraper/report.py (Resend) + traffic_daily/traffic_visitors tables + bot-filtered pageview middleware + get_daily_summary (HU/intl scopes: new/changed communities, venues, persons, searches, pages, runs with failure counters, totals). Cron 04:30 UTC (schedule.report_enabled), manual trigger POST /admin/api/send-daily-report. Recipient = REPORT_EMAIL or FEEDBACK_EMAIL.
 - **Update**: UI review round — meetapedia's hardcoded-Hungarian <title> + all hardcoded-HU og_desc blocks moved to i18n keys (SEO fix, regression-tested); search hero uses .brand-gradient; source-fallback links labelled "Forrás" not "Csatlakozz"; tautological frequency hidden; empty city chips hidden; popularity ranking = topic diversity + count-minus-'other'; meetapedia interest grid shows intl (non-HU) counts; home "Frissen felvett" section; sticky topic chips + card meta badges on city pages; "Közeli városok" internal-linking block (haversine); search dedupes by community_id + snippets; venue city groups ordered by count; map bubbles smaller/translucent; footer admin nofollow.

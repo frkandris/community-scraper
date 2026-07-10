@@ -3,7 +3,7 @@ type: Data-model
 title: SQLite Schema
 description: Every table in scraper.db, its purpose, and its key columns — all created idempotently by init_db().
 tags: [sqlite, schema, database, tables]
-timestamp: 2026-07-09
+timestamp: 2026-07-10
 resource: scraper/db.py
 ---
 
@@ -29,7 +29,7 @@ See [[persistence-layer]] for the connection/migration model.
 | `prompt_overrides` | Editable prompt overrides | PK `key` |
 | `subscriptions` | Email alerts | `token UNIQUE`, UNIQUE (email, city, topic) |
 | `city_requests` | User requests for uncovered cities | `city_name`, `email` |
-| `not_community_reports` | User "this isn't a community" flags | `community_id` nullable; drives `communities.hidden` back-fill |
+| `not_community_reports` | Pending user "this isn't a community" reports | `community_id` nullable; pending rows do not affect visibility |
 | `duplicate_candidates` | Fuzzy dup pairs | `entity_type`, `winner_id/loser_id`, `winner_key/loser_key`, `similarity`, `resolution`; partial UNIQUE `WHERE resolution IS NULL` |
 | `edit_requests` | User-submitted edits pending review | `change_type`, `new_value`, `status` (default `pending`) |
 | `community_submissions` | User-submitted new communities | pending admin approval |
@@ -39,6 +39,7 @@ See [[persistence-layer]] for the connection/migration model.
 ## Notes and traps
 
 - **`hidden`**: nearly all community reads filter `hidden=0`. A few paths intentionally read hidden rows (`get_community_by_record_key`, `apply_community_edit`, `merge_community_into`) — easy to forget which.
+- **Pending moderation is inert**: inserting a `not_community_reports` row never changes `communities.hidden`. Only admin approval promotes it to a false positive and hides the matching `record_key`; dismissing it only removes the report. See [[not-community-moderation-flow]].
 - **Three fingerprint columns** on `cache_pages` are stored both as columns (for fast SQL filtering/counting) and inside the JSON blob (source of truth). See [[extraction-fingerprints]].
 - **`recategorize` mutates `record_key`** when a community's topic changes (recomputes the key, UPDATEs the row) while preserving `community_id`.
 - **`search_cache` TTL is not persisted** — the same row is "valid" or "expired" depending on the caller's `ttl_days` argument at read time.

@@ -43,6 +43,7 @@ frontmatter. See [SCHEMA.md](SCHEMA.md) for conventions.
 - [[done-pair-url-hash-not-city-topic]] — done detection resolves URLs to hashes, never JOINs on city/topic
 - [[fuzzy-dedup-and-record-key]] — in-memory fuzzy dedup + record_key derivation duplicated across two files
 - [[history-created-sentinel-overcounting]] — __created__ rows and the MIN(changed_at) dedup (skipped for communities)
+- [[not-community-moderation-flow]] — public reports remain pending; only admin approval hides a community
 
 ## Decisions
 
