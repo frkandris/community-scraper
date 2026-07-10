@@ -22,6 +22,24 @@
   </div>
   {% endif %}
 
+  {% if countries_list %}
+  <!-- Country index -->
+  <h2 class="text-sm font-semibold text-[#1C1917] mb-3">{{ t('cities_countries_heading') }}</h2>
+  <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 mb-10">
+    {% for c in countries_list %}
+    <a href="{{ cities_url }}/{{ c.slug }}"
+       class="flex items-center justify-between bg-white rounded-lg border border-[#EAE5DB] px-3 py-2.5
+              hover:border-[#E88E6B] hover:bg-[#FDF0EA] transition-colors group">
+      <span class="text-sm font-semibold text-[#2E2B29] group-hover:text-[#8A4226] truncate min-w-0">{{ c.name }}</span>
+      {% if c.count > 0 %}
+      <span class="text-xs font-bold text-[#C2613A] bg-[#FDF0EA] border border-[#FAD9C7] rounded-full px-2 py-0.5 shrink-0 ml-2">{{ c.count }}</span>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  <h2 class="text-sm font-semibold text-[#1C1917] mb-3">{{ t('home_all_cities') }}</h2>
+  {% endif %}
+
   <!-- City grid -->
   <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
     {% for city in cities_list %}

@@ -158,3 +158,12 @@ def test_meetapedia_sitemap_lists_country_pages(seo_client):
     xml = seo_client.get("/sitemap.xml", headers=MEET).text
     assert "meetapedia.com/cities/sweden" in xml
     assert "/cities/hungary" not in xml  # HU content is kozossegek-canonical
+
+
+def test_cities_page_has_country_index_on_meetapedia(seo_client):
+    r = seo_client.get("/cities", headers=MEET)
+    assert 'href="/cities/sweden"' in r.text
+    assert ">Countries<" in r.text
+    # country page and kozossegek keep the flat list only
+    assert ">Countries<" not in seo_client.get("/cities/sweden", headers=MEET).text
+    assert ">Országok<" not in seo_client.get("/varosok", headers=KOZ).text

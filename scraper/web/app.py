@@ -1609,6 +1609,7 @@ def _country_from_slug(slug: str) -> str | None:
 
 
 def _render_cities_page(request: Request, requested: str, country: str):
+    from .i18n import _detect_site
     city_totals = dict(get_city_totals(_db())) if app_state.db_path else {}
     site_cities = _site_cities(request)
     if country:
@@ -1617,11 +1618,24 @@ def _render_cities_page(request: Request, requested: str, country: str):
         [{"name": c.name, "slug": _slugify(c.name), "count": city_totals.get(c.name, 0)} for c in site_cities],
         key=lambda c: (-c["count"], _hu_sort_key(c["name"])),
     )
+    # country index above the flat city grid (intl site, unfiltered view only)
+    countries_list: list[dict] = []
+    if not country and _detect_site(request) == "meetapedia":
+        by_country: dict[str, dict] = {}
+        for c in site_cities:
+            if not c.country:
+                continue
+            e = by_country.setdefault(c.country, {
+                "name": c.country, "slug": _slugify(c.country), "cities": 0, "count": 0})
+            e["cities"] += 1
+            e["count"] += city_totals.get(c.name, 0)
+        countries_list = sorted(by_country.values(), key=lambda e: (-e["count"], e["name"]))
     return templates.TemplateResponse(request, "public_cities.html", {
         "cities_list": cities_list,
         "total_cities": len(cities_list),
         "requested": requested,
         "country_filter": country,
+        "countries_list": countries_list,
         **lang_context(request),
     })
 
