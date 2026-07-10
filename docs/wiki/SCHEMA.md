@@ -19,9 +19,12 @@ The bundle targets `okf_version: "0.1"` (declared in `index.md`).
 
 ```
 docs/wiki/
-  SCHEMA.md       — this file: conventions + LLM instructions (not a concept page)
+  SCHEMA.md       — this file: page format + lint conventions (not a concept page)
+  CLAUDE.md       — maintenance schema: when-to-update triggers, same-commit rule
   index.md        — OKF directory listing / content catalog (one line per page)
-  log.md          — date-grouped operation log, newest first
+  log.md          — date-grouped operation log, newest first (union-merged)
+  glossary.md     — one-line domain vocabulary (root-level, not linted)
+  faq.md          — recurring questions with links (root-level, not linted)
   sources/        — immutable raw inputs (incident notes, research, pasted docs)
   pages/
     architecture/ — system design, data flow, component relationships
@@ -32,6 +35,7 @@ docs/wiki/
     hacks/        — non-obvious tricks, workarounds, hard-won knowledge
     post-mortems/ — incident reports: root cause + fix + lesson
     operations/   — runbooks: how to run, deploy, add a city/topic, migrate
+    integrations/ — external services: contract, env vars, quirks
     seo/          — search-indexing strategy, canonical/sitemap/robots rules
 ```
 

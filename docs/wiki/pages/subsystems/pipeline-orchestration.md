@@ -11,7 +11,7 @@ resource: scraper/pipeline.py
 
 *`run_pipeline()` is the single entry; a "full" run actually does `_run_ai_only` (re-extract cached pages) **then** `_run_full` (fresh search+fetch+extract).*
 
-See [[pipeline-run-modes]] for the mode overview, [[done-pair-url-hash-not-city-topic]] for the pre-filter correctness rule.
+See [[pipeline-run-modes]] for the mode overview, [[done-pair-url-hash-not-city-topic]] for the pre-filter correctness rule, and [[end-to-end-pair-walkthrough]] for one pair traced through every module.
 
 ## What "full" really means
 

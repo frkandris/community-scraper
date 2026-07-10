@@ -31,6 +31,7 @@ Rationale: stop Google indexing empty/thin programmatic pages, a major trigger o
 - **HU cities are removed from the meetapedia sitemap** (`site_city_names -= _hu_city_names()`) — a sitemap must list only canonical URLs, and HU pages canonicalize to kozossegek.
 - **Thin community pages are skipped** (no description) — consistent with `page_noindex`.
 - Venue/person URLs are emitted only for kozossegek.
+- **Country landing pages** (`/cities/<slug>`, meetapedia only) are listed for countries with live content, minus Hungary — see [[country-landing-pages]].
 - Order-preserving dedup via `dict.fromkeys`; `changefreq weekly`, no `lastmod`/`priority`.
 
 ## robots.txt and other signals

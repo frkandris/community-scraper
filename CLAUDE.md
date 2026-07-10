@@ -73,7 +73,16 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 | `config/topics.yaml` | Topic list: `name`, per-locale `search_terms` |
 | `config/settings.yaml` | Model/API/cache/schedule config |
 | `scraper/web/templates/coverage.html` | City×topic matrix; JS class toggle (`.active-row`, `.active-topic`) drives live cell states — use CSS `<style>` block, not Tailwind, for JS-dynamic styles |
-| `docs/wiki/` | LLM wiki (Karpathy pattern): hacks, post-mortems, decisions, architecture. Ingest a source doc → Claude creates/updates pages + updates `index.md` + appends `log.md` |
+| `docs/wiki/` | LLM wiki (Karpathy + OKF + llm-wiki-seed): hacks, post-mortems, decisions, integrations, runbooks |
+
+## LLM Wiki
+
+`docs/wiki/` is the persistent knowledge base. Before non-trivial work, skim
+`docs/wiki/index.md` for relevant pages (plus `glossary.md`/`faq.md`). The maintenance
+rules — when to capture what, page format, same-commit discipline — live in
+`docs/wiki/CLAUDE.md` and `docs/wiki/SCHEMA.md`. Wiki updates land in the **same
+commit** as the code change that triggered them; validate with
+`PYTHONPATH=. .venv/bin/python scripts/lint_wiki.py` before committing.
 
 ## Important Patterns
 

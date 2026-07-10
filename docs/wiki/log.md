@@ -3,6 +3,10 @@
 Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
 ## 2026-07-10
+- **Update**: Adopted the llm-wiki-seed conventions (kondfox/ai-utils) on top of Karpathy+OKF — new `CLAUDE.md` (maintenance triggers + same-commit rule), root `glossary.md` + `faq.md`, `union` merge driver for this log, and a wiki-wiring section in the repo root `CLAUDE.md`.
+- **Creation**: Integrations category — [[dataforseo]], [[deepseek]], [[resend-email]] (kozossegek.com verified 2026-07-09; free plan = 1 domain), [[ga4-reporting]] (property 536914034, SA Viewer, runtime-only env vars).
+- **Creation**: [[daily-report]] (GA4 primary + server-counter fallback + stock totals), [[end-to-end-pair-walkthrough]], [[coolify-disk-cleanup]] (93%→20% reference prune), [[2026-07-ga4-env-buildtime-failure]], [[country-landing-pages]] (/cities/<slug> + 301 + sitemap).
+- **Update**: [[deployment-coolify]] (deploy-kills-run + concurrent-deploy verification + GA4 env vars), [[indexing-strategy]] (country pages in sitemap), [[pipeline-orchestration]] (walkthrough link). UI same-day: explore/city pages use one 2-column card grid (cards = icon+name+desc only, chips filter via data-topic); submit page fully i18n'd; meetapedia stats include HU.
 - **Update**: Full wiki drift audit — corrected scheduler/provider/history/cache/UI claims, made all frontmatter valid YAML, synchronized all 60 index descriptions, repaired the link graph, and added `scripts/lint_wiki.py` plus a regression test for structure, resources, links, orphans, and log ordering.
 - **Update**: [[web-app]] — aligned stale city-page tests with the intentional communities-only city view, retained topic-specific venues and deduplicated `/emberek`, and removed the unused per-city venue/person queries and template context.
 - **Update**: [[false-positive-injection]], [[extraction-fingerprints]], and [[pipeline-orchestration]] — `ai_only` now receives pair-scoped negative examples and attributes shared URLs through `search_cache`; add/remove explicitly invalidates the affected community extraction cache, while global rules invalidate all and preserve downloaded text.

@@ -18,12 +18,23 @@ Persist only the runtime dirs, never the whole `/app` tree (that would hide upda
 - `/app/data` — `scraper.db` (all communities + cache).
 - `/app/config` — YAML edits made through the admin UI.
 
+## Deploy behavior
+
+- Push to `main` → webhook deploy (~2–3 min build). Deploys **restart the container
+  and kill any running pipeline run** — re-trigger the collector/extractor manually
+  after deploying inside a work window.
+- Concurrent deploys: Coolify queues or fails the second one — after overlapping
+  deploys verify YOUR commit SHA in the Deployments list, not just app health
+  (see [[2026-07-ga4-env-buildtime-failure]]).
+- Deploy-heavy days fill the disk with stale images — runbook: [[coolify-disk-cleanup]].
+
 ## Environment variables
 
 - **Required:** `ADMIN_PASSWORD` (gates the entire `/admin` UI; unset → 503). `ADMIN_USER` defaults to `admin`.
-- **Search:** `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` (the sole search provider since the 2026-07 cleanup).
-- **Extraction:** `DEEPSEEK_API_KEY` (the sole extractor). `GROQ_API_KEY`, `SERPER_DEV_API_KEY`, `SEARCH_WORKER_TOKEN` are obsolete — remove them from Coolify.
-- **Email (Resend):** `RESEND_API_KEY`, `FEEDBACK_EMAIL`, `RESEND_FROM`. Optional — missing = silent no-op on `/subscribe`, `/report-not-community`, `/suggest-edit`, `/claim-community`.
+- **Search:** `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` (the sole search provider since the 2026-07 cleanup — see [[dataforseo]]).
+- **Extraction:** `DEEPSEEK_API_KEY` (the sole extractor — see [[deepseek]]). `GROQ_API_KEY`, `SERPER_DEV_API_KEY`, `SEARCH_WORKER_TOKEN` are obsolete — remove them from Coolify.
+- **Email (Resend):** `RESEND_API_KEY`, `FEEDBACK_EMAIL`, `RESEND_FROM`, `REPORT_EMAIL`. Optional — missing = silent no-op. See [[resend-email]].
+- **Analytics:** `GA4_PROPERTY_ID`, `GA4_CREDENTIALS_JSON` — **runtime-only**, never build-time ([[ga4-reporting]]).
 
 ## CSS build
 

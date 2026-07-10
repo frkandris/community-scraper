@@ -5,11 +5,14 @@ okf_version: "0.1"
 # Wiki Index
 
 Content catalog. One line per page, grouped by category. Mirrors each page's `description`
-frontmatter. See [SCHEMA.md](SCHEMA.md) for conventions.
+frontmatter. See [SCHEMA.md](SCHEMA.md) for page format and [CLAUDE.md](CLAUDE.md) for
+maintenance triggers. Root-level companions: [glossary.md](glossary.md) (domain
+vocabulary), [faq.md](faq.md) (recurring questions).
 
 ## Architecture
 
 - [[two-domain-single-container]] — One FastAPI container serves közösségek.com and meetapedia.com via Host-header detection.
+- [[end-to-end-pair-walkthrough]] — One worked example — (Szentendre, running) — traced from scheduler wake-up through search, fetch, extraction, storage, and the public page, naming every file on the path.
 - [[extraction-fingerprint-cache]] — SHA-256[:12] of each prompt family plus model keys extraction caches; changing either makes the corresponding results stale.
 - [[pipeline-run-modes]] — full / ai_only / search_only / revalidate control how much work runs per city×topic pair.
 - [[indexing-strategy]] — Canonical tags, thin-page noindex, domain-scoped sitemaps, and robots rules that keep the two-domain directory from cannibalizing its own search rankings.
@@ -24,6 +27,14 @@ frontmatter. See [SCHEMA.md](SCHEMA.md) for conventions.
 - [[duplicate-detection]] — detect_all() finds same-city duplicate communities/venues/persons via URL match and fuzzy name similarity, with a stable canonical key so re-scans are idempotent.
 - [[web-app]] — One FastAPI app with a public router and an /admin router gated by pure-ASGI Basic auth; Hungarian paths are canonical and English paths redirect.
 - [[i18n-and-site-detection]] — _detect_site reads the Host header; lang_context injects an i18n + nav bundle into every template. English is the translation base; missing keys render as themselves.
+- [[daily-report]] — report.py builds one email per UTC day — GA4 visitors, per-site diffs, run outcomes, and current stock totals — sent via Resend at 04:30 UTC or on demand.
+
+## Integrations
+
+- [[dataforseo]] — The sole paid search provider — live mode ($2/1K, seconds) vs standard task queue ($0.6/1K, minutes); quota and transient failures raise typed errors that are never cached.
+- [[deepseek]] — The sole LLM extractor — OpenAI-compatible chat API with a 50–75% off-peak discount window (UTC 16:30–00:30) that the extract cron is boxed into.
+- [[resend-email]] — All outbound email (feedback routes + daily report) goes through Resend from info@kozossegek.com; the free plan allows one verified domain, so meetapedia.com has no sender identity.
+- [[ga4-reporting]] — The daily email reads visitor/session/pageview numbers from the GA4 Data API via a service account; property 536914034 covers both domains, split by hostName.
 
 ## Data model
 
@@ -78,6 +89,7 @@ frontmatter. See [SCHEMA.md](SCHEMA.md) for conventions.
 ## SEO
 
 - [[seo-cross-domain-canonical]] — HU-city pages on meetapedia.com canonicalize to kozossegek.com so Google stops consolidating the duplicate toward the traffic-less domain.
+- [[country-landing-pages]] — Path-based /cities/<slug> country pages replace the ?country= query form (301'd) — self-canonical, sitemap-listed, and reachable from home headings and the /cities country index.
 
 ## Post-mortems
 
@@ -85,6 +97,7 @@ frontmatter. See [SCHEMA.md](SCHEMA.md) for conventions.
 - [[2026-06-coverage-amber-cells]] — get_fully_processed_pairs() and get_city_topic_states() disagreed on which URLs count as done.
 - [[2026-06-seo-traffic-collapse]] — kozossegek.com organic clicks fell from ~95/day to ~0 around 2026-06-01 as ~20K pages were devalued to "Crawled - currently not indexed."
 - [[2026-07-bug-hunt]] — Three-agent review found 15+ verified defects; fixed in three batches — moderation survival, domain matching, persons lookup, recategorize, venue scope, timeline dedup, and a set of hot-path optimizations.
+- [[2026-07-ga4-env-buildtime-failure]] — A multiline JSON secret marked "Available at Buildtime" in Coolify was injected as a Dockerfile ARG and broke the build parse; runtime-only env vars fixed it.
 
 ## Operations
 
@@ -93,3 +106,4 @@ frontmatter. See [SCHEMA.md](SCHEMA.md) for conventions.
 - [[adding-city-topic]] — The config files plus the app.py dicts and i18n labels you must update in lockstep.
 - [[local-search-worker]] — REMOVED 2026-07-09 — browser-driven search never beat engine bot detection; kept as post-mortem. Code in git history.
 - [[cost-saver-schedule]] — Two independent daily crons — DataForSEO collects cheaply all day (search_only, standard mode), DeepSeek extracts only in its off-peak discount window (ai_only, stop_at-boxed).
+- [[coolify-disk-cleanup]] — High-disk-usage alerts after deploy-heavy days are old Docker images and build cache; prune them from the server terminal — volumes and running containers are untouched.
