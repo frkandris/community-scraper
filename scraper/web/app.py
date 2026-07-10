@@ -1212,18 +1212,6 @@ async def _render_explore(
     if city and len(topic) == 1 and app_state.db_path:
         topic_venues = get_venues_by_city_topic(app_state.db_path, city, topic[0])
 
-    city_venues: list[dict] = []
-    city_persons: list[dict] = []
-    if city and not topic and app_state.db_path:
-        city_venues = get_venues(app_state.db_path, city)
-        all_p = get_persons(app_state.db_path, city)
-        seen_slugs: dict[str, dict] = {}
-        for p in all_p:
-            slug = _slugify(p.get("name", ""))
-            if slug and slug not in seen_slugs:
-                seen_slugs[slug] = p
-        city_persons = list(seen_slugs.values())
-
     city_locale = _city_locale(city) if city else "en"
     topic_url_slugs = {t.name: _topic_url_slug(t.name, city_locale) for t in (app_state.topics or [])}
 
@@ -1250,8 +1238,6 @@ async def _render_explore(
         "tag": tag,
         "tag_records": tag_records,
         "topic_venues": topic_venues,
-        "city_venues": city_venues,
-        "city_persons": city_persons,
         "topic_url_slugs": topic_url_slugs,
         "city_coords_for_js": city_coords_for_js,
         "canonical_base": _canonical_base(request, city) if city else None,

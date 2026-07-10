@@ -25,6 +25,10 @@ The Hungarian path is the canonical handler; the English path 301/302-redirects 
 
 Module-global dataclass. **`cities` and `topics` are lists of config objects, not dicts** — always `c.name` / `c.country` / `c.locale`; dict-style access 500s any route touching them (see [[2026-05-coverage-page-500]]). Pipeline callbacks mutate progress fields read by coverage, while `RunCoordinator` exclusively owns `is_running`, `_run_task`, and `current_run_mode`. `_home_stats_cache` (keyed by site) is invalidated after every run.
 
+## Public discovery surfaces
+
+The unfiltered `/{city}` page intentionally lists communities only. City-wide venue/person sections were removed in 2026-05; their stale `city_venues`/`city_persons` context queries were removed in 2026-07 after the old tests exposed the drift. A city + single-topic page still shows matching `topic_venues`. Full collections live at `/helyszinek` and `/emberek` (the latter deduplicates by normalized name+city), while community/detail pages link related entities directly. Do not restore city-wide entity scans unless the corresponding UI is intentionally restored too.
+
 ## Coverage page
 
 City × topic matrix from `get_city_topic_states` + `get_fully_processed_pairs` at the current fingerprint. Five cell states: green (has communities), blue ✓ (done, 0 results), amber ~ (searched but stale fingerprint), gray · (never searched), pulsing ▶ (actively processing). JS polls `/admin/api/coverage/current` every 3 s to move the highlight and refreshes the previous cell via `/admin/api/coverage/cell`. `POST /admin/api/restamp-fingerprints` bulk-updates stale fingerprints to current without reprocessing (turns amber → green). See [[2026-06-coverage-amber-cells]]. Note `_COVERAGE_PAGE_SIZE = 2` looks like a leftover debug constant.
