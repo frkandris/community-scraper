@@ -3,7 +3,7 @@ type: Runbook
 title: Cost-Saver Twin Schedule
 description: Two independent daily crons — DataForSEO collects cheaply all day (search_only, standard mode), DeepSeek extracts only in its off-peak discount window (ai_only, stop_at-boxed).
 tags: [operations, cost, schedule, search-only, off-peak, deepseek, dataforseo]
-timestamp: 2026-07-10
+timestamp: 2026-07-14
 resource: scraper/main.py
 ---
 
@@ -18,7 +18,7 @@ resource: scraper/main.py
 | search collector | `search_only` | `0 1 * * *` | `search_until: 16:20` | DataForSEO (**standard** queue, $0.6/1K) searches + fetches pages into the cache. **Zero LLM calls.** |
 | off-peak extractor | `ai_only` | `35 16 * * *` | `extract_until: 00:20` | DeepSeek extracts the **already-collected** pages, entirely inside its off-peak window (UTC 16:30–00:30, ~50–75% cheaper). |
 
-Both use the Hungary → Sweden → world pass order and the shared `_cron_run` runner in `main.py`.
+Both use the Sweden → world → Hungary pass order and the shared `_cron_run` runner in `main.py`. The expansion-first order applies to the bounded scheduled jobs; startup recovery keeps its Hungary-first order.
 
 ## How the window boxing works
 
@@ -28,7 +28,9 @@ The complementary `*_until` values normally keep the jobs apart. `RunCoordinator
 
 ## `search_only` mode
 
-New `run_pipeline` mode: forces `run_communities/venues/persons = False`, skips the re-AI pass, does search + fetch + `save_scraped` only. Enrichment is inside the extraction branch, so it is skipped too. Tiering ([[cost-optimization-2026-07]]) applies as usual.
+`run_pipeline` forces `run_communities/venues/persons = False`, skips the re-AI pass, and exits immediately after the fetch batch. This strict boundary means it never reads extraction caches, calls `save_results`, upserts entities, or runs entity duplicate detection. Tiering ([[cost-optimization-2026-07]]) applies as usual.
+
+`search_cache.collected_at` is written only after every selected URL received a fetch attempt. A killed process leaves it `NULL` so the pair resumes, while a permanently unreadable URL is a logged fetch failure rather than a reason to replay the pair every day. The 2026-07-14 migration marks legacy search rows collected because their historical runs already attempted those batches. See [[2026-07-search-only-cache-replay]].
 
 ## Related safety (same commit)
 
@@ -41,4 +43,5 @@ New `run_pipeline` mode: forces `run_communities/venues/persons = False`, skips 
 - `dataforseo_mode: standard` is global: **manual dashboard runs also search in queue mode** (minutes/query). Flip back to `live` in settings if an interactive run needs instant search.
 - Legacy combined cron (`cron_enabled`) stays available and off.
 - Watch progress on the coverage matrix; searched-but-unextracted pairs show amber until the night pass catches up.
+- Failed scheduled/startup exceptions are persisted in `runs.error` and printed in the next daily report; the container log is no longer the only error surface.
 - Triggering and startup behavior are summarized in [[run-modes-and-startup]].

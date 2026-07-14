@@ -7,6 +7,7 @@ POST /admin/api/send-daily-report.
 """
 from __future__ import annotations
 
+import html as html_lib
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -143,6 +144,9 @@ def build_report_html(day: str, summary: dict, traffic: dict,
                 fails = (f" — <span style='color:#B4231F'>hibák: "
                          f"{r['search_failed']} keresés, {r['extract_failed']} oldal"
                          f" (nem cache-elve, újrapróbálva)</span>")
+            if r.get("error"):
+                fails += (f" — <span style='color:#B4231F'>futási hiba: "
+                          f"{html_lib.escape(r['error'])}</span>")
             items.append(
                 f"<li style='margin:3px 0'>{state} <b>{r['mode']}</b> · "
                 f"{(r['started_at'] or '')[11:16]} UTC · {r['pairs']} város–téma páros · "

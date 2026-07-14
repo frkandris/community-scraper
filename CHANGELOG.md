@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-07-14
+
+- **Saver collector javítás**: a `search_only` a fetch batch után azonnal kilép, így nem olvas extraction cache-t és nem írhat vissza közösségeket, helyszíneket vagy személyeket
+- **Terminális collection marker**: a `search_cache.collected_at` csak a teljes URL-batch megkísérlése után áll be; a tartós fetch-hibák nem járatják újra naponta a teljes magyar állományt, a megszakított párok viszont folytatódnak
+- **Svéd prioritás**: a napi, időablakos saver futások sorrendje Svédország → világ → Magyarország
+- **Látható futási hibák**: a `runs.error` eltárolja az ütemezett/startup kivételt, és a napi email kiírja annak HTML-escape-elt szövegét
+
 ## 2026-05-30 (session 2)
 
 - **290 svéd önkormányzat**: az összes svéd közigazgatási egység felvéve `config/cities.yaml`-ba; Svédország a pipeline-ban Magyarország után, a többi ország előtt fut (hu → se → intl három egymást követő `run_pipeline()` hívással `main.py`-ban)

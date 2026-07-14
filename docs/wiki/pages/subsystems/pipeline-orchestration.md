@@ -1,9 +1,9 @@
 ---
 type: Subsystem
 title: Pipeline Orchestration
-description: run_pipeline() sequences ai_only + full passes with a done-pair pre-filter; main.py runs it three times (Hungary → Sweden → world).
+description: run_pipeline() sequences mode-specific passes with a done-pair pre-filter; bounded saver jobs prioritize Sweden while startup recovery remains Hungary-first.
 tags: [pipeline, orchestration, run-modes, done-pairs, scheduler]
-timestamp: 2026-07-10
+timestamp: 2026-07-14
 resource: scraper/pipeline.py
 ---
 
@@ -19,13 +19,13 @@ See [[pipeline-run-modes]] for the mode overview, [[done-pair-url-hash-not-city-
 
 ## Done-pair pre-filter
 
-When `skip_extracted` is on, `run_pipeline` computes mode-aware `done_pairs` and threads `pairs_filter = all_pairs - done_pairs` into every sub-call. `search_only` checks capped fetch completion. AI modes check community, venue, and person fingerprints according to the enabled phase flags and the same community-presence gates used during extraction. Changing any enabled prompt/model invalidates done-status even when the pair already has visible records.
+When `skip_extracted` is on, `run_pipeline` computes mode-aware `done_pairs` and threads `pairs_filter = all_pairs - done_pairs` into every sub-call. `search_only` checks the pair-level `collected_at` marker written after the selected URL batch was attempted. AI modes check community, venue, and person fingerprints according to the enabled phase flags and the same community-presence gates used during extraction. Changing any enabled prompt/model invalidates done-status even when the pair already has visible records.
 
 False-positive changes take the same route without changing the global fingerprint: pair examples explicitly clear only that pair's community extraction metadata, while global extraction rules clear it for all cached pages. Both `_run_ai_only` and `_run_full` pass the current pair-scoped negative examples to the extractor, so the next selected run uses the new rule consistently. `_run_ai_only` also attributes scraped pages through `search_cache` URL hashes rather than last-write-wins `cache_pages.city/topic`; one shared URL can therefore be reprocessed for every pair that uses it.
 
 ## Three geographic passes (main.py)
 
-Both `_scheduled_run` and `_startup_run` partition cities and call `run_pipeline` **three times**: Hungary (339 cities) → Sweden (290) → rest-of-world (145). See [[hungary-sweden-intl-three-passes]]. Each call does its own done-pair pre-filter, its own extractor/search-client construction, and its own `detect_all` (so the dup scan runs 3× per sweep — idempotent). Scale: 774 cities × 36 topics ≈ **27,900 pairs** per sweep, which is why the pre-filter and the 3650-day search-cache TTL matter.
+Both scheduled and startup paths partition cities into Hungary (339), Sweden (290), and rest-of-world (145), but their priority differs. Bounded saver jobs run Sweden → world → Hungary so expansion work receives the window first; startup recovery retains Hungary → Sweden → world. See [[hungary-sweden-intl-three-passes]]. Each call does its own done-pair pre-filter and client construction. Scale: 774 cities × 36 topics ≈ **27,900 pairs** per sweep, which is why the pre-filter and the 3650-day search-cache TTL matter.
 
 ## Startup state machine
 

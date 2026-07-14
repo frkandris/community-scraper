@@ -36,7 +36,7 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 - `ai_only`: re-extract from cached page texts, no web requests
 - `revalidate`: re-validates communities whose `revalidate_fingerprint` is stale (separate flow via `_run_revalidate`, not `run_pipeline`)
 
-**Pipeline city priority**: `main.py` runs three sequential `run_pipeline()` calls — Hungary → Sweden → rest of world. Sweden is second due to its 290-municipality city list. This split is in `main.py`, not `pipeline.py`.
+**Pipeline city priority**: bounded scheduled saver runs call `run_pipeline()` in Sweden → rest of world → Hungary order so the active expansion market gets the daily window first. Startup recovery retains Hungary → Sweden → rest of world order. The split is in `main.py`, not `pipeline.py`.
 
 **Done-pair pre-filter**: `run_pipeline()` calls `get_fully_processed_pairs(db_path, current_fp)` (one SQL query) before inner loops and passes the complement as `pairs_filter`. Pairs with a `search_cache` entry AND all `cache_pages` at the current `extract_fingerprint` are skipped entirely — no loop iteration, no log entry. Fully-covered cities should not appear in the log.
 

@@ -3,7 +3,7 @@ type: Architecture
 title: Pipeline Run Modes
 description: full / ai_only / search_only / revalidate control how much work runs per city×topic pair.
 tags: [pipeline, run-modes, orchestration]
-timestamp: 2026-07-10
+timestamp: 2026-07-14
 resource: scraper/pipeline.py
 ---
 
@@ -30,12 +30,9 @@ On each restart, the pipeline mode advances:
 
 This ensures that after a quiet period, the first restart re-extracts stale pages cheaply (`ai_only`), then does a full fresh search on the next cycle.
 
-## Priority ordering (Hungary first)
+## Priority ordering
 
-The scheduled run in `main.py` splits cities into three groups and runs them sequentially:
-1. Hungary (primary market)
-2. Sweden (secondary market)
-3. Everything else
+The bounded saver jobs in `main.py` run Sweden → everything else → Hungary, putting the current expansion target first. Startup recovery retains Hungary → Sweden → everything else so its historical resume semantics do not change.
 
 Each group is a separate `run_pipeline()` call so progress is visible in coverage per group.
 
@@ -43,10 +40,12 @@ Each group is a separate `run_pipeline()` call so progress is visible in coverag
 
 Before entering the city×topic loop, `run_pipeline()` chooses a mode-specific prefilter:
 
-- `search_only` → `get_collected_pairs(db, search_max_pages)`: every selected URL has page text.
+- `search_only` → `get_collected_pairs(...)`: the search row has `collected_at`, written after every selected URL was attempted.
 - `full` / `ai_only` → `get_fully_processed_pairs(...)`: every selected scraped URL is current for all enabled community/venue/person fingerprints.
 
 Existing visible communities never override fingerprint freshness. A prompt/model change therefore makes green pairs runnable again, while disabled extraction families do not block completion.
+
+`search_only` has a strict post-fetch exit and cannot read extraction caches or persist communities, venues, or persons. This invariant prevents collection runs from replaying stale entity data; see [[2026-07-search-only-cache-replay]].
 
 These pairs are subtracted from `all_pairs` before `_run_full` / `_run_ai_only` is called, so there's zero loop overhead — no log entry, no UI update, no DB reads per skipped pair.
 

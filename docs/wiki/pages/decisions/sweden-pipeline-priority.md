@@ -1,25 +1,25 @@
 ---
 type: Decision
-title: Sweden as Second Pipeline Priority
-description: Sweden runs after Hungary because its 290-municipality list is large.
+title: Sweden First in Bounded Saver Runs
+description: Bounded saver jobs prioritize Sweden before world and Hungary so the active expansion market cannot be starved by legacy work.
 tags: [decision, pipeline, priority, sweden]
-timestamp: 2026-07-09
+timestamp: 2026-07-14
 resource: scraper/main.py
 ---
 
-# Sweden as Second Pipeline Priority
+# Sweden First in Bounded Saver Runs
 
 *Added in May 2026 when 290 Swedish municipalities were added to the config.*
 
 ## Priority order
 
-1. Hungary (primary market — Hungarian-language site közösségek.com)
-2. Sweden (second largest city list at 290 municipalities)
-3. Everything else
+1. Sweden (active expansion market, 290 municipalities)
+2. Everything except Hungary and Sweden
+3. Hungary (mature inventory; still receives genuinely unfinished tail work)
 
 ## Implementation
 
-`main.py` splits `app_state.cities` into three lists and runs three sequential `run_pipeline()` calls:
+`main.py:_saver_city_groups` splits `app_state.cities` into three lists for `_cron_run`. Startup recovery deliberately retains the older Hungary-first order.
 
 ```python
 hu_cities = [c for c in cities if c.country == "Hungary"]
@@ -31,9 +31,9 @@ intl_cities = [c for c in cities if c.country not in {"Hungary", "Sweden"}]
 
 A single call processes cities in the order they appear in `cities.yaml`. Splitting gives explicit control over priority without reordering the YAML, and makes the coverage page's country-tab display reflect actual pipeline order.
 
-## Why Sweden second
+## Why Sweden first
 
-290 municipalities is the largest non-Hungarian city list. Running it before international cities ensures Swedish coverage progresses even if the pipeline is stopped mid-run.
+The saver jobs have hard stop windows. Hungary's mature backlog previously consumed most of the collector window, so Swedish coverage progressed only partially. Expansion-first ordering guarantees Sweden receives both collection and off-peak extraction capacity before tail work.
 
 ## Related
 

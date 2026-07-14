@@ -129,6 +129,14 @@ def _settings_cron_enabled() -> bool:
     return False
 
 
+def _saver_city_groups(cities: list) -> tuple[list, list, list]:
+    """Expansion-first order for the bounded collector/extractor windows."""
+    se = [city for city in cities if city.country == "Sweden"]
+    intl = [city for city in cities if city.country not in {"Hungary", "Sweden"}]
+    hu = [city for city in cities if city.country == "Hungary"]
+    return se, intl, hu
+
+
 async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-once", action="store_true")
@@ -173,7 +181,7 @@ async def main() -> None:
         app_state.current_topic = topic
 
     async def _cron_run(run_mode: str, mode_label: str, until_hhmm: str | None) -> None:
-        """Shared scheduled runner: Hungary → Sweden → world, optionally boxed
+        """Shared scheduled runner: Sweden → world → Hungary, optionally boxed
         into a UTC time window (stop_at from until_hhmm)."""
         task = asyncio.current_task()
         if not app_state.run_coordinator.reserve(mode_label, task):
@@ -183,12 +191,13 @@ async def main() -> None:
         stop_at = _next_window_end(started, until_hhmm) if until_hhmm else None
         run_id = start_run(db_path, started, run_mode)
         success = False
+        run_error: str | None = None
         pair_logs: list = []
-        hu_cities = [c for c in (app_state.cities or []) if c.country == "Hungary"]
-        se_cities = [c for c in (app_state.cities or []) if c.country == "Sweden"]
-        intl_cities = [c for c in (app_state.cities or []) if c.country not in {"Hungary", "Sweden"}]
+        groups = _saver_city_groups(app_state.cities or [])
         try:
-            for group in (hu_cities, se_cities, intl_cities):
+            # Current expansion work gets the bounded saver window first. Hungary
+            # remains available as a tail pass for genuinely unfinished work.
+            for group in groups:
                 if not group:
                     continue
                 if stop_at and datetime.now(timezone.utc) >= stop_at:
@@ -208,11 +217,13 @@ async def main() -> None:
             app_state.last_run_at = datetime.now(timezone.utc)
             success = True
         except Exception as exc:
+            run_error = str(exc)
             log.error("scheduled_run_failed", error=str(exc), mode=run_mode)
         finally:
             try:
                 finish_run(db_path, run_id, datetime.now(timezone.utc), success,
-                           json.dumps(pair_logs) if pair_logs else None)
+                           json.dumps(pair_logs) if pair_logs else None,
+                           error=run_error)
             finally:
                 app_state.run_coordinator.release(task)
 
@@ -301,6 +312,7 @@ async def main() -> None:
         started = datetime.now(timezone.utc)
         run_id = start_run(db_path, started, startup_mode)
         success = False
+        run_error: str | None = None
         pair_logs: list = []
         hu_cities = [c for c in (app_state.cities or []) if c.country == "Hungary"]
         se_cities = [c for c in (app_state.cities or []) if c.country == "Sweden"]
@@ -340,11 +352,13 @@ async def main() -> None:
             app_state.last_run_at = datetime.now(timezone.utc)
             success = True
         except Exception as exc:
+            run_error = str(exc)
             log.error("startup_run_failed", error=str(exc))
         finally:
             try:
                 finish_run(db_path, run_id, datetime.now(timezone.utc), success,
-                           json.dumps(pair_logs) if pair_logs else None)
+                           json.dumps(pair_logs) if pair_logs else None,
+                           error=run_error)
             finally:
                 app_state.run_coordinator.release(task)
 

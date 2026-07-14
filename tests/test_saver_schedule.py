@@ -3,8 +3,9 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
-from scraper.extract import FallbackExtractor
+from scraper.extract import FallbackExtractor, get_extract_fingerprint
 from scraper.main import _next_window_end
+from scraper.main import _saver_city_groups
 from scraper.models import SearchResult
 from scraper.pipeline import (
     CityConfig,
@@ -73,6 +74,61 @@ def test_search_only_collects_without_llm(tmp_path):
     assert cache.get_extracted("https://klub.test/a", fingerprint="") is None
 
 
+def test_search_only_never_reads_extraction_cache_or_writes_entities(tmp_path):
+    from scraper.cache import CacheManager
+    from scraper.db import get_communities, save_search_cache
+    from scraper.models import CommunityRecord
+
+    db, cfg, cities, topics = _fixtures(tmp_path)
+    cache = CacheManager(db)
+    url = "https://klub.test/cached"
+    save_search_cache(db, "Budapest", "running", [url], ["query"])
+    cache.save_scraped(url, "Korábban letöltött közösségi oldal.", "Budapest", "running")
+    cache.save_extracted(url, [CommunityRecord(
+        name="Régi Cache Kör", city="Budapest", topic="running", locale="hu",
+        source_url=url, extracted_at="2026-07-13T01:00:00+00:00",
+    )], fingerprint=get_extract_fingerprint(cfg.deepseek_model))
+
+    # No entity exists before collection. Reading the extraction cache would have
+    # replayed the cached record through save_results in the buggy implementation.
+    assert get_communities(db, "Budapest", "running") == []
+    with patch.object(cache, "get_extracted", side_effect=AssertionError(
+            "search_only must not read extraction caches")), \
+         patch("scraper.duplicates.detect_all", side_effect=AssertionError(
+             "search_only must not run entity duplicate detection")):
+        asyncio.run(run_pipeline(cities, topics, cfg, cache=cache, run_mode="search_only"))
+
+    assert get_communities(db, "Budapest", "running") == []
+
+
+def test_search_only_marks_pair_complete_after_failed_fetch(tmp_path):
+    from scraper.cache import CacheManager
+    from scraper.db import get_collected_pairs
+
+    db, cfg, cities, topics = _fixtures(tmp_path)
+    cache = CacheManager(db)
+
+    async def failed_fetch(url, *a, **k):
+        return None
+
+    with patch("scraper.pipeline.FallbackSearchClient", OkSearch), \
+         patch("scraper.pipeline.fetch_and_clean", failed_fetch):
+        asyncio.run(run_pipeline(cities, topics, cfg, cache=cache, run_mode="search_only"))
+
+    assert get_collected_pairs(db, cfg.search_max_pages) == {("Budapest", "running")}
+
+    class MustNotSearch:
+        def __init__(self, primaries): ...
+        exhausted = False
+        async def search_all(self, *a, **k):
+            raise AssertionError("completed pair must be skipped on the next run")
+
+    with patch("scraper.pipeline.FallbackSearchClient", MustNotSearch):
+        logs, _ = asyncio.run(run_pipeline(
+            cities, topics, cfg, cache=cache, run_mode="search_only"))
+    assert logs == []
+
+
 def test_stop_at_in_past_processes_zero_pairs(tmp_path):
     db, cfg, cities, topics = _fixtures(tmp_path)
     past = datetime.now(timezone.utc) - timedelta(minutes=1)
@@ -98,6 +154,18 @@ def test_next_window_end_same_day_and_midnight_cross():
     start2 = datetime(2026, 7, 9, 16, 35, tzinfo=timezone.utc)
     assert _next_window_end(start2, "00:20") == datetime(2026, 7, 10, 0, 20, tzinfo=timezone.utc)
     assert _next_window_end(start2, "garbage") is None
+
+
+def test_saver_city_groups_prioritize_sweden_then_world_then_hungary():
+    cities = [
+        CityConfig(name="Budapest", country="Hungary", locale="hu", search_variants=[]),
+        CityConfig(name="Berlin", country="Germany", locale="de", search_variants=[]),
+        CityConfig(name="Stockholm", country="Sweden", locale="sv", search_variants=[]),
+    ]
+    groups = _saver_city_groups(cities)
+    assert [[city.country for city in group] for group in groups] == [
+        ["Sweden"], ["Germany"], ["Hungary"],
+    ]
 
 
 def test_transient_search_failure_not_cached(tmp_path):

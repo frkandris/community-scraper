@@ -110,7 +110,8 @@ def init_db(db_path: Path) -> None:
                 finished_at TEXT,
                 run_mode    TEXT NOT NULL DEFAULT 'full',
                 success     INTEGER NOT NULL DEFAULT 1,
-                search_log  TEXT
+                search_log  TEXT,
+                error       TEXT
             )
         """)
         try:
@@ -119,6 +120,10 @@ def init_db(db_path: Path) -> None:
             pass
         try:
             conn.execute("ALTER TABLE runs ADD COLUMN new_records INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE runs ADD COLUMN error TEXT")
         except sqlite3.OperationalError:
             pass
         conn.execute("""
@@ -254,9 +259,21 @@ def init_db(db_path: Path) -> None:
                 urls       TEXT NOT NULL,
                 queries    TEXT NOT NULL,
                 cached_at  TEXT NOT NULL,
+                collected_at TEXT,
                 PRIMARY KEY (city, topic)
             )
         """)
+        try:
+            conn.execute("ALTER TABLE search_cache ADD COLUMN collected_at TEXT")
+        except sqlite3.OperationalError:
+            pass
+        else:
+            # Legacy rows were produced by runs that already attempted their fetch
+            # batch. Treat them as terminally collected so permanently unreadable
+            # URLs do not force a full historical retry after this migration.
+            conn.execute(
+                "UPDATE search_cache SET collected_at=cached_at WHERE collected_at IS NULL"
+            )
 
         # Venues — physical locations that host communities
         conn.execute("""
@@ -473,11 +490,12 @@ def finish_run(
     success: bool,
     search_log: str | None = None,
     new_records: int = 0,
+    error: str | None = None,
 ) -> None:
     with _connect(db_path) as conn:
         conn.execute(
-            "UPDATE runs SET finished_at=?, success=?, search_log=?, new_records=? WHERE id=?",
-            (finished_at.isoformat(), int(success), search_log, new_records, run_id),
+            "UPDATE runs SET finished_at=?, success=?, search_log=?, new_records=?, error=? WHERE id=?",
+            (finished_at.isoformat(), int(success), search_log, new_records, error, run_id),
         )
         conn.commit()
 
@@ -1163,29 +1181,15 @@ def get_city_topic_states(db_path: Path, current_fp: str) -> dict[str, dict[str,
 
 
 def get_collected_pairs(db_path: Path, max_pages: int) -> set[tuple[str, str]]:
-    """Pairs whose capped search-result set has been fetched into cache_pages."""
-    import hashlib
-
-    def _url_hash(url: str) -> str:
-        return hashlib.sha256(url.encode()).hexdigest()[:16]
-
+    """Pairs whose selected search results have all had a fetch attempt."""
+    del max_pages  # retained in the public signature for compatibility
     if not db_path.exists():
         return set()
     with _connect(db_path) as conn:
-        scraped_hashes = {
-            row[0] for row in conn.execute(
-                "SELECT url_hash FROM cache_pages WHERE scraped_at IS NOT NULL"
-            )
-        }
-        search_rows = conn.execute("SELECT city, topic, urls FROM search_cache").fetchall()
-
-    result: set[tuple[str, str]] = set()
-    for city, topic, urls_json in search_rows:
-        urls: list[str] = json.loads(urls_json) if urls_json else []
-        expected = urls[:max_pages]
-        if not expected or all(_url_hash(url) in scraped_hashes for url in expected):
-            result.add((city, topic))
-    return result
+        rows = conn.execute(
+            "SELECT city, topic FROM search_cache WHERE collected_at IS NOT NULL"
+        ).fetchall()
+    return {(row[0], row[1]) for row in rows}
 
 
 def get_fully_processed_pairs(
@@ -1704,8 +1708,25 @@ def save_search_cache(db_path: Path, city: str, topic: str,
             INSERT INTO search_cache (city, topic, urls, queries, cached_at)
             VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(city, topic) DO UPDATE SET
-                urls=excluded.urls, queries=excluded.queries, cached_at=excluded.cached_at
+                urls=excluded.urls, queries=excluded.queries,
+                cached_at=excluded.cached_at, collected_at=NULL
         """, (city, topic, json.dumps(urls), json.dumps(queries), now))
+        conn.commit()
+
+
+def mark_search_collection_complete(db_path: Path, city: str, topic: str) -> None:
+    """Mark a searched pair complete after every selected URL was attempted.
+
+    Individual fetch failures remain visible in the run log, but do not keep the
+    whole pair runnable forever. If the process dies before this call, the NULL
+    marker makes the next collector resume the pair.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect(db_path) as conn:
+        conn.execute(
+            "UPDATE search_cache SET collected_at=? WHERE city=? AND topic=?",
+            (now, city, topic),
+        )
         conn.commit()
 
 
@@ -2815,12 +2836,13 @@ def get_daily_summary(db_path: Path, start_iso: str, end_iso: str,
             result[scope(city)]["searches"] += cnt
 
         for row in conn.execute(
-                "SELECT id, run_mode, started_at, finished_at, success, search_log"
+            "SELECT id, run_mode, started_at, finished_at, success, search_log, error"
                 " FROM runs WHERE started_at >= ? AND started_at < ? ORDER BY started_at",
                 (start_iso, end_iso)).fetchall():
             run = {"id": row[0], "mode": row[1], "started_at": row[2],
                    "finished_at": row[3], "success": bool(row[4]),
-                   "pairs": 0, "records": 0, "search_failed": 0, "extract_failed": 0}
+                   "pairs": 0, "records": 0, "search_failed": 0, "extract_failed": 0,
+                   "error": row[6] or ""}
             if row[5]:
                 try:
                     logs = json.loads(row[5])

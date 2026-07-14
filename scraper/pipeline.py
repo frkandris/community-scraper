@@ -16,7 +16,7 @@ from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
 from .search import (DataForSEOClient, FallbackSearchClient, SearchQuotaError,
                      SearchUnavailableError, build_queries)
-from .db import get_search_cache, save_search_cache, get_collected_pairs, get_covered_pairs, upsert_venues, upsert_persons, delete_leader_persons_for_community, load_cache_page, find_community_by_id, get_fully_processed_pairs
+from .db import get_search_cache, save_search_cache, mark_search_collection_complete, get_collected_pairs, get_covered_pairs, upsert_venues, upsert_persons, delete_leader_persons_for_community, load_cache_page, find_community_by_id, get_fully_processed_pairs
 from .store import save_results
 
 if TYPE_CHECKING:
@@ -392,11 +392,12 @@ async def run_pipeline(
             log.info("catchup_pass_complete", new_records=catchup_new, pairs=len(uncovered))
 
     log.info("pipeline_complete", run_mode=run_mode, total_new_records=total_new)
-    try:
-        from .duplicates import detect_all
-        await asyncio.to_thread(detect_all, config.db_path)
-    except Exception as exc:
-        log.warning("post_run_duplicate_scan_failed", error=str(exc))
+    if run_mode != "search_only":
+        try:
+            from .duplicates import detect_all
+            await asyncio.to_thread(detect_all, config.db_path)
+        except Exception as exc:
+            log.warning("post_run_duplicate_scan_failed", error=str(exc))
     failed_search = sum(1 for p in pair_logs if p.get("search_failed"))
     failed_extract = sum(p.get("extract_failed", 0) for p in pair_logs)
     if failed_search or failed_extract:
@@ -552,6 +553,16 @@ async def _run_full(
                     pair_log["fetch_failed"] += 1
 
             log.info("fetch_done", city=city.name, topic=topic.name, pages=len(fetched))
+            mark_search_collection_complete(config.db_path, city.name, topic.name)
+
+            if not run_communities and not run_venues and not run_persons:
+                # search_only is a strict collection mode: after the fetch batch it
+                # must not read extraction caches, upsert entities, or run duplicate
+                # detection. Failed URLs are recorded above but the pair is terminally
+                # collected; an interrupted pair remains unmarked and is resumed.
+                run_stats[city.name][topic.name] = 0
+                pair_logs.append(pair_log)
+                continue
 
             records = []
             for url, text in fetched:

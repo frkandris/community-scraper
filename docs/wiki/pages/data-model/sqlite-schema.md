@@ -3,7 +3,7 @@ type: Data-model
 title: SQLite Schema
 description: Every table in scraper.db, its purpose, and its key columns — all created idempotently by init_db().
 tags: [sqlite, schema, database, tables]
-timestamp: 2026-07-10
+timestamp: 2026-07-14
 resource: scraper/db.py
 ---
 
@@ -17,10 +17,10 @@ See [[persistence-layer]] for the connection/migration model.
 
 | Table | Purpose | Key columns |
 |---|---|---|
-| `runs` | One row per scrape run | `run_mode` (default `full`), `success`, `search_log`, `new_records`; `start_run` inserts `success=0`, `finish_run` updates |
+| `runs` | One row per scrape run | `run_mode` (default `full`), `success`, `search_log`, `new_records`, `error`; `start_run` inserts `success=0`, `finish_run` updates |
 | `communities` | **Core** — one row per unique (name, city, topic) | `record_key UNIQUE`, `community_id`, `city`, `topic`, `data` (full JSON), `revalidate_fingerprint`, `hidden`; idx on (city,topic) and community_id |
 | `cache_pages` | One row per scraped URL | PK `url_hash`; `url`, `city`, `topic`, `domain`, `scraped_at`, `extracted_at`, `extract_fingerprint`, `venue_fingerprint`, `person_fingerprint`, `data` (blob) |
-| `search_cache` | URL lists per (city, topic) | composite PK `(city, topic)`; `urls` (JSON), `queries` (JSON), `cached_at`; TTL enforced at read time, not stored |
+| `search_cache` | URL lists per (city, topic) | composite PK `(city, topic)`; `urls`/`queries` JSON, `cached_at`, `collected_at`; TTL enforced at read time |
 | `venues` | Physical locations | `record_key UNIQUE`, `venue_id`, `city`, `data`; **no topic column** (spans topics via JSON `welcomed_topics`) |
 | `persons` | Leaders/instructors/speakers | `record_key UNIQUE`, `person_id`, `city`, `topic`, `role`, `data` |
 | `community_history` / `venue_history` / `person_history` | Field-level change logs | `<entity>_id`, `changed_at`, `changed_by` (default `scraper`), `field`, `old_value`, `new_value` |
@@ -44,4 +44,5 @@ See [[persistence-layer]] for the connection/migration model.
 - **Three fingerprint columns** on `cache_pages` are stored both as columns (for fast SQL filtering/counting) and inside the JSON blob (source of truth). See [[extraction-fingerprints]].
 - **`recategorize` mutates `record_key`** when a community's topic changes (recomputes the key, UPDATEs the row) while preserving `community_id`.
 - **`search_cache` TTL is not persisted** — the same row is "valid" or "expired" depending on the caller's `ttl_days` argument at read time.
+- **`collected_at` is terminal-attempt state, not all-success state**: it is set after the selected fetch batch finishes even if individual URLs fail; interruption before the marker leaves the pair resumable.
 - **Identity migration**: `unicode_record_keys_v2` rewrites legacy ASCII-only entity keys and all persisted references; see [[unicode-safe-identity-keys]].

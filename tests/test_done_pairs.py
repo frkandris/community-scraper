@@ -1,4 +1,5 @@
 import hashlib
+import sqlite3
 from pathlib import Path
 
 from scraper.db import (
@@ -8,6 +9,7 @@ from scraper.db import (
     init_db,
     save_cache_page,
     save_search_cache,
+    mark_search_collection_complete,
 )
 
 
@@ -92,13 +94,36 @@ def test_empty_community_result_skips_gated_venue_and_person_requirements(tmp_pa
     ) == {("Budapest", "running")}
 
 
-def test_search_collection_requires_the_capped_urls_to_be_scraped(tmp_path):
+def test_search_collection_requires_terminal_batch_marker(tmp_path):
     db = _db(tmp_path)
     assert get_collected_pairs(db, max_pages=1) == set()
 
     _save_page(db)
 
+    # Scraping a URL is not enough: the terminal marker is written only after
+    # the collector has attempted the complete selected URL batch.
+    assert get_collected_pairs(db, max_pages=1) == set()
+    mark_search_collection_complete(db, "Budapest", "running")
+
     assert get_collected_pairs(db, max_pages=1) == {("Budapest", "running")}
+
+
+def test_init_db_backfills_legacy_search_rows_as_collected(tmp_path):
+    db = tmp_path / "legacy.db"
+    with sqlite3.connect(db) as conn:
+        conn.execute("""
+            CREATE TABLE search_cache (
+                city TEXT NOT NULL, topic TEXT NOT NULL, urls TEXT NOT NULL,
+                queries TEXT NOT NULL, cached_at TEXT NOT NULL,
+                PRIMARY KEY (city, topic)
+            )
+        """)
+        conn.execute(
+            "INSERT INTO search_cache VALUES (?,?,?,?,?)",
+            ("Budapest", "running", "[]", "[]", "2026-07-13T01:00:00+00:00"),
+        )
+    init_db(db)
+    assert get_collected_pairs(db, max_pages=5) == {("Budapest", "running")}
 
 
 def test_extraction_done_check_ignores_urls_beyond_fetch_cap(tmp_path):

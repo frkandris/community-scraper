@@ -2,6 +2,10 @@
 
 Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
+## 2026-07-14
+- **Creation**: [[2026-07-search-only-cache-replay]] — made `search_only` a strict post-fetch exit, added terminal `search_cache.collected_at`, prioritized Sweden in bounded saver runs, and persisted top-level run errors into the daily report.
+- **Update**: [[cost-saver-schedule]], [[pipeline-run-modes]], [[pipeline-orchestration]], [[done-pair-url-hash-not-city-topic]], [[sqlite-schema]], [[daily-report]], [[sweden-pipeline-priority]], and [[hungary-sweden-intl-three-passes]] now document the corrected collection boundary, completion semantics, priority, and error surface.
+
 ## 2026-07-10
 - **Update**: Adopted the llm-wiki-seed conventions (kondfox/ai-utils) on top of Karpathy+OKF — new `CLAUDE.md` (maintenance triggers + same-commit rule), root `glossary.md` + `faq.md`, `union` merge driver for this log, and a wiki-wiring section in the repo root `CLAUDE.md`.
 - **Creation**: Integrations category — [[dataforseo]], [[deepseek]], [[resend-email]] (kozossegek.com verified 2026-07-09; free plan = 1 domain), [[ga4-reporting]] (property 536914034, SA Viewer, runtime-only env vars).

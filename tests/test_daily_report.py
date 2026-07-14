@@ -2,10 +2,12 @@
 from pathlib import Path
 
 from scraper.db import (
+    finish_run,
     get_daily_summary,
     get_traffic_for_day,
     init_db,
     record_pageview,
+    start_run,
 )
 from scraper.models import CommunityRecord
 from scraper.report import build_report_html
@@ -63,7 +65,8 @@ def test_report_html_contains_sections_and_numbers():
                  "pages_extracted": 8, "searches": 4},
         "runs": [{"id": 1, "mode": "search_only", "started_at": "2026-07-09T01:00:00",
                   "finished_at": "2026-07-09T16:20:00", "success": True,
-                  "pairs": 100, "records": 0, "search_failed": 2, "extract_failed": 0}],
+                  "pairs": 100, "records": 0, "search_failed": 2, "extract_failed": 0,
+                  "error": "DeepSeek failed <hard>"}],
         "totals": {"hu": 11000, "intl": 2000,
                    "covered_pairs_hu": 12000, "covered_pairs_intl": 900},
     }
@@ -73,8 +76,25 @@ def test_report_html_contains_sections_and_numbers():
     assert "8 új közösség" in subject and "57 látogató" in subject
     for frag in ("Napi összefoglaló — 2026-07-09", "kozossegek.com", "meetapedia.com",
                  "Új közösség", ">5<", ">3<", ">8<", "search_only", "hibák: 2 keresés",
-                 "11000", "13000"):
+                 "futási hiba: DeepSeek failed &lt;hard&gt;", "11000", "13000"):
         assert frag in html, f"hiányzik: {frag}"
+
+
+def test_daily_summary_includes_persisted_run_error(tmp_path):
+    from datetime import datetime, timedelta, timezone
+
+    db = _db(tmp_path)
+    started = datetime.now(timezone.utc)
+    run_id = start_run(db, started, "ai_only")
+    finish_run(db, run_id, started + timedelta(seconds=1), False,
+               error="malformed cache row")
+    summary = get_daily_summary(
+        db,
+        (started - timedelta(seconds=1)).isoformat(),
+        (started + timedelta(seconds=2)).isoformat(),
+        hu_cities=set(),
+    )
+    assert summary["runs"][0]["error"] == "malformed cache row"
 
 
 def test_report_html_stock_section():

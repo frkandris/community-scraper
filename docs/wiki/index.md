@@ -23,7 +23,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[search-layer]] — DataForSEO is the sole search client (live or standard mode) behind the FallbackSearchClient wrapper with per-run exhaustion state.
 - [[fetch-layer]] — An SSRF-safe httpx/Playwright fetcher validates public DNS and redirects before trafilatura/html2text turns HTML into clean text.
 - [[extraction-layer]] — DeepSeek LLM extraction of communities, venues, and persons from page text, with four prompt families, live-editable prompts, and fingerprint-keyed caching.
-- [[pipeline-orchestration]] — run_pipeline() sequences ai_only + full passes with a done-pair pre-filter; main.py runs it three times (Hungary → Sweden → world).
+- [[pipeline-orchestration]] — run_pipeline() sequences mode-specific passes with a done-pair pre-filter; bounded saver jobs prioritize Sweden while startup recovery remains Hungary-first.
 - [[duplicate-detection]] — detect_all() finds same-city duplicate communities/venues/persons via URL match and fuzzy name similarity, with a stable canonical key so re-scans are idempotent.
 - [[web-app]] — One FastAPI app with a public router and an /admin router gated by pure-ASGI Basic auth; Hungarian paths are canonical and English paths redirect.
 - [[i18n-and-site-detection]] — _detect_site reads the Host header; lang_context injects an i18n + nav bundle into every template. English is the translation base; missing keys render as themselves.
@@ -61,8 +61,8 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 ## Decisions
 
 - [[search-ttl-3650-days]] — TTL set to ~10 years: index the world first, worry about freshness later.
-- [[sweden-pipeline-priority]] — Sweden runs after Hungary because its 290-municipality list is large.
-- [[hungary-sweden-intl-three-passes]] — main.py runs run_pipeline three times over partitioned city lists; order is business priority — home market, biggest expansion market, then the long tail.
+- [[sweden-pipeline-priority]] — Bounded saver jobs prioritize Sweden before world and Hungary so the active expansion market cannot be starved by legacy work.
+- [[hungary-sweden-intl-three-passes]] — main.py partitions Hungary, Sweden, and world into independent passes; bounded saver jobs are expansion-first while startup recovery is Hungary-first.
 - [[scheduler-disabled-no-cron]] — APScheduler registers the enabled twin cost-saver jobs and daily report; the legacy combined cron remains opt-in.
 - [[cost-optimization-2026-07]] — Cost controls reduce paid search and LLM work through caching, query short-circuiting, venue gates, off-peak extraction, standard search, and topic tiers.
 - [[doc-drift-project-readme]] — Root PROJECT.md describes retired providers and scheduling; README.md, code, and this wiki reflect the current system.
@@ -98,6 +98,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[2026-06-seo-traffic-collapse]] — kozossegek.com organic clicks fell from ~95/day to ~0 around 2026-06-01 as ~20K pages were devalued to "Crawled - currently not indexed."
 - [[2026-07-bug-hunt]] — Three-agent review found 15+ verified defects; fixed in three batches — moderation survival, domain matching, persons lookup, recategorize, venue scope, timeline dedup, and a set of hot-path optimizations.
 - [[2026-07-ga4-env-buildtime-failure]] — A multiline JSON secret marked "Available at Buildtime" in Coolify was injected as a Dockerfile ARG and broke the build parse; runtime-only env vars fixed it.
+- [[2026-07-search-only-cache-replay]] — The first saver collector replayed extraction-cache records into Hungarian communities and retried pairs forever when any selected URL could not be fetched.
 
 ## Operations
 

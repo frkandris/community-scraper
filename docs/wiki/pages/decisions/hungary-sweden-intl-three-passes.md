@@ -1,13 +1,13 @@
 ---
 type: Decision
-title: Three Geographic Passes (Hungary → Sweden → World)
-description: main.py runs run_pipeline three times over partitioned city lists; order is business priority — home market, biggest expansion market, then the long tail.
+title: Three Geographic Passes with Mode-Specific Priority
+description: main.py partitions Hungary, Sweden, and world into independent passes; bounded saver jobs are expansion-first while startup recovery is Hungary-first.
 tags: [pipeline, priority, sweden, hungary, main]
-timestamp: 2026-07-09
+timestamp: 2026-07-14
 resource: scraper/main.py
 ---
 
-# Three Geographic Passes (Hungary → Sweden → World)
+# Three Geographic Passes with Mode-Specific Priority
 
 *Both `_scheduled_run` and `_startup_run` partition `app_state.cities` into three lists and call `run_pipeline` three times sequentially.*
 
@@ -17,9 +17,9 @@ resource: scraper/main.py
 
 Total **774 cities × 36 topics ≈ 27,900 pairs** per sweep.
 
-## Why this order
+## Why the orders differ
 
-Order = business priority: home market first, biggest expansion market second, long tail last. Sweden is broken out as its own pass (not lumped into "international") because its 290-municipality list makes it the second-largest national block after Hungary, and it is the primary expansion target — so its data should refresh right after the home market, before the 145 scattered world cities. See [[sweden-pipeline-priority]].
+Bounded saver runs use Sweden → world → Hungary because the daily stop time makes first position scarce capacity. Startup recovery retains Hungary → Sweden → world to preserve its existing resume behavior. Sweden remains a distinct pass because its 290 municipalities make it the largest expansion block. See [[sweden-pipeline-priority]].
 
 ## Consequences
 

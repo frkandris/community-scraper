@@ -3,7 +3,7 @@ type: Subsystem
 title: Daily Report Email
 description: report.py builds one email per UTC day — GA4 visitors, per-site diffs, run outcomes, and current stock totals — sent via Resend at 04:30 UTC or on demand.
 tags: [subsystem, report, email, traffic, analytics]
-timestamp: 2026-07-10
+timestamp: 2026-07-14
 resource: scraper/report.py
 ---
 
@@ -20,7 +20,8 @@ stand" — visitors, diffs, runs, and totals, split Hungarian / international.*
    computes per-scope diffs (new/changed communities via `community_history` joins
    with the `__created__`/MIN(changed_at) guard from
    [[history-created-sentinel-overcounting]], venues, persons, pages, searches),
-   run outcomes with `search_failed`/`extract_failed` counters, and a `stock` dict —
+   run outcomes with `search_failed`/`extract_failed` counters plus the persisted
+   top-level `runs.error`, and a `stock` dict —
    current totals per scope (communities, venues, persons, cached/extracted pages,
    covered pairs). Scope split: city ∈ `hu_cities` → `hu`, else `intl`.
 3. **Traffic**: [[ga4-reporting]] numbers are primary (visitors/sessions/pageviews per
@@ -44,3 +45,5 @@ stand" — visitors, diffs, runs, and totals, split Hungarian / international.*
   assets, and utility paths are excluded.
 - Everything degrades silently: no Resend key → skip with log; no GA4 env → server
   counter; empty day → zeros, email still sent.
+- Scheduled/startup exceptions are HTML-escaped and displayed as `futási hiba`; a
+  zero-pair failed run therefore carries its actionable cause in the email.

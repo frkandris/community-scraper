@@ -3,7 +3,7 @@ type: Concept
 title: Done-Pair Detection Uses url_hash, Not a city/topic JOIN
 description: Done-pair detection resolves capped search URLs to hashes and checks every extraction family enabled for the current run mode.
 tags: [done-pairs, url-hash, correctness, coverage, pipeline]
-timestamp: 2026-07-10
+timestamp: 2026-07-14
 resource: scraper/db.py
 ---
 
@@ -19,7 +19,7 @@ resource: scraper/db.py
 
 A pair is fully processed when it has a `search_cache` entry **and** either its URL list is empty or every scraped URL inside `search_max_pages` is current for every extraction family enabled for the run. A visible community is not a shortcut: a stale community fingerprint keeps a green pair runnable. Venue/person fingerprints are required only when the pipeline's community-presence cost gate would call those extractors.
 
-`search_only` uses the separate `get_collected_pairs`: the capped URL set must be scraped, but no LLM fingerprint is required. This lets failed fetches retry without paying for an already cached search.
+`search_only` uses the separate `get_collected_pairs`: `search_cache.collected_at` must be non-null. The marker is written after all selected URLs were attempted, regardless of individual fetch success. This resumes process-level interruptions without allowing permanently unreadable URLs to replay a pair forever.
 
 Unscraped URLs are excluded from the extraction check, and URLs beyond the fetch cap are ignored. Otherwise a permanently failed or never-selected result could keep a pair runnable forever.
 
