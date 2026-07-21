@@ -12,7 +12,11 @@ from scraper.extract import (
 )
 from scraper.models import SearchResult
 from scraper.pipeline import CityConfig, PipelineConfig, TopicConfig, _run_full
-from scraper.search import FallbackSearchClient, SearchQuotaError
+from scraper.search import (
+    FallbackSearchClient,
+    SearchQuotaError,
+    SearchUnavailableError,
+)
 
 
 class StubPrimary:
@@ -87,6 +91,25 @@ def test_search_all_no_providers_raises():
     c = FallbackSearchClient(primaries=[])
     with pytest.raises(SearchQuotaError):
         asyncio.run(c.search_all(["q1"]))
+
+
+def test_persistent_search_failure_disables_provider_for_current_pass():
+    class UnavailableSearchProvider:
+        def __init__(self):
+            self.calls = 0
+
+        async def search(self, query, locale="en", num_results=10):
+            self.calls += 1
+            raise SearchUnavailableError("queue timed out")
+
+    provider = UnavailableSearchProvider()
+    client = FallbackSearchClient(primaries=[provider])
+    with pytest.raises(SearchUnavailableError):
+        asyncio.run(client.search_all(["q1"]))
+    assert client.exhausted
+    with pytest.raises(SearchQuotaError):
+        asyncio.run(client.search_all(["q2"]))
+    assert provider.calls == 1
 
 
 def test_search_all_partial_results_survive_quota():

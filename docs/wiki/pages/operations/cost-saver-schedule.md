@@ -3,7 +3,7 @@ type: Runbook
 title: Cost-Saver Twin Schedule
 description: Two independent daily crons — DataForSEO collects cheaply all day (search_only, standard mode), DeepSeek extracts only in its off-peak discount window (ai_only, stop_at-boxed).
 tags: [operations, cost, schedule, search-only, off-peak, deepseek, dataforseo]
-timestamp: 2026-07-14
+timestamp: 2026-07-21
 resource: scraper/main.py
 ---
 
@@ -15,7 +15,7 @@ resource: scraper/main.py
 
 | Job | Mode | Cron (UTC) | Window end | What it does |
 |---|---|---|---|---|
-| search collector | `search_only` | `0 1 * * *` | `search_until: 16:20` | DataForSEO (**standard** queue, $0.6/1K) searches + fetches pages into the cache. **Zero LLM calls.** |
+| search collector | `search_only` | `0 1 * * *` | `search_until: 16:20` | DataForSEO **high-priority standard** queue (~$1.2/1K) searches + fetches pages into the cache. **Zero LLM calls.** |
 | off-peak extractor | `ai_only` | `35 16 * * *` | `extract_until: 00:20` | DeepSeek extracts the **already-collected** pages, entirely inside its off-peak window (UTC 16:30–00:30, ~50–75% cheaper). |
 
 Both use the Sweden → world → Hungary pass order and the shared `_cron_run` runner in `main.py`. The expansion-first order applies to the bounded scheduled jobs; startup recovery keeps its Hungary-first order.
@@ -40,8 +40,13 @@ The complementary `*_until` values normally keep the jobs apart. `RunCoordinator
 
 ## Ops notes
 
-- `dataforseo_mode: standard` is global: **manual dashboard runs also search in queue mode** (minutes/query). Flip back to `live` in settings if an interactive run needs instant search.
+- `dataforseo_mode: standard` and `standard_priority: 2` are global: **manual dashboard runs also search in the priority queue**. Live mode remains available for truly interactive searches.
 - Legacy combined cron (`cron_enabled`) stays available and off.
 - Watch progress on the coverage matrix; searched-but-unextracted pairs show amber until the night pass catches up.
 - Failed scheduled/startup exceptions are persisted in `runs.error` and printed in the next daily report; the container log is no longer the only error surface.
+- Provider failures make the run unsuccessful instead of displaying a green check.
+  Graceful cancellation stores its cause; a row left unfinished by a hard restart or
+  OOM is labeled as such when the report reads it.
+- `ai_only` reads `cache_pages` pair by pair. Loading the complete raw cache before
+  the first pair caused zero-log process restarts at ~74K cached pages.
 - Triggering and startup behavior are summarized in [[run-modes-and-startup]].

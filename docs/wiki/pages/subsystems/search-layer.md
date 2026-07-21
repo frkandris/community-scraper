@@ -3,7 +3,7 @@ type: Subsystem
 title: Search Layer
 description: DataForSEO is the sole search client (live or standard mode) behind the FallbackSearchClient wrapper with per-run exhaustion state.
 tags: [search, dataforseo, fallback, cost]
-timestamp: 2026-07-09
+timestamp: 2026-07-21
 resource: scraper/search.py
 ---
 
@@ -16,13 +16,13 @@ See [[search-provider-fallback-chain]] for history (Google Playwright / Serper /
 ## DataForSEOClient
 
 - **live mode** (default): `live/regular` endpoint, $2/1K queries, instant.
-- **standard mode** (`search.dataforseo_mode: standard`): `task_post` + `task_get` polling, $0.6/1K, ~0.5–5 min latency per query — only for long unattended sweeps. Enrichment always builds a live-mode client.
+- **standard mode** (`search.dataforseo_mode: standard`): `task_post` + `task_get` polling. Production uses high priority (`standard_priority: 2`, ~$1.2/1K, normally ≤1 minute) because normal priority can exceed the 5-minute poll timeout. Enrichment always builds a live-mode client.
 - Locale → `location_code` via `LOCALE_TO_DATAFORSEO_LOCATION` (HU=2348); unmapped locales omit the code. `str(locale)` guards the [[pyyaml-no-norway-boolean]] trap.
 - `SearchQuotaError` on HTTP 402/429 and API status 40201 (top-level, per-task, and in standard-mode polling).
 
 ## FallbackSearchClient
 
-`search_all(queries, stop_after=…)` iterates queries one-by-one, deduplicates by exact URL, and **stops issuing paid queries** once `stop_after` unique results are collected (the pipeline passes `search_max_pages * 2`). A quota error marks the provider exhausted (`float('inf')`) for the rest of the run; already-collected results are kept. With one provider the chain semantics are trivial, but the wrapper stays so a fallback can be re-added with one line.
+`search_all(queries, stop_after=…)` iterates queries one-by-one, deduplicates by exact URL, and **stops issuing paid queries** once `stop_after` unique results are collected (the pipeline passes `search_max_pages * 2`). A quota or persistent unavailable error marks the provider exhausted (`float('inf')`) for the rest of the geographic pass; already-collected results are kept. The next pass/day constructs a fresh client. With one provider the chain semantics are trivial, but the wrapper stays so a fallback can be re-added with one line.
 
 ## Query construction
 

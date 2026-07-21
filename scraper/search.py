@@ -45,9 +45,9 @@ class DataForSEOClient:
 
     Two modes:
     - "live" (default): live/regular endpoint, $2/1K queries, instant.
-    - "standard": task_post + task_get polling, $0.6/1K queries (70% cheaper),
-      but results take ~0.5–5 minutes. Fine for the batch pipeline; keep "live"
-      for anything latency-sensitive (e.g. enrichment).
+    - "standard": task_post + task_get polling. Normal priority costs $0.6/1K
+      but can outlive the five-minute client timeout; production uses high
+      priority at $1.2/1K (normally <=1 minute). Keep "live" for enrichment.
 
     Works reliably from datacenter IPs; raises SearchQuotaError on depleted credits.
     Auth: Basic HTTP with login:password (base64-encoded).
@@ -60,10 +60,11 @@ class DataForSEOClient:
     _STANDARD_TIMEOUT_SECONDS = 300.0
 
     def __init__(self, login: str, password: str, rate_limit_seconds: float = 1.0,
-                 mode: str = "live"):
+                 mode: str = "live", standard_priority: int = 1):
         import base64
         self.rate_limit_seconds = rate_limit_seconds
         self.mode = mode if mode in ("live", "standard") else "live"
+        self.standard_priority = 2 if standard_priority == 2 else 1
         self._last_request_time: float = 0.0
         raw = f"{login}:{password}".encode()
         self._auth_header = f"Basic {base64.b64encode(raw).decode()}"
@@ -146,8 +147,11 @@ class DataForSEOClient:
         headers = {"Authorization": self._auth_header, "Content-Type": "application/json"}
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.post(self._TASK_POST, json=[{**task, "priority": 1}],
-                                         headers=headers)
+                resp = await client.post(
+                    self._TASK_POST,
+                    json=[{**task, "priority": self.standard_priority}],
+                    headers=headers,
+                )
         except Exception as exc:
             log.warning("dataforseo_task_post_failed", query=query, error=str(exc))
             raise SearchUnavailableError(f"DataForSEO task_post failed: {exc}") from exc
@@ -298,8 +302,14 @@ class FallbackSearchClient:
                 remaining = [q for q in remaining if q not in provider_done]
                 continue
             except SearchUnavailableError as exc:
-                # transient: give up on this provider for THIS call only
+                # A persistent queue/network failure must not consume the entire
+                # collector window by retrying every remaining pair. Disable this
+                # provider for the geographic pass; the next pass/day constructs
+                # a fresh client and tries again.
                 log.warning("search_unavailable", provider=type(primary).__name__, reason=str(exc))
+                self._blocked_until[i] = float("inf")
+                log.warning("search_provider_disabled_for_run",
+                            provider=type(primary).__name__, reason="unavailable")
                 hit_transient = True
                 remaining = [q for q in remaining if q not in provider_done]
                 continue

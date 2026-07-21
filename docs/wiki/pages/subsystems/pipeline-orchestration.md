@@ -3,7 +3,7 @@ type: Subsystem
 title: Pipeline Orchestration
 description: run_pipeline() sequences mode-specific passes with a done-pair pre-filter; bounded saver jobs prioritize Sweden while startup recovery remains Hungary-first.
 tags: [pipeline, orchestration, run-modes, done-pairs, scheduler]
-timestamp: 2026-07-14
+timestamp: 2026-07-21
 resource: scraper/pipeline.py
 ---
 
@@ -15,13 +15,20 @@ See [[pipeline-run-modes]] for the mode overview, [[done-pair-url-hash-not-city-
 
 ## What "full" really means
 
-`run_pipeline(run_mode="full")` runs `_run_ai_only` first (cheap, cache-only re-extraction of stale pages), then `_run_full`, then a catch-up `_run_full` over `all_pairs - covered - done_pairs` to guarantee every never-covered pair gets one pass. `run_mode="ai_only"` runs only the cache pass. `run_mode="revalidate"` is **not handled here** — it lives entirely in `app.py:_run_revalidate` (a pure LLM QA pass over the DB). Every `run_pipeline` ends by firing `detect_all()` (duplicate scan) fire-and-forget via `asyncio.to_thread`.
+`run_pipeline(run_mode="full")` runs `_run_ai_only` first (cheap, cache-only re-extraction of stale pages), then `_run_full`, then a catch-up `_run_full` over `all_pairs - covered - done_pairs` to guarantee every never-covered pair gets one pass. `run_mode="ai_only"` runs only the cache pass. `run_mode="revalidate"` is **not handled here** — it lives entirely in `app.py:_run_revalidate` (a pure LLM QA pass over the DB). Entity-writing modes end with `detect_all()`; strict `search_only` skips it.
 
 ## Done-pair pre-filter
 
 When `skip_extracted` is on, `run_pipeline` computes mode-aware `done_pairs` and threads `pairs_filter = all_pairs - done_pairs` into every sub-call. `search_only` checks the pair-level `collected_at` marker written after the selected URL batch was attempted. AI modes check community, venue, and person fingerprints according to the enabled phase flags and the same community-presence gates used during extraction. Changing any enabled prompt/model invalidates done-status even when the pair already has visible records.
 
 False-positive changes take the same route without changing the global fingerprint: pair examples explicitly clear only that pair's community extraction metadata, while global extraction rules clear it for all cached pages. Both `_run_ai_only` and `_run_full` pass the current pair-scoped negative examples to the extractor, so the next selected run uses the new rule consistently. `_run_ai_only` also attributes scraped pages through `search_cache` URL hashes rather than last-write-wins `cache_pages.city/topic`; one shared URL can therefore be reprocessed for every pair that uses it.
+
+Since 2026-07-21 `_run_ai_only` calls `get_scraped_cache_for_search_pair` inside the
+pair loop. The previous bulk helper decoded every cached raw page and built a global
+pair map before producing the first log entry; at production size this could exceed
+the container memory limit and leave an unfinished zero-pair run row. Its preceding
+`get_fully_processed_pairs` check likewise selects only JSON-derived flags and the
+small person-key map instead of decoding each complete raw-text cache blob.
 
 ## Three geographic passes (main.py)
 

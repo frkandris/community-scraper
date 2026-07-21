@@ -9,10 +9,12 @@ search:
   results_per_query: 10
   max_pages_per_topic: 5
   rate_limit_seconds: 1.5
-  # "live" = instant, $2/1K queries. "standard" = task queue, $0.6/1K (70% cheaper)
-  # but each query takes ~0.5-5 minutes. Fine for the unattended saver collector;
-  # note manual dashboard runs also use this mode.
+  # "live" = instant, $2/1K queries. "standard" = task queue: $0.6/1K normal
+  # or $1.2/1K high priority. Manual dashboard runs also use this mode.
   dataforseo_mode: standard
+  # Normal queue can legally exceed our 5-minute poll window. High priority is
+  # ~$1.2/1K (vs $0.6 normal, $2 live) and normally completes within one minute.
+  standard_priority: 2
 
 fetch:
   timeout_seconds: 15

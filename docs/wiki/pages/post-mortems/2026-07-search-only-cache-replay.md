@@ -3,7 +3,7 @@ type: Post-mortem
 title: search_only Replayed Cached Communities During Collection
 description: The first saver collector replayed extraction-cache records into Hungarian communities and retried pairs forever when any selected URL could not be fetched.
 tags: [post-mortem, search-only, cache, scheduler, history, sweden]
-timestamp: 2026-07-14
+timestamp: 2026-07-21
 resource: scraper/pipeline.py
 ---
 
@@ -35,3 +35,17 @@ The top-level scheduler exception was logged but not stored in `runs`, leaving t
 A mode flag is not an isolation boundary unless the code returns before unrelated cache and persistence paths. Completion state must distinguish “attempted terminally” from “all external I/O succeeded,” especially when some URLs are permanently inaccessible.
 
 See [[cost-saver-schedule]], [[pipeline-run-modes]], and [[done-pair-url-hash-not-city-topic]].
+
+## Follow-up: zero-work runs on 2026-07-18/19
+
+After the entity-replay fix, the collector correctly stopped touching Hungary but
+reported 181–182 failed searches per day. Normal-priority DataForSEO tasks can take
+up to the provider's 45-minute target guarantee, while the client discarded them
+after five minutes; sequential retries consumed the entire window. The queue now uses
+high priority (`priority: 2`).
+
+The extractor's zero-pair red run was a separate startup-memory issue: both done-pair
+detection and `_run_ai_only` decoded the entire raw cache before logging a pair.
+Done-pair detection now selects only compact JSON-derived flags, pair-scoped DB reads
+bound extraction memory, and unfinished rows receive an explicit restart/OOM diagnosis
+in [[daily-report]].

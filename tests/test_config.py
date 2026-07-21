@@ -51,6 +51,20 @@ def test_load_config_from_docs_builds_runtime_config(tmp_path: Path):
     assert cities[0].name == "Budapest"
     assert topics[0].name == "running"
     assert cfg.dataforseo_mode == "live"
+    assert cfg.dataforseo_priority == 1
+
+
+def test_load_config_reads_standard_queue_priority(tmp_path: Path):
+    settings = minimal_settings()
+    settings["search"].update({"dataforseo_mode": "standard", "standard_priority": 2})
+    _, _, cfg = load_config_from_docs(
+        tmp_path / "scraper.db",
+        {"cities": [{"name": "Stockholm", "country": "Sweden", "locale": "sv"}]},
+        {"topics": [{"name": "running", "search_terms": {"sv": ["löpning"]}}]},
+        settings,
+    )
+    assert cfg.dataforseo_mode == "standard"
+    assert cfg.dataforseo_priority == 2
 
 
 def test_load_config_from_docs_rejects_invalid_shapes(tmp_path: Path):

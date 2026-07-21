@@ -3,7 +3,7 @@ type: Decision
 title: Cost Optimization Round (2026-07)
 description: Cost controls reduce paid search and LLM work through caching, query short-circuiting, venue gates, off-peak extraction, standard search, and topic tiers.
 tags: [cost, dataforseo, llm, cache, tiering, off-peak]
-timestamp: 2026-07-10
+timestamp: 2026-07-21
 resource: scraper/pipeline.py
 ---
 
@@ -23,7 +23,7 @@ resource: scraper/pipeline.py
 
 ## Cheaper providers / windows
 
-- **`search.dataforseo_mode: standard`** is active in `settings.yaml`: task_post + task_get queue at **$0.6/1K vs $2/1K**, but ~0.5–5 min latency per query. The code fallback remains `live`; enrichment always constructs a live-mode client.
+- **`search.dataforseo_mode: standard`** is active in `settings.yaml` with high priority (`standard_priority: 2`): task_post + task_get at **$1.2/1K vs $2/1K**, normally within one minute. Normal priority ($0.6/1K) can exceed the sequential client's timeout. The code fallback remains `live`; enrichment always constructs a live-mode client.
 - **Off-peak extractor** (`schedule.saver_enabled: true`, `extract_cron: 35 16 * * *` UTC): DeepSeek work is boxed into the configured discount window. See [[cost-saver-schedule]] and [[scheduler-disabled-no-cron]].
 
 ## Topic tiering

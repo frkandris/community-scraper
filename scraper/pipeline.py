@@ -273,7 +273,8 @@ class PipelineConfig:
     cache_skip_extracted: bool = True
     search_cache_ttl_days: int = 7
     enrich_communities: bool = True
-    dataforseo_mode: str = "live"  # "standard" = task queue, 70% cheaper, minutes latency
+    dataforseo_mode: str = "live"  # "standard" = queued task_post/task_get API
+    dataforseo_priority: int = 1  # standard mode: 1=normal, 2=high priority
     # Topics still searched for topic_tier="core" cities; empty = tiering disabled.
     core_topics: list[str] = field(default_factory=list)
 
@@ -431,6 +432,7 @@ async def _run_full(
             config.dataforseo_login, config.dataforseo_password,
             rate_limit_seconds=config.search_rate_limit,
             mode=config.dataforseo_mode,
+            standard_priority=config.dataforseo_priority,
         ))
     searxng: FallbackSearchClient = FallbackSearchClient(primaries=search_primaries)
     log.info("search_client", primaries=[type(p).__name__ for p in search_primaries])
@@ -747,13 +749,9 @@ async def _run_ai_only(
         return 0, []
 
     all_fps = load_false_positives(config.db_path)
-    all_scraped = await asyncio.to_thread(cache.get_scraped_by_search_pair)
-    log.info("ai_only_start", cached_pages=len(all_scraped),
-             run_communities=run_communities, run_venues=run_venues, run_persons=run_persons)
-
-    city_topic_pages: dict[tuple[str, str], list[tuple[str, str]]] = {}
-    for url, text, city, topic in all_scraped:
-        city_topic_pages.setdefault((city, topic), []).append((url, text))
+    log.info("ai_only_start", load_strategy="pair_by_pair",
+             run_communities=run_communities, run_venues=run_venues,
+             run_persons=run_persons)
 
     total_new = 0
     pair_logs: list[dict] = []
@@ -769,7 +767,9 @@ async def _run_ai_only(
             await asyncio.sleep(0)
             if on_pair_start:
                 on_pair_start(city.name, topic.name)
-            pages = city_topic_pages.get((city.name, topic.name), [])
+            pages = await asyncio.to_thread(
+                cache.get_scraped_for_pair, city.name, topic.name
+            )
             pair_log: dict = {
                 "city": city.name,
                 "topic": topic.name,

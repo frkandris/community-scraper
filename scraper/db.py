@@ -1219,6 +1219,15 @@ def get_fully_processed_pairs(
     def _url_hash(url: str) -> str:
         return hashlib.sha256(url.encode()).hexdigest()[:16]
 
+    def _json_object_keys(raw: str | None) -> set[str]:
+        if not raw:
+            return set()
+        try:
+            value = json.loads(raw)
+        except (TypeError, json.JSONDecodeError):
+            return set()
+        return set(value) if isinstance(value, dict) else set()
+
     if not db_path.exists():
         return set()
     with _connect(db_path) as conn:
@@ -1227,11 +1236,17 @@ def get_fully_processed_pairs(
                 "extract_fingerprint": row[1],
                 "venue_fingerprint": row[2],
                 "person_fingerprint": row[3],
-                "data": json.loads(row[4]),
+                "records_present": bool(row[4]),
+                "has_communities": bool(row[5]),
+                "person_keys": _json_object_keys(row[6]),
             }
             for row in conn.execute(
                 "SELECT url_hash, extract_fingerprint, venue_fingerprint,"
-                " person_fingerprint, data FROM cache_pages"
+                " person_fingerprint,"
+                " json_type(data, '$.records') IS NOT NULL,"
+                " COALESCE(json_array_length(json_extract(data, '$.records')), 0) > 0,"
+                " json_extract(data, '$.persons_data')"
+                " FROM cache_pages"
                 " WHERE scraped_at IS NOT NULL"
             )
         }
@@ -1257,16 +1272,15 @@ def get_fully_processed_pairs(
         pair_person_key = f"{city}/{topic}"
         all_current = True
         for page in processable:
-            data = page["data"]
             community_current = (
                 page["extract_fingerprint"] == current_fp
-                and data.get("records") is not None
+                and page["records_present"]
             )
             if (run_communities or run_persons) and not community_current:
                 all_current = False
                 break
 
-            has_communities = community_current and bool(data.get("records"))
+            has_communities = community_current and page["has_communities"]
             venue_expected = run_venues and (has_communities or not run_communities)
             if venue_expected and (
                 not venue_fp or page["venue_fingerprint"] != venue_fp
@@ -1275,11 +1289,10 @@ def get_fully_processed_pairs(
                 break
 
             person_expected = run_persons and has_communities
-            persons_data = data.get("persons_data") or {}
             if person_expected and (
                 not person_fp
                 or page["person_fingerprint"] != person_fp
-                or pair_person_key not in persons_data
+                or pair_person_key not in page["person_keys"]
             ):
                 all_current = False
                 break
@@ -1600,6 +1613,69 @@ def get_scraped_cache_by_search_pair(db_path: Path) -> list[tuple[str, str, str,
 
     result.extend(page for url_hash, page in pages.items() if url_hash not in linked_hashes)
     return result
+
+
+def get_scraped_cache_for_search_pair(
+    db_path: Path, city: str, topic: str
+) -> list[tuple[str, str]]:
+    """Return only one pair's ``(url, raw_text)`` rows.
+
+    The old bulk helper materializes every raw page in memory before ai_only can
+    process its first pair. At production scale that can trigger an OOM restart.
+    Search-cache URLs remain authoritative; denormalized cache metadata is used
+    only for pairs without a search row (for example manual legacy pages).
+    """
+    import hashlib
+
+    if not db_path.exists():
+        return []
+    with _connect(db_path) as conn:
+        search_row = conn.execute(
+            "SELECT urls FROM search_cache WHERE city=? AND topic=?",
+            (city, topic),
+        ).fetchone()
+        if search_row is None:
+            rows = conn.execute(
+                "SELECT data FROM cache_pages"
+                " WHERE city=? AND topic=? AND scraped_at IS NOT NULL",
+                (city, topic),
+            ).fetchall()
+            ordered_hashes = None
+        else:
+            try:
+                urls = json.loads(search_row[0]) if search_row[0] else []
+            except (TypeError, json.JSONDecodeError):
+                return []
+            ordered_hashes = [hashlib.sha256(url.encode()).hexdigest()[:16] for url in urls]
+            if not ordered_hashes:
+                return []
+            placeholders = ",".join("?" for _ in ordered_hashes)
+            rows = conn.execute(
+                f"SELECT url_hash, data FROM cache_pages"
+                f" WHERE url_hash IN ({placeholders}) AND scraped_at IS NOT NULL",
+                ordered_hashes,
+            ).fetchall()
+
+    if ordered_hashes is None:
+        entries = []
+        for (data_json,) in rows:
+            try:
+                entry = json.loads(data_json)
+            except (TypeError, json.JSONDecodeError):
+                continue
+            if isinstance(entry, dict) and entry.get("url") and entry.get("raw_text"):
+                entries.append((entry["url"], entry["raw_text"]))
+        return entries
+
+    by_hash: dict[str, tuple[str, str]] = {}
+    for url_hash, data_json in rows:
+        try:
+            entry = json.loads(data_json)
+        except (TypeError, json.JSONDecodeError):
+            continue
+        if isinstance(entry, dict) and entry.get("url") and entry.get("raw_text"):
+            by_hash[url_hash] = (entry["url"], entry["raw_text"])
+    return [by_hash[url_hash] for url_hash in ordered_hashes if url_hash in by_hash]
 
 
 # ── False positives ───────────────────────────────────────────────────────────
@@ -2839,10 +2915,14 @@ def get_daily_summary(db_path: Path, start_iso: str, end_iso: str,
             "SELECT id, run_mode, started_at, finished_at, success, search_log, error"
                 " FROM runs WHERE started_at >= ? AND started_at < ? ORDER BY started_at",
                 (start_iso, end_iso)).fetchall():
+            interrupted_error = (
+                "run interrupted before completion (container restart or OOM)"
+                if not row[3] and not row[6] else ""
+            )
             run = {"id": row[0], "mode": row[1], "started_at": row[2],
                    "finished_at": row[3], "success": bool(row[4]),
                    "pairs": 0, "records": 0, "search_failed": 0, "extract_failed": 0,
-                   "error": row[6] or ""}
+                   "error": row[6] or interrupted_error}
             if row[5]:
                 try:
                     logs = json.loads(row[5])

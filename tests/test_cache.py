@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from scraper.cache import CacheManager, _url_hash
-from scraper.db import init_db
+from scraper.db import init_db, save_search_cache
 from scraper.models import CommunityRecord
 
 
@@ -45,3 +45,34 @@ def test_delete_extracted_clears_fingerprint_and_model(tmp_path: Path):
     assert "extract_fingerprint" not in entry
     assert "extract_model" not in entry
     assert "records" not in entry
+
+
+def test_pair_scrape_read_does_not_materialize_other_pairs(tmp_path: Path):
+    db_path = tmp_path / "scraper.db"
+    init_db(db_path)
+    cache = CacheManager(db_path)
+    budapest_url = "https://example.com/budapest"
+    stockholm_url = "https://example.com/stockholm"
+    save_search_cache(db_path, "Budapest", "running", [budapest_url], ["q1"])
+    save_search_cache(db_path, "Stockholm", "running", [stockholm_url], ["q2"])
+    cache.save_scraped(budapest_url, "budapest text", "Budapest", "running")
+    cache.save_scraped(stockholm_url, "stockholm text", "Stockholm", "running")
+
+    assert cache.get_scraped_for_pair("Stockholm", "running") == [
+        (stockholm_url, "stockholm text")
+    ]
+
+
+def test_pair_scrape_read_uses_search_cache_for_shared_url(tmp_path: Path):
+    db_path = tmp_path / "scraper.db"
+    init_db(db_path)
+    cache = CacheManager(db_path)
+    url = "https://example.com/shared"
+    save_search_cache(db_path, "Budapest", "running", [url], ["q1"])
+    save_search_cache(db_path, "Stockholm", "running", [url], ["q2"])
+    # Denormalized metadata is last-write-wins, but both authoritative search
+    # pairs must still see the page.
+    cache.save_scraped(url, "shared text", "Stockholm", "running")
+
+    assert cache.get_scraped_for_pair("Budapest", "running") == [(url, "shared text")]
+    assert cache.get_scraped_for_pair("Stockholm", "running") == [(url, "shared text")]

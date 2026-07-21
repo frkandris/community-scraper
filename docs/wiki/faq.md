@@ -13,7 +13,8 @@ also just queue — verify per-commit). Check the Deployments list for YOUR comm
 not just app health. See [[2026-07-ga4-env-buildtime-failure]].
 
 **Why is a manual search run so slow?**
-`dataforseo_mode: standard` uses the queued task API (minutes of latency) for a 70%
+`dataforseo_mode: standard` uses the queued task API; production selects high priority
+(`standard_priority: 2`, normally within one minute) for a 40%
 discount. That's the trade, not a bug. See [[dataforseo]].
 
 **Why does editing an extraction prompt cost money?**

@@ -3,7 +3,7 @@ type: Subsystem
 title: Daily Report Email
 description: report.py builds one email per UTC day — GA4 visitors, per-site diffs, run outcomes, and current stock totals — sent via Resend at 04:30 UTC or on demand.
 tags: [subsystem, report, email, traffic, analytics]
-timestamp: 2026-07-14
+timestamp: 2026-07-21
 resource: scraper/report.py
 ---
 
@@ -47,3 +47,6 @@ stand" — visitors, diffs, runs, and totals, split Hungarian / international.*
   counter; empty day → zeros, email still sent.
 - Scheduled/startup exceptions are HTML-escaped and displayed as `futási hiba`; a
   zero-pair failed run therefore carries its actionable cause in the email.
+- A run row with `finished_at=NULL` and no stored error is rendered as an interrupted
+  process (`container restart or OOM`). Provider-level failures also make scheduled
+  runs unsuccessful rather than leaving a misleading green check.

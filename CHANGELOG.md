@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-07-21
+
+- **AI-only OOM javítás**: az extractor többé nem tölti memóriába a teljes `cache_pages` raw szövegállományát; mindig csak az aktuális város–téma pár oldalait olvassa be
+- **DataForSEO queue javítás**: a standard queue high priority (`priority: 2`, ~$1.2/1K), mert a normál queue 45 perces garantált ideje meghaladhatja az 5 perces kliens-timeoutot
+- **Futásállapot**: provider-hibás futás nem kap többé zöld pipát; a graceful cancellation eltárolódik, a befejezetlen DB-sor pedig restart/OOM diagnózist kap a napi riportban
+
 ## 2026-07-14
 
 - **Saver collector javítás**: a `search_only` a fetch batch után azonnal kilép, így nem olvas extraction cache-t és nem írhat vissza közösségeket, helyszíneket vagy személyeket

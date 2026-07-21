@@ -215,7 +215,18 @@ async def main() -> None:
                 )
                 pair_logs += group_logs
             app_state.last_run_at = datetime.now(timezone.utc)
-            success = True
+            search_failures = sum(1 for row in pair_logs if row.get("search_failed"))
+            extract_failures = sum(row.get("extract_failed", 0) for row in pair_logs)
+            success = not (search_failures or extract_failures)
+            if not success:
+                run_error = (
+                    f"provider failures: {search_failures} searches, "
+                    f"{extract_failures} extraction pages"
+                )
+        except asyncio.CancelledError:
+            run_error = "run cancelled (deploy, restart, or manual stop)"
+            log.warning("scheduled_run_cancelled", mode=run_mode)
+            raise
         except Exception as exc:
             run_error = str(exc)
             log.error("scheduled_run_failed", error=str(exc), mode=run_mode)
@@ -350,7 +361,18 @@ async def main() -> None:
                 )
                 pair_logs += intl_logs
             app_state.last_run_at = datetime.now(timezone.utc)
-            success = True
+            search_failures = sum(1 for row in pair_logs if row.get("search_failed"))
+            extract_failures = sum(row.get("extract_failed", 0) for row in pair_logs)
+            success = not (search_failures or extract_failures)
+            if not success:
+                run_error = (
+                    f"provider failures: {search_failures} searches, "
+                    f"{extract_failures} extraction pages"
+                )
+        except asyncio.CancelledError:
+            run_error = "run cancelled (deploy, restart, or manual stop)"
+            log.warning("startup_run_cancelled", mode=startup_mode)
+            raise
         except Exception as exc:
             run_error = str(exc)
             log.error("startup_run_failed", error=str(exc))

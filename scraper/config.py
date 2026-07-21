@@ -60,6 +60,7 @@ def load_config_from_docs(
         search_max_pages=settings["search"]["max_pages_per_topic"],
         search_rate_limit=settings["search"]["rate_limit_seconds"],
         dataforseo_mode=settings["search"].get("dataforseo_mode", "live"),
+        dataforseo_priority=int(settings["search"].get("standard_priority", 1)),
         core_topics=pipeline_settings.get("core_topics", []) or [],
         fetch_timeout=settings["fetch"]["timeout_seconds"],
         fetch_min_text_length=settings["fetch"]["min_text_length"],

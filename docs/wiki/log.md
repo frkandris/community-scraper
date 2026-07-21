@@ -2,6 +2,10 @@
 
 Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
+## 2026-07-21
+- **Update**: [[2026-07-search-only-cache-replay]], [[cost-saver-schedule]], [[pipeline-orchestration]], and [[daily-report]] — fixed the follow-up zero-work incident with pair-scoped `ai_only` cache reads, interrupted-run diagnosis, and provider failures that correctly fail the run.
+- **Update**: [[dataforseo]] and [[search-layer]] — production standard tasks now use high priority (`priority: 2`, ~$1.2/1K); normal priority can exceed the sequential client's five-minute timeout and caused paid tasks to be abandoned/re-posted.
+
 ## 2026-07-14
 - **Creation**: [[2026-07-search-only-cache-replay]] — made `search_only` a strict post-fetch exit, added terminal `search_cache.collected_at`, prioritized Sweden in bounded saver runs, and persisted top-level run errors into the daily report.
 - **Update**: [[cost-saver-schedule]], [[pipeline-run-modes]], [[pipeline-orchestration]], [[done-pair-url-hash-not-city-topic]], [[sqlite-schema]], [[daily-report]], [[sweden-pipeline-priority]], and [[hungary-sweden-intl-three-passes]] now document the corrected collection boundary, completion semantics, priority, and error surface.

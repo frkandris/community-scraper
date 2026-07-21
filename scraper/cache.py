@@ -12,6 +12,7 @@ from .db import (
     get_all_scraped_cache,
     get_cache_index,
     get_scraped_cache_by_search_pair,
+    get_scraped_cache_for_search_pair,
     load_cache_page,
     save_cache_page,
 )
@@ -198,6 +199,10 @@ class CacheManager:
     def get_scraped_by_search_pair(self) -> list[tuple[str, str, str, str]]:
         """Returns scraped pages attributed to every search-cache pair using them."""
         return get_scraped_cache_by_search_pair(self.db_path)
+
+    def get_scraped_for_pair(self, city: str, topic: str) -> list[tuple[str, str]]:
+        """Return one pair's scraped pages without loading the global raw cache."""
+        return get_scraped_cache_for_search_pair(self.db_path, city, topic)
 
     def get_index(self) -> list[dict]:
         return get_cache_index(self.db_path)

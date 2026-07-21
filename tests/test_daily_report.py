@@ -97,6 +97,23 @@ def test_daily_summary_includes_persisted_run_error(tmp_path):
     assert summary["runs"][0]["error"] == "malformed cache row"
 
 
+def test_daily_summary_labels_unfinished_run_as_restart_or_oom(tmp_path):
+    from datetime import datetime, timedelta, timezone
+
+    db = _db(tmp_path)
+    started = datetime.now(timezone.utc)
+    start_run(db, started, "ai_only")
+    summary = get_daily_summary(
+        db,
+        (started - timedelta(seconds=1)).isoformat(),
+        (started + timedelta(seconds=1)).isoformat(),
+        hu_cities=set(),
+    )
+    assert summary["runs"][0]["error"] == (
+        "run interrupted before completion (container restart or OOM)"
+    )
+
+
 def test_report_html_stock_section():
     """The Állomány table shows current totals per scope, not just the diff."""
     empty = {k: 0 for k in ("new_communities", "changed_communities", "change_rows",

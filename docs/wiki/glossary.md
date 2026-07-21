@@ -9,7 +9,7 @@ Domain vocabulary. One line per term; details live in the linked pages.
 - **run mode** — `full` (search+fetch+extract, "Smart" in the UI), `ai_only` ("re-ai": extraction over cached texts, no web), `search_only` ("collect": search+fetch, zero LLM), `revalidate`.
 - **saver schedule** — the twin crons: collector (`search_only`, 01:00→16:20 UTC) and extractor (`ai_only`, 16:35→00:20 UTC, inside DeepSeek's off-peak discount).
 - **window boxing / stop_at** — a run receives a deadline and exits gracefully at the window edge; unfinished pairs carry over to the next day.
-- **standard mode** — DataForSEO's queued task API: ~70% cheaper than live, minutes of latency; why manual searches feel slow.
+- **standard mode** — DataForSEO's queued task API; production uses high priority (~40% cheaper than live, normally ≤1 minute) because normal priority can exceed the client timeout.
 - **off-peak** — DeepSeek's discount window, UTC 16:30–00:30 (~50–75% cheaper).
 - **record_key** — DB uniqueness key: normalized `name|city|topic` (Unicode-safe, NFKC+casefold hashing for non-Latin names).
 - **community_id** — stable public identity: SHA-256[:12] of `name.lower()|city.lower()`; survives re-scrapes, used in URLs and history.
