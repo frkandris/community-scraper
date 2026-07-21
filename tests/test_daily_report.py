@@ -97,7 +97,7 @@ def test_daily_summary_includes_persisted_run_error(tmp_path):
     assert summary["runs"][0]["error"] == "malformed cache row"
 
 
-def test_daily_summary_labels_unfinished_run_as_restart_or_oom(tmp_path):
+def test_daily_summary_does_not_claim_unfinished_run_definitely_crashed(tmp_path):
     from datetime import datetime, timedelta, timezone
 
     db = _db(tmp_path)
@@ -110,7 +110,7 @@ def test_daily_summary_labels_unfinished_run_as_restart_or_oom(tmp_path):
         hu_cities=set(),
     )
     assert summary["runs"][0]["error"] == (
-        "run interrupted before completion (container restart or OOM)"
+        "run unfinished (still running, container restart, or OOM)"
     )
 
 

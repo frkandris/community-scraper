@@ -93,7 +93,7 @@ def test_search_all_no_providers_raises():
         asyncio.run(c.search_all(["q1"]))
 
 
-def test_persistent_search_failure_disables_provider_for_current_pass():
+def test_persistent_search_failure_disables_provider_after_three_attempts():
     class UnavailableSearchProvider:
         def __init__(self):
             self.calls = 0
@@ -104,12 +104,68 @@ def test_persistent_search_failure_disables_provider_for_current_pass():
 
     provider = UnavailableSearchProvider()
     client = FallbackSearchClient(primaries=[provider])
+    for query in ("q1", "q2", "q3"):
+        with pytest.raises(SearchUnavailableError):
+            asyncio.run(client.search_all([query]))
+    assert client.exhausted
+    with pytest.raises(SearchUnavailableError):
+        asyncio.run(client.search_all(["q4"]))
+    assert provider.calls == 3
+
+
+def test_success_resets_search_unavailability_counter():
+    class FlakySearchProvider:
+        def __init__(self):
+            self.script = [
+                SearchUnavailableError("temporary"),
+                [SearchResult(url="https://ok.test", title="ok")],
+                SearchUnavailableError("temporary"),
+                SearchUnavailableError("temporary"),
+            ]
+
+        async def search(self, query, locale="en", num_results=10):
+            result = self.script.pop(0)
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+    client = FallbackSearchClient(primaries=[FlakySearchProvider()])
     with pytest.raises(SearchUnavailableError):
         asyncio.run(client.search_all(["q1"]))
+    assert asyncio.run(client.search_all(["q2"]))
+    for query in ("q3", "q4"):
+        with pytest.raises(SearchUnavailableError):
+            asyncio.run(client.search_all([query]))
+    assert not client.exhausted
+
+
+def test_single_search_propagates_transient_failure_instead_of_empty_result():
+    class UnavailableSearchProvider:
+        async def search(self, query, locale="en", num_results=10):
+            raise SearchUnavailableError("temporary")
+
+    client = FallbackSearchClient(primaries=[UnavailableSearchProvider()])
+    with pytest.raises(SearchUnavailableError):
+        asyncio.run(client.search("q1"))
+    assert not client.exhausted
+
+
+def test_single_search_fails_fast_after_provider_is_disabled():
+    class UnavailableSearchProvider:
+        def __init__(self):
+            self.calls = 0
+
+        async def search(self, query, locale="en", num_results=10):
+            self.calls += 1
+            raise SearchUnavailableError("temporary")
+
+    provider = UnavailableSearchProvider()
+    client = FallbackSearchClient(primaries=[provider])
+    for query in ("q1", "q2", "q3", "q4"):
+        with pytest.raises(SearchUnavailableError):
+            asyncio.run(client.search(query))
     assert client.exhausted
-    with pytest.raises(SearchQuotaError):
-        asyncio.run(client.search_all(["q2"]))
-    assert provider.calls == 1
+    assert provider.calls == 3
 
 
 def test_search_all_partial_results_survive_quota():

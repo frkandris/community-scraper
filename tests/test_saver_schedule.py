@@ -101,7 +101,7 @@ def test_search_only_never_reads_extraction_cache_or_writes_entities(tmp_path):
     assert get_communities(db, "Budapest", "running") == []
 
 
-def test_search_only_marks_pair_complete_after_failed_fetch(tmp_path):
+def test_search_only_retries_pair_after_every_fetch_fails(tmp_path):
     from scraper.cache import CacheManager
     from scraper.db import get_collected_pairs
 
@@ -115,18 +115,26 @@ def test_search_only_marks_pair_complete_after_failed_fetch(tmp_path):
          patch("scraper.pipeline.fetch_and_clean", failed_fetch):
         asyncio.run(run_pipeline(cities, topics, cfg, cache=cache, run_mode="search_only"))
 
-    assert get_collected_pairs(db, cfg.search_max_pages) == {("Budapest", "running")}
+    assert get_collected_pairs(db, cfg.search_max_pages) == set()
 
     class MustNotSearch:
         def __init__(self, primaries): ...
         exhausted = False
         async def search_all(self, *a, **k):
-            raise AssertionError("completed pair must be skipped on the next run")
+            raise AssertionError("fresh search cache should be reused")
 
-    with patch("scraper.pipeline.FallbackSearchClient", MustNotSearch):
+    retried_urls = []
+
+    async def count_failed_fetch(url, *a, **k):
+        retried_urls.append(url)
+        return None
+
+    with patch("scraper.pipeline.FallbackSearchClient", MustNotSearch), \
+         patch("scraper.pipeline.fetch_and_clean", count_failed_fetch):
         logs, _ = asyncio.run(run_pipeline(
             cities, topics, cfg, cache=cache, run_mode="search_only"))
-    assert logs == []
+    assert len(logs) == 1
+    assert retried_urls == ["https://klub.test/a"]
 
 
 def test_stop_at_in_past_processes_zero_pairs(tmp_path):

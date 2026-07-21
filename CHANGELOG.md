@@ -5,6 +5,8 @@
 - **AI-only OOM javítás**: az extractor többé nem tölti memóriába a teljes `cache_pages` raw szövegállományát; mindig csak az aktuális város–téma pár oldalait olvassa be
 - **DataForSEO queue javítás**: a standard queue high priority (`priority: 2`, ~$1.2/1K), mert a normál queue 45 perces garantált ideje meghaladhatja az 5 perces kliens-timeoutot
 - **Futásállapot**: provider-hibás futás nem kap többé zöld pipát; a graceful cancellation eltárolódik, a befejezetlen DB-sor pedig restart/OOM diagnózist kap a napi riportban
+- **Review utáni hardening**: Svédország startupkor is első; három egymást követő átmeneti keresőhiba kell a provider passz-szintű tiltásához; a teljes fetch-kudarc újrapróbálható marad; a JSON `records: null` nem számít feldolgozottnak
+- **Pontosabb riport**: a providerhibák részlete nem duplázódik `runs.error`-ként, a befejezetlen futás címkéje pedig a még futó folyamat lehetőségét is jelzi
 
 ## 2026-07-14
 

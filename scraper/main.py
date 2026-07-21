@@ -218,11 +218,6 @@ async def main() -> None:
             search_failures = sum(1 for row in pair_logs if row.get("search_failed"))
             extract_failures = sum(row.get("extract_failed", 0) for row in pair_logs)
             success = not (search_failures or extract_failures)
-            if not success:
-                run_error = (
-                    f"provider failures: {search_failures} searches, "
-                    f"{extract_failures} extraction pages"
-                )
         except asyncio.CancelledError:
             run_error = "run cancelled (deploy, restart, or manual stop)"
             log.warning("scheduled_run_cancelled", mode=run_mode)
@@ -325,22 +320,13 @@ async def main() -> None:
         success = False
         run_error: str | None = None
         pair_logs: list = []
-        hu_cities = [c for c in (app_state.cities or []) if c.country == "Hungary"]
-        se_cities = [c for c in (app_state.cities or []) if c.country == "Sweden"]
-        intl_cities = [c for c in (app_state.cities or []) if c.country not in {"Hungary", "Sweden"}]
+        groups = _saver_city_groups(app_state.cities or [])
         try:
-            pair_logs, _ = await run_pipeline(
-                hu_cities,
-                app_state.topics,
-                app_state.pipeline_cfg,
-                cache=app_state.cache_manager,
-                on_progress=_on_progress,
-                on_pair_start=_on_pair_start,
-                run_mode=startup_mode,
-            )
-            if se_cities:
-                se_logs, _ = await run_pipeline(
-                    se_cities,
+            for group in groups:
+                if not group:
+                    continue
+                group_logs, _ = await run_pipeline(
+                    group,
                     app_state.topics,
                     app_state.pipeline_cfg,
                     cache=app_state.cache_manager,
@@ -348,27 +334,11 @@ async def main() -> None:
                     on_pair_start=_on_pair_start,
                     run_mode=startup_mode,
                 )
-                pair_logs += se_logs
-            if intl_cities:
-                intl_logs, _ = await run_pipeline(
-                    intl_cities,
-                    app_state.topics,
-                    app_state.pipeline_cfg,
-                    cache=app_state.cache_manager,
-                    on_progress=_on_progress,
-                    on_pair_start=_on_pair_start,
-                    run_mode=startup_mode,
-                )
-                pair_logs += intl_logs
+                pair_logs += group_logs
             app_state.last_run_at = datetime.now(timezone.utc)
             search_failures = sum(1 for row in pair_logs if row.get("search_failed"))
             extract_failures = sum(row.get("extract_failed", 0) for row in pair_logs)
             success = not (search_failures or extract_failures)
-            if not success:
-                run_error = (
-                    f"provider failures: {search_failures} searches, "
-                    f"{extract_failures} extraction pages"
-                )
         except asyncio.CancelledError:
             run_error = "run cancelled (deploy, restart, or manual stop)"
             log.warning("startup_run_cancelled", mode=startup_mode)

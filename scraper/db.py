@@ -4,6 +4,8 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+import structlog
+
 from .identity import (
     community_record_key as _community_record_key,
     normalized_match_key,
@@ -12,6 +14,7 @@ from .identity import (
 )
 
 _UNICODE_RECORD_KEYS_MIGRATION = "unicode_record_keys_v2"
+log = structlog.get_logger()
 
 
 def _connect(db_path: Path) -> sqlite3.Connection:
@@ -1243,7 +1246,7 @@ def get_fully_processed_pairs(
             for row in conn.execute(
                 "SELECT url_hash, extract_fingerprint, venue_fingerprint,"
                 " person_fingerprint,"
-                " json_type(data, '$.records') IS NOT NULL,"
+                " json_type(data, '$.records') = 'array',"
                 " COALESCE(json_array_length(json_extract(data, '$.records')), 0) > 0,"
                 " json_extract(data, '$.persons_data')"
                 " FROM cache_pages"
@@ -1254,7 +1257,11 @@ def get_fully_processed_pairs(
 
     result: set[tuple[str, str]] = set()
     for city, topic, urls_json in search_rows:
-        urls: list[str] = json.loads(urls_json) if urls_json else []
+        try:
+            urls: list[str] = json.loads(urls_json) if urls_json else []
+        except (TypeError, json.JSONDecodeError):
+            log.warning("invalid_search_cache_urls", city=city, topic=topic)
+            continue
         if max_pages is not None:
             urls = urls[:max_pages]
         if not urls:
@@ -1645,6 +1652,7 @@ def get_scraped_cache_for_search_pair(
             try:
                 urls = json.loads(search_row[0]) if search_row[0] else []
             except (TypeError, json.JSONDecodeError):
+                log.warning("invalid_search_cache_urls", city=city, topic=topic)
                 return []
             ordered_hashes = [hashlib.sha256(url.encode()).hexdigest()[:16] for url in urls]
             if not ordered_hashes:
@@ -2916,7 +2924,7 @@ def get_daily_summary(db_path: Path, start_iso: str, end_iso: str,
                 " FROM runs WHERE started_at >= ? AND started_at < ? ORDER BY started_at",
                 (start_iso, end_iso)).fetchall():
             interrupted_error = (
-                "run interrupted before completion (container restart or OOM)"
+                "run unfinished (still running, container restart, or OOM)"
                 if not row[3] and not row[6] else ""
             )
             run = {"id": row[0], "mode": row[1], "started_at": row[2],

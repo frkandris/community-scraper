@@ -18,7 +18,9 @@ resource: scraper/main.py
 | search collector | `search_only` | `0 1 * * *` | `search_until: 16:20` | DataForSEO **high-priority standard** queue (~$1.2/1K) searches + fetches pages into the cache. **Zero LLM calls.** |
 | off-peak extractor | `ai_only` | `35 16 * * *` | `extract_until: 00:20` | DeepSeek extracts the **already-collected** pages, entirely inside its off-peak window (UTC 16:30–00:30, ~50–75% cheaper). |
 
-Both use the Sweden → world → Hungary pass order and the shared `_cron_run` runner in `main.py`. The expansion-first order applies to the bounded scheduled jobs; startup recovery keeps its Hungary-first order.
+Both scheduled jobs and startup recovery use the Sweden → world → Hungary pass
+order. Startup and cron share `_saver_city_groups`, so a deploy cannot silently
+restore the old Hungary-first behavior.
 
 ## How the window boxing works
 
@@ -30,7 +32,13 @@ The complementary `*_until` values normally keep the jobs apart. `RunCoordinator
 
 `run_pipeline` forces `run_communities/venues/persons = False`, skips the re-AI pass, and exits immediately after the fetch batch. This strict boundary means it never reads extraction caches, calls `save_results`, upserts entities, or runs entity duplicate detection. Tiering ([[cost-optimization-2026-07]]) applies as usual.
 
-`search_cache.collected_at` is written only after every selected URL received a fetch attempt. A killed process leaves it `NULL` so the pair resumes, while a permanently unreadable URL is a logged fetch failure rather than a reason to replay the pair every day. The 2026-07-14 migration marks legacy search rows collected because their historical runs already attempted those batches. See [[2026-07-search-only-cache-replay]].
+`search_cache.collected_at` is written after the selected URL batch has been
+attempted and at least one page is available (or the SERP was legitimately empty).
+A killed process or an all-URL fetch outage leaves it `NULL`, so the cached URLs
+are fetched again without paying for another search. Individual failures in a
+partially successful batch remain logged without replaying the whole pair. The
+2026-07-14 migration marks legacy search rows collected because their historical
+runs already attempted those batches. See [[2026-07-search-only-cache-replay]].
 
 ## Related safety (same commit)
 
@@ -44,9 +52,10 @@ The complementary `*_until` values normally keep the jobs apart. `RunCoordinator
 - Legacy combined cron (`cron_enabled`) stays available and off.
 - Watch progress on the coverage matrix; searched-but-unextracted pairs show amber until the night pass catches up.
 - Failed scheduled/startup exceptions are persisted in `runs.error` and printed in the next daily report; the container log is no longer the only error surface.
-- Provider failures make the run unsuccessful instead of displaying a green check.
-  Graceful cancellation stores its cause; a row left unfinished by a hard restart or
-  OOM is labeled as such when the report reads it.
+- Provider failures make the run unsuccessful instead of displaying a green check;
+  their counts come from the pair log and are not duplicated as a top-level error.
+  Graceful cancellation stores its cause; an unfinished row is conservatively
+  labeled as still running, restarted, or OOM-killed.
 - `ai_only` reads `cache_pages` pair by pair. Loading the complete raw cache before
   the first pair caused zero-log process restarts at ~74K cached pages.
 - Triggering and startup behavior are summarized in [[run-modes-and-startup]].

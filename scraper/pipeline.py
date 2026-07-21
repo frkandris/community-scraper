@@ -555,7 +555,11 @@ async def _run_full(
                     pair_log["fetch_failed"] += 1
 
             log.info("fetch_done", city=city.name, topic=topic.name, pages=len(fetched))
-            mark_search_collection_complete(config.db_path, city.name, topic.name)
+            # An empty SERP is a valid terminal result. If URLs were returned but
+            # every fetch failed, leave the marker NULL so a later run retries
+            # instead of suppressing the pair until the long search-cache TTL.
+            if not urls or fetched:
+                mark_search_collection_complete(config.db_path, city.name, topic.name)
 
             if not run_communities and not run_venues and not run_persons:
                 # search_only is a strict collection mode: after the fetch batch it

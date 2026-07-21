@@ -22,7 +22,15 @@ See [[search-provider-fallback-chain]] for history (Google Playwright / Serper /
 
 ## FallbackSearchClient
 
-`search_all(queries, stop_after=…)` iterates queries one-by-one, deduplicates by exact URL, and **stops issuing paid queries** once `stop_after` unique results are collected (the pipeline passes `search_max_pages * 2`). A quota or persistent unavailable error marks the provider exhausted (`float('inf')`) for the rest of the geographic pass; already-collected results are kept. The next pass/day constructs a fresh client. With one provider the chain semantics are trivial, but the wrapper stays so a fallback can be re-added with one line.
+`search_all(queries, stop_after=…)` iterates queries one-by-one, deduplicates by
+exact URL, and **stops issuing paid queries** once `stop_after` unique results are
+collected (the pipeline passes `search_max_pages * 2`). A quota error immediately
+marks the provider exhausted. Transient unavailability is tolerated twice and
+reset by a successful request; the third consecutive failure disables the provider
+for the rest of the geographic pass so a stuck queue cannot consume the whole
+collector window. The fail-fast error remains `SearchUnavailableError`, rather
+than being mislabeled as quota exhaustion. Already-collected results are kept and
+the next pass/day constructs a fresh client.
 
 ## Query construction
 

@@ -94,6 +94,13 @@ def test_empty_community_result_skips_gated_venue_and_person_requirements(tmp_pa
     ) == {("Budapest", "running")}
 
 
+def test_null_community_result_is_not_considered_processed(tmp_path):
+    db = _db(tmp_path)
+    _save_page(db, records=None)
+
+    assert _done(db, run_communities=True) == set()
+
+
 def test_search_collection_requires_terminal_batch_marker(tmp_path):
     db = _db(tmp_path)
     assert get_collected_pairs(db, max_pages=1) == set()

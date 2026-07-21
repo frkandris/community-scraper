@@ -47,6 +47,8 @@ stand" — visitors, diffs, runs, and totals, split Hungarian / international.*
   counter; empty day → zeros, email still sent.
 - Scheduled/startup exceptions are HTML-escaped and displayed as `futási hiba`; a
   zero-pair failed run therefore carries its actionable cause in the email.
-- A run row with `finished_at=NULL` and no stored error is rendered as an interrupted
-  process (`container restart or OOM`). Provider-level failures also make scheduled
-  runs unsuccessful rather than leaving a misleading green check.
+- A run row with `finished_at=NULL` and no stored error is conservatively rendered
+  as unfinished (`still running, container restart, or OOM`) because the database
+  alone cannot distinguish those states. Provider-level failures make scheduled
+  runs unsuccessful; their pair-log counts are shown once, without a duplicate
+  top-level error string.
