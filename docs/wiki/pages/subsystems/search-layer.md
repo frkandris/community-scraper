@@ -3,7 +3,7 @@ type: Subsystem
 title: Search Layer
 description: DataForSEO is the sole search client (live or standard mode) behind the FallbackSearchClient wrapper with per-run exhaustion state.
 tags: [search, dataforseo, fallback, cost]
-timestamp: 2026-07-21
+timestamp: 2026-07-23
 resource: scraper/search.py
 ---
 
@@ -30,7 +30,16 @@ reset by a successful request; the third consecutive failure disables the provid
 for the rest of the geographic pass so a stuck queue cannot consume the whole
 collector window. The fail-fast error remains `SearchUnavailableError`, rather
 than being mislabeled as quota exhaustion. Already-collected results are kept and
-the next pass/day constructs a fresh client.
+the next day constructs a fresh client.
+
+Since 2026-07-23 the client keeps the **original provider error** in
+`failure_reason` (set on quota block, on third-strike disable, and at construction
+when credentials are missing) and includes it in the fail-fast exception messages.
+The pipeline consumes it: `_run_full` aborts the pair loop when the client is
+exhausted (one `search_error`-carrying marker entry instead of one failure per
+remaining pair), and `run_pipeline` shares one client between the main and
+catch-up passes, skipping catch-up when the provider died. See
+[[2026-07-search-provider-down-noise]].
 
 ## Query construction
 

@@ -3,7 +3,7 @@ type: Subsystem
 title: Daily Report Email
 description: report.py builds one email per UTC day — GA4 visitors, per-site diffs, run outcomes, and current stock totals — sent via Resend at 04:30 UTC or on demand.
 tags: [subsystem, report, email, traffic, analytics]
-timestamp: 2026-07-21
+timestamp: 2026-07-23
 resource: scraper/report.py
 ---
 
@@ -52,3 +52,7 @@ stand" — visitors, diffs, runs, and totals, split Hungarian / international.*
   alone cannot distinguish those states. Provider-level failures make scheduled
   runs unsuccessful; their pair-log counts are shown once, without a duplicate
   top-level error string.
+- Since 2026-07-23 `get_daily_summary` also lifts the first `search_error` out of
+  the pair logs and the run row renders it as `· ok: <original provider error>`,
+  so a search-provider outage is diagnosable from the email alone
+  ([[2026-07-search-provider-down-noise]]).

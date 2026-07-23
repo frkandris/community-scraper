@@ -224,6 +224,7 @@ def _new_pair_log(city_name: str, topic_name: str, queries: list[str]) -> dict:
         "cache_hits_extract": 0,
         "records_extracted": 0,
         "search_failed": False,
+        "search_error": None,
         "extract_failed": 0,
     }
 
@@ -368,17 +369,26 @@ async def run_pipeline(
                 run_communities=run_communities, run_venues=run_venues, run_persons=run_persons,
                 on_pair_start=on_pair_start, pairs_filter=pairs_to_run, stop_at=stop_at,
             )
+        search_client = _build_search_client(config)
         full_new, full_logs = await _run_full(
             cities, topics, config, extractor, cache, _skip_scraped, _skip_extracted, run_stats, on_progress,
             run_communities=run_communities, run_venues=run_venues, run_persons=run_persons,
             on_pair_start=on_pair_start, pairs_filter=pairs_to_run, stop_at=stop_at,
+            search_client=search_client,
         )
         total_new = reai_new + full_new
         pair_logs = reai_logs + full_logs
 
     if run_mode in ("full", "search_only"):
-        covered = get_covered_pairs(config.db_path)
-        uncovered = all_pairs - covered - done_pairs
+        if search_client.exhausted:
+            # The main pass aborted on a dead provider — a catch-up pass with the
+            # same client would only add another abort marker.
+            log.warning("catchup_skipped_search_provider_down",
+                        reason=getattr(search_client, "failure_reason", None))
+            covered = uncovered = None
+        else:
+            covered = get_covered_pairs(config.db_path)
+            uncovered = all_pairs - covered - done_pairs
         if uncovered and not _window_closed(stop_at):
             log.info("catchup_pass_start", pairs=len(uncovered))
             catchup_new, catchup_logs = await _run_full(
@@ -387,6 +397,7 @@ async def run_pipeline(
                 run_communities=run_communities, run_venues=run_venues,
                 run_persons=run_persons, pairs_filter=uncovered,
                 on_pair_start=on_pair_start, stop_at=stop_at,
+                search_client=search_client,
             )
             total_new += catchup_new
             pair_logs += catchup_logs
@@ -409,6 +420,19 @@ async def run_pipeline(
     return pair_logs, total_new
 
 
+def _build_search_client(config: PipelineConfig) -> FallbackSearchClient:
+    search_primaries: list = []
+    if config.dataforseo_login and config.dataforseo_password:
+        search_primaries.append(DataForSEOClient(
+            config.dataforseo_login, config.dataforseo_password,
+            rate_limit_seconds=config.search_rate_limit,
+            mode=config.dataforseo_mode,
+            standard_priority=config.dataforseo_priority,
+        ))
+    log.info("search_client", primaries=[type(p).__name__ for p in search_primaries])
+    return FallbackSearchClient(primaries=search_primaries)
+
+
 async def _run_full(
     cities: list[CityConfig],
     topics: list[TopicConfig],
@@ -425,17 +449,9 @@ async def _run_full(
     pairs_filter: set[tuple[str, str]] | None = None,
     on_pair_start: "Callable[[str, str], None] | None" = None,
     stop_at: "Any | None" = None,
+    search_client: "FallbackSearchClient | None" = None,
 ) -> tuple[int, list[dict]]:
-    search_primaries: list = []
-    if config.dataforseo_login and config.dataforseo_password:
-        search_primaries.append(DataForSEOClient(
-            config.dataforseo_login, config.dataforseo_password,
-            rate_limit_seconds=config.search_rate_limit,
-            mode=config.dataforseo_mode,
-            standard_priority=config.dataforseo_priority,
-        ))
-    searxng: FallbackSearchClient = FallbackSearchClient(primaries=search_primaries)
-    log.info("search_client", primaries=[type(p).__name__ for p in search_primaries])
+    searxng = search_client if search_client is not None else _build_search_client(config)
     semaphore = asyncio.Semaphore(config.fetch_max_concurrent)
 
     pw_fetcher = None
@@ -480,12 +496,17 @@ async def _run_full(
                 log.info("search_cache_hit", city=city.name, topic=topic.name, urls=len(urls))
             else:
                 if searxng.exhausted:
-                    # Provider down/quota gone: skip WITHOUT caching, so the pair is
-                    # retried next run instead of being recorded as "searched, empty".
+                    # Provider down/quota gone for the rest of the run: abort instead
+                    # of walking every remaining pair (a dead provider once produced
+                    # 4972 per-pair "failures" from 3 real errors). One marker entry
+                    # keeps the run visibly failed; nothing was cached, so every
+                    # unsearched pair is retried next run.
+                    reason = getattr(searxng, "failure_reason", None)
                     pair_logs.append({**_new_pair_log(city.name, topic.name, queries),
-                                      "search_failed": True})
-                    log.warning("search_unavailable_pair_skipped", city=city.name, topic=topic.name)
-                    continue
+                                      "search_failed": True, "search_error": reason})
+                    log.warning("search_provider_down_run_aborted", city=city.name,
+                                topic=topic.name, reason=reason)
+                    return total_new, pair_logs
                 try:
                     search_results = await searxng.search_all(
                         queries, locale=city.locale, num_results=config.search_results_per_query,
@@ -493,7 +514,7 @@ async def _run_full(
                     )
                 except (SearchQuotaError, SearchUnavailableError) as exc:
                     pair_logs.append({**_new_pair_log(city.name, topic.name, queries),
-                                      "search_failed": True})
+                                      "search_failed": True, "search_error": str(exc)})
                     log.warning("search_unavailable_pair_skipped", city=city.name,
                                 topic=topic.name, reason=str(exc))
                     continue

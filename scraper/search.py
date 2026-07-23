@@ -231,6 +231,11 @@ class FallbackSearchClient:
         self._blocked_until: list[float] = [0.0] * len(primaries)  # inf = exhausted
         self._blocked_reason: list[str | None] = [None] * len(primaries)
         self._unavailable_count: list[int] = [0] * len(primaries)
+        # Original provider error that caused exhaustion — surfaced in the daily
+        # report so "provider down" is diagnosable from the email alone.
+        self.failure_reason: str | None = (
+            None if primaries
+            else "no search provider configured (DATAFORSEO_LOGIN/PASSWORD missing)")
 
     def _is_provider_blocked(self, i: int) -> bool:
         import time
@@ -243,30 +248,34 @@ class FallbackSearchClient:
         empty search_cache entry — the pair was not actually searched)."""
         return not self.primaries or all(b == float("inf") for b in self._blocked_until)
 
-    def _block_provider(self, i: int, primary) -> None:
+    def _block_provider(self, i: int, primary, reason: str) -> None:
         self._blocked_until[i] = float("inf")
         self._blocked_reason[i] = "quota"
+        self.failure_reason = reason
         log.warning("search_quota_exhausted", provider=type(primary).__name__)
 
-    def _record_unavailable(self, i: int, primary) -> None:
+    def _record_unavailable(self, i: int, primary, reason: str) -> None:
         """Disable a provider after three faults; tolerate up to two in a row."""
         self._unavailable_count[i] += 1
         if self._unavailable_count[i] >= 3:
             self._blocked_until[i] = float("inf")
             self._blocked_reason[i] = "unavailable"
+            self.failure_reason = reason
             log.warning("search_provider_disabled_for_run",
                         provider=type(primary).__name__, reason="repeated_unavailability")
 
     def _raise_exhausted(self) -> None:
+        detail = f" ({self.failure_reason})" if self.failure_reason else ""
         if any(reason == "unavailable" for reason in self._blocked_reason):
-            raise SearchUnavailableError("search providers unavailable for this run")
-        raise SearchQuotaError("no search provider available")
+            raise SearchUnavailableError(f"search providers unavailable for this run{detail}")
+        raise SearchQuotaError(f"no search provider available{detail}")
 
     async def search(self, query: str, locale: str = "en",
                      num_results: int = 10) -> list[SearchResult]:
         if self.exhausted:
             self._raise_exhausted()
         hit_transient = False
+        last_error = ""
         for i, primary in enumerate(self.primaries):
             if self._is_provider_blocked(i):
                 continue
@@ -276,13 +285,15 @@ class FallbackSearchClient:
                 return result
             except SearchQuotaError as exc:
                 log.warning("search_quota_error", provider=type(primary).__name__, reason=str(exc))
-                self._block_provider(i, primary)
+                self._block_provider(i, primary, str(exc))
+                last_error = str(exc)
             except SearchUnavailableError as exc:
                 log.warning("search_unavailable", provider=type(primary).__name__, reason=str(exc))
-                self._record_unavailable(i, primary)
+                self._record_unavailable(i, primary, str(exc))
                 hit_transient = True
+                last_error = str(exc)
         if hit_transient:
-            raise SearchUnavailableError("search failed before any result")
+            raise SearchUnavailableError(f"search failed before any result ({last_error})")
         return []
 
     async def search_all(self, queries: list[str], locale: str = "en",
@@ -307,6 +318,7 @@ class FallbackSearchClient:
         remaining = list(queries)
         hit_quota = False
         hit_transient = False
+        last_error = ""
 
         for i, primary in enumerate(self.primaries):
             if self._is_provider_blocked(i) or not remaining:
@@ -326,8 +338,9 @@ class FallbackSearchClient:
                     provider_done.append(query)
             except SearchQuotaError as exc:
                 log.warning("search_quota_error", provider=type(primary).__name__, reason=str(exc))
-                self._block_provider(i, primary)
+                self._block_provider(i, primary, str(exc))
                 hit_quota = True
+                last_error = str(exc)
                 remaining = [q for q in remaining if q not in provider_done]
                 continue
             except SearchUnavailableError as exc:
@@ -335,8 +348,9 @@ class FallbackSearchClient:
                 # One task/network failure can be transient. Repeated failures
                 # disable the provider so a stuck queue cannot consume the whole
                 # collector window one pair at a time.
-                self._record_unavailable(i, primary)
+                self._record_unavailable(i, primary, str(exc))
                 hit_transient = True
+                last_error = str(exc)
                 remaining = [q for q in remaining if q not in provider_done]
                 continue
             if combined:
@@ -347,9 +361,9 @@ class FallbackSearchClient:
         if not combined and hit_quota:
             # Nothing was successfully searched — this is a provider failure,
             # not a legitimate empty result. Callers must not cache it.
-            raise SearchQuotaError("search providers exhausted before any result")
+            raise SearchQuotaError(f"search providers exhausted before any result ({last_error})")
         if not combined and hit_transient:
-            raise SearchUnavailableError("search failed before any result")
+            raise SearchUnavailableError(f"search failed before any result ({last_error})")
         return combined
 
 

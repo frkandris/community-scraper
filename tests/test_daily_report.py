@@ -80,6 +80,45 @@ def test_report_html_contains_sections_and_numbers():
         assert frag in html, f"hiányzik: {frag}"
 
 
+def test_report_html_shows_original_search_error():
+    """Provider death must be diagnosable from the email alone (2026-07-22)."""
+    empty = {k: 0 for k in ("new_communities", "changed_communities", "change_rows",
+                            "new_venues", "new_persons", "pages_scraped",
+                            "pages_extracted", "searches")}
+    summary = {
+        "hu": dict(empty), "intl": dict(empty),
+        "runs": [{"id": 1, "mode": "search_only", "started_at": "2026-07-22T01:00:00",
+                  "finished_at": "2026-07-22T01:05:00", "success": False,
+                  "pairs": 4, "records": 0, "search_failed": 4, "extract_failed": 0,
+                  "search_error": "DataForSEO: insufficient credits (40201)",
+                  "error": ""}],
+        "totals": {"hu": 0, "intl": 0, "covered_pairs_hu": 0, "covered_pairs_intl": 0},
+    }
+    _, html = build_report_html("2026-07-22", summary, {})
+    assert "ok: DataForSEO: insufficient credits (40201)" in html
+
+
+def test_daily_summary_extracts_search_error_from_pair_logs(tmp_path):
+    import json
+    from datetime import datetime, timedelta, timezone
+
+    db = _db(tmp_path)
+    started = datetime.now(timezone.utc)
+    run_id = start_run(db, started, "search_only")
+    logs = [{"city": "Stockholm", "topic": "running", "search_failed": True,
+             "search_error": "DataForSEO: HTTP 500", "extract_failed": 0,
+             "records_extracted": 0}]
+    finish_run(db, run_id, started + timedelta(seconds=1), False, json.dumps(logs))
+    summary = get_daily_summary(
+        db,
+        (started - timedelta(seconds=1)).isoformat(),
+        (started + timedelta(seconds=2)).isoformat(),
+        hu_cities=set(),
+    )
+    assert summary["runs"][0]["search_error"] == "DataForSEO: HTTP 500"
+    assert summary["runs"][0]["search_failed"] == 1
+
+
 def test_daily_summary_includes_persisted_run_error(tmp_path):
     from datetime import datetime, timedelta, timezone
 

@@ -216,6 +216,62 @@ def test_search_quota_pair_not_cached(tmp_path):
     assert any(p.get("search_failed") for p in logs)
 
 
+def test_provider_death_aborts_run_instead_of_per_pair_failures(tmp_path):
+    """3 real errors must not become thousands of per-pair failures (2026-07-22)."""
+    db, cfg, cities, topics = _pipeline_fixtures(tmp_path)
+    cities = [CityConfig(name=n, locale="hu", search_variants=[])
+              for n in ("Budapest", "Szeged")]
+    topics = [TopicConfig(name=t, search_terms={"hu": ["kifejezés"]})
+              for t in ("running", "chess")]
+
+    def quota_client(primaries):
+        return FallbackSearchClient(primaries=[QuotaSearchProvider()])
+
+    with patch("scraper.pipeline.FallbackSearchClient", quota_client):
+        _, logs = asyncio.run(_run_full(
+            cities, topics, cfg, FallbackExtractor(primaries=[]), None,
+            True, True, {}, None,
+        ))
+
+    # pair 1: real quota error; pair 2: abort marker; pairs 3-4: never walked
+    assert len(logs) == 2
+    assert all(p["search_failed"] for p in logs)
+    assert "credits gone" in (logs[0]["search_error"] or "")
+    assert "credits gone" in (logs[1]["search_error"] or "")
+
+
+def test_missing_credentials_abort_carries_reason(tmp_path):
+    db, cfg, cities, topics = _pipeline_fixtures(tmp_path)
+    topics = [TopicConfig(name=t, search_terms={"hu": ["kifejezés"]})
+              for t in ("running", "chess")]
+
+    _, logs = asyncio.run(_run_full(
+        cities, topics, cfg, FallbackExtractor(primaries=[]), None,
+        True, True, {}, None,
+    ))
+
+    assert len(logs) == 1  # single abort marker, not one failure per pair
+    assert logs[0]["search_failed"]
+    assert "no search provider configured" in (logs[0]["search_error"] or "")
+
+
+def test_run_pipeline_skips_catchup_when_provider_dead(tmp_path):
+    from scraper.pipeline import run_pipeline
+    db, cfg, cities, topics = _pipeline_fixtures(tmp_path)
+
+    def quota_client(primaries):
+        return FallbackSearchClient(primaries=[QuotaSearchProvider()])
+
+    with patch("scraper.pipeline.FallbackSearchClient", quota_client):
+        logs, _ = asyncio.run(run_pipeline(
+            cities, topics, cfg, cache=None, run_mode="search_only",
+        ))
+
+    # main pass logs the one real failure; the catch-up pass must not replay it
+    assert len(logs) == 1
+    assert logs[0]["search_failed"]
+
+
 def test_extract_failure_not_cached_as_empty(tmp_path):
     from scraper.cache import CacheManager
     db, cfg, cities, topics = _pipeline_fixtures(tmp_path)
