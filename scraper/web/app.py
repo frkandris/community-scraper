@@ -1095,7 +1095,9 @@ async def _render_explore(
 
     available_topics: dict[str, int] = {}
     if city:
-        from ..db import get_city_topic_counts
+        # Uses the module-level import: a function-local import here would make
+        # the name local to the whole function and crash the no-city branch
+        # below with UnboundLocalError.
         counts = get_city_topic_counts(_db()).get(city, {}) if app_state.db_path else {}
         available_topics = {t.name: counts[t.name] for t in topics if counts.get(t.name, 0) > 0}
 

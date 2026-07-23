@@ -3,7 +3,7 @@ type: Subsystem
 title: Web App (routes, auth, state)
 description: One FastAPI app with a public router and an /admin router gated by pure-ASGI Basic auth; Hungarian paths are canonical and English paths redirect.
 tags: [web, fastapi, routing, auth, app-state, admin]
-timestamp: 2026-07-10
+timestamp: 2026-07-23
 resource: scraper/web/app.py
 ---
 
@@ -23,7 +23,7 @@ The Hungarian path is the canonical handler; the English path 301/302-redirects 
 
 ## `app_state` singleton
 
-Module-global dataclass. **`cities` and `topics` are lists of config objects, not dicts** — always `c.name` / `c.country` / `c.locale`; dict-style access 500s any route touching them (see [[2026-05-coverage-page-500]]). Pipeline callbacks mutate progress fields read by coverage, while `RunCoordinator` exclusively owns `is_running`, `_run_task`, and `current_run_mode`. `_home_stats_cache` (keyed by site) is invalidated after every run.
+Module-global dataclass. **`cities` and `topics` are lists of config objects, not dicts** — always `c.name` / `c.country` / `c.locale`; dict-style access 500s any route touching them (see [[2026-05-coverage-page-500]]). The route bodies also use many function-local imports — never re-import a name that a different branch of the same function uses from the module level ([[function-local-import-shadowing]]). Pipeline callbacks mutate progress fields read by coverage, while `RunCoordinator` exclusively owns `is_running`, `_run_task`, and `current_run_mode`. `_home_stats_cache` (keyed by site) is invalidated after every run.
 
 ## Public discovery surfaces
 

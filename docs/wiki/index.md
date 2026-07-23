@@ -85,6 +85,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[cache-blob-read-modify-write]] — CacheManager reads the JSON blob, mutates it in Python, and writes it back across two separate connections — concurrent writers to the same URL can lose updates.
 - [[shared-run-task-slot]] — Pipeline, scheduled, startup, and revalidate runs reserve one coordinator-owned task slot with identity-safe cleanup.
 - [[url-hash-triplicated]] — SHA-256(url)[:16] is repeated across cache, DB, pipeline, and web paths; every copy must remain byte-for-byte compatible.
+- [[function-local-import-shadowing]] — A from-import inside one branch makes the name local to the entire function, so other branches crash with UnboundLocalError even though the module-level import exists.
 
 ## SEO
 

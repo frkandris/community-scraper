@@ -2,6 +2,9 @@
 
 Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
+## 2026-07-23
+- **Creation**: [[function-local-import-shadowing]] — the explore route's `UnboundLocalError: get_city_topic_counts` from a branch-local import shadowing the module-level one.
+
 ## 2026-07-21
 - **Update**: Claude review hardening in [[cost-saver-schedule]], [[search-layer]], and [[daily-report]] — startup now preserves Sweden-first ordering, all-page fetch outages retry, transient search faults require three consecutive failures before pass-level disablement, JSON-null extraction rows remain runnable, and run reporting avoids false certainty or duplicate provider errors.
 - **Update**: [[2026-07-search-only-cache-replay]], [[cost-saver-schedule]], [[pipeline-orchestration]], and [[daily-report]] — fixed the follow-up zero-work incident with pair-scoped `ai_only` cache reads, interrupted-run diagnosis, and provider failures that correctly fail the run.
