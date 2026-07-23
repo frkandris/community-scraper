@@ -1,9 +1,9 @@
 ---
 type: Architecture
 title: Pipeline Run Modes
-description: full / ai_only / search_only / revalidate control how much work runs per city×topic pair.
+description: full / ai_only / search_only control how much work runs per city×topic pair (revalidate was removed 2026-07-23).
 tags: [pipeline, run-modes, orchestration]
-timestamp: 2026-07-14
+timestamp: 2026-07-23
 resource: scraper/pipeline.py
 ---
 
@@ -18,13 +18,12 @@ resource: scraper/pipeline.py
 | `full` | ✓ | ✓ | ✓ | Default scheduled run ("Smart" in UI) |
 | `ai_only` | ✗ | ✗ | ✓ | Re-extract from cached pages; no web requests |
 | `search_only` | ✓ | ✓ | ✗ | Cost-saver collector; cache search results and page text |
-| `revalidate` | ✗ | ✗ | special | Re-validates existing communities for accuracy |
 
 ## Startup progression
 
 On each restart, the pipeline mode advances:
 - Interrupted or failed → retry same mode
-- Previous was `revalidate` → run `ai_only`
+- Previous was `revalidate` (removed mode; historical rows only) → run `ai_only`
 - Previous was `ai_only` → run `full`
 - Previous was `full` → run `full` again
 

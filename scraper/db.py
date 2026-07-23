@@ -91,11 +91,6 @@ def _migrate_unicode_record_keys(conn: sqlite3.Connection) -> None:
                 " WHERE entity_type=? AND record_key=?",
                 (new_key, entity_type, old_key),
             )
-            if entity_type == "community":
-                conn.execute(
-                    "UPDATE recategorize_suggestions SET record_key=? WHERE record_key=?",
-                    (new_key, old_key),
-                )
 
     conn.execute(
         "INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)",
@@ -170,10 +165,6 @@ def init_db(db_path: Path) -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_comm_community_id ON communities(community_id)"
         )
-        try:
-            conn.execute("ALTER TABLE communities ADD COLUMN revalidate_fingerprint TEXT")
-        except sqlite3.OperationalError:
-            pass
         try:
             conn.execute("ALTER TABLE communities ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0")
         except sqlite3.OperationalError:
@@ -421,20 +412,6 @@ def init_db(db_path: Path) -> None:
                 submitter_email TEXT,
                 submitted_at    TEXT NOT NULL,
                 status          TEXT NOT NULL DEFAULT 'pending'
-            )
-        """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS recategorize_suggestions (
-                id               INTEGER PRIMARY KEY AUTOINCREMENT,
-                record_key       TEXT NOT NULL UNIQUE,
-                community_name   TEXT,
-                city             TEXT,
-                description      TEXT,
-                suggested_topic  TEXT,
-                confidence       REAL,
-                reasoning        TEXT,
-                status           TEXT NOT NULL DEFAULT 'pending',
-                created_at       TEXT DEFAULT (datetime('now'))
             )
         """)
         conn.execute("""
@@ -805,28 +782,27 @@ def replace_communities_for_topic(
 ) -> None:
     with _connect(db_path) as conn:
         # Snapshot existing records before delete so history can diff against them.
-        # hidden + revalidate_fingerprint are moderation state that must survive
-        # the DELETE+reinsert — otherwise a merged/reported (hidden) community
-        # resurfaces publicly on the next scrape and drops out of revalidation.
+        # hidden is moderation state that must survive the DELETE+reinsert —
+        # otherwise a merged/reported (hidden) community resurfaces publicly on
+        # the next scrape.
         rows = conn.execute(
-            "SELECT data, hidden, revalidate_fingerprint FROM communities WHERE city=? AND topic=?",
+            "SELECT data, hidden FROM communities WHERE city=? AND topic=?",
             (city, topic)
         ).fetchall()
         previous: dict[str, dict] = {}
-        moderation: dict[str, tuple] = {}
-        for data_str, hidden, reval_fp in rows:
+        hidden_keys: set[str] = set()
+        for data_str, hidden in rows:
             d = json.loads(data_str)
             key = _community_record_key(d["name"], d["city"], d["topic"])
             previous[key] = d
-            if hidden or reval_fp:
-                moderation[key] = (hidden, reval_fp)
+            if hidden:
+                hidden_keys.add(key)
 
         conn.execute("DELETE FROM communities WHERE city=? AND topic=?", (city, topic))
         _bulk_upsert_communities(conn, records, previous)
-        for key, (hidden, reval_fp) in moderation.items():
+        for key in hidden_keys:
             conn.execute(
-                "UPDATE communities SET hidden=?, revalidate_fingerprint=? WHERE record_key=?",
-                (hidden, reval_fp, key),
+                "UPDATE communities SET hidden=1 WHERE record_key=?", (key,)
             )
         conn.commit()
 
@@ -891,77 +867,6 @@ def get_community_by_record_key(db_path: Path, record_key: str) -> dict | None:
     return json.loads(row[0]) if row else None
 
 
-def get_communities_needing_revalidation(
-    db_path: Path,
-    fingerprint: str,
-    city: str = "",
-    topic: str = "",
-) -> list[dict]:
-    """Return communities previously revalidated but with a now-stale fingerprint."""
-    if not db_path.exists():
-        return []
-    with _connect(db_path) as conn:
-        if city and topic:
-            rows = conn.execute(
-                "SELECT data FROM communities WHERE city=? AND topic=?"
-                " AND revalidate_fingerprint IS NOT NULL AND revalidate_fingerprint != ?"
-                " ORDER BY id",
-                (city, topic, fingerprint),
-            ).fetchall()
-        elif city:
-            rows = conn.execute(
-                "SELECT data FROM communities WHERE city=?"
-                " AND revalidate_fingerprint IS NOT NULL AND revalidate_fingerprint != ?"
-                " ORDER BY topic, id",
-                (city, fingerprint),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT data FROM communities"
-                " WHERE revalidate_fingerprint IS NOT NULL AND revalidate_fingerprint != ?"
-                " ORDER BY city, topic, id",
-                (fingerprint,),
-            ).fetchall()
-    return [json.loads(r[0]) for r in rows]
-
-
-def count_communities_needing_revalidation(
-    db_path: Path,
-    fingerprint: str,
-    cities: list[str] | None = None,
-) -> int:
-    """COUNT of communities previously revalidated but with a now-stale fingerprint."""
-    if not db_path.exists():
-        return 0
-    with _connect(db_path) as conn:
-        if cities:
-            placeholders = ",".join("?" * len(cities))
-            row = conn.execute(
-                f"SELECT COUNT(*) FROM communities"
-                f" WHERE city IN ({placeholders})"
-                f" AND revalidate_fingerprint IS NOT NULL AND revalidate_fingerprint != ?",
-                (*cities, fingerprint),
-            ).fetchone()
-        else:
-            row = conn.execute(
-                "SELECT COUNT(*) FROM communities"
-                " WHERE revalidate_fingerprint IS NOT NULL AND revalidate_fingerprint != ?",
-                (fingerprint,),
-            ).fetchone()
-    return row[0] if row else 0
-
-
-def set_community_revalidate_fingerprint(
-    db_path: Path, record_key: str, fingerprint: str
-) -> None:
-    with _connect(db_path) as conn:
-        conn.execute(
-            "UPDATE communities SET revalidate_fingerprint=? WHERE record_key=?",
-            (fingerprint, record_key),
-        )
-        conn.commit()
-
-
 def get_community_history(db_path: Path, community_id: str, limit: int = 100) -> list[dict]:
     if not db_path.exists():
         return []
@@ -1013,19 +918,6 @@ def get_communities_for_city(db_path: Path, city: str) -> list[dict]:
         rows = conn.execute(
             "SELECT data FROM communities WHERE city=? AND hidden=0 ORDER BY topic, id",
             (city,)
-        ).fetchall()
-    return [json.loads(r[0]) for r in rows]
-
-
-def get_communities_missing_description(db_path: Path) -> list[dict]:
-    """Return visible communities where description is NULL or empty."""
-    if not db_path.exists():
-        return []
-    with _connect(db_path) as conn:
-        rows = conn.execute(
-            "SELECT data FROM communities WHERE hidden=0 "
-            "AND (json_extract(data,'$.description') IS NULL OR json_extract(data,'$.description') = '') "
-            "ORDER BY city, id"
         ).fetchall()
     return [json.loads(r[0]) for r in rows]
 
@@ -2130,6 +2022,28 @@ def save_not_community_report(
         return cur.lastrowid
 
 
+def count_pending_interactions(db_path: Path) -> dict:
+    """Pending user-submitted items for the admin Inbox badge.
+
+    Not-community reports have no status column — every stored row is pending
+    (handling deletes the row)."""
+    counts = {"edit_requests": 0, "reports": 0, "submissions": 0, "total": 0}
+    if not db_path or not db_path.exists():
+        return counts
+    with _connect(db_path) as conn:
+        for key, sql in (
+            ("edit_requests", "SELECT COUNT(*) FROM edit_requests WHERE status='pending'"),
+            ("reports", "SELECT COUNT(*) FROM not_community_reports"),
+            ("submissions", "SELECT COUNT(*) FROM community_submissions WHERE status='pending'"),
+        ):
+            try:
+                counts[key] = conn.execute(sql).fetchone()[0]
+            except sqlite3.OperationalError:
+                pass  # table not created yet on an old DB
+    counts["total"] = counts["edit_requests"] + counts["reports"] + counts["submissions"]
+    return counts
+
+
 def get_not_community_reports(db_path: Path) -> list[dict]:
     if not db_path.exists():
         return []
@@ -2484,104 +2398,6 @@ def resolve_community_submission(db_path: Path, sub_id: int, status: str) -> Non
 
 
 # ── Recategorize suggestions ───────────────────────────────────────────────────
-
-def get_other_communities(db_path: Path) -> list[dict]:
-    """Return all non-hidden communities with topic='other'."""
-    if not db_path.exists():
-        return []
-    with _connect(db_path) as conn:
-        rows = conn.execute(
-            "SELECT record_key, data FROM communities "
-            "WHERE json_extract(data,'$.topic')='other' AND hidden=0 "
-            "ORDER BY json_extract(data,'$.city'), json_extract(data,'$.name')"
-        ).fetchall()
-    return [{"record_key": r[0], **json.loads(r[1])} for r in rows]
-
-
-def upsert_recategorize_suggestion(
-    db_path: Path,
-    record_key: str,
-    community_name: str,
-    city: str,
-    description: str,
-    suggested_topic: str,
-    confidence: float,
-    reasoning: str,
-    status: str,
-) -> None:
-    with _connect(db_path) as conn:
-        conn.execute(
-            """INSERT INTO recategorize_suggestions
-               (record_key, community_name, city, description,
-                suggested_topic, confidence, reasoning, status, created_at)
-               VALUES (?,?,?,?,?,?,?,?,datetime('now'))
-               ON CONFLICT(record_key) DO UPDATE SET
-                 suggested_topic=excluded.suggested_topic,
-                 confidence=excluded.confidence,
-                 reasoning=excluded.reasoning,
-                 status=excluded.status,
-                 created_at=excluded.created_at""",
-            (record_key, community_name, city, description or "",
-             suggested_topic, confidence, reasoning, status),
-        )
-        conn.commit()
-
-
-def get_recategorize_suggestions(db_path: Path, status: str = "pending") -> list[dict]:
-    if not db_path.exists():
-        return []
-    with _connect(db_path) as conn:
-        cursor = conn.execute(
-            "SELECT id, record_key, community_name, city, description, "
-            "suggested_topic, confidence, reasoning, status, created_at "
-            "FROM recategorize_suggestions WHERE status=? "
-            "ORDER BY confidence DESC",
-            (status,),
-        )
-        cols = [d[0] for d in cursor.description]
-        return [dict(zip(cols, row)) for row in cursor.fetchall()]
-
-
-def apply_recategorize_suggestion(db_path: Path, record_key: str, new_topic: str) -> None:
-    """Update the community's topic and mark the suggestion as applied."""
-    with _connect(db_path) as conn:
-        row = conn.execute(
-            "SELECT data FROM communities WHERE record_key=?", (record_key,)
-        ).fetchone()
-        if not row:
-            return
-        data = json.loads(row[0])
-        old_name = data.get("name", "")
-        old_city = data.get("city", "")
-        new_key = _community_record_key(old_name, old_city, new_topic)
-        data["topic"] = new_topic
-        try:
-            # The topic COLUMN drives every public query (get_communities,
-            # counts, coverage) — updating only the JSON left records stuck
-            # under the old topic publicly.
-            conn.execute(
-                "UPDATE communities SET record_key=?, topic=?, data=? WHERE record_key=?",
-                (new_key, new_topic, json.dumps(data, ensure_ascii=False), record_key),
-            )
-        except sqlite3.IntegrityError:
-            # A row with new_key already exists (same community already present
-            # under the target topic) — drop this one instead of 500-ing.
-            conn.execute("DELETE FROM communities WHERE record_key=?", (record_key,))
-        conn.execute(
-            "UPDATE recategorize_suggestions SET status='applied' WHERE record_key=?",
-            (record_key,),
-        )
-        conn.commit()
-
-
-def update_recategorize_status(db_path: Path, suggestion_id: int, status: str) -> None:
-    with _connect(db_path) as conn:
-        conn.execute(
-            "UPDATE recategorize_suggestions SET status=? WHERE id=?",
-            (status, suggestion_id),
-        )
-        conn.commit()
-
 
 def get_data_quality_stats(db_path: Path) -> dict:
     empty: dict = {

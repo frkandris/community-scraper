@@ -65,7 +65,7 @@ class AppState:
     version: str = "v.unknown"
     current_phase: str | None = None     # "scrape" | "extract" | "enrich_scrape" | "enrich_extract"
     current_url: str | None = None       # source URL of the cache row being processed
-    current_run_mode: str | None = None  # "full" | "ai_only" | "revalidate"
+    current_run_mode: str | None = None  # "full" | "ai_only" | "search_only"
     current_city: str | None = None      # city being processed in current pair
     current_topic: str | None = None     # topic being processed in current pair
     _run_task: Any = None

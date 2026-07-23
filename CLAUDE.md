@@ -34,7 +34,9 @@ The scraper discovers community groups for each `(city, topic)` pair:
 The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 - `full`: search → fetch → extract → enrich (default; labelled "Smart" in the UI)
 - `ai_only`: re-extract from cached page texts, no web requests
-- `revalidate`: re-validates communities whose `revalidate_fingerprint` is stale (separate flow via `_run_revalidate`, not `run_pipeline`)
+- `search_only`: search + fetch + cache raw text, zero LLM calls (the saver collector)
+
+(The former `revalidate`, `recategorize`, and description-maintenance admin flows were deleted 2026-07-23 — the focus is low-cost world indexing. Historical `revalidate` rows may still appear in `runs`.)
 
 **Pipeline city priority**: bounded scheduled saver runs call `run_pipeline()` in Sweden → rest of world → Hungary order so the active expansion market gets the daily window first. Startup recovery retains Hungary → Sweden → rest of world order. The split is in `main.py`, not `pipeline.py`.
 
@@ -102,7 +104,7 @@ commit** as the code change that triggered them; validate with
 
 **Tailwind CDN scanning**: the CDN JIT scans the full initial DOM before the page becomes visible. Never server-render large lists in admin templates — load them via a JSON endpoint + `DocumentFragment` client-side. The `logs.html` → `/admin/api/logs/history` pattern is the reference.
 
-**Stop/cancel pattern**: long-running routes (pipeline, revalidate) must use `asyncio.create_task()` and store the task in `app_state._run_task`. `BackgroundTasks` (FastAPI) cannot be cancelled. `asyncio.CancelledError` is a `BaseException` in Python 3.8+, so `except Exception` will NOT catch it — always use `finally` for cleanup.
+**Stop/cancel pattern**: long-running routes (pipeline runs) must use `asyncio.create_task()` and store the task in `app_state._run_task`. `BackgroundTasks` (FastAPI) cannot be cancelled. `asyncio.CancelledError` is a `BaseException` in Python 3.8+, so `except Exception` will NOT catch it — always use `finally` for cleanup.
 
 **CSS build**: `scraper/web/static/css/app.css` is gitignored. Docker builds it from `input.css` via `pytailwindcss` at image build time. For local dev, maintain `app.css` manually. Committing `input.css` changes is sufficient for production.
 

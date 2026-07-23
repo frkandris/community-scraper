@@ -757,6 +757,7 @@ _T: dict[str, dict[str, str]] = {
 "en": {
     "nav_discover": "Discover",
     "nav_map": "Map",
+    "nav_people": "People",
     "nav_about": "About",
     "nav_submit": "Submit community",
     "home_hero_label": "Communities worldwide",
@@ -930,6 +931,7 @@ _T: dict[str, dict[str, str]] = {
 "hu": {
     "nav_discover": "Felfedezés",
     "nav_map": "Térkép",
+    "nav_people": "Emberek",
     "nav_about": "Rólunk",
     "nav_submit": "Közösség beküldése",
     "home_hero_label": "Magyar közösségek",

@@ -154,35 +154,33 @@
           </a>
         </div>
       </div>
-      {# Moderation dropdown #}
-      {% set _mod_active = _p.startswith('/admin/duplicates') or _p.startswith('/admin/edit-requests') or _p == '/admin/not-community' or _p == '/admin/submissions' or _p == '/admin/recategorize' or _p == '/admin/maintenance' %}
-      <div class="relative" id="nav-mod-wrap">
-        <button onclick="document.getElementById('nav-mod-menu').classList.toggle('hidden')"
+      {# Inbox dropdown — user-submitted items awaiting review, with pending counts #}
+      {% set _inbox = inbox_counts() %}
+      {% set _inbox_active = _p.startswith('/admin/edit-requests') or _p == '/admin/not-community' or _p == '/admin/submissions' %}
+      <div class="relative" id="nav-inbox-wrap">
+        <button onclick="document.getElementById('nav-inbox-menu').classList.toggle('hidden')"
           class="px-2.5 py-1 rounded-lg text-sm transition-colors flex items-center gap-1
-            {% if _mod_active %}bg-gray-100 text-gray-900 font-semibold{% else %}text-gray-600 hover:text-gray-900 hover:bg-gray-50{% endif %}">
-          Moderation <i class="ph ph-caret-down" style="font-size:11px;margin-top:1px"></i>
+            {% if _inbox_active %}bg-gray-100 text-gray-900 font-semibold{% else %}text-gray-600 hover:text-gray-900 hover:bg-gray-50{% endif %}">
+          Inbox
+          {% if _inbox.total %}<span class="min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full text-[10px] font-bold bg-red-500 text-white">{{ _inbox.total }}</span>{% endif %}
+          <i class="ph ph-caret-down" style="font-size:11px;margin-top:1px"></i>
         </button>
-        <div id="nav-mod-menu" class="hidden absolute left-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50">
-          <a href="/admin/duplicates" class="flex items-center gap-2 px-3 py-2 text-sm {% if _p.startswith('/admin/duplicates') %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
-            <i class="ph ph-copy" style="font-size:14px"></i> Duplicates
-          </a>
+        <div id="nav-inbox-menu" class="hidden absolute left-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50">
           <a href="/admin/edit-requests" class="flex items-center gap-2 px-3 py-2 text-sm {% if _p.startswith('/admin/edit-requests') %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
             <i class="ph ph-pencil-simple" style="font-size:14px"></i> Edit requests
+            {% if _inbox.edit_requests %}<span class="ml-auto min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full text-[10px] font-bold bg-red-100 text-red-700">{{ _inbox.edit_requests }}</span>{% endif %}
           </a>
           <a href="/admin/not-community" class="flex items-center gap-2 px-3 py-2 text-sm {% if _p == '/admin/not-community' %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
             <i class="ph ph-x-circle" style="font-size:14px"></i> Not community
+            {% if _inbox.reports %}<span class="ml-auto min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full text-[10px] font-bold bg-red-100 text-red-700">{{ _inbox.reports }}</span>{% endif %}
           </a>
           <a href="/admin/submissions" class="flex items-center gap-2 px-3 py-2 text-sm {% if _p == '/admin/submissions' %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
             <i class="ph ph-tray" style="font-size:14px"></i> Submissions
-          </a>
-          <a href="/admin/recategorize" class="flex items-center gap-2 px-3 py-2 text-sm {% if _p == '/admin/recategorize' %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
-            <i class="ph ph-tag" style="font-size:14px"></i> Recategorize
-          </a>
-          <a href="/admin/maintenance" class="flex items-center gap-2 px-3 py-2 text-sm {% if _p == '/admin/maintenance' %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
-            <i class="ph ph-wrench" style="font-size:14px"></i> Description re-AI
+            {% if _inbox.submissions %}<span class="ml-auto min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full text-[10px] font-bold bg-red-100 text-red-700">{{ _inbox.submissions }}</span>{% endif %}
           </a>
         </div>
       </div>
+      {{ navlink('/admin/duplicates', 'Duplicates', _p.startswith('/admin/duplicates')) }}
       {# System dropdown #}
       {% set _sys_active = _p.startswith('/admin/progress') or _p == '/admin/logs' or _p.startswith('/admin/config') or _p == '/admin/prompts' %}
       <div class="relative" id="nav-sys-wrap">
@@ -249,12 +247,12 @@
       <a href="/admin/results" class="px-2.5 py-2 rounded-lg text-sm transition-colors {% if _p.startswith('/admin/results') %}bg-gray-100 text-gray-900 font-semibold{% else %}text-gray-600 hover:text-gray-900 hover:bg-gray-50{% endif %}">Communities</a>
       <a href="/admin/venues" class="px-2.5 py-2 rounded-lg text-sm transition-colors {% if _p.startswith('/admin/venues') %}bg-gray-100 text-gray-900 font-semibold{% else %}text-gray-600 hover:text-gray-900 hover:bg-gray-50{% endif %}">Venues</a>
       <a href="/admin/persons" class="px-2.5 py-2 rounded-lg text-sm transition-colors {% if _p.startswith('/admin/persons') %}bg-gray-100 text-gray-900 font-semibold{% else %}text-gray-600 hover:text-gray-900 hover:bg-gray-50{% endif %}">People</a>
+      <p class="px-2.5 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Inbox{% if _inbox.total %} <span class="ml-1 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full text-[10px] font-bold bg-red-500 text-white normal-case">{{ _inbox.total }}</span>{% endif %}</p>
+      {{ navlink('/admin/edit-requests', 'Edit requests' + (' (' ~ _inbox.edit_requests ~ ')' if _inbox.edit_requests else ''), _p.startswith('/admin/edit-requests')) }}
+      {{ navlink('/admin/not-community', 'Not community' + (' (' ~ _inbox.reports ~ ')' if _inbox.reports else ''), _p == '/admin/not-community') }}
+      {{ navlink('/admin/submissions',   'Submissions' + (' (' ~ _inbox.submissions ~ ')' if _inbox.submissions else ''), _p == '/admin/submissions') }}
       <p class="px-2.5 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Moderation</p>
       {{ navlink('/admin/duplicates',    'Duplicates',    _p.startswith('/admin/duplicates')) }}
-      {{ navlink('/admin/edit-requests', 'Edit requests', _p.startswith('/admin/edit-requests')) }}
-      {{ navlink('/admin/not-community', 'Not community', _p == '/admin/not-community') }}
-      {{ navlink('/admin/submissions',   'Submissions',   _p == '/admin/submissions') }}
-      {{ navlink('/admin/recategorize',  'Recategorize',  _p == '/admin/recategorize') }}
       <p class="px-2.5 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">System</p>
       {{ navlink('/admin/progress',      'Progress',      _p.startswith('/admin/progress')) }}
       {{ navlink('/admin/logs',          'Logs',          _p == '/admin/logs') }}
@@ -316,7 +314,7 @@
   _pollStatus();
   // Close dropdowns when clicking outside
   document.addEventListener('click', function(e) {
-    [['nav-results-wrap','nav-results-menu'],['nav-mod-wrap','nav-mod-menu'],['nav-sys-wrap','nav-sys-menu']].forEach(function([wId, mId]) {
+    [['nav-results-wrap','nav-results-menu'],['nav-inbox-wrap','nav-inbox-menu'],['nav-sys-wrap','nav-sys-menu']].forEach(function([wId, mId]) {
       const wrap = document.getElementById(wId);
       const menu = document.getElementById(mId);
       if (wrap && menu && !wrap.contains(e.target)) menu.classList.add('hidden');

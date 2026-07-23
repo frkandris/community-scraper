@@ -98,11 +98,6 @@ def test_init_db_migrates_legacy_keys_and_references(tmp_path: Path):
             ),
         )
         conn.execute(
-            "INSERT INTO recategorize_suggestions"
-            " (record_key, community_name, city, status) VALUES (?, ?, ?, 'pending')",
-            (legacy_key, record.name, record.city),
-        )
-        conn.execute(
             "DELETE FROM schema_migrations WHERE name=?",
             (_UNICODE_RECORD_KEYS_MIGRATION,),
         )
@@ -114,4 +109,3 @@ def test_init_db_migrates_legacy_keys_and_references(tmp_path: Path):
     assert get_community_by_record_key(db, new_key)["name"] == record.name
     with sqlite3.connect(db) as conn:
         assert conn.execute("SELECT record_key FROM edit_requests").fetchone()[0] == new_key
-        assert conn.execute("SELECT record_key FROM recategorize_suggestions").fetchone()[0] == new_key

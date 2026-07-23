@@ -35,7 +35,11 @@ City × topic matrix from `get_city_topic_states` + `get_fully_processed_pairs` 
 
 ## Queue and runs
 
-Admin I/O ops (scrape/extract/enrich) go through an in-process queue (`queue_items` + `_queue_fns` + a worker task); manual cache-detail buttons use `priority=True`. Pipeline, scheduled, startup, and revalidate runs share one coordinator-owned slot and task-identity cleanup. See [[shared-run-task-slot]] and [[asyncio-task-cancellation]].
+Admin I/O ops (scrape/extract/enrich) go through an in-process queue (`queue_items` + `_queue_fns` + a worker task); manual cache-detail buttons use `priority=True`. Pipeline, scheduled, and startup runs share one coordinator-owned slot and task-identity cleanup. See [[shared-run-task-slot]] and [[asyncio-task-cancellation]].
+
+## Admin Inbox nav
+
+User-submitted items (edit requests, not-community reports, community submissions) live under one **Inbox** dropdown with live pending-count badges. The counts come from `count_pending_interactions` (db.py) exposed as a Jinja **global callable** (`templates.env.globals["inbox_counts"]` in app.py) so every admin page renders fresh counts without per-route context plumbing — the same globals mechanism as `app_version`, but a callable because a startup-time value would go stale. Not-community reports have no status column: every stored row is pending, handling deletes the row. See [[admin-simplification-2026-07]] for what was removed around it.
 
 ## Tailwind CDN JIT
 

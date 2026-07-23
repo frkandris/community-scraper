@@ -14,7 +14,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[two-domain-single-container]] — One FastAPI container serves közösségek.com and meetapedia.com via Host-header detection.
 - [[end-to-end-pair-walkthrough]] — One worked example — (Szentendre, running) — traced from scheduler wake-up through search, fetch, extraction, storage, and the public page, naming every file on the path.
 - [[extraction-fingerprint-cache]] — SHA-256[:12] of each prompt family plus model keys extraction caches; changing either makes the corresponding results stale.
-- [[pipeline-run-modes]] — full / ai_only / search_only / revalidate control how much work runs per city×topic pair.
+- [[pipeline-run-modes]] — full / ai_only / search_only control how much work runs per city×topic pair (revalidate was removed 2026-07-23).
 - [[indexing-strategy]] — Canonical tags, thin-page noindex, domain-scoped sitemaps, and robots rules that keep the two-domain directory from cannibalizing its own search rankings.
 
 ## Subsystems
@@ -65,6 +65,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[hungary-sweden-intl-three-passes]] — main.py partitions Hungary, Sweden, and world into independent passes; bounded saver jobs are expansion-first while startup recovery is Hungary-first.
 - [[scheduler-disabled-no-cron]] — APScheduler registers the enabled twin cost-saver jobs and daily report; the legacy combined cron remains opt-in.
 - [[cost-optimization-2026-07]] — Cost controls reduce paid search and LLM work through caching, query short-circuiting, venue gates, off-peak extraction, standard search, and topic tiers.
+- [[admin-simplification-2026-07]] — Removed the revalidate, recategorize, description-maintenance and Full Rebuild admin flows; the admin now centers on low-cost world indexing plus a user-interaction Inbox with pending badges.
 - [[doc-drift-project-readme]] — Root PROJECT.md describes retired providers and scheduling; README.md, code, and this wiki reflect the current system.
 
 ## Hacks
@@ -104,7 +105,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 
 ## Operations
 
-- [[run-modes-and-startup]] — How to trigger runs (dashboard cards, manual, startup) and how the startup escalates revalidate → ai_only → full.
+- [[run-modes-and-startup]] — How to trigger runs (dashboard cards, manual, startup) and how the startup escalates ai_only → full.
 - [[deployment-coolify]] — Docker on Coolify; persist only /app/data and /app/config; required and optional env vars.
 - [[adding-city-topic]] — The config files plus the app.py dicts and i18n labels you must update in lockstep.
 - [[local-search-worker]] — REMOVED 2026-07-09 — browser-driven search never beat engine bot detection; kept as post-mortem. Code in git history.

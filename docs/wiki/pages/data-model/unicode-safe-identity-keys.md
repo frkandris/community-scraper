@@ -3,7 +3,7 @@ type: Data-model
 title: Unicode-safe Identity Keys
 description: Entity record keys hash NFKC+casefold canonical text, preventing non-Latin names from collapsing to the same database key.
 tags: [identity, unicode, record-key, migration, slug]
-timestamp: 2026-07-10
+timestamp: 2026-07-23
 resource: scraper/identity.py
 ---
 
@@ -23,7 +23,7 @@ The digest input retains punctuation and all scripts, so distinct Japanese, Cyri
 
 ## Migration
 
-`init_db()` records `unicode_record_keys_v2` in `schema_migrations`. Before marking it applied, it rewrites existing entity keys plus persisted references in `duplicate_candidates`, `edit_requests`, and `recategorize_suggestions` in one SQLite transaction.
+`init_db()` records `unicode_record_keys_v2` in `schema_migrations`. Before marking it applied, it rewrites existing entity keys plus persisted references in `duplicate_candidates` and `edit_requests` in one SQLite transaction (the `recategorize_suggestions` reference was dropped with the feature on 2026-07-23).
 
 ## Public slugs
 

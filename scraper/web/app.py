@@ -36,8 +36,6 @@ from ..db import (
     save_not_community_report,
     get_not_community_reports,
     delete_not_community_report,
-    get_communities_needing_revalidation,
-    set_community_revalidate_fingerprint,
     set_community_hidden,
     _community_record_key,
     get_topic_counts,
@@ -76,24 +74,18 @@ from ..db import (
     save_community_submission,
     get_community_submissions,
     resolve_community_submission,
-    get_other_communities,
-    get_communities_missing_description,
-    upsert_recategorize_suggestion,
-    get_recategorize_suggestions,
-    apply_recategorize_suggestion,
-    update_recategorize_status,
 )
 from ..false_positives import (add as fp_add, diff_html as fp_diff_html,
                                load as fp_load, load_history as fp_load_history,
                                remove as fp_remove, build_prompt_section)
 from ..extract import (ENRICH_SCHEMA, ENRICH_SYSTEM_PROMPT, EXTRACTION_SCHEMA,
-                       SYSTEM_PROMPT, USER_PROMPT_TEMPLATE, _prompt_hash,
+                       SYSTEM_PROMPT, USER_PROMPT_TEMPLATE,
                        VENUE_SCHEMA, PERSON_SCHEMA, PROMPT_KEYS, get_prompt, set_prompt_override,
                        DeepSeekExtractor, FallbackExtractor)
 from ..fetch import fetch_and_clean
 from ..identity import public_slug
 from ..models import CommunityRecord
-from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline, scrape_submitted_url, reextract_community, reextract_with_search_fallback
+from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline, scrape_submitted_url, reextract_community
 from ..search import DataForSEOClient, FallbackSearchClient
 from ..store import patch_results, save_results
 from ..url_safety import (UnsafeURLError, assert_safe_public_url,
@@ -325,6 +317,22 @@ def _fmt_dur(s: float | None) -> str:
 
 
 templates.env.filters["fmt_dur"] = _fmt_dur
+
+
+def _inbox_counts() -> dict:
+    """Pending user-interaction counts for the admin nav badge. Registered as a
+    Jinja GLOBAL CALLABLE so every admin page shows live counts without each
+    route having to pass them."""
+    from ..db import count_pending_interactions
+    try:
+        if app_state.db_path:
+            return count_pending_interactions(app_state.db_path)
+    except Exception:
+        pass
+    return {"edit_requests": 0, "reports": 0, "submissions": 0, "total": 0}
+
+
+templates.env.globals["inbox_counts"] = _inbox_counts
 
 
 _LINK_PLATFORMS = [
@@ -1993,7 +2001,6 @@ async def dashboard(request: Request):
         "run_history": run_history,
         "test_mode": test_mode,
         "test_cities": test_cities,
-        "revalidate_state": _revalidate_state,
         "current_run_mode": app_state.current_run_mode,
         "run_countries": run_countries,
         "run_cities": run_cities,
@@ -2250,372 +2257,9 @@ async def admin_community_reai(community_id: str, background_tasks: BackgroundTa
     return JSONResponse({"ok": True})
 
 
-# ── Re-validate existing communities ─────────────────────────────────────────
+# ── Cached public home stats ─────────────────────────────────────────────────
 
 _home_stats_cache: dict[str, dict] = {}  # keyed by site ("kozossegek" | "meetapedia")
-
-_revalidate_state: dict = {"running": False, "done": 0, "total": 0, "flagged": 0, "skipped": 0, "error": ""}
-
-
-def _revalidation_fingerprint() -> str:
-    fps = fp_load(_db())
-    rules_section = build_prompt_section(fps, fp_type="extraction")
-    rules_section += build_prompt_section(fps, fp_type="extraction_rule") if fps else ""
-    return _prompt_hash(
-        SYSTEM_PROMPT[:1500] + rules_section +
-        "Is this a GENUINE ongoing community group (not a business, event, or false positive)?"
-    )
-
-
-@admin.post("/revalidate/start")
-async def admin_revalidate_start(
-    city: str = Form(""),
-    topic: str = Form(""),
-    filter_city: str = Form(""),
-    filter_country: str = Form(""),
-):
-    """Start a background re-validation of existing communities against the current prompt."""
-    if not app_state.db_path or not app_state.pipeline_cfg:
-        return JSONResponse({"ok": False, "error": "Not configured"})
-    if not app_state.run_coordinator.reserve("revalidate"):
-        return JSONResponse({"ok": False, "error": "Already running"})
-    _city = (city or filter_city).strip()
-    _country = filter_country.strip()
-    task = asyncio.create_task(_run_revalidate(_city, topic.strip(), _country))
-    app_state.run_coordinator.attach(task)
-    return JSONResponse({"ok": True})
-
-
-@admin.get("/revalidate/status")
-async def admin_revalidate_status():
-    return JSONResponse(_revalidate_state)
-
-
-async def _run_revalidate(city: str, topic: str, country: str = "") -> None:
-    _revalidate_state.update({"running": True, "done": 0, "total": 0, "flagged": 0, "skipped": 0, "error": ""})
-    app_state.current_phase = "revalidate"
-    app_state.current_url = None
-    started = datetime.now(timezone.utc)
-    from ..db import start_run as _start_run
-    _revalidate_run_id = _start_run(app_state.db_path, started, "revalidate") if app_state.db_path else None
-    success = False
-
-    # Resolve city list from country scope when no specific city given
-    country_cities: list[str] = []
-    if country and not city:
-        country_cities = [c.name for c in (app_state.cities or []) if c.country == country]
-
-    try:
-        fps = fp_load(_db())
-        rules_section = build_prompt_section(fps, fp_type="extraction")
-        rules_section += build_prompt_section(fps, fp_type="extraction_rule") if fps else ""
-        revalidate_fp = _revalidation_fingerprint()
-
-        if country_cities:
-            all_count = sum(len(get_communities_for_city(_db(), c)) for c in country_cities)
-            communities = [
-                rec for c in country_cities
-                for rec in get_communities_needing_revalidation(_db(), revalidate_fp, c, topic)
-            ]
-        else:
-            all_count = len(get_all_communities(_db()) if not city else
-                            (get_communities(_db(), city, topic) if topic else
-                             get_communities_for_city(_db(), city)))
-            communities = get_communities_needing_revalidation(_db(), revalidate_fp, city, topic)
-
-        skipped = all_count - len(communities)
-        _revalidate_state["skipped"] = skipped
-        _revalidate_state["total"] = len(communities)
-        log.info("revalidate_started", total=len(communities), skipped=skipped)
-
-        for record in communities:
-            name = record.get("name", "")
-            c = record.get("city", city)
-            t = record.get("topic", topic)
-            src = record.get("source_url", "") or ""
-
-            app_state.current_url = src or name
-
-            def _field(key: str) -> str:
-                v = record.get(key)
-                return str(v) if v not in (None, "", [], {}) else ""
-
-            record_lines = [
-                f"- Name: {name}",
-                f"- City: {c}, Topic: {t}",
-            ]
-            for key, label in [
-                ("description", "Description"),
-                ("website", "Website"),
-                ("source_url", "Source URL"),
-                ("tags", "Tags"),
-                ("joinable", "Joinable"),
-                ("join_process", "Join process"),
-                ("founding_year", "Founded"),
-                ("member_count", "Members"),
-                ("fee", "Fee"),
-                ("age_range", "Age range"),
-                ("skill_level", "Skill level"),
-                ("leader", "Leader"),
-                ("email", "Email"),
-                ("phone", "Phone"),
-                ("confidence", "Confidence"),
-            ]:
-                v = _field(key)
-                if v:
-                    record_lines.append(f"- {label}: {v}")
-
-            prompt = (
-                f"Extraction rules:\n{SYSTEM_PROMPT[:1500]}{rules_section}\n\n"
-                f"Community record:\n"
-                + "\n".join(record_lines)
-                + "\n\nIs this a GENUINE ongoing community group (not a business, event, or false positive)? "
-                "Reply with exactly YES or NO, then a short reason (one sentence)."
-            )
-            try:
-                answer = await _ai_chat(prompt, temperature=0.1)
-                verdict = "NO" if answer.upper().startswith("NO") else "YES"
-                rk = _community_record_key(name, c, t)
-                log.info("revalidate_checked", name=name, city=c, verdict=verdict)
-                if verdict == "NO":
-                    try:
-                        save_not_community_report(
-                            _db(),
-                            community_id=record.get("community_id", ""),
-                            community_name=name,
-                            city=c,
-                            topic=t,
-                            page_url=src,
-                            source_url=src,
-                        )
-                    except Exception:
-                        pass
-                    set_community_hidden(_db(), rk, True)
-                    _revalidate_state["flagged"] += 1
-                else:
-                    set_community_hidden(_db(), rk, False)
-                set_community_revalidate_fingerprint(_db(), rk, revalidate_fp)
-            except Exception as exc:
-                log.warning("revalidate_item_failed", name=name, error=str(exc))
-            _revalidate_state["done"] += 1
-
-        success = True
-        log.info("revalidate_done", done=_revalidate_state["done"], flagged=_revalidate_state["flagged"])
-    except Exception as exc:
-        _revalidate_state["error"] = str(exc)
-        log.warning("revalidate_failed", error=str(exc))
-    finally:
-        _revalidate_state["running"] = False
-        try:
-            if app_state.db_path and _revalidate_run_id:
-                from ..db import finish_run
-                finish_run(app_state.db_path, _revalidate_run_id, datetime.now(timezone.utc),
-                           success, None, 0)
-        finally:
-            app_state.run_coordinator.release(asyncio.current_task())
-
-
-_RECATEGORIZE_AUTO_THRESHOLD = 0.85
-_RECATEGORIZE_MIN_THRESHOLD = 0.50
-_recategorize_state: dict = {"running": False, "done": 0, "total": 0, "auto_applied": 0, "pending": 0, "skipped": 0, "error": ""}
-
-_RECATEGORIZE_PROMPT = """You are an expert at classifying community groups into interest categories.
-
-Given a community name and description, select the single best matching category from this list:
-{topics}
-
-Respond with a JSON object only — no markdown, no explanation outside the JSON:
-{{"topic": "<slug>", "confidence": <0.0-1.0>, "reasoning": "<one sentence>"}}
-
-Rules:
-- confidence >= 0.85 means you are very sure
-- confidence 0.50-0.84 means you are fairly sure but not certain
-- confidence < 0.50 means it is unclear (you may still output your best guess)
-- If the community genuinely fits "other" better than any listed category, output "other" with high confidence
-
-Community name: {name}
-Description: {description}"""
-
-
-async def _ai_suggest_topic(name: str, description: str, topics: list[str]) -> tuple[str, float, str]:
-    import json as _json
-    prompt = _RECATEGORIZE_PROMPT.format(
-        topics=", ".join(topics),
-        name=name,
-        description=(description or "")[:500],
-    )
-    raw = await _ai_chat(prompt, temperature=0.1)
-    raw = raw.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-    data = _json.loads(raw)
-    return str(data.get("topic", "other")), float(data.get("confidence", 0.0)), str(data.get("reasoning", ""))
-
-
-@admin.get("/recategorize", response_class=HTMLResponse)
-async def admin_recategorize_page(request: Request):
-    if not app_state.db_path:
-        return RedirectResponse("/admin", status_code=302)
-    init_db(app_state.db_path)
-    other_count = len(get_other_communities(app_state.db_path))
-    pending = get_recategorize_suggestions(app_state.db_path, "pending")
-    skipped = get_recategorize_suggestions(app_state.db_path, "skipped")
-    applied = get_recategorize_suggestions(app_state.db_path, "applied")
-    return templates.TemplateResponse(request, "recategorize.html", {
-        "request": request,
-        "other_count": other_count,
-        "pending": pending,
-        "skipped": skipped,
-        "applied_count": len(applied),
-        "state": _recategorize_state,
-        "topic_labels": TOPIC_LABELS,
-        "auto_threshold": _RECATEGORIZE_AUTO_THRESHOLD,
-        "min_threshold": _RECATEGORIZE_MIN_THRESHOLD,
-    })
-
-
-@admin.post("/recategorize/run")
-async def admin_recategorize_run(background_tasks: BackgroundTasks):
-    if not app_state.db_path or not app_state.pipeline_cfg:
-        return JSONResponse({"ok": False, "error": "Not configured"})
-    if _recategorize_state["running"]:
-        return JSONResponse({"ok": False, "error": "Already running"})
-    background_tasks.add_task(_run_recategorize)
-    return JSONResponse({"ok": True})
-
-
-@admin.get("/recategorize/status")
-async def admin_recategorize_status():
-    return JSONResponse(_recategorize_state)
-
-
-@admin.post("/recategorize/{suggestion_id}/approve")
-async def admin_recategorize_approve(suggestion_id: int, topic: str = Form("")):
-    if not app_state.db_path:
-        return JSONResponse({"ok": False})
-    suggestions = (
-        get_recategorize_suggestions(app_state.db_path, "pending") +
-        get_recategorize_suggestions(app_state.db_path, "skipped")
-    )
-    s = next((x for x in suggestions if x["id"] == suggestion_id), None)
-    if not s:
-        return JSONResponse({"ok": False, "error": "Not found"})
-    chosen = topic.strip() or s["suggested_topic"]
-    apply_recategorize_suggestion(app_state.db_path, s["record_key"], chosen)
-    log.info("recategorize_approved", name=s["community_name"], topic=chosen)
-    return JSONResponse({"ok": True})
-
-
-@admin.post("/recategorize/{suggestion_id}/reject")
-async def admin_recategorize_reject(suggestion_id: int):
-    if not app_state.db_path:
-        return JSONResponse({"ok": False})
-    update_recategorize_status(app_state.db_path, suggestion_id, "rejected")
-    return JSONResponse({"ok": True})
-
-
-async def _run_recategorize() -> None:
-    _recategorize_state.update({"running": True, "done": 0, "total": 0, "auto_applied": 0, "pending": 0, "skipped": 0, "error": ""})
-    known_topics = [t for t in TOPIC_LABELS if t != "other"]
-    try:
-        communities = get_other_communities(app_state.db_path)
-        _recategorize_state["total"] = len(communities)
-        log.info("recategorize_started", total=len(communities))
-        for c in communities:
-            rk = c.get("record_key", "")
-            name = c.get("name", "")
-            description = c.get("description", "") or ""
-            city = c.get("city", "")
-            try:
-                topic, confidence, reasoning = await _ai_suggest_topic(name, description, known_topics)
-                if topic not in known_topics:
-                    topic = "other"
-                if confidence < _RECATEGORIZE_MIN_THRESHOLD or topic == "other":
-                    upsert_recategorize_suggestion(
-                        app_state.db_path, rk, name, city, description, topic, confidence, reasoning, "skipped"
-                    )
-                    _recategorize_state["skipped"] += 1
-                    log.info("recategorize_skip", name=name, confidence=confidence, topic=topic)
-                elif confidence >= _RECATEGORIZE_AUTO_THRESHOLD:
-                    apply_recategorize_suggestion(app_state.db_path, rk, topic)
-                    upsert_recategorize_suggestion(
-                        app_state.db_path, rk, name, city, description, topic, confidence, reasoning, "applied"
-                    )
-                    _recategorize_state["auto_applied"] += 1
-                    log.info("recategorize_auto", name=name, topic=topic, confidence=confidence)
-                else:
-                    upsert_recategorize_suggestion(
-                        app_state.db_path, rk, name, city, description, topic, confidence, reasoning, "pending"
-                    )
-                    _recategorize_state["pending"] += 1
-                    log.info("recategorize_pending", name=name, topic=topic, confidence=confidence)
-            except Exception as exc:
-                log.warning("recategorize_item_failed", name=name, error=str(exc))
-            _recategorize_state["done"] += 1
-        log.info("recategorize_done", **{k: _recategorize_state[k] for k in ("done", "auto_applied", "pending", "skipped")})
-    except Exception as exc:
-        _recategorize_state["error"] = str(exc)
-        log.warning("recategorize_failed", error=str(exc))
-    finally:
-        _recategorize_state["running"] = False
-
-
-# ── Maintenance ───────────────────────────────────────────────────────────────
-
-_fill_descriptions_state: dict = {"running": False, "done": 0, "total": 0, "failed": 0, "error": ""}
-
-
-@admin.get("/maintenance", response_class=HTMLResponse)
-async def admin_maintenance_page(request: Request):
-    missing_count = len(get_communities_missing_description(app_state.db_path)) if app_state.db_path else 0
-    return templates.TemplateResponse(request, "maintenance.html", {
-        "missing_description_count": missing_count,
-        "state": _fill_descriptions_state,
-    })
-
-
-@admin.post("/maintenance/fill-descriptions/start")
-async def admin_fill_descriptions_start():
-    if not app_state.db_path or not app_state.pipeline_cfg:
-        return JSONResponse({"ok": False, "error": "Not configured"})
-    if _fill_descriptions_state["running"]:
-        return JSONResponse({"ok": False, "error": "Already running"})
-    asyncio.create_task(_run_fill_descriptions())
-    return JSONResponse({"ok": True})
-
-
-@admin.get("/maintenance/fill-descriptions/status")
-async def admin_fill_descriptions_status():
-    return JSONResponse(_fill_descriptions_state)
-
-
-async def _run_fill_descriptions() -> None:
-    _fill_descriptions_state.update({"running": True, "done": 0, "total": 0, "failed": 0, "error": ""})
-    try:
-        communities = get_communities_missing_description(app_state.db_path)
-        _fill_descriptions_state["total"] = len(communities)
-        log.info("fill_descriptions_started", total=len(communities))
-        for c in communities:
-            community_id = c.get("community_id", "")
-            if not community_id:
-                _fill_descriptions_state["failed"] += 1
-                _fill_descriptions_state["done"] += 1
-                continue
-            try:
-                await reextract_with_search_fallback(app_state.db_path, app_state.pipeline_cfg, community_id)
-            except Exception as exc:
-                log.warning("fill_descriptions_item_failed", community_id=community_id, error=str(exc))
-                _fill_descriptions_state["failed"] += 1
-            _fill_descriptions_state["done"] += 1
-        log.info("fill_descriptions_done", done=_fill_descriptions_state["done"], failed=_fill_descriptions_state["failed"])
-    except Exception as exc:
-        _fill_descriptions_state["error"] = str(exc)
-        log.warning("fill_descriptions_failed", error=str(exc))
-    finally:
-        _fill_descriptions_state["running"] = False
-
 
 @admin.get("/config", response_class=HTMLResponse)
 async def config_page(request: Request, saved: Optional[str] = None, error: Optional[str] = None):

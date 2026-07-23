@@ -1,9 +1,9 @@
 ---
 type: Runbook
 title: Run Modes and Startup State Machine
-description: How to trigger runs (dashboard cards, manual, startup) and how the startup escalates revalidate → ai_only → full.
+description: How to trigger runs (dashboard cards, manual, startup) and how the startup escalates ai_only → full.
 tags: [operations, run-modes, startup, dashboard]
-timestamp: 2026-07-10
+timestamp: 2026-07-23
 resource: scraper/main.py
 ---
 
@@ -25,8 +25,8 @@ resource: scraper/main.py
 
 `_startup_run` (gated on `schedule.auto_run_on_startup`) inspects the last run:
 
-- interrupted/failed → retry the **same** mode (revalidate → falls back to `ai_only`).
-- succeeded → escalate `revalidate → ai_only → full → full` (full is the steady state).
+- interrupted/failed → retry the **same** mode (a historical `revalidate` row falls back to `ai_only`).
+- succeeded → escalate `ai_only → full → full` (full is the steady state).
 
 This resumes work after a redeploy and climbs to more expensive passes once stable.
 
@@ -36,7 +36,7 @@ The default schedule separates collection and extraction: a daytime `search_only
 
 ## Stopping a run
 
-`POST /admin/api/stop` asks `RunCoordinator` to cancel its current task. Pipeline, cron, startup, and revalidate all reserve the same slot; task-identity cleanup prevents an older task from clearing newer state. See [[shared-run-task-slot]] and [[asyncio-task-cancellation]].
+`POST /admin/api/stop` asks `RunCoordinator` to cancel its current task. Pipeline, cron, and startup runs all reserve the same slot; task-identity cleanup prevents an older task from clearing newer state. See [[shared-run-task-slot]] and [[asyncio-task-cancellation]].
 
 Related deployment controls: [[deployment-coolify]].
 

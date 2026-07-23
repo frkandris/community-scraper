@@ -25,7 +25,7 @@
     </div>
     {% if is_running %}
     <span id="running-badge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm bg-yellow-100 text-yellow-800 font-medium">
-      <span class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span><span id="running-label">Running: {% if current_run_mode == "ai_only" %}Re-AI{% elif current_run_mode == "revalidate" %}Revalidate{% elif current_run_mode == "smart" %}Smart{% elif current_run_mode %}Full rebuild{% else %}…{% endif %}</span>
+      <span class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span><span id="running-label">Running: {% if current_run_mode == "ai_only" %}Re-AI{% elif current_run_mode %}Smart{% else %}…{% endif %}</span>
     </span>
     {% else %}
     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm bg-green-100 text-green-800 font-medium">
@@ -55,7 +55,6 @@
       <div id="preset-grid" class="mb-4 space-y-3">
 
         <div>
-          <div class="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Discover</div>
           <div class="grid grid-cols-2 gap-2">
 
             <button type="button" data-preset="smart"
@@ -71,26 +70,6 @@
               </div>
             </button>
 
-            <button type="button" data-preset="refresh"
-              class="preset-card text-left p-3 rounded-xl border-2 border-gray-200 bg-white transition-all cursor-pointer hover:border-orange-300 hover:bg-orange-50">
-              <div class="flex items-center gap-1.5 mb-1">
-                <i class="ph ph-arrows-clockwise text-gray-500" style="font-size:13px"></i>
-                <span class="text-xs font-bold text-gray-700">Full Rebuild</span>
-              </div>
-              <p class="text-[9px] text-gray-400 leading-snug mb-1">Re-fetch everything from scratch</p>
-              <div class="space-y-0.5 text-[9px] font-medium">
-                <div class="text-gray-500"><i class="ph ph-check"></i> Search + Fetch <span class="opacity-60">(all)</span></div>
-                <div class="text-gray-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(all)</span> + Enrich</div>
-              </div>
-            </button>
-
-          </div>
-        </div>
-
-        <div>
-          <div class="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Retroactive</div>
-          <div class="grid grid-cols-2 gap-2">
-
             <button type="button" data-preset="reai"
               class="preset-card text-left p-3 rounded-xl border-2 border-gray-200 bg-white transition-all cursor-pointer hover:border-purple-300 hover:bg-purple-50">
               <div class="flex items-center gap-1.5 mb-1">
@@ -101,19 +80,6 @@
               <div class="space-y-0.5 text-[9px] font-medium">
                 <div class="text-gray-300"><i class="ph ph-minus"></i> Search / Fetch</div>
                 <div class="text-gray-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(fingerprint stale)</span> + Enrich</div>
-              </div>
-            </button>
-
-            <button type="button" data-preset="revalidate"
-              class="preset-card text-left p-3 rounded-xl border-2 border-gray-200 bg-white transition-all cursor-pointer hover:border-amber-300 hover:bg-amber-50">
-              <div class="flex items-center gap-1.5 mb-1">
-                <i class="ph ph-shield-check text-gray-500" style="font-size:13px"></i>
-                <span class="text-xs font-bold text-gray-700">Revalidate</span>
-              </div>
-              <p class="text-[9px] text-gray-400 leading-snug mb-1">Check communities vs. current prompt</p>
-              <div class="space-y-0.5 text-[9px] font-medium">
-                <div class="text-gray-300"><i class="ph ph-minus"></i> Search / Fetch</div>
-                <div class="text-gray-500"><i class="ph ph-check"></i> AI <span class="opacity-60">(not yet validated)</span></div>
               </div>
             </button>
 
@@ -192,23 +158,6 @@
 
 </div>
 
-<!-- Revalidate progress (shown when running or after completion) -->
-<div id="rv-running" class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 {% if not revalidate_state.running %}hidden{% endif %}">
-  <div class="flex items-center gap-2 text-xs text-amber-700 mb-2">
-    <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
-    Revalidating… <span id="rv-progress-text">{{ revalidate_state.done }}/{{ revalidate_state.total }}</span>
-  </div>
-  <div class="w-full bg-amber-100 rounded-full h-1.5">
-    <div id="rv-bar" class="bg-amber-500 h-1.5 rounded-full transition-all"
-      style="width: {% if revalidate_state.total > 0 %}{{ (revalidate_state.done / revalidate_state.total * 100)|round }}{% else %}0{% endif %}%"></div>
-  </div>
-  <div class="mt-1.5 text-[10px] text-amber-600">
-    <span id="rv-flagged">{{ revalidate_state.flagged }}</span> flagged ·
-    <span id="rv-skipped">{{ revalidate_state.skipped }}</span> skipped
-  </div>
-</div>
-<div id="rv-result" class="hidden mb-6 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-600"></div>
-
 <!-- Run History -->
 <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 mt-6">
   <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Run History</h2>
@@ -219,11 +168,10 @@
       <span class="text-gray-400 font-mono shrink-0">{{ r.started_at[:16].replace('T',' ') }}</span>
       <span class="px-1.5 py-0.5 rounded shrink-0
         {% if r.run_mode == 'ai_only' %}bg-purple-50 text-purple-700
-        {% elif r.run_mode == 'revalidate' %}bg-amber-50 text-amber-700
         {% else %}bg-blue-50 text-blue-700{% endif %}">
         {% if r.run_mode == 'ai_only' %}Re-AI
-        {% elif r.run_mode == 'revalidate' %}Revalidate
-        {% else %}Smart{% endif %}
+        {% elif r.run_mode == 'search_only' %}Collect
+        {% else %}{{ r.run_mode | capitalize if r.run_mode not in ('full',) else 'Smart' }}{% endif %}
       </span>
       {% if not r.finished_at %}
       <span class="text-[9px] text-gray-400 italic">interrupted</span>
@@ -289,7 +237,7 @@ function setDashScope(scope) {
   const stopForm = document.getElementById('stop-form');
   const runningBadge = document.getElementById('running-badge');
   const runningLabel = document.getElementById('running-label');
-  const modeLabels = { smart: 'Running: Smart', full: 'Running: Full rebuild', ai_only: 'Running: Re-AI', revalidate: 'Running: Revalidate' };
+  const modeLabels = { smart: 'Running: Smart', full: 'Running: Smart', ai_only: 'Running: Re-AI', search_only: 'Running: Collect' };
   setInterval(async () => {
     try {
       const d = await fetch('/admin/api/status').then(r => r.json());
@@ -306,18 +254,10 @@ function setDashScope(scope) {
                   communities: true, venues: true, persons: true,
                   label: 'Run Smart',
                   activeColor: 'border-blue-500 bg-blue-50',    hoverColor: 'hover:border-blue-300 hover:bg-blue-50' },
-    refresh:    { mode: 'full',    skipScraped: '',    skipExtracted: '',
-                  communities: true, venues: true, persons: true,
-                  label: 'Full Rebuild',
-                  activeColor: 'border-orange-400 bg-orange-50', hoverColor: 'hover:border-orange-300 hover:bg-orange-50' },
     reai:       { mode: 'ai_only', skipScraped: '',    skipExtracted: '',
                   communities: true, venues: true, persons: true,
                   label: 'Run Re-AI',
                   activeColor: 'border-purple-400 bg-purple-50', hoverColor: 'hover:border-purple-300 hover:bg-purple-50' },
-    revalidate: { mode: null,      skipScraped: '',    skipExtracted: '',
-                  communities: true, venues: true, persons: true,
-                  label: 'Revalidate',
-                  activeColor: 'border-amber-400 bg-amber-50',   hoverColor: 'hover:border-amber-300 hover:bg-amber-50' },
   };
 
   let selected = 'smart';
@@ -375,18 +315,11 @@ function setDashScope(scope) {
 
   document.getElementById('run-form').addEventListener('submit', async function(e) {
     e.preventDefault();
-    if (selected === 'revalidate') {
-      const res = await fetch('/admin/revalidate/start', { method: 'POST', body: new FormData(this) });
-      const data = await res.json();
-      if (!data.ok) { alert(data.error); return; }
-      rvPollTimer = setInterval(pollRevalidate, 1500);
-    } else {
-      runBtn.disabled = true;
-      stopForm.classList.remove('hidden');
-      const res = await fetch('/admin/api/run', { method: 'POST', body: new FormData(this) });
-      const data = await res.json();
-      if (!data.ok) { runBtn.disabled = false; stopForm.classList.add('hidden'); alert(data.error || 'Failed to start run'); }
-    }
+    runBtn.disabled = true;
+    stopForm.classList.remove('hidden');
+    const res = await fetch('/admin/api/run', { method: 'POST', body: new FormData(this) });
+    const data = await res.json();
+    if (!data.ok) { runBtn.disabled = false; stopForm.classList.add('hidden'); alert(data.error || 'Failed to start run'); }
   });
 
   document.querySelectorAll('.preset-card').forEach(card => {
@@ -398,43 +331,5 @@ function setDashScope(scope) {
   setDashScope('hu');
 })();
 
-// Revalidation
-let rvPollTimer = null;
-
-async function startRevalidate(e) {
-  e.preventDefault();
-  const res = await fetch('/admin/revalidate/start', { method: 'POST', body: new FormData() });
-  const data = await res.json();
-  if (!data.ok) { alert(data.error); return; }
-  document.getElementById('rv-result').classList.add('hidden');
-  document.getElementById('rv-running').classList.remove('hidden');
-  rvPollTimer = setInterval(pollRevalidate, 1500);
-}
-
-async function pollRevalidate() {
-  try {
-    const s = await fetch('/admin/revalidate/status').then(r => r.json());
-    const total = s.total || 1;
-    const pct = Math.round(s.done / total * 100);
-    document.getElementById('rv-progress-text').textContent = s.done + '/' + s.total;
-    document.getElementById('rv-bar').style.width = pct + '%';
-    document.getElementById('rv-flagged').textContent = s.flagged;
-    document.getElementById('rv-skipped').textContent = s.skipped;
-    if (!s.running) {
-      clearInterval(rvPollTimer);
-      document.getElementById('rv-running').classList.add('hidden');
-      const msg = s.error
-        ? `Revalidation error: ${s.error}`
-        : `Revalidation done — ${s.flagged} flagged, ${s.done - s.flagged} OK, ${s.skipped} skipped.`;
-      const el = document.getElementById('rv-result');
-      el.textContent = msg;
-      el.classList.remove('hidden');
-    }
-  } catch (_) {}
-}
-
-{% if revalidate_state.running %}
-rvPollTimer = setInterval(pollRevalidate, 1500);
-{% endif %}
 </script>
 {% endblock %}

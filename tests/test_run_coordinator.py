@@ -73,7 +73,7 @@ async def test_done_callback_clears_task_cancelled_before_coroutine_runs():
     assert state._run_task is None
 
 
-def test_revalidate_route_cannot_overwrite_existing_pipeline_task(tmp_path):
+def test_run_route_cannot_overwrite_existing_pipeline_task(tmp_path):
     class FakeTask:
         def __init__(self):
             self.callbacks = []
@@ -97,7 +97,8 @@ def test_revalidate_route_cannot_overwrite_existing_pipeline_task(tmp_path):
         assert app_state.run_coordinator.reserve("smart", task)
         with patch("scraper.web.app._ADMIN_PASSWORD", "testpass"):
             response = TestClient(web_app.app).post(
-                "/admin/revalidate/start",
+                "/admin/api/run",
+                data={"run_mode": "full", "skip_scraped": "on", "skip_extracted": "on"},
                 headers={
                     "Authorization": "Basic YWRtaW46dGVzdHBhc3M=",
                     "Host": "testserver",
@@ -106,7 +107,7 @@ def test_revalidate_route_cannot_overwrite_existing_pipeline_task(tmp_path):
             )
 
         assert response.status_code == 200
-        assert response.json() == {"ok": False, "error": "Already running"}
+        assert response.json() == {"ok": False, "error": "already running"}
         assert app_state._run_task is task
         assert app_state.current_run_mode == "smart"
     finally:

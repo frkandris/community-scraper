@@ -6,7 +6,7 @@ Domain vocabulary. One line per term; details live in the linked pages.
 - **site** — which domain served the request: `kozossegek` (HU-only cities) or `meetapedia` (all cities), detected from the Host header.
 - **fingerprint** — SHA-256[:12] of a prompt family + model name; keys the extraction cache, so editing a prompt stales exactly its own results.
 - **done pair** — a pair with a `search_cache` entry and all its `cache_pages` extracted at the current fingerprint; skipped before the loop, invisible in logs.
-- **run mode** — `full` (search+fetch+extract, "Smart" in the UI), `ai_only` ("re-ai": extraction over cached texts, no web), `search_only` ("collect": search+fetch, zero LLM), `revalidate`.
+- **run mode** — `full` (search+fetch+extract, "Smart" in the UI), `ai_only` ("re-ai": extraction over cached texts, no web), `search_only` ("collect": search+fetch, zero LLM). The former `revalidate` mode was removed 2026-07-23.
 - **saver schedule** — the twin crons: collector (`search_only`, 01:00→16:20 UTC) and extractor (`ai_only`, 16:35→00:20 UTC, inside DeepSeek's off-peak discount).
 - **window boxing / stop_at** — a run receives a deadline and exits gracefully at the window edge; unfinished pairs carry over to the next day.
 - **standard mode** — DataForSEO's queued task API; production uses high priority (~40% cheaper than live, normally ≤1 minute) because normal priority can exceed the client timeout.
