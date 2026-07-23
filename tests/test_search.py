@@ -84,7 +84,10 @@ async def test_standard_search_falls_back_to_us_location_for_unknown_locale(monk
     with pytest.raises(SearchUnavailableError):
         await client.search("running Atlantis", locale="xx")
 
+    # An unmapped locale is likely an invalid language_code too — both must
+    # fall back or task_post still rejects the task and poisons the pair.
     assert posted["payload"][0]["location_code"] == 2840
+    assert posted["payload"][0]["language_code"] == "en"
 
 
 @pytest.mark.asyncio

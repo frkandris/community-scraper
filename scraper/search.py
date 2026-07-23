@@ -98,10 +98,12 @@ class DataForSEOClient:
         elif self.mode == "standard":
             # task_post REQUIRES a location (rejects with 40501 "Invalid Field:
             # 'location_name'" without one — the 2026-07 outage); live tolerates
-            # the omission. Default to US so an unmapped locale degrades instead
-            # of permanently poisoning its pairs.
+            # the omission. An unmapped locale is likely an invalid language_code
+            # too, which task_post would equally reject — default both to US/en
+            # so the pair degrades instead of being permanently poisoned.
             log.warning("dataforseo_locale_unmapped", locale=lang, query=query)
             task["location_code"] = 2840
+            task["language_code"] = "en"
         if self.mode == "standard":
             return await self._search_standard(task, query, num_results)
         payload = [task]
