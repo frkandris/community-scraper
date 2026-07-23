@@ -3,6 +3,7 @@
 Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
 ## 2026-07-23
+- **Update**: [[2026-07-search-provider-down-noise]] and [[dataforseo]] — root cause found on the DataForSEO error dashboard: 12 unmapped city locales (Bratislava sk, Tokyo ja, …) produced location-less `task_post`s rejected with 40501, whose dead ids were polled for 5 minutes each; locales mapped, US fallback added, rejected posts now fail fast, locale coverage locked by test.
 - **Creation**: [[2026-07-search-provider-down-noise]] — a dead DataForSEO provider became 4972 per-pair "failures" from 3 real errors; `_run_full` now aborts on an exhausted client, the catch-up pass is skipped, and `failure_reason` travels into the daily email as `· ok: <error>`.
 - **Update**: [[search-layer]] (failure_reason + abort semantics) and [[daily-report]] (search_error surfaced in the run row).
 - **Creation**: [[function-local-import-shadowing]] — the explore route's `UnboundLocalError: get_city_topic_counts` from a branch-local import shadowing the module-level one.

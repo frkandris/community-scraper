@@ -38,6 +38,18 @@ LOCALE_TO_DATAFORSEO_LOCATION: dict[str, int] = {
     "uk": 2804,   # Ukraine
     "pt": 2076,   # Brazil
     "en": 2840,   # United States (default for English)
+    "sk": 2703,   # Slovakia
+    "sr": 2688,   # Serbia
+    "hr": 2191,   # Croatia
+    "sl": 2705,   # Slovenia
+    "bg": 2100,   # Bulgaria
+    "lv": 2428,   # Latvia
+    "et": 2233,   # Estonia
+    "lt": 2440,   # Lithuania
+    "el": 2300,   # Greece
+    "ja": 2392,   # Japan
+    "ko": 2410,   # South Korea
+    "zh": 2156,   # China (Taipei rides along; keyword carries the city)
 }
 
 class DataForSEOClient:
@@ -83,6 +95,13 @@ class DataForSEOClient:
         location_code = LOCALE_TO_DATAFORSEO_LOCATION.get(lang)
         if location_code:
             task["location_code"] = location_code
+        elif self.mode == "standard":
+            # task_post REQUIRES a location (rejects with 40501 "Invalid Field:
+            # 'location_name'" without one — the 2026-07 outage); live tolerates
+            # the omission. Default to US so an unmapped locale degrades instead
+            # of permanently poisoning its pairs.
+            log.warning("dataforseo_locale_unmapped", locale=lang, query=query)
+            task["location_code"] = 2840
         if self.mode == "standard":
             return await self._search_standard(task, query, num_results)
         payload = [task]
@@ -167,6 +186,16 @@ class DataForSEOClient:
         task_id = tasks[0].get("id") if tasks else None
         if tasks and tasks[0].get("status_code") == 40201:
             raise SearchQuotaError("DataForSEO: task quota exhausted (40201)")
+        if tasks and tasks[0].get("status_code") not in (20000, 20100):
+            # Rejected tasks still carry an id but never enter the queue —
+            # polling one wastes the full 5-minute window (28.8K junk task_get
+            # calls during the 2026-07 outage). Fail fast with the API's reason.
+            status = tasks[0].get("status_code")
+            message = tasks[0].get("status_message", "")
+            log.warning("dataforseo_task_post_rejected", query=query,
+                        status=status, message=message)
+            raise SearchUnavailableError(
+                f"DataForSEO task_post rejected: {status} {message}".strip())
         if not task_id:
             log.warning("dataforseo_task_post_no_id", query=query,
                         status=data.get("status_code"))

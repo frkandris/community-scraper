@@ -3,7 +3,7 @@ type: Integration
 title: DataForSEO
 description: The sole paid search provider — live mode ($2/1K, seconds) vs standard task queue ($0.6/1K, minutes); quota and transient failures raise typed errors that are never cached.
 tags: [integration, search, dataforseo, cost, quota]
-timestamp: 2026-07-21
+timestamp: 2026-07-23
 resource: scraper/search.py
 ---
 
@@ -24,6 +24,18 @@ search is cached forever, every failure raises and is retried next run.*
   runs still wait on the queue (see [[cost-saver-schedule]]).
 - Location/language are derived from the city's locale; the Norwegian locale quirk in
   [[pyyaml-no-norway-boolean]] applies to the request boundary.
+- **`task_post` REQUIRES a location** (`location_code` or `location_name`) — a task
+  without one is rejected with per-task status 40501 `Invalid Field: 'location_name'`.
+  The live endpoint tolerates the omission, which hid the gap until the standard-mode
+  switch. Every locale in `cities.yaml` must therefore exist in
+  `LOCALE_TO_DATAFORSEO_LOCATION` (tested by `test_every_city_locale_has_a_dataforseo_location`);
+  unmapped locales fall back to US (2840) with a warning instead of failing. Codes are
+  2000 + ISO 3166-1 numeric (Sweden 752 → 2752). See
+  [[2026-07-search-provider-down-noise]] for the outage this caused.
+- **A rejected `task_post` still returns a task id** but the task never enters the
+  queue — polling it yields 40401 `Task Not Found` forever. The client fails fast on
+  any non-20000/20100 per-task post status instead of burning the 5-minute poll window
+  (28.8K junk `task_get` calls during the 2026-07-16..23 outage).
 
 ## Quirks and hard-won rules
 

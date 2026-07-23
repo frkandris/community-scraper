@@ -100,7 +100,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[2026-07-bug-hunt]] — Three-agent review found 15+ verified defects; fixed in three batches — moderation survival, domain matching, persons lookup, recategorize, venue scope, timeline dedup, and a set of hot-path optimizations.
 - [[2026-07-ga4-env-buildtime-failure]] — A multiline JSON secret marked "Available at Buildtime" in Coolify was injected as a Dockerfile ARG and broke the build parse; runtime-only env vars fixed it.
 - [[2026-07-search-only-cache-replay]] — The first saver collector replayed extraction-cache records into Hungarian communities and retried pairs forever when any selected URL could not be fetched.
-- [[2026-07-search-provider-down-noise]] — When DataForSEO died, the collector walked every remaining pair logging one failure each and the daily email lost the original provider error, making the outage undiagnosable from the report.
+- [[2026-07-search-provider-down-noise]] — Unmapped city locales made every task_post fail with 40501 Invalid Field location_name; the fail-fast then amplified 3 poisoned pairs into 4972 logged failures while the email lost the original error.
 
 ## Operations
 
