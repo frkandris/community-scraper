@@ -47,27 +47,6 @@ def _dedup(records: list[CommunityRecord]) -> list[CommunityRecord]:
     return result
 
 
-_PATCHABLE_FIELDS = [
-    "description", "history", "tags", "meeting_schedule", "location",
-    "fee", "age_range", "skill_level", "join_process", "leader",
-    "language", "frequency", "founding_year", "member_count",
-    "email", "phone", "website", "contact",
-]
-
-
-def _patch_record(existing: CommunityRecord, new: CommunityRecord) -> CommunityRecord:
-    """Return existing with null fields filled from new. Non-null fields are never overwritten."""
-    data = existing.model_dump()
-    patch = new.model_dump()
-    for field in _PATCHABLE_FIELDS:
-        if not data.get(field) and patch.get(field):
-            data[field] = patch[field]
-    existing_links = set(data.get("social_links") or [])
-    for link in patch.get("social_links") or []:
-        existing_links.add(link)
-    data["social_links"] = sorted(existing_links)
-    return CommunityRecord.model_validate(data)
-
 def save_results(
     city: str,
     topic: str,

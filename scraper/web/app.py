@@ -316,9 +316,11 @@ templates.env.filters["sha256_16"] = _sha256_16
 def _fmt_dur(s: float | None) -> str:
     # Tolerate Jinja Undefined / non-numeric values: legacy cache entries have
     # scraped_at but no duration field, and the detail page must not 500 on them.
+    # Broad except is deliberate — float(jinja2.Undefined) raises UndefinedError,
+    # which is neither TypeError nor ValueError.
     try:
         s = float(s)
-    except (TypeError, ValueError):
+    except Exception:
         return ""
     if s < 60:
         return f"{s:.1f}s"
