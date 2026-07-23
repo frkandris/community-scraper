@@ -87,7 +87,7 @@ from ..identity import public_slug
 from ..models import CommunityRecord
 from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline, scrape_submitted_url, reextract_community
 from ..search import DataForSEOClient, FallbackSearchClient
-from ..store import patch_results, save_results
+from ..store import save_results
 from ..url_safety import (UnsafeURLError, assert_safe_public_url,
                           is_public_http_url)
 from .i18n import get_topic_labels, lang_context
@@ -207,18 +207,24 @@ class _BasicAuth:
         auth = headers.get(b"authorization", b"").decode("latin-1")
 
         if auth.lower().startswith("basic "):
+            # Only credential parsing is guarded — the inner app must be called
+            # OUTSIDE the try, or a route exception would be caught here and a
+            # second 401 response.start would race the one the app already sent
+            # ('Received multiple "http.response.start" messages').
+            authorized = False
             try:
                 decoded = base64.b64decode(auth[6:]).decode("utf-8")
                 user, _, pwd = decoded.partition(":")
-                if (
+                authorized = (
                     hmac.compare_digest(user, _ADMIN_USER)
                     and hmac.compare_digest(pwd, _ADMIN_PASSWORD)
                     and self._same_origin_admin_write(scope, headers)
-                ):
-                    await self._inner(scope, receive, send)
-                    return
+                )
             except Exception:
-                auth = ""
+                authorized = False
+            if authorized:
+                await self._inner(scope, receive, send)
+                return
 
         await send({
             "type": "http.response.start",
@@ -308,9 +314,12 @@ templates.env.filters["sha256_16"] = _sha256_16
 
 
 def _fmt_dur(s: float | None) -> str:
-    if s is None:
+    # Tolerate Jinja Undefined / non-numeric values: legacy cache entries have
+    # scraped_at but no duration field, and the detail page must not 500 on them.
+    try:
+        s = float(s)
+    except (TypeError, ValueError):
         return ""
-    s = float(s)
     if s < 60:
         return f"{s:.1f}s"
     return f"{int(s / 60)}m {int(s % 60)}s"
@@ -2626,7 +2635,12 @@ async def trigger_run(
                 stop_at=stop_at,
             )
             app_state.last_run_at = datetime.now(timezone.utc)
-            success = True
+            # Same criteria as scheduled runs: provider failures make the run
+            # unsuccessful so run history and the daily report don't show a
+            # search-dead run as ✓.
+            search_failures = sum(1 for row in pair_logs if row.get("search_failed"))
+            extract_failures = sum(row.get("extract_failed", 0) for row in pair_logs)
+            success = not (search_failures or extract_failures)
         except Exception as exc:
             log.error("manual_run_failed", error=str(exc))
         finally:
@@ -2764,51 +2778,6 @@ async def api_cache_entries():
     if app_state.cache_manager:
         entries = app_state.cache_manager.get_index()
     return JSONResponse(entries)
-
-_fill_fields_state: dict = {"running": False, "done": 0, "total": 0, "patched": 0, "error": ""}
-
-
-@admin.post("/cache/fill-fields")
-async def cache_fill_fields(background_tasks: BackgroundTasks):
-    """Re-run AI on cached page texts and fill null fields on existing communities."""
-    if not app_state.cache_manager or not app_state.pipeline_cfg:
-        return JSONResponse({"ok": False, "error": "Not configured"})
-    if _fill_fields_state["running"]:
-        return JSONResponse({"ok": False, "error": "Already running"})
-    background_tasks.add_task(_run_fill_fields)
-    return JSONResponse({"ok": True})
-
-
-@admin.get("/cache/fill-fields/status")
-async def cache_fill_fields_status():
-    return JSONResponse(_fill_fields_state)
-
-
-async def _run_fill_fields() -> None:
-    _fill_fields_state.update({"running": True, "done": 0, "total": 0, "patched": 0, "error": ""})
-    try:
-        cfg = app_state.pipeline_cfg
-        fps = fp_load(_db())
-        fp_section = build_prompt_section(fps, fp_type="extraction")
-        all_pages = app_state.cache_manager.get_all_scraped()
-        _fill_fields_state["total"] = len(all_pages)
-
-        for url, raw_text, city, topic in all_pages:
-            locale = next((c.locale for c in (app_state.cities or []) if c.name == city), "en")
-            try:
-                extractor = _build_extractor(cfg)
-                extracted = await extractor.extract(raw_text, city, topic, locale, url, fp_section)
-                joinable = [r for r in extracted if r.joinable]
-                if joinable:
-                    _fill_fields_state["patched"] += patch_results(city, topic, joinable, _db())
-            except Exception as exc:
-                log.warning("fill_fields_item_failed", url=url, error=str(exc))
-            _fill_fields_state["done"] += 1
-    except Exception as exc:
-        _fill_fields_state["error"] = str(exc)
-        log.warning("fill_fields_failed", error=str(exc))
-    finally:
-        _fill_fields_state["running"] = False
 
 
 @admin.get("/cache")

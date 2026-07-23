@@ -68,36 +68,6 @@ def _patch_record(existing: CommunityRecord, new: CommunityRecord) -> CommunityR
     data["social_links"] = sorted(existing_links)
     return CommunityRecord.model_validate(data)
 
-
-def patch_results(
-    city: str,
-    topic: str,
-    new_records: list[CommunityRecord],
-    db_path: Path,
-) -> int:
-    """Fill in null fields on existing communities from new_records. Never overwrites non-null values."""
-    existing_data = get_communities(db_path, city, topic)
-    existing: dict[str, CommunityRecord] = {}
-    for item in existing_data:
-        try:
-            r = CommunityRecord.model_validate(item)
-            existing[_record_key(r)] = r
-        except Exception:
-            pass
-
-    patched = 0
-    for new in new_records:
-        key = _record_key(new)
-        if key in existing:
-            existing[key] = _patch_record(existing[key], new)
-            patched += 1
-
-    deduped = _dedup(sorted(existing.values(), key=lambda r: r.name))
-    replace_communities_for_topic(db_path, city, topic, [r.model_dump() for r in deduped])
-    log.info("patch_results", city=city, topic=topic, patched=patched)
-    return patched
-
-
 def save_results(
     city: str,
     topic: str,

@@ -56,20 +56,6 @@
         <i class="ph ph-person-simple-x" style="font-size:13px"></i> Clear person cache
       </button>
     </form>
-    <button onclick="fillFields()" id="fill-btn"
-      class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
-      title="Re-run AI on all cached pages and fill in null fields (description, history, tags…) without overwriting existing data">
-      <i class="ph ph-magic-wand" style="font-size:13px"></i> Fill missing fields
-    </button>
-  </div>
-</div>
-<div id="fill-bar-wrap" class="hidden mb-4 bg-white rounded-xl border border-indigo-100 px-5 py-3">
-  <div class="flex items-center gap-3 text-xs text-gray-600 mb-1.5">
-    <span id="fill-status">Fut…</span>
-    <span class="ml-auto"><span id="fill-done">0</span>/<span id="fill-total">0</span> oldal · <span id="fill-patched" class="text-indigo-600 font-medium">0 frissítve</span></span>
-  </div>
-  <div class="w-full bg-gray-100 rounded-full h-1.5">
-    <div id="fill-bar" class="bg-indigo-500 h-1.5 rounded-full transition-all" style="width:0%"></div>
   </div>
 </div>
 
@@ -450,33 +436,6 @@ function applyFilters() {
   });
 }
 
-let _fillPollTimer = null;
-async function fillFields() {
-  document.getElementById('fill-btn').disabled = true;
-  document.getElementById('fill-bar-wrap').classList.remove('hidden');
-  try {
-    const r = await fetch('/admin/cache/fill-fields', { method: 'POST' });
-    const d = await r.json();
-    if (!d.ok) { alert(d.error || 'Hiba'); document.getElementById('fill-btn').disabled = false; return; }
-    _fillPollTimer = setInterval(fillPoll, 2000);
-  } catch (e) { document.getElementById('fill-btn').disabled = false; }
-}
-async function fillPoll() {
-  try {
-    const d = await (await fetch('/admin/cache/fill-fields/status')).json();
-    const done = d.done || 0, total = d.total || 1;
-    document.getElementById('fill-done').textContent = done;
-    document.getElementById('fill-total').textContent = d.total || 0;
-    document.getElementById('fill-patched').textContent = (d.patched || 0) + ' frissítve';
-    document.getElementById('fill-bar').style.width = Math.round(done / total * 100) + '%';
-    document.getElementById('fill-status').textContent = d.running ? 'Fut…' : 'Kész';
-    if (!d.running) {
-      clearInterval(_fillPollTimer);
-      document.getElementById('fill-btn').disabled = false;
-      if (d.error) alert('Hiba: ' + d.error);
-    }
-  } catch (e) {}
-}
 </script>
 
 {% endblock %}

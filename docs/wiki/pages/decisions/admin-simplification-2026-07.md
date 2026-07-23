@@ -15,7 +15,8 @@ resource: scraper/web/app.py
 
 - **Revalidate** — the LLM QA pass over existing communities: `/admin/revalidate/*` routes, `_run_revalidate`, the `revalidate_fingerprint` DB helpers and column guard, the dashboard preset + progress UI, and the prompts-page trigger card. Historical `revalidate` rows remain in `runs` and are handled defensively (startup maps them to `ai_only`; the dashboard renders unknown modes generically).
 - **Recategorize** — AI topic re-classification of "other" communities: routes, worker, `recategorize_suggestions` table guard and helpers, template, nav links. Existing production tables are left orphaned (no data loss, no reads).
-- **Maintenance / Description re-AI** — `/admin/maintenance*` routes, `_run_fill_descriptions`, template. (`/admin/cache/fill-fields` is separate and stays.)
+- **Maintenance / Description re-AI** — `/admin/maintenance*` routes, `_run_fill_descriptions`, template.
+- **Fill missing fields** — the `/admin/cache/fill-fields` global uncancellable AI pass over every cached page (same category, flagged by the post-change review), its progress-page button, and the now-orphaned `store.patch_results`.
 - **Full Rebuild preset** — the dashboard card that re-fetched and re-extracted everything (run_mode=full with both skips off). The route still accepts skip flags; only the one-click expensive button is gone.
 - Orphaned `history.html` / `history_detail.html` templates (no route rendered them).
 

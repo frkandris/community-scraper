@@ -148,6 +148,13 @@ class DataForSEOClient:
             task_status = task.get("status_code", 0)
             if task_status == 40201:
                 raise SearchQuotaError("DataForSEO: task quota exhausted (40201)")
+            if task_status not in (20000, 20100):
+                # A rejected task inside an otherwise-20000 response is a
+                # provider failure, not an empty SERP — returning [] here would
+                # cache it as a successful empty search forever.
+                raise SearchUnavailableError(
+                    f"DataForSEO task status {task_status} "
+                    f"{task.get('status_message', '')}".strip())
             for result in task.get("result") or []:
                 for item in result.get("items") or []:
                     if item.get("type") != "organic":
