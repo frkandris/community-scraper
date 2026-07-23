@@ -3,7 +3,7 @@ type: Subsystem
 title: Persistence Layer (db / cache / store)
 description: db.py owns all SQL, cache.py is a JSON-blob facade over cache_pages, store.py merges/dedups community records before upsert.
 tags: [persistence, sqlite, cache, store, dedup]
-timestamp: 2026-07-10
+timestamp: 2026-07-23
 resource: scraper/db.py
 ---
 
@@ -33,10 +33,10 @@ Fingerprint-gated reads (`get_extracted`, `get_venue_extracted`, `get_person_ext
 
 `invalidate_extraction_cache` is the targeted exception to the facade's read-modify-write pattern: one SQL update removes community extraction and enrichment keys while retaining `raw_text` and independent venue/person results. Pair scope is resolved by URL hash from `search_cache` plus the denormalized pair columns and optional source URL; omitted scope means every cached page. False-positive add/remove uses this path so an `ai_only` run can apply new moderation rules without another fetch. For that pass, `get_scraped_cache_by_search_pair` reconstructs authoritative pair attribution from `search_cache`; unlinked/manual pages fall back to their cache metadata.
 
-## store.py — merge, patch, dedup
+## store.py — merge, dedup
 
 - `save_results` merges NEW records over existing (new wins on `record_key` collision).
-- `patch_results` fills only NULL fields, never overwriting non-null (`_PATCHABLE_FIELDS`).
+- (`patch_results` / `_PATCHABLE_FIELDS` were removed 2026-07-23 with the fill-fields flow — see [[admin-simplification-2026-07]].)
 - `_dedup` is fuzzy: same website (trailing-slash-stripped), substring-after-article-strip, or `SequenceMatcher ratio > 0.88`; on collision keeps the **richer** record (more populated fields). See [[fuzzy-dedup-and-record-key]].
 - `_merge_source_urls` (`db.py:645`) unions old+new URLs new-first via `dict.fromkeys`, so re-finding a community appends provenance rather than replacing it. This idiom is re-implemented in four places (communities, venues, persons, merge) — keep them in sync.
 
