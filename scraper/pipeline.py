@@ -465,7 +465,13 @@ async def _run_full(
     total_new = 0
     pair_logs: list[dict] = []
 
+    # Early exits use this flag instead of return so the Playwright fetcher
+    # cleanup below always runs.
+    aborted = False
+
     for city in cities:
+        if aborted:
+            break
         run_stats[city.name] = {}
         for topic in topics:
             if pairs_filter is not None and (city.name, topic.name) not in pairs_filter:
@@ -476,7 +482,8 @@ async def _run_full(
                 continue
             if _window_closed(stop_at):
                 log.info("run_window_closed", city=city.name, topic=topic.name)
-                return total_new, pair_logs
+                aborted = True
+                break
             await asyncio.sleep(0)
             if on_pair_start:
                 on_pair_start(city.name, topic.name)
@@ -506,7 +513,8 @@ async def _run_full(
                                       "search_failed": True, "search_error": reason})
                     log.warning("search_provider_down_run_aborted", city=city.name,
                                 topic=topic.name, reason=reason)
-                    return total_new, pair_logs
+                    aborted = True
+                    break
                 try:
                     search_results = await searxng.search_all(
                         queries, locale=city.locale, num_results=config.search_results_per_query,
