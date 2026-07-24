@@ -236,6 +236,10 @@ def cleanup_stale_community_candidates(db_path: Path) -> int:
             resolve_duplicate_candidate(db_path, c["id"], "auto_dismissed")
             dismissed += 1
             continue
+        if c["signal"] == "manual":
+            # An admin asserted this pair (or confirmed an auto candidate) —
+            # automatic criteria drift must not dismiss their judgement.
+            continue
         city = winner.get("city", "")
         still_valid = False
         if c["signal"] == "url_match":

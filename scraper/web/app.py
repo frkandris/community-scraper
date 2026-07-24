@@ -3491,16 +3491,20 @@ async def admin_edit_requests_approve(request_id: int):
     r = next((x for x in edit_requests_list if x["id"] == request_id), None)
     if not r:
         return JSONResponse({"ok": False, "error": "not found"})
+    # The record to mutate is ALWAYS resolved from the identity the admin sees
+    # (entity_name/city/topic). The form's record_key is client-controlled: a
+    # submitter could pair an innocuous displayed name with another record's
+    # key and have the approval mutate the unrelated record.
     if r["entity_type"] == "community":
-        applied = apply_community_edit(_db(), r["record_key"], r["change_type"], r["new_value"])
+        ckey = _community_record_key(
+            r.get("entity_name", ""), r.get("entity_city", ""), r.get("entity_topic", ""))
+        applied = apply_community_edit(_db(), ckey, r["change_type"], r["new_value"])
         if not applied:
             return JSONResponse({"ok": False, "error": "community not found or unsupported change type"})
     elif r["entity_type"] == "venue" and r["change_type"] in ("closed", "name_correction"):
         from ..db import apply_venue_edit
         from ..identity import venue_record_key as _vrk
-        # The public venue form submits record_key="" — recompute from the
-        # stored entity name/city so historical requests remain approvable.
-        vkey = r["record_key"] or _vrk(r.get("entity_name", ""), r.get("entity_city", ""))
+        vkey = _vrk(r.get("entity_name", ""), r.get("entity_city", ""))
         applied = apply_venue_edit(_db(), vkey, r["change_type"], r["new_value"])
         if not applied:
             return JSONResponse({"ok": False, "error": "venue not found or name conflict"})

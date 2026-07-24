@@ -284,3 +284,20 @@ def test_venue_edit_approve_falls_back_to_computed_key(tmp_path):
     vkey = "" or venue_record_key("Bezárt Ház", "Budapest")
     assert apply_venue_edit(db, vkey, "closed", None)
     assert get_entity_by_record_key(db, "venue", vkey) is None
+
+
+def test_stale_cleanup_spares_manual_candidates(tmp_path):
+    """Automatic criteria drift must not dismiss an admin-asserted pair."""
+    from scraper.db import _community_record_key, insert_duplicate_candidate
+    from scraper.duplicates import cleanup_stale_community_candidates
+    db = _db(tmp_path)
+    # two dissimilar names that would never pass the 0.85 fuzzy threshold
+    save_results("Budapest", "running", [_rec("Futó Kör", "running")], db)
+    save_results("Budapest", "chess", [_rec("Sakkbarátok Egyesülete", "chess")], db)
+    k1 = _community_record_key("Futó Kör", "Budapest", "running")
+    k2 = _community_record_key("Sakkbarátok Egyesülete", "Budapest", "chess")
+    insert_duplicate_candidate(db, "community", "", "", k1, k2, 1.0, "manual")
+
+    cleanup_stale_community_candidates(db)
+    cands = [c for c in get_duplicate_candidates(db) if c["signal"] == "manual"]
+    assert len(cands) == 1 and cands[0]["resolution"] is None
