@@ -2,6 +2,13 @@
 {% block title %}Wrong city – Admin{% endblock %}
 {% block content %}
 
+<style>
+  /* Explicit colors: the admin dark-mode overrides force .text-gray-900 to
+     near-white with !important, which made the mark unreadable on yellow. */
+  .wc-mark { background: #fde047; color: #1f2937; font-weight: 600; border-radius: 3px; padding: 0 2px; }
+  html.dark .wc-mark { background: #facc15; color: #1f2937; }
+</style>
+
 <div class="flex items-center justify-between mb-4 gap-4 flex-wrap">
   <div>
     <h1 class="text-xl font-bold text-gray-900">Wrong city</h1>
@@ -60,8 +67,11 @@
     {% else %}
     <p class="text-xs text-gray-400 italic mb-2">Record not found (merged or deleted)</p>
     {% endif %}
+    <div class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+      Found in field: <span class="text-indigo-500">{{ c.field }}</span>
+    </div>
     <p class="text-xs text-gray-600 bg-gray-50 rounded-md px-3 py-2 border border-gray-100">
-      {{ c.snippet_before }}<mark class="bg-yellow-200 text-gray-900 font-semibold rounded px-0.5">{{ c.snippet_match }}</mark>{{ c.snippet_after }}
+      {{ c.snippet_before }}<mark class="wc-mark">{{ c.snippet_match }}</mark>{{ c.snippet_after }}
     </p>
   </div>
 </div>
