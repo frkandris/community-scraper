@@ -1212,6 +1212,8 @@ def get_recently_added_communities(db_path: Path, limit: int = 30) -> list[dict]
                   FROM community_history WHERE field='__created__'
                   GROUP BY community_id) h ON h.community_id = c.community_id
             WHERE c.hidden = 0
+              AND c.id = (SELECT MIN(c2.id) FROM communities c2
+                          WHERE c2.community_id = c.community_id AND c2.hidden = 0)
             ORDER BY h.first_seen DESC LIMIT ?
         """, (limit,)).fetchall()
     out = []
@@ -2145,10 +2147,14 @@ def insert_duplicate_candidate(
 ) -> bool:
     now = datetime.now(timezone.utc).isoformat()
     with _connect(db_path) as conn:
+        # Pair idempotency checks BOTH orders: winner/loser now carry meaning
+        # (winner = the record a merge keeps), so re-scans may compute the
+        # reverse order for an already-known pair and must not duplicate it.
         existing = conn.execute(
             "SELECT id FROM duplicate_candidates"
-            " WHERE entity_type=? AND winner_key=? AND loser_key=?",
-            (entity_type, winner_key, loser_key),
+            " WHERE entity_type=? AND ((winner_key=? AND loser_key=?)"
+            "                       OR (winner_key=? AND loser_key=?))",
+            (entity_type, winner_key, loser_key, loser_key, winner_key),
         ).fetchone()
         if existing:
             return False
@@ -2691,7 +2697,7 @@ def get_daily_summary(db_path: Path, start_iso: str, end_iso: str,
 
     with _connect(db_path) as conn:
         for city, cnt in conn.execute("""
-            SELECT c.city, COUNT(*) FROM communities c
+            SELECT c.city, COUNT(DISTINCT c.community_id) FROM communities c
             JOIN (SELECT community_id, MIN(changed_at) AS fs FROM community_history
                   WHERE field='__created__' GROUP BY community_id) h
               ON h.community_id = c.community_id
@@ -2701,7 +2707,7 @@ def get_daily_summary(db_path: Path, start_iso: str, end_iso: str,
             result[scope(city)]["new_communities"] += cnt
 
         for city, ids, rows in conn.execute("""
-            SELECT c.city, COUNT(DISTINCT ch.community_id), COUNT(*)
+            SELECT c.city, COUNT(DISTINCT ch.community_id), COUNT(DISTINCT ch.id)
             FROM community_history ch
             JOIN communities c ON c.community_id = ch.community_id
             WHERE ch.field != '__created__' AND ch.changed_at >= ? AND ch.changed_at < ?
@@ -2715,7 +2721,7 @@ def get_daily_summary(db_path: Path, start_iso: str, end_iso: str,
             ("person_history", "person_id", "persons", "new_persons"),
         ):
             for city, cnt in conn.execute(f"""
-                SELECT t.city, COUNT(*) FROM {target} t
+                SELECT t.city, COUNT(DISTINCT t.{id_col}) FROM {target} t
                 JOIN (SELECT {id_col} AS eid, MIN(changed_at) AS fs FROM {table}
                       WHERE field='__created__' GROUP BY {id_col}) h
                   ON h.eid = t.{id_col}

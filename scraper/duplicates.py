@@ -123,26 +123,25 @@ def detect_community_candidates(db_path: Path, city: str | None = None) -> int:
                 if signal is None:
                     continue
 
-                # Compute canonical key pair before richness swap (for idempotent index)
-                key_a = _community_record_key(a["name"], a["city"], a["topic"])
-                key_b = _community_record_key(b["name"], b["city"], b["topic"])
-
-                # Winner = richer record (for display)
-                if _richness(b) > _richness(a):
-                    a, b = b, a
-
-                # Canonical order for unique index
-                winner_key, loser_key = (key_a, key_b) if key_a <= key_b else (key_b, key_a)
+                # Winner = richer record. Never swap the loop variables (a
+                # mutated `a` used to leak into later inner-loop comparisons)
+                # and never reorder the keys — winner_key is what the merge
+                # keeps, so lexicographic sorting silently kept the poorer
+                # record. Pair idempotency is handled inside
+                # insert_duplicate_candidate (both key orders checked).
+                winner, loser = (a, b) if _richness(a) >= _richness(b) else (b, a)
+                winner_key = _community_record_key(winner["name"], winner["city"], winner["topic"])
+                loser_key = _community_record_key(loser["name"], loser["city"], loser["topic"])
 
                 if insert_duplicate_candidate(
                     db_path, "community",
-                    a.get("community_id", ""), b.get("community_id", ""),
+                    winner.get("community_id", ""), loser.get("community_id", ""),
                     winner_key, loser_key,
                     round(similarity, 4), signal,
                 ):
                     inserted += 1
                     log.info("duplicate_candidate_found", entity="community",
-                             winner=a["name"], loser=b["name"], city=city_name,
+                             winner=winner["name"], loser=loser["name"], city=city_name,
                              signal=signal, similarity=round(similarity, 3))
 
     return inserted
@@ -177,19 +176,13 @@ def detect_venue_candidates(db_path: Path) -> int:
                 if signal is None:
                     continue
 
-                # Compute canonical key pair before richness swap
-                key_a = _venue_record_key(a["name"], a["city"])
-                key_b = _venue_record_key(b["name"], b["city"])
-
-                if _richness(b) > _richness(a):
-                    a, b = b, a
-
-                # Canonical order for unique index
-                winner_key, loser_key = (key_a, key_b) if key_a <= key_b else (key_b, key_a)
+                winner, loser = (a, b) if _richness(a) >= _richness(b) else (b, a)
+                winner_key = _venue_record_key(winner["name"], winner["city"])
+                loser_key = _venue_record_key(loser["name"], loser["city"])
 
                 if insert_duplicate_candidate(
                     db_path, "venue",
-                    a.get("venue_id", ""), b.get("venue_id", ""),
+                    winner.get("venue_id", ""), loser.get("venue_id", ""),
                     winner_key, loser_key,
                     round(similarity, 4), signal,
                 ):
@@ -217,19 +210,13 @@ def detect_person_candidates(db_path: Path) -> int:
                 if _similarity(a.get("community_name", ""), b.get("community_name", "")) < 0.70:
                     continue
 
-                # Compute canonical key pair before richness swap
-                key_a = _person_record_key(a["name"], a["city"], a.get("role", ""), a.get("community_name", ""))
-                key_b = _person_record_key(b["name"], b["city"], b.get("role", ""), b.get("community_name", ""))
-
-                if _richness(b) > _richness(a):
-                    a, b = b, a
-
-                # Canonical order for unique index
-                winner_key, loser_key = (key_a, key_b) if key_a <= key_b else (key_b, key_a)
+                winner, loser = (a, b) if _richness(a) >= _richness(b) else (b, a)
+                winner_key = _person_record_key(winner["name"], winner["city"], winner.get("role", ""), winner.get("community_name", ""))
+                loser_key = _person_record_key(loser["name"], loser["city"], loser.get("role", ""), loser.get("community_name", ""))
 
                 if insert_duplicate_candidate(
                     db_path, "person",
-                    a.get("person_id", ""), b.get("person_id", ""),
+                    winner.get("person_id", ""), loser.get("person_id", ""),
                     winner_key, loser_key,
                     round(similarity, 4), "fuzzy_name",
                 ):

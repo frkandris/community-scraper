@@ -2,6 +2,9 @@
 
 Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
+## 2026-07-24
+- **Update**: deferred codex-review findings fixed — [[duplicate-detection]] (winner follows richness, both-order pair idempotency, manual flag keeps the admin's choice, no loop-variable mutation), [[daily-report]] (DISTINCT counting fixes multi-topic inflation of new/changed numbers), [[non-quota-errors-drop-page]] (malformed LLM JSON raises instead of caching empty), leader-person cleanup on re-extraction, joinable gate in submission/re-extract flows.
+
 ## 2026-07-23
 - **Creation**: [[admin-simplification-2026-07]] — deleted the revalidate/recategorize/description-maintenance flows and the Full Rebuild preset; new admin Inbox nav group with live pending badges; People (Emberek) link added to the public nav. Updated [[pipeline-run-modes]], [[run-modes-and-startup]], [[web-app]], [[sqlite-schema]], [[unicode-safe-identity-keys]], glossary.
 - **Update**: [[2026-07-search-provider-down-noise]] and [[dataforseo]] — root cause found on the DataForSEO error dashboard: 12 unmapped city locales (Bratislava sk, Tokyo ja, …) produced location-less `task_post`s rejected with 40501, whose dead ids were polled for 5 minutes each; locales mapped, US fallback added, rejected posts now fail fast, locale coverage locked by test.

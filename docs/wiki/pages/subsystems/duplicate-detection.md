@@ -3,7 +3,7 @@ type: Subsystem
 title: Duplicate Detection
 description: detect_all() finds same-city duplicate communities/venues/persons via URL match and fuzzy name similarity, with a stable canonical key so re-scans are idempotent.
 tags: [duplicates, dedup, fuzzy-matching, moderation]
-timestamp: 2026-07-09
+timestamp: 2026-07-24
 resource: scraper/duplicates.py
 ---
 
@@ -29,7 +29,7 @@ Three entity types, all **same-city scoped**:
 
 ## Idempotency
 
-`_richness` picks the display "winner" (more filled fields + social_links), but the stored `(winner_key, loser_key)` uses **canonical string order** (`key_a <= key_b`) computed **before** the richness swap. Combined with the partial UNIQUE index `WHERE resolution IS NULL`, this makes re-scans idempotent — the same pair never produces a second pending row. `cleanup_stale_community_candidates` auto-dismisses pending candidates whose records vanished.
+`_richness` picks the winner (more filled fields + social_links) and since 2026-07-24 the stored `(winner_key, loser_key)` **follows richness** — winner_key is what a merge keeps, so the earlier canonical string ordering silently kept the poorer record and ignored the admin's manual "keep" choice. Re-scan idempotency moved into `insert_duplicate_candidate`, which checks the pair in **both key orders**. The old code also swapped the loop variables (`a, b = b, a`), leaking the previous candidate into later inner-loop comparisons — the loop variables are no longer mutated. `cleanup_stale_community_candidates` auto-dismisses pending candidates whose records vanished.
 
 ## Merge
 

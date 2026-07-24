@@ -739,15 +739,12 @@ async def _run_full(
             # ── Synthesize PersonRecords from community leader fields ────────
             if run_persons:
                 leader_persons = _persons_from_leaders(records, city.name, topic.name)
+                # Delete synthesized leader rows for EVERY re-extracted community,
+                # not just those that still yield leaders — a community whose
+                # leader field disappeared must lose its stale person row too.
+                for rec in records:
+                    delete_leader_persons_for_community(config.db_path, rec.name, city.name)
                 if leader_persons:
-                    # Replace old leader persons community-by-community so stale
-                    # or multi-name entries don't accumulate across re-runs.
-                    seen_communities: set[str] = set()
-                    for p in leader_persons:
-                        if p.community_name not in seen_communities:
-                            delete_leader_persons_for_community(
-                                config.db_path, p.community_name, city.name)
-                            seen_communities.add(p.community_name)
                     upsert_persons(config.db_path, [p.model_dump() for p in leader_persons])
                     log.info("persons_from_leaders", city=city.name, topic=topic.name,
                              found=len(leader_persons))
@@ -921,13 +918,12 @@ async def _run_ai_only(
             # ── Synthesize PersonRecords from community leader fields ────────
             if run_persons:
                 leader_persons = _persons_from_leaders(records, city.name, topic.name)
+                # Delete synthesized leader rows for EVERY re-extracted community,
+                # not just those that still yield leaders — a community whose
+                # leader field disappeared must lose its stale person row too.
+                for rec in records:
+                    delete_leader_persons_for_community(config.db_path, rec.name, city.name)
                 if leader_persons:
-                    seen_communities: set[str] = set()
-                    for p in leader_persons:
-                        if p.community_name not in seen_communities:
-                            delete_leader_persons_for_community(
-                                config.db_path, p.community_name, city.name)
-                            seen_communities.add(p.community_name)
                     upsert_persons(config.db_path, [p.model_dump() for p in leader_persons])
                     log.info("persons_from_leaders", city=city.name, topic=topic.name,
                              found=len(leader_persons))
@@ -975,6 +971,9 @@ async def scrape_submitted_url(
         log.error("scrape_submitted_url_extract_failed", city=city, topic=topic,
                   url=url, reason=str(exc))
         return False
+    # Same joinable gate as the main pipeline — without it these flows
+    # published records the normal run would reject.
+    records = [r for r in records if r.joinable]
     save_results(city, topic, records, db_path)
     log.info("scrape_submitted_url_done", city=city, topic=topic, url=url, found=len(records))
     return True
@@ -1030,6 +1029,9 @@ async def reextract_community(
         log.error("reextract_community_extract_failed", community_id=community_id,
                   reason=str(exc))
         return False
+    # Same joinable gate as the main pipeline — without it these flows
+    # published records the normal run would reject.
+    records = [r for r in records if r.joinable]
     save_results(city, topic, records, db_path)
     log.info("reextract_community_done", community_id=community_id, found=len(records))
     return True

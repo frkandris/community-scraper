@@ -320,9 +320,13 @@ def _parse_venues(raw: str, city: str, locale: str, source_url: str) -> list[Ven
     try:
         items = json.loads(raw).get("venues", [])
         if not isinstance(items, list):
-            return []
-    except json.JSONDecodeError:
-        return []
+            raise ExtractorUnavailableError("LLM venue output malformed (venues not a list)")
+    except json.JSONDecodeError as exc:
+        log.warning("llm_json_parse_failed", kind="venues", source_url=source_url,
+                    error=str(exc), raw=raw[:200])
+        # Caching [] here would permanently record a failed call as an empty
+        # page under the current fingerprint — raise so the page is retried.
+        raise ExtractorUnavailableError(f"LLM returned invalid venue JSON: {exc}") from exc
     records = []
     extracted_at = datetime.now(timezone.utc).isoformat()
     for item in items:
@@ -355,9 +359,11 @@ def _parse_persons(
     try:
         items = json.loads(raw).get("persons", [])
         if not isinstance(items, list):
-            return []
-    except json.JSONDecodeError:
-        return []
+            raise ExtractorUnavailableError("LLM person output malformed (persons not a list)")
+    except json.JSONDecodeError as exc:
+        log.warning("llm_json_parse_failed", kind="persons", source_url=source_url,
+                    error=str(exc), raw=raw[:200])
+        raise ExtractorUnavailableError(f"LLM returned invalid person JSON: {exc}") from exc
     records = []
     extracted_at = datetime.now(timezone.utc).isoformat()
     for item in items:
@@ -392,11 +398,11 @@ def _parse_communities(
     try:
         items = json.loads(raw).get("communities", [])
         if not isinstance(items, list):
-            return []
+            raise ExtractorUnavailableError("LLM output malformed (communities not a list)")
     except json.JSONDecodeError as exc:
-        log.warning("llm_json_parse_failed", source_url=source_url,
+        log.warning("llm_json_parse_failed", kind="communities", source_url=source_url,
                     error=str(exc), raw=raw[:200])
-        return []
+        raise ExtractorUnavailableError(f"LLM returned invalid JSON: {exc}") from exc
 
     records = []
     extracted_at = datetime.now(timezone.utc).isoformat()

@@ -3328,9 +3328,10 @@ async def admin_duplicates_flag(
     from ..db import insert_duplicate_candidate
     if winner_key == loser_key:
         return JSONResponse({"ok": False, "error": "same record"})
-    # Canonical order
-    k1, k2 = (winner_key, loser_key) if winner_key <= loser_key else (loser_key, winner_key)
-    inserted = insert_duplicate_candidate(_db(), entity_type, "", "", k1, k2, 1.0, "manual")
+    # Keep the admin's explicit choice: winner_key is the record the merge
+    # keeps — sorting here used to override the UI's "keep" selection.
+    inserted = insert_duplicate_candidate(
+        _db(), entity_type, "", "", winner_key, loser_key, 1.0, "manual")
     return JSONResponse({"ok": True, "inserted": inserted})
 
 

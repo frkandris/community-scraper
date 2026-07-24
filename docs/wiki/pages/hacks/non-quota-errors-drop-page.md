@@ -3,7 +3,7 @@ type: Hack
 title: Extractor Errors No Longer Cache Empty Results (fixed)
 description: FIXED 2026-07-09 — transient/quota extractor failures now raise ExtractorUnavailableError; the pipeline skips caching so the page is retried next run.
 tags: [extraction, errors, fallback, gotcha]
-timestamp: 2026-07-09
+timestamp: 2026-07-24
 resource: scraper/extract.py
 ---
 
@@ -20,3 +20,5 @@ resource: scraper/extract.py
 See [[extraction-layer]] and [[extraction-provider-fallback-chain]].
 
 Related edge case: `Retry-After` is parsed with `float(...)`; an HTTP-date-style header (not seconds) would raise inside `_post` outside the caught path and propagate as a generic error rather than a clean rate-limit.
+
+**2026-07-24 follow-up:** the same doctrine now covers *malformed LLM output*: `_parse_communities` / `_parse_venues` / `_parse_persons` raise `ExtractorUnavailableError` on invalid JSON (or a non-list payload) instead of returning `[]` — a truncated DeepSeek response used to be cached as a successful empty extraction under the current fingerprint, permanently suppressing retries.
