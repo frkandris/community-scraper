@@ -3,7 +3,7 @@ type: Subsystem
 title: Pipeline Orchestration
 description: run_pipeline() sequences mode-specific passes with a done-pair pre-filter; bounded saver jobs prioritize Sweden while startup recovery remains Hungary-first.
 tags: [pipeline, orchestration, run-modes, done-pairs, scheduler]
-timestamp: 2026-07-21
+timestamp: 2026-07-24
 resource: scraper/pipeline.py
 ---
 
@@ -45,3 +45,7 @@ Both scheduled and startup paths partition cities into Hungary (339), Sweden (29
 ## Scheduling lives in `main.py`
 
 `main.py` registers the enabled cost-saver collector/extractor jobs, optional legacy combined run, and daily report with `AsyncIOScheduler`. Pipeline jobs enter through `_cron_run`, use the same geographic passes and `RunCoordinator` slot as manual/startup work, and persist one run record. See [[scheduler-disabled-no-cron]], [[cost-saver-schedule]], and [[run-modes-and-startup]].
+
+## Leader-person synthesis (2026-07-24)
+
+Persons synthesized from a community's `leader` field are marked `origin='leader_field'` inside the person `data` JSON. On re-extraction every community's marked rows are deleted (so a vanished leader field drops its stale person) while unmarked, independently AI-extracted leader persons survive; communities that still yield synthesized leaders use the legacy full replace. Rows synthesized before 2026-07-24 carry no marker and cannot be migrated safely — they linger until their community yields leaders again.

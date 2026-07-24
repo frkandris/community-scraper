@@ -1866,7 +1866,13 @@ def delete_leader_persons_for_community(db_path: Path, community_name: str, city
 
     only_synthesized=True restricts the delete to rows synthesized from the
     community's leader field (marked origin='leader_field' in data) — used for
-    stale-leader cleanup so independently AI-extracted leader persons survive."""
+    stale-leader cleanup so independently AI-extracted leader persons survive.
+
+    Known limitation: rows synthesized before 2026-07-24 carry no origin marker
+    and are indistinguishable from AI-extracted ones, so only_synthesized skips
+    them (a safe migration is impossible — marking every role='leader' row
+    would re-introduce the data-loss this marker prevents). They are still
+    replaced whenever their community yields leaders again."""
     if not db_path.exists():
         return 0
     sql = ("DELETE FROM persons WHERE city=? AND role='leader' "
@@ -2156,7 +2162,7 @@ def insert_duplicate_candidate(
         # (winner = the record a merge keeps), so re-scans may compute the
         # reverse order for an already-known pair and must not duplicate it.
         existing = conn.execute(
-            "SELECT id, winner_key, resolution FROM duplicate_candidates"
+            "SELECT id, winner_key, resolution, signal FROM duplicate_candidates"
             " WHERE entity_type=? AND ((winner_key=? AND loser_key=?)"
             "                       OR (winner_key=? AND loser_key=?))",
             (entity_type, winner_key, loser_key, loser_key, winner_key),
@@ -2164,8 +2170,10 @@ def insert_duplicate_candidate(
         if existing:
             # Pending rows created before the richer-wins change (or whose
             # richness flipped since) get their orientation corrected in place
-            # so a later merge keeps the right record.
-            if existing[2] is None and existing[1] != winner_key:
+            # so a later merge keeps the right record. Manually flagged pairs
+            # are exempt — the admin's explicit "keep" choice must not be
+            # reversed by an automatic re-scan.
+            if existing[2] is None and existing[3] != "manual" and existing[1] != winner_key:
                 conn.execute(
                     "UPDATE duplicate_candidates"
                     " SET winner_id=?, loser_id=?, winner_key=?, loser_key=?"
