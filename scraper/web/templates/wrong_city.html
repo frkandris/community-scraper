@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Wrong city – Admin{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 gap-4 flex-wrap">
+  <div>
+    <h1 class="text-xl font-bold text-gray-900">Wrong city</h1>
+    <p class="text-sm text-gray-500 mt-0.5">{{ candidates | length }} pending — communities whose text mentions another known city</p>
+  </div>
+  <button onclick="scanNow(this)"
+    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-colors">
+    <i class="ph ph-magnifying-glass"></i> Scan now
+  </button>
+</div>
+
+{% if not candidates %}
+<div class="bg-white rounded-lg border border-gray-200 p-12 text-center text-gray-400">
+  <i class="ph ph-check-circle text-5xl mb-3 block"></i>
+  <p>No pending wrong-city candidates. Run a scan to look for new ones.</p>
+</div>
+{% endif %}
+
+{% for c in candidates %}
+<div class="bg-white rounded-lg border border-gray-200 mb-3 overflow-hidden transition-opacity" id="cand-{{ c.id }}">
+  <div class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex items-center gap-3 flex-wrap">
+    <div class="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+      <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{{ c.field }}</span>
+      <span class="text-sm font-semibold text-gray-700">
+        {{ c.record.city if c.record else '?' }}
+        <i class="ph ph-arrow-right text-gray-400"></i>
+        {{ c.mentioned_city }}
+      </span>
+      <span class="text-xs text-gray-400 font-mono hidden sm:inline">{{ c.detected_at[:10] }}</span>
+    </div>
+    <div class="flex items-center gap-2 shrink-0">
+      {% if c.record %}
+      <button onclick="resolve({{ c.id }}, 'move', this)"
+        class="flex items-center gap-1 px-3 py-1 rounded-md text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
+        <i class="ph ph-map-pin"></i> Move to {{ c.mentioned_city }}
+      </button>
+      {% endif %}
+      <button onclick="resolve({{ c.id }}, 'dismiss', this)"
+        class="px-3 py-1 rounded-md text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
+        Correct city
+      </button>
+    </div>
+  </div>
+  <div class="p-4">
+    {% if c.record %}
+    <div class="flex items-center gap-2 mb-0.5">
+      <span class="font-semibold text-gray-900 text-sm">{{ c.record.name }}</span>
+      {% if c.public_url %}
+      <a href="{{ c.public_url }}" target="_blank" title="Open public page"
+         class="text-indigo-500 hover:text-indigo-700 transition-colors">
+        <i class="ph ph-arrow-square-out"></i>
+      </a>
+      {% endif %}
+    </div>
+    <div class="text-xs text-gray-500 mb-2">{{ c.record.city }} · {{ topic_labels.get(c.record.topic, c.record.topic) }}</div>
+    {% else %}
+    <p class="text-xs text-gray-400 italic mb-2">Record not found (merged or deleted)</p>
+    {% endif %}
+    <p class="text-xs text-gray-600 bg-gray-50 rounded-md px-3 py-2 border border-gray-100">
+      {{ c.snippet_before }}<mark class="bg-yellow-200 text-gray-900 font-semibold rounded px-0.5">{{ c.snippet_match }}</mark>{{ c.snippet_after }}
+    </p>
+  </div>
+</div>
+{% endfor %}
+
+<script>
+async function resolve(id, action, btn) {
+  btn.disabled = true;
+  const card = document.getElementById('cand-' + id);
+  card.style.opacity = '0.4';
+  card.style.transition = 'opacity 0.25s';
+  const res = await fetch(`/admin/wrong-city/${id}/${action}`, {method: 'POST'});
+  const data = await res.json();
+  if (data.ok) {
+    setTimeout(() => card.remove(), 250);
+  } else {
+    btn.disabled = false;
+    card.style.opacity = '';
+    alert('Error: ' + (data.error || 'unknown'));
+  }
+}
+
+async function scanNow(btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Scanning…';
+  const res = await fetch('/admin/wrong-city/scan', {method: 'POST'});
+  const data = await res.json();
+  btn.disabled = false;
+  btn.innerHTML = '<i class="ph ph-magnifying-glass"></i> Scan now';
+  if (data.ok) {
+    alert(data.new_candidates > 0 ? `${data.new_candidates} new candidates found.` : 'No new candidates.');
+    if (data.new_candidates > 0) location.reload();
+  }
+}
+</script>
+{% endblock %}

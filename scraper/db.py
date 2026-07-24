@@ -384,6 +384,25 @@ def init_db(db_path: Path) -> None:
         """)
 
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS wrong_city_candidates (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                record_key     TEXT NOT NULL,
+                community_id   TEXT NOT NULL DEFAULT '',
+                mentioned_city TEXT NOT NULL,
+                field          TEXT NOT NULL,
+                snippet        TEXT NOT NULL DEFAULT '',
+                matched_text   TEXT NOT NULL DEFAULT '',
+                detected_at    TEXT NOT NULL,
+                resolved_at    TEXT,
+                resolution     TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_wrong_city_pair
+            ON wrong_city_candidates(record_key, mentioned_city)
+        """)
+
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS edit_requests (
                 id           INTEGER PRIMARY KEY AUTOINCREMENT,
                 entity_type  TEXT NOT NULL,
@@ -2304,6 +2323,62 @@ def delete_duplicate_candidate(db_path: Path, candidate_id: int) -> None:
         conn.commit()
 
 
+# ── Wrong-city candidates ──────────────────────────────────────────────────────
+
+def insert_wrong_city_candidate(
+    db_path: Path,
+    record_key: str,
+    community_id: str,
+    mentioned_city: str,
+    field: str,
+    snippet: str,
+    matched_text: str,
+) -> bool:
+    """Insert a wrong-city candidate. Returns False if the (record, city) pair
+    was already flagged — dismissed pairs stay dismissed and are not re-raised."""
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect(db_path) as conn:
+        try:
+            conn.execute(
+                "INSERT INTO wrong_city_candidates"
+                " (record_key, community_id, mentioned_city, field, snippet,"
+                "  matched_text, detected_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (record_key, community_id, mentioned_city, field, snippet,
+                 matched_text, now),
+            )
+        except sqlite3.IntegrityError:
+            return False
+        conn.commit()
+    return True
+
+
+def get_wrong_city_candidates(db_path: Path, resolved: bool | None = False) -> list[dict]:
+    if not db_path.exists():
+        return []
+    where = ""
+    if resolved is True:
+        where = "WHERE resolution IS NOT NULL"
+    elif resolved is False:
+        where = "WHERE resolution IS NULL"
+    with _connect(db_path) as conn:
+        cursor = conn.execute(
+            f"SELECT * FROM wrong_city_candidates {where} ORDER BY detected_at DESC, id DESC"
+        )
+        cols = [d[0] for d in cursor.description]
+        return [dict(zip(cols, row)) for row in cursor.fetchall()]
+
+
+def resolve_wrong_city_candidate(db_path: Path, candidate_id: int, resolution: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect(db_path) as conn:
+        conn.execute(
+            "UPDATE wrong_city_candidates SET resolution=?, resolved_at=? WHERE id=?",
+            (resolution, now, candidate_id),
+        )
+        conn.commit()
+
+
 def get_entity_by_record_key(db_path: Path, entity_type: str,
                              record_key: str) -> dict | None:
     table = {"venue": "venues", "person": "persons"}.get(entity_type)
@@ -2504,14 +2579,18 @@ def apply_community_edit(
     record_key: str,
     change_type: str,
     new_value: str | None,
-) -> bool:
-    """Apply an approved edit to a community record. Returns True if found and applied."""
+) -> str:
+    """Apply an approved edit to a community record.
+
+    Returns a status string: "ok" (applied), "merged" (target identity already
+    existed — this row was merged into it), "not_found", or "unsupported".
+    """
     with _connect(db_path) as conn:
         row = conn.execute(
             "SELECT data FROM communities WHERE record_key=?", (record_key,)
         ).fetchone()
         if not row:
-            return False
+            return "not_found"
         data = json.loads(row[0])
         now = datetime.now(timezone.utc).isoformat()
         if change_type in ("archive", "delete"):
@@ -2537,11 +2616,39 @@ def apply_community_edit(
                      json.dumps(data, ensure_ascii=False), now, record_key),
                 )
             except sqlite3.IntegrityError:
-                return False  # target key already exists — surface as failed edit
+                # The corrected identity already exists (typically the scraper
+                # also found this community under its real city). Merge this
+                # row into the existing target: union source_urls, make sure
+                # the target is visible, hide this row. Done on the same
+                # connection — a second connection would deadlock here.
+                target = conn.execute(
+                    "SELECT data FROM communities WHERE record_key=?", (new_key,)
+                ).fetchone()
+                if not target:
+                    return "not_found"
+                target_data = json.loads(target[0])
+                urls: list[str] = []
+                for d in (target_data, data):
+                    if d.get("source_url") and d["source_url"] not in urls:
+                        urls.append(d["source_url"])
+                    for u in d.get("source_urls") or []:
+                        if u not in urls:
+                            urls.append(u)
+                target_data["source_urls"] = urls
+                conn.execute(
+                    "UPDATE communities SET data=?, hidden=0, updated_at=? WHERE record_key=?",
+                    (json.dumps(target_data, ensure_ascii=False), now, new_key),
+                )
+                conn.execute(
+                    "UPDATE communities SET hidden=1, updated_at=? WHERE record_key=?",
+                    (now, record_key),
+                )
+                conn.commit()
+                return "merged"
         else:
-            return False
+            return "unsupported"
         conn.commit()
-    return True
+    return "ok"
 
 
 # ── Community Submissions ─────────────────────────────────────────────────────

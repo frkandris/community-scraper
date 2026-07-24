@@ -135,7 +135,15 @@
     <div class="p-4">
       <div class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">{{ side }}</div>
       {% if data %}
-      <div class="font-semibold text-gray-900 text-sm mb-0.5">{{ data.name }}</div>
+      <div class="font-semibold text-gray-900 text-sm mb-0.5 flex items-center gap-1.5">
+        {{ data.name }}
+        {% if data.public_url %}
+        <a href="{{ data.public_url }}" target="_blank" title="Open public page"
+           class="text-indigo-500 hover:text-indigo-700 transition-colors font-normal">
+          <i class="ph ph-arrow-square-out"></i>
+        </a>
+        {% endif %}
+      </div>
       <div class="text-xs text-gray-500 mb-1">{{ data.city }} · {{ topic_labels.get(data.topic, data.topic) }}</div>
       {% if data.description %}
       <p class="text-xs text-gray-600 line-clamp-3 mb-1">{{ data.description }}</p>

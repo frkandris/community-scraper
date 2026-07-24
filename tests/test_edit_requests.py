@@ -64,7 +64,7 @@ def test_resolve_edit_request(tmp_path):
 
 def test_apply_community_edit_wrong_city(tmp_path):
     db, key = _community(tmp_path)
-    assert apply_community_edit(db, key, "wrong_city", "Debrecen") is True
+    assert apply_community_edit(db, key, "wrong_city", "Debrecen") == "ok"
     # record_key derives from (name, city, topic) — the fixed edit moves the row
     # to its new key (the stale key used to cause duplicate rows on next scrape)
     assert get_community_by_record_key(db, key) is None
@@ -92,8 +92,46 @@ def test_apply_community_edit_name_correction(tmp_path):
 def test_apply_community_edit_wrong_topic(tmp_path):
     db, key = _community(tmp_path, topic="running")
     result = apply_community_edit(db, key, "wrong_topic", "fitness")
-    assert result is True
+    assert result == "ok"
     assert get_community_by_record_key(db, key) is None
     new_key = _community_record_key("Budapest Futók", "Budapest", "fitness")
     data = get_community_by_record_key(db, new_key)
     assert data and data["topic"] == "fitness"
+
+
+def test_apply_community_edit_not_found(tmp_path):
+    db = _db(tmp_path)
+    assert apply_community_edit(db, "c2:missing", "wrong_city", "Debrecen") == "not_found"
+
+
+def test_apply_community_edit_unsupported(tmp_path):
+    db, key = _community(tmp_path)
+    assert apply_community_edit(db, key, "nonsense", "x") == "unsupported"
+
+
+def test_apply_community_edit_wrong_city_merges_on_conflict(tmp_path):
+    # The same club exists under both the wrong city (Szentendre) and its real
+    # city (Szentgotthárd). Approving the wrong_city edit must merge, not fail.
+    db = _db(tmp_path)
+    wrong = CommunityRecord(
+        name="Nappali Idősek Klubja", topic="seniors", city="Szentendre", locale="hu",
+        source_url="https://wrong.test", extracted_at="2026-01-01T00:00:00+00:00",
+    )
+    right = CommunityRecord(
+        name="Nappali Idősek Klubja", topic="seniors", city="Szentgotthárd", locale="hu",
+        source_url="https://right.test", extracted_at="2026-01-01T00:00:00+00:00",
+    )
+    save_results("Szentendre", "seniors", [wrong], db)
+    save_results("Szentgotthárd", "seniors", [right], db)
+    wrong_key = _community_record_key("Nappali Idősek Klubja", "Szentendre", "seniors")
+    right_key = _community_record_key("Nappali Idősek Klubja", "Szentgotthárd", "seniors")
+
+    assert apply_community_edit(db, wrong_key, "wrong_city", "Szentgotthárd") == "merged"
+
+    # Target keeps its identity and gains the source's URLs; source is hidden.
+    merged = get_community_by_record_key(db, right_key)
+    assert merged and merged["city"] == "Szentgotthárd"
+    assert "https://wrong.test" in (merged.get("source_urls") or [])
+    assert "https://right.test" in (merged.get("source_urls") or [])
+    visible = get_all_communities(db)
+    assert sum(1 for c in visible if c["name"] == "Nappali Idősek Klubja") == 1

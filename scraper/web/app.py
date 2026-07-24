@@ -61,6 +61,8 @@ from ..db import (
     get_duplicate_candidates,
     resolve_duplicate_candidate,
     delete_duplicate_candidate,
+    get_wrong_city_candidates,
+    resolve_wrong_city_candidate,
     merge_community_into,
     get_community_by_record_key,
     save_community_data,
@@ -801,6 +803,16 @@ def _find_community(community_id: str) -> dict | None:
 def _hu_city_names() -> set[str]:
     """Return the set of city names that belong to Hungary."""
     return {c.name for c in (app_state.cities or []) if c.country == "Hungary"}
+
+
+def _public_community_url(name: str, city: str) -> str:
+    """Public community page URL for admin views. Hungarian cities exist on the
+    current (kozossegek) domain, so a relative path suffices; every other city
+    only resolves on meetapedia.com."""
+    path = f"/{_slugify(city)}/{_slugify(name)}"
+    if city in _hu_city_names():
+        return path
+    return f"https://meetapedia.com{path}"
 
 
 def _site_cities(request: Request) -> list:
@@ -3224,6 +3236,9 @@ async def admin_not_community(request: Request):
     if not app_state.db_path:
         return RedirectResponse("/admin", status_code=302)
     reports = get_not_community_reports(_db())
+    for r in reports:
+        if not r.get("page_url") and r.get("city"):
+            r["page_url"] = _public_community_url(r.get("community_name", ""), r["city"])
     fps = fp_load(_db())
     fp_keys = {(fp["name"], fp["city"], fp["topic"]) for fp in fps}
     return templates.TemplateResponse(request, "not_community.html", {
@@ -3319,6 +3334,10 @@ async def admin_duplicates(request: Request):
             # offered deletion only.
             winner_data = get_entity_by_record_key(_db(), c["entity_type"], c["winner_key"])
             loser_data = get_entity_by_record_key(_db(), c["entity_type"], c["loser_key"])
+        if c["entity_type"] == "community":
+            for d in (winner_data, loser_data):
+                if d:
+                    d["public_url"] = _public_community_url(d.get("name", ""), d.get("city", ""))
         enriched.append({**c, "winner_data": winner_data, "loser_data": loser_data})
     return templates.TemplateResponse(request, "duplicates.html", {
         "candidates": enriched,
@@ -3471,12 +3490,76 @@ async def admin_duplicates_delete(candidate_id: int):
     return JSONResponse({"ok": True})
 
 
+@admin.get("/wrong-city", response_class=HTMLResponse)
+async def admin_wrong_city(request: Request):
+    if not app_state.db_path:
+        return RedirectResponse("/admin", status_code=302)
+    init_db(_db())
+    enriched = []
+    for c in get_wrong_city_candidates(_db()):
+        record = get_community_by_record_key(_db(), c["record_key"])
+        snippet = c.get("snippet") or ""
+        match = c.get("matched_text") or ""
+        idx = snippet.lower().find(match.lower()) if match else -1
+        if idx >= 0:
+            before, mid, after = snippet[:idx], snippet[idx:idx + len(match)], snippet[idx + len(match):]
+        else:
+            before, mid, after = snippet, "", ""
+        enriched.append({
+            **c,
+            "record": record,
+            "public_url": _public_community_url(record["name"], record["city"]) if record else None,
+            "snippet_before": before, "snippet_match": mid, "snippet_after": after,
+        })
+    return templates.TemplateResponse(request, "wrong_city.html", {
+        "candidates": enriched,
+        "topic_labels": TOPIC_LABELS,
+    })
+
+
+@admin.post("/wrong-city/scan")
+async def admin_wrong_city_scan():
+    if not app_state.db_path:
+        return JSONResponse({"ok": False})
+    from ..wrong_city import scan
+    count = scan(_db(), [c.name for c in (app_state.cities or [])])
+    return JSONResponse({"ok": True, "new_candidates": count})
+
+
+@admin.post("/wrong-city/{candidate_id}/move")
+async def admin_wrong_city_move(candidate_id: int):
+    """Move the community to the mentioned city (same path as an approved
+    wrong_city edit request — merges if the target identity already exists)."""
+    if not app_state.db_path:
+        return JSONResponse({"ok": False})
+    c = next((x for x in get_wrong_city_candidates(_db()) if x["id"] == candidate_id), None)
+    if not c:
+        return JSONResponse({"ok": False, "error": "not found"})
+    applied = apply_community_edit(_db(), c["record_key"], "wrong_city", c["mentioned_city"])
+    if applied not in ("ok", "merged"):
+        return JSONResponse({"ok": False, "error": applied})
+    resolve_wrong_city_candidate(_db(), candidate_id, "moved" if applied == "ok" else "merged")
+    return JSONResponse({"ok": True, "status": applied})
+
+
+@admin.post("/wrong-city/{candidate_id}/dismiss")
+async def admin_wrong_city_dismiss(candidate_id: int):
+    if not app_state.db_path:
+        return JSONResponse({"ok": False})
+    resolve_wrong_city_candidate(_db(), candidate_id, "dismissed")
+    return JSONResponse({"ok": True})
+
+
 @admin.get("/edit-requests", response_class=HTMLResponse)
 async def admin_edit_requests(request: Request):
     if not app_state.db_path:
         return RedirectResponse("/admin", status_code=302)
     init_db(_db())
     edit_requests_list = get_edit_requests(_db(), status="pending")
+    for r in edit_requests_list:
+        if r.get("entity_type") == "community":
+            r["public_url"] = _public_community_url(
+                r.get("entity_name", ""), r.get("entity_city", ""))
     return templates.TemplateResponse(request, "edit_requests.html", {
         "requests": edit_requests_list,
         "topic_labels": TOPIC_LABELS,
@@ -3499,8 +3582,30 @@ async def admin_edit_requests_approve(request_id: int):
         ckey = _community_record_key(
             r.get("entity_name", ""), r.get("entity_city", ""), r.get("entity_topic", ""))
         applied = apply_community_edit(_db(), ckey, r["change_type"], r["new_value"])
-        if not applied:
-            return JSONResponse({"ok": False, "error": "community not found or unsupported change type"})
+        if applied == "not_found":
+            # Identity drift: the record may live under another topic or have
+            # been re-keyed since submission. Fall back to a unique visible
+            # name+city match before giving up.
+            from ..identity import normalized_match_key
+            nk = (normalized_match_key(r.get("entity_name", "")),
+                  normalized_match_key(r.get("entity_city", "")))
+            matches = [c for c in get_all_communities(_db())
+                       if (normalized_match_key(c.get("name", "")),
+                           normalized_match_key(c.get("city", ""))) == nk]
+            if len(matches) == 1:
+                m = matches[0]
+                ckey = _community_record_key(m["name"], m["city"], m.get("topic", ""))
+                applied = apply_community_edit(_db(), ckey, r["change_type"], r["new_value"])
+        if applied not in ("ok", "merged"):
+            log.warning("edit_request_apply_failed", request_id=request_id,
+                        status=applied, change_type=r["change_type"],
+                        name=r.get("entity_name"), city=r.get("entity_city"),
+                        topic=r.get("entity_topic"))
+            _msg = {
+                "not_found": "community record not found — it may have been merged, renamed or re-keyed since the request was submitted",
+                "unsupported": f"unsupported change type: {r['change_type']}",
+            }
+            return JSONResponse({"ok": False, "error": _msg.get(applied, applied)})
     elif r["entity_type"] == "venue" and r["change_type"] in ("closed", "name_correction"):
         from ..db import apply_venue_edit
         from ..identity import venue_record_key as _vrk

@@ -67,6 +67,7 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 | `scraper/models.py` | `CommunityRecord` pydantic model with auto-cleanup validator |
 | `scraper/web/app.py` | All HTTP routes (~3700 lines) |
 | `scraper/duplicates.py` | Duplicate detection; admin UI at `/admin/duplicates` |
+| `scraper/wrong_city.py` | Wrong-city detection (text mentions another known city); admin UI at `/admin/wrong-city`; both under the "Data quality" nav group |
 | `scraper/playwright_fetch.py` | Playwright-based page fetcher; `playwright_domains` in `settings.yaml` is currently empty (social domains are blocked, not Playwright-fetched) |
 | `scraper/false_positives.py` | CRUD + prompt injection for false positive rules |
 | `scraper/web/schema.py` | JSON-LD schema generation for public pages |

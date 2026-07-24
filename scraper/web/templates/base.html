@@ -180,7 +180,23 @@
           </a>
         </div>
       </div>
-      {{ navlink('/admin/duplicates', 'Duplicates', _p.startswith('/admin/duplicates')) }}
+      {# Data quality dropdown — duplicates + wrong-city review queues #}
+      {% set _dq_active = _p.startswith('/admin/duplicates') or _p.startswith('/admin/wrong-city') %}
+      <div class="relative" id="nav-dq-wrap">
+        <button onclick="document.getElementById('nav-dq-menu').classList.toggle('hidden')"
+          class="px-2.5 py-1 rounded-lg text-sm transition-colors flex items-center gap-1
+            {% if _dq_active %}bg-gray-100 text-gray-900 font-semibold{% else %}text-gray-600 hover:text-gray-900 hover:bg-gray-50{% endif %}">
+          Data quality <i class="ph ph-caret-down" style="font-size:11px;margin-top:1px"></i>
+        </button>
+        <div id="nav-dq-menu" class="hidden absolute left-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50">
+          <a href="/admin/duplicates" class="flex items-center gap-2 px-3 py-2 text-sm {% if _p.startswith('/admin/duplicates') %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+            <i class="ph ph-copy" style="font-size:14px"></i> Duplicates
+          </a>
+          <a href="/admin/wrong-city" class="flex items-center gap-2 px-3 py-2 text-sm {% if _p.startswith('/admin/wrong-city') %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+            <i class="ph ph-map-pin-line" style="font-size:14px"></i> Wrong city
+          </a>
+        </div>
+      </div>
       {# System dropdown #}
       {% set _sys_active = _p.startswith('/admin/progress') or _p == '/admin/logs' or _p.startswith('/admin/config') or _p == '/admin/prompts' %}
       <div class="relative" id="nav-sys-wrap">
@@ -251,8 +267,9 @@
       {{ navlink('/admin/edit-requests', 'Edit requests' + (' (' ~ _inbox.edit_requests ~ ')' if _inbox.edit_requests else ''), _p.startswith('/admin/edit-requests')) }}
       {{ navlink('/admin/not-community', 'Not community' + (' (' ~ _inbox.reports ~ ')' if _inbox.reports else ''), _p == '/admin/not-community') }}
       {{ navlink('/admin/submissions',   'Submissions' + (' (' ~ _inbox.submissions ~ ')' if _inbox.submissions else ''), _p == '/admin/submissions') }}
-      <p class="px-2.5 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Moderation</p>
+      <p class="px-2.5 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Data quality</p>
       {{ navlink('/admin/duplicates',    'Duplicates',    _p.startswith('/admin/duplicates')) }}
+      {{ navlink('/admin/wrong-city',    'Wrong city',    _p.startswith('/admin/wrong-city')) }}
       <p class="px-2.5 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">System</p>
       {{ navlink('/admin/progress',      'Progress',      _p.startswith('/admin/progress')) }}
       {{ navlink('/admin/logs',          'Logs',          _p == '/admin/logs') }}
@@ -314,7 +331,7 @@
   _pollStatus();
   // Close dropdowns when clicking outside
   document.addEventListener('click', function(e) {
-    [['nav-results-wrap','nav-results-menu'],['nav-inbox-wrap','nav-inbox-menu'],['nav-sys-wrap','nav-sys-menu']].forEach(function([wId, mId]) {
+    [['nav-results-wrap','nav-results-menu'],['nav-inbox-wrap','nav-inbox-menu'],['nav-dq-wrap','nav-dq-menu'],['nav-sys-wrap','nav-sys-menu']].forEach(function([wId, mId]) {
       const wrap = document.getElementById(wId);
       const menu = document.getElementById(mId);
       if (wrap && menu && !wrap.contains(e.target)) menu.classList.add('hidden');

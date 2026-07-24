@@ -3,7 +3,7 @@ type: Data-model
 title: SQLite Schema
 description: Every table in scraper.db, its purpose, and its key columns — all created idempotently by init_db().
 tags: [sqlite, schema, database, tables]
-timestamp: 2026-07-23
+timestamp: 2026-07-24
 resource: scraper/db.py
 ---
 
@@ -31,6 +31,7 @@ See [[persistence-layer]] for the connection/migration model.
 | `city_requests` | User requests for uncovered cities | `city_name`, `email` |
 | `not_community_reports` | Pending user "this isn't a community" reports | `community_id` nullable; pending rows do not affect visibility |
 | `duplicate_candidates` | Fuzzy dup pairs | `entity_type`, `winner_id/loser_id`, `winner_key/loser_key`, `similarity`, `resolution`; partial UNIQUE `WHERE resolution IS NULL` |
+| `wrong_city_candidates` | Communities whose text mentions another known city | `record_key`, `mentioned_city`, `field`, `snippet`, `matched_text`, `resolution`; full UNIQUE (record_key, mentioned_city) so dismissed pairs are never re-raised — see [[wrong-city-detection]] |
 | `edit_requests` | User-submitted edits pending review | `change_type`, `new_value`, `status` (default `pending`) |
 | `community_submissions` | User-submitted new communities | pending admin approval |
 | `outclick_events` | Outbound-link click analytics | `link_type` (default `website`), `clicked_at` |
