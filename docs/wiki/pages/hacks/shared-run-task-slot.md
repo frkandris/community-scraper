@@ -1,9 +1,9 @@
 ---
 type: Hack
 title: Single RunCoordinator Owns the Task Slot
-description: Pipeline, scheduled, startup, and revalidate runs reserve one coordinator-owned task slot with identity-safe cleanup.
-tags: [asyncio, cancellation, revalidate, app-state, gotcha]
-timestamp: 2026-07-10
+description: Pipeline, scheduled, and startup runs reserve one coordinator-owned task slot with identity-safe cleanup.
+tags: [asyncio, cancellation, run-coordinator, app-state, gotcha]
+timestamp: 2026-07-24
 resource: scraper/web/state.py
 ---
 

@@ -15,7 +15,7 @@ See [[pipeline-run-modes]] for the mode overview, [[done-pair-url-hash-not-city-
 
 ## What "full" really means
 
-`run_pipeline(run_mode="full")` runs `_run_ai_only` first (cheap, cache-only re-extraction of stale pages), then `_run_full`, then a catch-up `_run_full` over `all_pairs - covered - done_pairs` to guarantee every never-covered pair gets one pass. `run_mode="ai_only"` runs only the cache pass. `run_mode="revalidate"` is **not handled here** — it lives entirely in `app.py:_run_revalidate` (a pure LLM QA pass over the DB). Entity-writing modes end with `detect_all()`; strict `search_only` skips it.
+`run_pipeline(run_mode="full")` runs `_run_ai_only` first (cheap, cache-only re-extraction of stale pages), then `_run_full`, then a catch-up `_run_full` over `all_pairs - covered - done_pairs` to guarantee every never-covered pair gets one pass. `run_mode="ai_only"` runs only the cache pass. (The former `revalidate` mode was removed 2026-07-23 — see [[admin-simplification-2026-07]].) Entity-writing modes end with `detect_all()`; strict `search_only` skips it.
 
 ## Done-pair pre-filter
 
@@ -36,11 +36,11 @@ Both scheduled and startup paths partition cities into Hungary (339), Sweden (29
 
 ## Startup state machine
 
-`_startup_run` inspects the last run: if it was interrupted/failed, it retries the **same** mode (revalidate falls back to `ai_only`); if it succeeded, it escalates `revalidate → ai_only → full → full` (full is the steady state). This resumes interrupted work after a redeploy and climbs to more expensive passes once stable.
+`_startup_run` inspects the last run: if it was interrupted/failed, it retries the **same** mode (a historical `revalidate` row falls back to `ai_only`); if it succeeded, it escalates `ai_only → full → full` (full is the steady state). This resumes interrupted work after a redeploy and climbs to more expensive passes once stable.
 
 ## Callbacks and cancellation
 
-`on_pair_start(city, topic)` and `on_progress(phase, url)` mutate `app_state` progress fields, feeding the coverage live view. `RunCoordinator` reserves the one long-run slot synchronously and owns cancellation/identity-safe cleanup across manual, scheduled, startup, and revalidate paths. See [[shared-run-task-slot]] and [[asyncio-task-cancellation]].
+`on_pair_start(city, topic)` and `on_progress(phase, url)` mutate `app_state` progress fields, feeding the coverage live view. `RunCoordinator` reserves the one long-run slot synchronously and owns cancellation/identity-safe cleanup across manual, scheduled, and startup paths. See [[shared-run-task-slot]] and [[asyncio-task-cancellation]].
 
 ## Scheduling lives in `main.py`
 

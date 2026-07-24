@@ -3,7 +3,7 @@ type: Architecture
 title: End-to-End Pair Walkthrough
 description: One worked example — (Szentendre, running) — traced from scheduler wake-up through search, fetch, extraction, storage, and the public page, naming every file on the path.
 tags: [architecture, walkthrough, pipeline, example]
-timestamp: 2026-07-10
+timestamp: 2026-07-24
 resource: scraper/pipeline.py
 ---
 
@@ -51,8 +51,8 @@ under the current fingerprint; failures raise and skip caching.
 ## 6. Store — `scraper/store.py` → `scraper/db.py`
 
 `save_results()` merges new records with existing ones, fuzzy-dedups
-([[fuzzy-dedup-and-record-key]]), and upserts via `record_key`; `hidden` and
-`revalidate_fingerprint` survive the replace. `community_history` gets `__created__`
+([[fuzzy-dedup-and-record-key]]), and upserts via `record_key`; the `hidden`
+moderation flag survives the replace. `community_history` gets `__created__`
 rows for genuinely new records ([[history-created-sentinel-overcounting]]), then
 [[duplicate-detection]] re-scans the city.
 

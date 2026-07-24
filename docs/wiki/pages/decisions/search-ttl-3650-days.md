@@ -3,7 +3,7 @@ type: Decision
 title: search_ttl_days = 3650
 description: "TTL set to ~10 years: index the world first, worry about freshness later."
 tags: [decision, cache, ttl, coverage]
-timestamp: 2026-07-10
+timestamp: 2026-07-24
 resource: config/settings.yaml
 ---
 
@@ -26,7 +26,7 @@ At the scale of 290+ Swedish municipalities × N topics × N countries, re-scrap
 
 ## Mitigation
 
-The `revalidate` run mode re-validates existing communities for accuracy (separate from search re-indexing). This handles data staleness without triggering expensive re-searches.
+(The `revalidate` run mode used to re-validate existing communities without re-searching; it was removed 2026-07-23 with [[admin-simplification-2026-07]]. Content staleness is now handled by fingerprint-driven `ai_only` re-extraction only.)
 
 ## How to change
 

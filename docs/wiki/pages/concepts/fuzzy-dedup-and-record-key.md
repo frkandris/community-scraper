@@ -3,7 +3,7 @@ type: Concept
 title: Fuzzy Dedup and record_key
 description: store.py dedups records in-memory (fuzzy) and upserts through the shared Unicode-safe community record-key helper.
 tags: [dedup, record-key, store, normalization]
-timestamp: 2026-07-10
+timestamp: 2026-07-24
 resource: scraper/store.py
 ---
 
@@ -17,4 +17,4 @@ resource: scraper/store.py
 
 `store.py:_dedup` collapses near-duplicates before upsert: same website (trailing-slash-stripped), substring-after-article-strip, or `SequenceMatcher ratio > 0.88`. On collision it keeps the **richer** record (`_richness` counts populated fields + social_links). This is distinct from the cross-topic [[duplicate-detection]] that runs after a full pipeline.
 
-`save_results` lets new records win on key collision; `patch_results` fills only NULL fields and never overwrites non-null.
+`save_results` lets new records win on key collision. (`patch_results` was removed 2026-07-23 with the fill-fields flow.)

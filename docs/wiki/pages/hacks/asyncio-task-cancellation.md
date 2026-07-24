@@ -3,13 +3,13 @@ type: Hack
 title: AsyncIO Task Cancellation
 description: Long runs use asyncio.create_task through RunCoordinator; BackgroundTasks cannot be cancelled and CancelledError is a BaseException.
 tags: [asyncio, cancellation, stop-button]
-timestamp: 2026-07-10
+timestamp: 2026-07-24
 resource: scraper/web/state.py
 ---
 
 # AsyncIO Task Cancellation
 
-*FastAPI `BackgroundTasks` cannot be cancelled. Long pipeline/revalidate runs use `asyncio.create_task()` and attach the task to `app_state.run_coordinator` so the stop button can cancel the single owner.*
+*FastAPI `BackgroundTasks` cannot be cancelled. Long pipeline runs use `asyncio.create_task()` and attach the task to `app_state.run_coordinator` so the stop button can cancel the single owner.*
 
 ## Why BackgroundTasks don't work
 

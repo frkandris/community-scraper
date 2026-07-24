@@ -3,7 +3,7 @@ type: Integration
 title: DeepSeek
 description: The sole LLM extractor — OpenAI-compatible chat API with a 50–75% off-peak discount window (UTC 16:30–00:30) that the extract cron is boxed into.
 tags: [integration, llm, deepseek, extraction, off-peak, cost]
-timestamp: 2026-07-10
+timestamp: 2026-07-24
 resource: scraper/extract.py
 ---
 
@@ -16,7 +16,7 @@ extraction. Pricing is time-of-day dependent, which shapes the whole schedule.*
 
 - **Auth**: `DEEPSEEK_API_KEY` env var; `DeepSeekExtractor` (on the `_ApiExtractor`
   base) in `scraper/extract.py`.
-- **Model + prompts**: four prompt families (community, venue, person, revalidate),
+- **Model + prompts**: four prompt families (community, venue, person, enrich),
   all live-editable from `/admin/prompts`. Any prompt or model change rotates the
   extraction fingerprint and stales the corresponding cache
   ([[extraction-fingerprint-cache]]).

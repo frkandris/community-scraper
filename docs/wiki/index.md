@@ -84,7 +84,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[get-prompt-empty-override-falls-back]] — get_prompt uses `or`, so an override set to "" is falsy and falls back to the built-in prompt — you cannot blank a prompt via override.
 - [[name-json-tail-bleed]] — The LLM sometimes appends following JSON fields into the name string; _LEAKED_JSON_RE strips the leaked tail.
 - [[cache-blob-read-modify-write]] — CacheManager reads the JSON blob, mutates it in Python, and writes it back across two separate connections — concurrent writers to the same URL can lose updates.
-- [[shared-run-task-slot]] — Pipeline, scheduled, startup, and revalidate runs reserve one coordinator-owned task slot with identity-safe cleanup.
+- [[shared-run-task-slot]] — Pipeline, scheduled, and startup runs reserve one coordinator-owned task slot with identity-safe cleanup.
 - [[url-hash-triplicated]] — SHA-256(url)[:16] is repeated across cache, DB, pipeline, and web paths; every copy must remain byte-for-byte compatible.
 - [[function-local-import-shadowing]] — A from-import inside one branch makes the name local to the entire function, so other branches crash with UnboundLocalError even though the module-level import exists.
 
