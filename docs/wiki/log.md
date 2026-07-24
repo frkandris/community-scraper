@@ -3,6 +3,7 @@
 Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
 ## 2026-07-24
+- **Update**: remaining review items closed — real venue/person duplicate merges (`merge_entity_into`) + data loading on the admin page ([[duplicate-detection]]), venue edit requests applied on approve, failed submission scrapes re-queued to pending ([[web-app]]), and atomic cache writes via `db.update_cache_page` ([[cache-blob-read-modify-write]] FIXED); manual duplicate flags now stamp and stick their orientation.
 - **Update**: verify-round hardening — synthesized leader persons carry `origin='leader_field'` so stale cleanup spares AI-extracted leaders ([[pipeline-orchestration]]); pending duplicate rows get their orientation corrected on re-scan except manual flags ([[duplicate-detection]]).
 - **Update**: deferred codex-review findings fixed — [[duplicate-detection]] (winner follows richness, both-order pair idempotency, manual flag keeps the admin's choice, no loop-variable mutation), [[daily-report]] (DISTINCT counting fixes multi-topic inflation of new/changed numbers), [[non-quota-errors-drop-page]] (malformed LLM JSON raises instead of caching empty), leader-person cleanup on re-extraction, joinable gate in submission/re-extract flows.
 

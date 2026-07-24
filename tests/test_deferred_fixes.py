@@ -72,25 +72,54 @@ def test_duplicate_winner_is_richer_not_lexicographic(tmp_path):
     assert len([c for c in get_duplicate_candidates(db) if c["entity_type"] == "community"]) == 1
 
 
-def test_stale_pending_candidate_orientation_corrected(tmp_path):
-    """Pending rows created before the richer-wins change get their winner
-    flipped in place on re-scan, so a merge keeps the right record."""
-    from scraper.db import _community_record_key, insert_duplicate_candidate
-    from scraper.duplicates import detect_all
-    db = _db(tmp_path)
+def _seed_rich_poor_pair(db):
+    from scraper.db import _community_record_key
     save_results("Budapest", "running", [_rec("Futó Kör", "running")], db)
     save_results("Budapest", "fitness", [_rec(
         "Futó Kör", "fitness", description="Gazdag leírás", website="https://futo.hu",
         contact="x@y.hu", meeting_schedule="kedd", fee="ingyenes")], db)
     poor_key = _community_record_key("Futó Kör", "Budapest", "running")
     rich_key = _community_record_key("Futó Kör", "Budapest", "fitness")
-    # legacy row: lexicographic orientation happened to keep the poor record
-    insert_duplicate_candidate(db, "community", "", "", poor_key, rich_key, 1.0, "manual")
+    return poor_key, rich_key
+
+
+def test_stale_pending_candidate_orientation_corrected(tmp_path):
+    """Auto rows created before the richer-wins change (poor-first orientation)
+    get their winner flipped in place on re-scan."""
+    import sqlite3
+    from scraper.duplicates import detect_all
+    db = _db(tmp_path)
+    poor_key, rich_key = _seed_rich_poor_pair(db)  # save_results auto-detects
+    # Force the legacy orientation directly, as if created pre-change.
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "UPDATE duplicate_candidates SET winner_key=?, loser_key=?",
+            (poor_key, rich_key))
+        conn.commit()
 
     detect_all(db)
     cands = [c for c in get_duplicate_candidates(db) if c["entity_type"] == "community"]
     assert len(cands) == 1
     assert cands[0]["winner_key"] == rich_key
+
+
+def test_manual_flag_overrides_auto_row_and_sticks(tmp_path):
+    """An admin's manual flag reorients an existing auto candidate AND stamps it
+    manual so a later auto re-scan cannot flip it back."""
+    from scraper.db import insert_duplicate_candidate
+    from scraper.duplicates import detect_all
+    db = _db(tmp_path)
+    poor_key, rich_key = _seed_rich_poor_pair(db)  # auto row: winner=rich
+    # the admin explicitly wants to keep the poorer record
+    insert_duplicate_candidate(db, "community", "", "", poor_key, rich_key, 1.0, "manual")
+    cands = get_duplicate_candidates(db)
+    assert len(cands) == 1
+    assert cands[0]["winner_key"] == poor_key and cands[0]["signal"] == "manual"
+
+    detect_all(db)  # richness says otherwise, but the manual choice must hold
+    cands = get_duplicate_candidates(db)
+    assert len(cands) == 1
+    assert cands[0]["winner_key"] == poor_key
 
 
 def test_leader_cleanup_spares_ai_extracted_persons(tmp_path):
@@ -154,3 +183,59 @@ def test_scrape_submitted_url_filters_non_joinable(tmp_path):
     names = [c["name"] for c in get_communities(db, "Budapest", "running")]
     assert "Nyitott Kör" in names and len(names) == 1, \
         "non-joinable records must be filtered like in the main pipeline"
+
+
+def test_merge_entity_into_venue_fills_and_deletes(tmp_path):
+    from scraper.db import get_entity_by_record_key, merge_entity_into, upsert_venues
+    from scraper.identity import venue_record_key
+    db = _db(tmp_path)
+    upsert_venues(db, [
+        {"name": "Művház", "city": "Budapest", "venue_id": "v1",
+         "source_url": "https://a.test", "website": None},
+        {"name": "Muvhaz", "city": "Budapest", "venue_id": "v2",
+         "source_url": "https://b.test", "website": "https://muvhaz.hu"},
+    ])
+    wk = venue_record_key("Művház", "Budapest")
+    lk = venue_record_key("Muvhaz", "Budapest")
+    assert merge_entity_into(db, "venue", wk, lk)
+    merged = get_entity_by_record_key(db, "venue", wk)
+    assert merged["website"] == "https://muvhaz.hu", "empty winner field filled from loser"
+    assert set(merged["source_urls"]) == {"https://a.test", "https://b.test"}
+    assert get_entity_by_record_key(db, "venue", lk) is None, "loser row deleted"
+
+
+def test_apply_venue_edit_closed_and_rename(tmp_path):
+    from scraper.db import apply_venue_edit, get_entity_by_record_key, upsert_venues
+    from scraper.identity import venue_record_key
+    db = _db(tmp_path)
+    upsert_venues(db, [{"name": "Régi Név", "city": "Budapest", "venue_id": "v1",
+                        "source_url": "https://a.test"}])
+    rk = venue_record_key("Régi Név", "Budapest")
+    assert apply_venue_edit(db, rk, "name_correction", "Új Név")
+    assert get_entity_by_record_key(db, "venue", rk) is None
+    nk = venue_record_key("Új Név", "Budapest")
+    assert get_entity_by_record_key(db, "venue", nk)["name"] == "Új Név"
+
+    assert apply_venue_edit(db, nk, "closed", None)
+    assert get_entity_by_record_key(db, "venue", nk) is None
+
+
+def test_atomic_cache_update_preserves_concurrent_fields(tmp_path):
+    """Two writers updating different field families of the same URL must not
+    erase each other's fields (the old two-connection read-modify-write did)."""
+    from scraper.cache import CacheManager
+    db = _db(tmp_path)
+    cache = CacheManager(db)
+    url = "https://klub.test/x"
+    cache.save_scraped(url, "Hosszú oldalszöveg a teszthez.", "Budapest", "running")
+    cache.save_extracted(url, [_rec("Kör", "running")], fingerprint="fp1")
+    cache.save_venue_extracted(url, [{"name": "Terem"}], fingerprint="vfp")
+    cache.save_person_extracted(url, "Budapest", "running",
+                                [{"name": "Kiss Anna"}], fingerprint="pfp")
+    entry = cache.get_entry(__import__("scraper.cache", fromlist=["_url_hash"])._url_hash(url))
+    assert entry["raw_text"] and entry["records"] and entry["venues_data"]
+    assert entry["persons_data"]["Budapest/running"][0]["name"] == "Kiss Anna"
+    # dropping the scrape must keep the extraction fields
+    assert cache.delete_scraped(entry["url_hash"])
+    entry2 = cache.get_entry(entry["url_hash"])
+    assert "raw_text" not in entry2 and entry2["records"]

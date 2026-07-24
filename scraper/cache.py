@@ -14,7 +14,7 @@ from .db import (
     get_scraped_cache_by_search_pair,
     get_scraped_cache_for_search_pair,
     load_cache_page,
-    save_cache_page,
+    update_cache_page,
 )
 from .models import CommunityRecord
 
@@ -46,8 +46,7 @@ class CacheManager:
                      duration_s: float | None = None,
                      source_queries: list[str] | None = None) -> None:
         h = _url_hash(url)
-        entry = load_cache_page(self.db_path, h) or {}
-        entry.update({
+        updates = {
             "url": url,
             "url_hash": h,
             "domain": _domain(url),
@@ -55,12 +54,12 @@ class CacheManager:
             "topic": topic,
             "scraped_at": datetime.now(timezone.utc).isoformat(),
             "raw_text": text,
-        })
+        }
         if duration_s is not None:
-            entry["scrape_duration_s"] = round(duration_s, 2)
+            updates["scrape_duration_s"] = round(duration_s, 2)
         if source_queries is not None:
-            entry["source_queries"] = source_queries
-        save_cache_page(self.db_path, entry)
+            updates["source_queries"] = source_queries
+        update_cache_page(self.db_path, h, updates, create={})
         log.debug("cache_saved_scrape", url=url)
 
     # ── Extract ─────────────────────────────────────────────────────────────
@@ -84,8 +83,7 @@ class CacheManager:
                        fingerprint: str | None = None,
                        model: str | None = None) -> None:
         h = _url_hash(url)
-        entry = load_cache_page(self.db_path, h) or {"url": url, "url_hash": h, "domain": _domain(url)}
-        entry.update({
+        updates = {
             "extracted_at": datetime.now(timezone.utc).isoformat(),
             "extract_fingerprint": fingerprint,
             "extract_model": model,
@@ -96,20 +94,17 @@ class CacheManager:
             "enrich_extract_duration_s": None,
             "enrich_count": None,
             "enrich_log": None,
-        })
+        }
         if duration_s is not None:
-            entry["extract_duration_s"] = round(duration_s, 2)
-        save_cache_page(self.db_path, entry)
+            updates["extract_duration_s"] = round(duration_s, 2)
+        update_cache_page(self.db_path, h, updates,
+                          create={"url": url, "domain": _domain(url)})
         log.debug("cache_saved_extract", url=url, records=len(records),
                   fingerprint=fingerprint, model=model)
 
     def save_enriched_records(self, url: str, records: list[CommunityRecord]) -> None:
-        h = _url_hash(url)
-        entry = load_cache_page(self.db_path, h)
-        if not entry:
-            return
-        entry["records"] = [r.model_dump() for r in records]
-        save_cache_page(self.db_path, entry)
+        update_cache_page(self.db_path, _url_hash(url),
+                          {"records": [r.model_dump() for r in records]})
 
     # ── Venue extraction cache ───────────────────────────────────────────────
 
@@ -123,13 +118,12 @@ class CacheManager:
 
     def save_venue_extracted(self, url: str, venues: list[dict],
                               fingerprint: str | None = None, model: str | None = None) -> None:
-        h = _url_hash(url)
-        entry = load_cache_page(self.db_path, h) or {"url": url, "url_hash": h, "domain": _domain(url)}
-        entry["venue_extracted_at"] = datetime.now(timezone.utc).isoformat()
-        entry["venue_fingerprint"] = fingerprint
-        entry["venue_model"] = model
-        entry["venues_data"] = venues
-        save_cache_page(self.db_path, entry)
+        update_cache_page(self.db_path, _url_hash(url), {
+            "venue_extracted_at": datetime.now(timezone.utc).isoformat(),
+            "venue_fingerprint": fingerprint,
+            "venue_model": model,
+            "venues_data": venues,
+        }, create={"url": url, "domain": _domain(url)})
 
     # ── Person extraction cache ──────────────────────────────────────────────
 
@@ -148,47 +142,39 @@ class CacheManager:
 
     def save_person_extracted(self, url: str, city: str, topic: str, persons: list[dict],
                                fingerprint: str | None = None, model: str | None = None) -> None:
-        h = _url_hash(url)
-        entry = load_cache_page(self.db_path, h) or {"url": url, "url_hash": h, "domain": _domain(url)}
-        persons_data = entry.get("persons_data") or {}
-        persons_data[f"{city}/{topic}"] = persons
-        entry["person_extracted_at"] = datetime.now(timezone.utc).isoformat()
-        entry["person_fingerprint"] = fingerprint
-        entry["person_model"] = model
-        entry["persons_data"] = persons_data
-        save_cache_page(self.db_path, entry)
+        def _merge(entry: dict) -> dict:
+            persons_data = entry.get("persons_data") or {}
+            persons_data[f"{city}/{topic}"] = persons
+            entry["persons_data"] = persons_data
+            return entry
+
+        update_cache_page(self.db_path, _url_hash(url), {
+            "person_extracted_at": datetime.now(timezone.utc).isoformat(),
+            "person_fingerprint": fingerprint,
+            "person_model": model,
+        }, create={"url": url, "domain": _domain(url)}, mutate=_merge)
 
     # ── Enrich timing markers ────────────────────────────────────────────────
 
     def mark_enrich_scraped(self, url: str, duration_s: float) -> None:
-        h = _url_hash(url)
-        entry = load_cache_page(self.db_path, h)
-        if not entry:
-            return
-        entry["enrich_scraped_at"] = datetime.now(timezone.utc).isoformat()
-        entry["enrich_scrape_duration_s"] = round(duration_s, 2)
-        save_cache_page(self.db_path, entry)
+        update_cache_page(self.db_path, _url_hash(url), {
+            "enrich_scraped_at": datetime.now(timezone.utc).isoformat(),
+            "enrich_scrape_duration_s": round(duration_s, 2),
+        })
 
     def save_enrich_log(self, url: str, enrich_log: list[dict]) -> None:
-        h = _url_hash(url)
-        entry = load_cache_page(self.db_path, h)
-        if not entry:
-            return
-        entry["enrich_log"] = enrich_log
-        save_cache_page(self.db_path, entry)
+        update_cache_page(self.db_path, _url_hash(url), {"enrich_log": enrich_log})
 
     def mark_enrich_extracted(self, url: str, count: int, duration_s: float,
                               model: str | None = None) -> None:
-        h = _url_hash(url)
-        entry = load_cache_page(self.db_path, h)
-        if not entry:
-            return
-        entry["enrich_extracted_at"] = datetime.now(timezone.utc).isoformat()
-        entry["enrich_extract_duration_s"] = round(duration_s, 2)
-        entry["enrich_count"] = count
+        updates = {
+            "enrich_extracted_at": datetime.now(timezone.utc).isoformat(),
+            "enrich_extract_duration_s": round(duration_s, 2),
+            "enrich_count": count,
+        }
         if model is not None:
-            entry["enrich_model"] = model
-        save_cache_page(self.db_path, entry)
+            updates["enrich_model"] = model
+        update_cache_page(self.db_path, _url_hash(url), updates)
 
     # ── Bulk read ────────────────────────────────────────────────────────────
 
@@ -210,27 +196,18 @@ class CacheManager:
     # ── Delete ───────────────────────────────────────────────────────────────
 
     def delete_scraped(self, url_hash: str) -> bool:
-        entry = load_cache_page(self.db_path, url_hash)
-        if not entry:
-            return False
-        entry.pop("raw_text", None)
-        entry.pop("scraped_at", None)
-        entry.pop("scrape_duration_s", None)
-        save_cache_page(self.db_path, entry)
-        return True
+        return update_cache_page(
+            self.db_path, url_hash,
+            drop=["raw_text", "scraped_at", "scrape_duration_s"]) is not None
 
     def delete_extracted(self, url_hash: str) -> bool:
-        entry = load_cache_page(self.db_path, url_hash)
-        if not entry:
-            return False
-        for key in ("records", "extracted_at", "extract_duration_s",
-                    "extract_fingerprint", "extract_model",
-                    "enrich_scraped_at", "enrich_scrape_duration_s",
-                    "enrich_extracted_at", "enrich_extract_duration_s", "enrich_count",
-                    "enrich_model", "enrich_log"):
-            entry.pop(key, None)
-        save_cache_page(self.db_path, entry)
-        return True
+        return update_cache_page(
+            self.db_path, url_hash,
+            drop=["records", "extracted_at", "extract_duration_s",
+                  "extract_fingerprint", "extract_model",
+                  "enrich_scraped_at", "enrich_scrape_duration_s",
+                  "enrich_extracted_at", "enrich_extract_duration_s", "enrich_count",
+                  "enrich_model", "enrich_log"]) is not None
 
     def get_entry(self, url_hash: str) -> dict | None:
         return load_cache_page(self.db_path, url_hash)

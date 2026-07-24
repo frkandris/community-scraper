@@ -1254,6 +1254,73 @@ def delete_all_communities(db_path: Path) -> int:
 
 # ── Cache pages ───────────────────────────────────────────────────────────────
 
+def _write_cache_page(conn: sqlite3.Connection, entry: dict) -> None:
+    conn.execute("""
+        INSERT INTO cache_pages
+            (url_hash, url, city, topic, domain, scraped_at, extracted_at,
+             extract_fingerprint, venue_fingerprint, person_fingerprint, data)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(url_hash) DO UPDATE SET
+            city=excluded.city,
+            topic=excluded.topic,
+            domain=excluded.domain,
+            scraped_at=excluded.scraped_at,
+            extracted_at=excluded.extracted_at,
+            extract_fingerprint=excluded.extract_fingerprint,
+            venue_fingerprint=excluded.venue_fingerprint,
+            person_fingerprint=excluded.person_fingerprint,
+            data=excluded.data
+    """, (
+        entry["url_hash"],
+        entry.get("url", ""),
+        entry.get("city", ""),
+        entry.get("topic", ""),
+        entry.get("domain", ""),
+        entry.get("scraped_at"),
+        entry.get("extracted_at"),
+        entry.get("extract_fingerprint"),
+        entry.get("venue_fingerprint"),
+        entry.get("person_fingerprint"),
+        json.dumps(entry, ensure_ascii=False),
+    ))
+
+
+def update_cache_page(db_path: Path, url_hash: str, updates: dict | None = None,
+                      *, create: dict | None = None, drop: list[str] | None = None,
+                      mutate=None) -> dict | None:
+    """Atomic read-merge-write of ONE cache page inside a single transaction.
+
+    The old load→mutate→save pattern used two separate connections, so two
+    concurrent writers to the same URL (pipeline vs. admin queue ops) could
+    have the later full-blob write erase the other's fields. BEGIN IMMEDIATE
+    holds the write lock across the read.
+
+    create: entry skeleton used when the row does not exist (None = no-op on
+    missing rows). drop: keys removed from the entry. mutate: callable applied
+    to the entry inside the transaction for nested structures."""
+    with _connect(db_path) as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute(
+            "SELECT data FROM cache_pages WHERE url_hash=?", (url_hash,)
+        ).fetchone()
+        if row:
+            entry = json.loads(row[0])
+        elif create is not None:
+            entry = {**create, "url_hash": url_hash}
+        else:
+            conn.commit()
+            return None
+        if updates:
+            entry.update(updates)
+        for key in drop or ():
+            entry.pop(key, None)
+        if mutate is not None:
+            entry = mutate(entry) or entry
+        _write_cache_page(conn, entry)
+        conn.commit()
+    return entry
+
+
 def save_cache_page(db_path: Path, entry: dict) -> None:
     with _connect(db_path) as conn:
         conn.execute("""
@@ -2168,17 +2235,19 @@ def insert_duplicate_candidate(
             (entity_type, winner_key, loser_key, loser_key, winner_key),
         ).fetchone()
         if existing:
-            # Pending rows created before the richer-wins change (or whose
-            # richness flipped since) get their orientation corrected in place
-            # so a later merge keeps the right record. Manually flagged pairs
-            # are exempt — the admin's explicit "keep" choice must not be
-            # reversed by an automatic re-scan.
-            if existing[2] is None and existing[3] != "manual" and existing[1] != winner_key:
+            # Pending rows get their orientation corrected in place so a later
+            # merge keeps the right record. Precedence: an admin's manual flag
+            # always wins (it also stamps signal='manual' so later auto scans
+            # cannot flip it back); auto re-scans may only reorient other auto
+            # rows.
+            may_update = signal == "manual" or existing[3] != "manual"
+            if existing[2] is None and may_update and existing[1] != winner_key:
                 conn.execute(
                     "UPDATE duplicate_candidates"
-                    " SET winner_id=?, loser_id=?, winner_key=?, loser_key=?"
+                    " SET winner_id=?, loser_id=?, winner_key=?, loser_key=?, signal=?"
                     " WHERE id=?",
-                    (winner_id, loser_id, winner_key, loser_key, existing[0]),
+                    (winner_id, loser_id, winner_key, loser_key,
+                     signal if signal == "manual" else existing[3], existing[0]),
                 )
                 conn.commit()
             return False
@@ -2231,6 +2300,85 @@ def delete_duplicate_candidate(db_path: Path, candidate_id: int) -> None:
     with _connect(db_path) as conn:
         conn.execute("DELETE FROM duplicate_candidates WHERE id=?", (candidate_id,))
         conn.commit()
+
+
+def get_entity_by_record_key(db_path: Path, entity_type: str,
+                             record_key: str) -> dict | None:
+    table = {"venue": "venues", "person": "persons"}.get(entity_type)
+    if table is None or not db_path.exists():
+        return None
+    with _connect(db_path) as conn:
+        row = conn.execute(
+            f"SELECT data FROM {table} WHERE record_key=?", (record_key,)).fetchone()
+    return json.loads(row[0]) if row else None
+
+
+def merge_entity_into(db_path: Path, entity_type: str,
+                      winner_key: str, loser_key: str) -> bool:
+    """Merge a venue/person duplicate: fill the winner's empty fields from the
+    loser, union source_urls, delete the loser row. Returns False when either
+    record is missing (candidate is stale)."""
+    table = {"venue": "venues", "person": "persons"}.get(entity_type)
+    if table is None:
+        return False
+    with _connect(db_path) as conn:
+        winner_row = conn.execute(
+            f"SELECT data FROM {table} WHERE record_key=?", (winner_key,)).fetchone()
+        loser_row = conn.execute(
+            f"SELECT data FROM {table} WHERE record_key=?", (loser_key,)).fetchone()
+        if not winner_row or not loser_row:
+            return False
+        winner_data = json.loads(winner_row[0])
+        loser_data = json.loads(loser_row[0])
+        for field, value in loser_data.items():
+            if value and not winner_data.get(field):
+                winner_data[field] = value
+        w_urls = list(winner_data.get("source_urls") or [])
+        if winner_data.get("source_url") and winner_data["source_url"] not in w_urls:
+            w_urls = [winner_data["source_url"]] + w_urls
+        l_urls = list(loser_data.get("source_urls") or [])
+        if loser_data.get("source_url") and loser_data["source_url"] not in l_urls:
+            l_urls = [loser_data["source_url"]] + l_urls
+        winner_data["source_urls"] = list(dict.fromkeys(w_urls + l_urls))
+        now = datetime.now(timezone.utc).isoformat()
+        conn.execute(
+            f"UPDATE {table} SET data=?, updated_at=? WHERE record_key=?",
+            (json.dumps(winner_data, ensure_ascii=False), now, winner_key),
+        )
+        conn.execute(f"DELETE FROM {table} WHERE record_key=?", (loser_key,))
+        conn.commit()
+    return True
+
+
+def apply_venue_edit(db_path: Path, record_key: str, change_type: str,
+                     new_value: str | None) -> bool:
+    """Apply an approved venue edit. 'closed' deletes the venue (venues have no
+    hidden flag); 'name_correction' renames and recomputes the record key.
+    'wrong_info' carries free-text notes only and cannot be auto-applied."""
+    with _connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT data FROM venues WHERE record_key=?", (record_key,)).fetchone()
+        if not row:
+            return False
+        if change_type == "closed":
+            conn.execute("DELETE FROM venues WHERE record_key=?", (record_key,))
+            conn.commit()
+            return True
+        if change_type == "name_correction" and new_value:
+            data = json.loads(row[0])
+            data["name"] = new_value
+            new_key = _venue_record_key(new_value, data.get("city", ""))
+            try:
+                conn.execute(
+                    "UPDATE venues SET record_key=?, data=?, updated_at=? WHERE record_key=?",
+                    (new_key, json.dumps(data, ensure_ascii=False),
+                     datetime.now(timezone.utc).isoformat(), record_key),
+                )
+            except sqlite3.IntegrityError:
+                return False  # target key exists — surface as failed edit
+            conn.commit()
+            return True
+    return False
 
 
 def merge_community_into(

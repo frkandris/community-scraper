@@ -2234,14 +2234,30 @@ async def admin_submission_approve(sub_id: int, background_tasks: BackgroundTask
         )
     resolve_community_submission(_db(), sub_id, "approved")
     background_tasks.add_task(
-        scrape_submitted_url,
+        _bg_scrape_submission,
         app_state.db_path,
         app_state.pipeline_cfg,
+        sub_id,
         sub["city"],
         sub["topic"],
         sub["source_url"],
     )
     return JSONResponse({"ok": True})
+
+
+async def _bg_scrape_submission(db_path: Path, cfg, sub_id: int,
+                                city: str, topic: str, url: str) -> None:
+    """Scrape an approved submission; on failure re-queue it as pending so it
+    doesn't silently vanish from the inbox with no community created."""
+    ok = False
+    try:
+        ok = await scrape_submitted_url(db_path, cfg, city, topic, url)
+    except Exception as exc:
+        log.error("submission_scrape_crashed", sub_id=sub_id, url=url, error=str(exc))
+    finally:
+        if not ok:
+            resolve_community_submission(db_path, sub_id, "pending")
+            log.error("submission_scrape_failed_requeued", sub_id=sub_id, url=url)
 
 
 @admin.post("/submissions/{sub_id}/reject")
@@ -3293,12 +3309,16 @@ async def admin_duplicates(request: Request):
     init_db(_db())
     candidates = get_duplicate_candidates(_db())
     enriched = []
+    from ..db import get_entity_by_record_key
     for c in candidates:
-        winner_data = None
-        loser_data = None
         if c["entity_type"] == "community":
             winner_data = get_community_by_record_key(_db(), c["winner_key"])
             loser_data = get_community_by_record_key(_db(), c["loser_key"])
+        else:
+            # Venue/person candidates used to render as "Record not found" and
+            # offered deletion only.
+            winner_data = get_entity_by_record_key(_db(), c["entity_type"], c["winner_key"])
+            loser_data = get_entity_by_record_key(_db(), c["entity_type"], c["loser_key"])
         enriched.append({**c, "winner_data": winner_data, "loser_data": loser_data})
     return templates.TemplateResponse(request, "duplicates.html", {
         "candidates": enriched,
@@ -3422,6 +3442,15 @@ async def admin_duplicates_merge(candidate_id: int, background_tasks: Background
     if c["entity_type"] == "community":
         background_tasks.add_task(_bg_merge_community, _db(), candidate_id, c)
     else:
+        # Venues/persons: synchronous field-fill merge (no LLM involved).
+        # Previously this only marked the candidate merged without touching
+        # the records.
+        from ..db import merge_entity_into
+        merged = merge_entity_into(_db(), c["entity_type"],
+                                   c["winner_key"], c["loser_key"])
+        if not merged:
+            resolve_duplicate_candidate(_db(), candidate_id, "dismissed")
+            return JSONResponse({"ok": False, "error": "stale candidate — record missing"})
         resolve_duplicate_candidate(_db(), candidate_id, "merged")
     return JSONResponse({"ok": True})
 
@@ -3466,6 +3495,13 @@ async def admin_edit_requests_approve(request_id: int):
         applied = apply_community_edit(_db(), r["record_key"], r["change_type"], r["new_value"])
         if not applied:
             return JSONResponse({"ok": False, "error": "community not found or unsupported change type"})
+    elif r["entity_type"] == "venue" and r["change_type"] in ("closed", "name_correction"):
+        from ..db import apply_venue_edit
+        applied = apply_venue_edit(_db(), r["record_key"], r["change_type"], r["new_value"])
+        if not applied:
+            return JSONResponse({"ok": False, "error": "venue not found or name conflict"})
+    # venue 'wrong_info' carries free-text notes only — approving it records the
+    # decision; the admin applies the described fix manually.
     resolve_edit_request(_db(), request_id, "approved")
     return JSONResponse({"ok": True})
 
