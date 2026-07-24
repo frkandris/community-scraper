@@ -2241,7 +2241,9 @@ def insert_duplicate_candidate(
             # cannot flip it back); auto re-scans may only reorient other auto
             # rows.
             may_update = signal == "manual" or existing[3] != "manual"
-            if existing[2] is None and may_update and existing[1] != winner_key:
+            needs_change = (existing[1] != winner_key
+                            or (signal == "manual" and existing[3] != "manual"))
+            if existing[2] is None and may_update and needs_change:
                 conn.execute(
                     "UPDATE duplicate_candidates"
                     " SET winner_id=?, loser_id=?, winner_key=?, loser_key=?, signal=?"
@@ -2331,7 +2333,17 @@ def merge_entity_into(db_path: Path, entity_type: str,
         winner_data = json.loads(winner_row[0])
         loser_data = json.loads(loser_row[0])
         for field, value in loser_data.items():
-            if value and not winner_data.get(field):
+            if not value:
+                continue
+            current = winner_data.get(field)
+            if isinstance(value, list) or isinstance(current, list):
+                # Relationship/list fields (community_ids, welcomed_topics,
+                # social_links, …) are unioned — keeping only the winner's list
+                # would silently drop the loser's associations.
+                merged = list(current or []) + [v for v in value
+                                                if v not in (current or [])]
+                winner_data[field] = merged
+            elif not current:
                 winner_data[field] = value
         w_urls = list(winner_data.get("source_urls") or [])
         if winner_data.get("source_url") and winner_data["source_url"] not in w_urls:

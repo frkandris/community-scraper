@@ -193,7 +193,7 @@
         <input type="hidden" name="entity_name" value="{{ v.name | e }}">
         <input type="hidden" name="entity_city" value="{{ city | e }}">
         <input type="hidden" name="entity_topic" value="">
-        <input type="hidden" name="record_key" value="">
+        <input type="hidden" name="record_key" value="{{ v.record_key | default('') | e }}">
         <label class="block text-xs font-medium text-[#6A6259] mb-1">Mit szeretnél módosítani?</label>
         <select name="change_type" required onchange="onVenueChangeType(this.value)"
           class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] mb-3 text-[#1C1917] bg-white">

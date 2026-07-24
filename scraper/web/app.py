@@ -3497,7 +3497,11 @@ async def admin_edit_requests_approve(request_id: int):
             return JSONResponse({"ok": False, "error": "community not found or unsupported change type"})
     elif r["entity_type"] == "venue" and r["change_type"] in ("closed", "name_correction"):
         from ..db import apply_venue_edit
-        applied = apply_venue_edit(_db(), r["record_key"], r["change_type"], r["new_value"])
+        from ..identity import venue_record_key as _vrk
+        # The public venue form submits record_key="" — recompute from the
+        # stored entity name/city so historical requests remain approvable.
+        vkey = r["record_key"] or _vrk(r.get("entity_name", ""), r.get("entity_city", ""))
+        applied = apply_venue_edit(_db(), vkey, r["change_type"], r["new_value"])
         if not applied:
             return JSONResponse({"ok": False, "error": "venue not found or name conflict"})
     # venue 'wrong_info' carries free-text notes only — approving it records the
@@ -3672,6 +3676,8 @@ async def public_venue_detail(request: Request, city_slug: str, venue_slug: str)
     communities = get_communities_for_venue(
         app_state.db_path, community_ids, venue.get("name", ""), city_name
     )
+    from ..identity import venue_record_key as _vrk_detail
+    venue["record_key"] = _vrk_detail(venue.get("name", ""), city_name)
     city_locale = _city_locale(city_name)
     topic_url_slugs = {t.name: _topic_url_slug(t.name, city_locale) for t in (app_state.topics or [])}
     return templates.TemplateResponse(request, "public_venue_detail.html", {

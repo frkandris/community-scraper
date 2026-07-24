@@ -239,3 +239,48 @@ def test_atomic_cache_update_preserves_concurrent_fields(tmp_path):
     assert cache.delete_scraped(entry["url_hash"])
     entry2 = cache.get_entry(entry["url_hash"])
     assert "raw_text" not in entry2 and entry2["records"]
+
+
+def test_merge_entity_into_unions_list_fields(tmp_path):
+    from scraper.db import get_entity_by_record_key, merge_entity_into, upsert_venues
+    from scraper.identity import venue_record_key
+    db = _db(tmp_path)
+    upsert_venues(db, [
+        {"name": "Művház", "city": "Budapest", "venue_id": "v1",
+         "source_url": "https://a.test", "community_ids": ["c1"],
+         "welcomed_topics": ["running"]},
+        {"name": "Muvhaz", "city": "Budapest", "venue_id": "v2",
+         "source_url": "https://b.test", "community_ids": ["c2", "c1"],
+         "welcomed_topics": ["chess"]},
+    ])
+    wk = venue_record_key("Művház", "Budapest")
+    lk = venue_record_key("Muvhaz", "Budapest")
+    assert merge_entity_into(db, "venue", wk, lk)
+    merged = get_entity_by_record_key(db, "venue", wk)
+    assert merged["community_ids"] == ["c1", "c2"], "loser's associations must be unioned"
+    assert set(merged["welcomed_topics"]) == {"running", "chess"}
+
+
+def test_manual_flag_stamps_even_when_orientation_matches(tmp_path):
+    """If the admin's choice matches the auto orientation, the row must still be
+    stamped manual so a later richness flip can't reorient it."""
+    from scraper.db import insert_duplicate_candidate
+    db = _db(tmp_path)
+    poor_key, rich_key = _seed_rich_poor_pair(db)  # auto row: winner=rich
+    insert_duplicate_candidate(db, "community", "", "", rich_key, poor_key, 1.0, "manual")
+    c = get_duplicate_candidates(db)[0]
+    assert c["winner_key"] == rich_key and c["signal"] == "manual"
+
+
+def test_venue_edit_approve_falls_back_to_computed_key(tmp_path):
+    """The public venue form submits record_key='' — approval must resolve the
+    venue from entity_name/entity_city."""
+    from scraper.db import apply_venue_edit, get_entity_by_record_key, upsert_venues
+    from scraper.identity import venue_record_key
+    db = _db(tmp_path)
+    upsert_venues(db, [{"name": "Bezárt Ház", "city": "Budapest", "venue_id": "v1",
+                        "source_url": "https://a.test"}])
+    # simulate the route's fallback: empty record_key → computed from name/city
+    vkey = "" or venue_record_key("Bezárt Ház", "Budapest")
+    assert apply_venue_edit(db, vkey, "closed", None)
+    assert get_entity_by_record_key(db, "venue", vkey) is None
