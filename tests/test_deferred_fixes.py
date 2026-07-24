@@ -72,6 +72,49 @@ def test_duplicate_winner_is_richer_not_lexicographic(tmp_path):
     assert len([c for c in get_duplicate_candidates(db) if c["entity_type"] == "community"]) == 1
 
 
+def test_stale_pending_candidate_orientation_corrected(tmp_path):
+    """Pending rows created before the richer-wins change get their winner
+    flipped in place on re-scan, so a merge keeps the right record."""
+    from scraper.db import _community_record_key, insert_duplicate_candidate
+    from scraper.duplicates import detect_all
+    db = _db(tmp_path)
+    save_results("Budapest", "running", [_rec("Futó Kör", "running")], db)
+    save_results("Budapest", "fitness", [_rec(
+        "Futó Kör", "fitness", description="Gazdag leírás", website="https://futo.hu",
+        contact="x@y.hu", meeting_schedule="kedd", fee="ingyenes")], db)
+    poor_key = _community_record_key("Futó Kör", "Budapest", "running")
+    rich_key = _community_record_key("Futó Kör", "Budapest", "fitness")
+    # legacy row: lexicographic orientation happened to keep the poor record
+    insert_duplicate_candidate(db, "community", "", "", poor_key, rich_key, 1.0, "manual")
+
+    detect_all(db)
+    cands = [c for c in get_duplicate_candidates(db) if c["entity_type"] == "community"]
+    assert len(cands) == 1
+    assert cands[0]["winner_key"] == rich_key
+
+
+def test_leader_cleanup_spares_ai_extracted_persons(tmp_path):
+    from scraper.db import (delete_leader_persons_for_community,
+                            get_persons_for_community, upsert_persons)
+    from scraper.models import PersonRecord
+    db = _db(tmp_path)
+    ai_person = PersonRecord(
+        name="Kiss Anna", role="leader", city="Budapest", topic="running",
+        community_name="Futó Kör", source_url="https://a.test",
+        extracted_at="2026-01-01T00:00:00+00:00")
+    synth = PersonRecord(
+        name="Nagy Béla", role="leader", city="Budapest", topic="running",
+        community_name="Futó Kör", source_url="https://a.test",
+        extracted_at="2026-01-01T00:00:00+00:00")
+    upsert_persons(db, [ai_person.model_dump()])
+    upsert_persons(db, [{**synth.model_dump(), "origin": "leader_field"}])
+
+    # stale-cleanup mode: only the synthesized row goes
+    delete_leader_persons_for_community(db, "Futó Kör", "Budapest", only_synthesized=True)
+    names = [p["name"] for p in get_persons_for_community(db, "Futó Kör", "Budapest")]
+    assert names == ["Kiss Anna"], "AI-extracted leader must survive stale cleanup"
+
+
 def test_malformed_llm_json_raises_instead_of_empty(tmp_path):
     with pytest.raises(ExtractorUnavailableError):
         _parse_communities("Sorry, I cannot help with that.", "Budapest", "running",

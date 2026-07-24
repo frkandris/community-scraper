@@ -739,13 +739,20 @@ async def _run_full(
             # ── Synthesize PersonRecords from community leader fields ────────
             if run_persons:
                 leader_persons = _persons_from_leaders(records, city.name, topic.name)
-                # Delete synthesized leader rows for EVERY re-extracted community,
-                # not just those that still yield leaders — a community whose
-                # leader field disappeared must lose its stale person row too.
+                # Communities that still yield synthesized leaders get the full
+                # replace (legacy behavior). Everything else only drops rows
+                # explicitly marked origin='leader_field', so a stale synthesized
+                # leader disappears while independently AI-extracted leader
+                # persons survive.
+                synth_names = {p.community_name for p in leader_persons}
                 for rec in records:
-                    delete_leader_persons_for_community(config.db_path, rec.name, city.name)
+                    delete_leader_persons_for_community(
+                        config.db_path, rec.name, city.name,
+                        only_synthesized=rec.name not in synth_names)
                 if leader_persons:
-                    upsert_persons(config.db_path, [p.model_dump() for p in leader_persons])
+                    upsert_persons(config.db_path,
+                                   [{**p.model_dump(), "origin": "leader_field"}
+                                    for p in leader_persons])
                     log.info("persons_from_leaders", city=city.name, topic=topic.name,
                              found=len(leader_persons))
 
@@ -918,13 +925,20 @@ async def _run_ai_only(
             # ── Synthesize PersonRecords from community leader fields ────────
             if run_persons:
                 leader_persons = _persons_from_leaders(records, city.name, topic.name)
-                # Delete synthesized leader rows for EVERY re-extracted community,
-                # not just those that still yield leaders — a community whose
-                # leader field disappeared must lose its stale person row too.
+                # Communities that still yield synthesized leaders get the full
+                # replace (legacy behavior). Everything else only drops rows
+                # explicitly marked origin='leader_field', so a stale synthesized
+                # leader disappears while independently AI-extracted leader
+                # persons survive.
+                synth_names = {p.community_name for p in leader_persons}
                 for rec in records:
-                    delete_leader_persons_for_community(config.db_path, rec.name, city.name)
+                    delete_leader_persons_for_community(
+                        config.db_path, rec.name, city.name,
+                        only_synthesized=rec.name not in synth_names)
                 if leader_persons:
-                    upsert_persons(config.db_path, [p.model_dump() for p in leader_persons])
+                    upsert_persons(config.db_path,
+                                   [{**p.model_dump(), "origin": "leader_field"}
+                                    for p in leader_persons])
                     log.info("persons_from_leaders", city=city.name, topic=topic.name,
                              found=len(leader_persons))
 

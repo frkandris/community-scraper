@@ -1860,16 +1860,21 @@ def get_venue_person_counts_by_url(db_path: Path) -> dict[str, dict]:
 
 # ── Persons ───────────────────────────────────────────────────────────────────
 
-def delete_leader_persons_for_community(db_path: Path, community_name: str, city: str) -> int:
-    """Delete all role='leader' persons for a community before re-inserting clean parsed ones."""
+def delete_leader_persons_for_community(db_path: Path, community_name: str, city: str,
+                                         only_synthesized: bool = False) -> int:
+    """Delete role='leader' persons for a community before re-inserting clean parsed ones.
+
+    only_synthesized=True restricts the delete to rows synthesized from the
+    community's leader field (marked origin='leader_field' in data) — used for
+    stale-leader cleanup so independently AI-extracted leader persons survive."""
     if not db_path.exists():
         return 0
+    sql = ("DELETE FROM persons WHERE city=? AND role='leader' "
+           "AND json_extract(data,'$.community_name')=?")
+    if only_synthesized:
+        sql += " AND json_extract(data,'$.origin')='leader_field'"
     with _connect(db_path) as conn:
-        cur = conn.execute(
-            "DELETE FROM persons WHERE city=? AND role='leader' "
-            "AND json_extract(data,'$.community_name')=?",
-            (city, community_name)
-        )
+        cur = conn.execute(sql, (city, community_name))
         conn.commit()
         return cur.rowcount
 
@@ -2151,12 +2156,23 @@ def insert_duplicate_candidate(
         # (winner = the record a merge keeps), so re-scans may compute the
         # reverse order for an already-known pair and must not duplicate it.
         existing = conn.execute(
-            "SELECT id FROM duplicate_candidates"
+            "SELECT id, winner_key, resolution FROM duplicate_candidates"
             " WHERE entity_type=? AND ((winner_key=? AND loser_key=?)"
             "                       OR (winner_key=? AND loser_key=?))",
             (entity_type, winner_key, loser_key, loser_key, winner_key),
         ).fetchone()
         if existing:
+            # Pending rows created before the richer-wins change (or whose
+            # richness flipped since) get their orientation corrected in place
+            # so a later merge keeps the right record.
+            if existing[2] is None and existing[1] != winner_key:
+                conn.execute(
+                    "UPDATE duplicate_candidates"
+                    " SET winner_id=?, loser_id=?, winner_key=?, loser_key=?"
+                    " WHERE id=?",
+                    (winner_id, loser_id, winner_key, loser_key, existing[0]),
+                )
+                conn.commit()
             return False
         cursor = conn.execute("""
             INSERT INTO duplicate_candidates
