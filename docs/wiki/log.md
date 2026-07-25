@@ -3,6 +3,7 @@
 Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
 ## 2026-07-25
+- **Creation**: [[extractor-circuit-breaker]] — `run_pipeline()` preflights one live extraction before any pair loop and `FallbackExtractor` opens a breaker after 20 consecutive failures; `providers_down` (not `exhausted`) aborts the run, `extract_error` travels to the run-detail banner and the daily email, and venue/person failures finally count as `extract_failed`. Updated [[extraction-layer]], [[2026-07-deepseek-model-retired]] (follow-up), [[daily-report]].
 - **Creation**: [[2026-07-deepseek-model-retired]] — DeepSeek dropped `deepseek-chat` (→ v4-pro/v4-flash) and the 2026-07-24 ai_only window 400'd on all 1368 pages; new `deepseek.fingerprint_model` pin keeps the 74K-page cache valid while the wire model moves to `deepseek-v4-flash`. [[deepseek]] updated for the model rename + peak-valley pricing (extract window unaffected).
 
 ## 2026-07-24

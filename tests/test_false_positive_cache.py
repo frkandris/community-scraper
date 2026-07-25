@@ -114,6 +114,7 @@ def test_ai_only_passes_pair_scoped_false_positive_examples(tmp_path):
         canonical_venue_fingerprint = "venue-v1"
         canonical_person_fingerprint = "person-v1"
         exhausted = False
+        providers_down = False
         model = "test-model"
 
         def __init__(self):

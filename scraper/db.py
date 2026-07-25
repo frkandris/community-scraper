@@ -3043,7 +3043,8 @@ def get_daily_summary(db_path: Path, start_iso: str, end_iso: str,
             run = {"id": row[0], "mode": row[1], "started_at": row[2],
                    "finished_at": row[3], "success": bool(row[4]),
                    "pairs": 0, "records": 0, "search_failed": 0, "extract_failed": 0,
-                   "search_error": "", "error": row[6] or interrupted_error}
+                   "search_error": "", "extract_error": "",
+                   "error": row[6] or interrupted_error}
             if row[5]:
                 try:
                     logs = json.loads(row[5])
@@ -3053,6 +3054,8 @@ def get_daily_summary(db_path: Path, start_iso: str, end_iso: str,
                     run["extract_failed"] = sum(p.get("extract_failed", 0) for p in logs)
                     run["search_error"] = next(
                         (p["search_error"] for p in logs if p.get("search_error")), "")
+                    run["extract_error"] = next(
+                        (p["extract_error"] for p in logs if p.get("extract_error")), "")
                 except Exception:
                     pass
             result["runs"].append(run)

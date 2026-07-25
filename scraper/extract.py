@@ -693,12 +693,26 @@ class FallbackExtractor:
     Tries primaries left-to-right.
     - ExtractorQuotaError  → permanent skip for that provider
     - ExtractorRateLimitError → temporary skip; retried after wait_seconds
+    - `failure_threshold` consecutive failed calls → circuit breaker: every
+      provider is marked exhausted so the pipeline can abort the run instead of
+      walking thousands of pages against a dead API (2026-07-24: a retired model
+      name 400'd 2736 times across a full night, see the post-mortem wiki page).
     """
 
-    def __init__(self, primaries: list):
+    #: Consecutive failed _call()s that open the breaker. One success resets the
+    #: counter, so scattered transient errors never trip it — only a provider
+    #: that is genuinely down or misconfigured does.
+    _FAILURE_THRESHOLD = 20
+
+    def __init__(self, primaries: list, failure_threshold: int | None = None):
         self.primaries = primaries
         self._exhausted = [False] * len(primaries)
         self._blocked_until = [0.0] * len(primaries)
+        self._failure_threshold = failure_threshold or self._FAILURE_THRESHOLD
+        self._consecutive_failures = 0
+        #: Human-readable cause once the chain is dead — surfaced in the run log
+        #: and the daily email so an outage names itself.
+        self.failure_reason: str | None = None
 
     def _available(self, idx: int) -> bool:
         return not self._exhausted[idx] and time.monotonic() >= self._blocked_until[idx]
@@ -714,8 +728,30 @@ class FallbackExtractor:
     @property
     def exhausted(self) -> bool:
         """True when no provider is configured or every provider is permanently
-        exhausted (HTTP 402) for this run."""
+        exhausted (HTTP 402 or an open circuit breaker) for this run."""
         return not self.primaries or all(self._exhausted)
+
+    @property
+    def providers_down(self) -> bool:
+        """True when providers ARE configured but all of them died this run.
+
+        Distinct from `exhausted`, which is also True when no API key is set at
+        all — that is a deliberate no-LLM setup, not an outage, and must not
+        abort a run.
+        """
+        return bool(self.primaries) and all(self._exhausted)
+
+    def _note_failure(self, last_error: str) -> None:
+        """Count a failed call; open the breaker at the threshold."""
+        self._consecutive_failures += 1
+        if not self.primaries or self.providers_down:
+            return
+        if self._consecutive_failures >= self._failure_threshold:
+            self._exhausted = [True] * len(self.primaries)
+            self.failure_reason = (
+                f"{last_error} ({self._consecutive_failures} consecutive failures)")
+            log.error("extractor_circuit_breaker_open",
+                      failures=self._consecutive_failures, reason=last_error)
 
     async def _call(self, method: str, label: str, *args, **kwargs):
         """Run `method` on the first available provider with failover.
@@ -737,7 +773,9 @@ class FallbackExtractor:
                 if not self._available(i):
                     continue
                 try:
-                    return await getattr(primary, method)(*args, **kwargs)
+                    result = await getattr(primary, method)(*args, **kwargs)
+                    self._consecutive_failures = 0
+                    return result
                 except ExtractorRateLimitError as exc:
                     self._blocked_until[i] = time.monotonic() + exc.wait_seconds
                     last_error = f"rate limited ({exc.wait_seconds:.0f}s)"
@@ -746,6 +784,7 @@ class FallbackExtractor:
                 except ExtractorQuotaError as exc:
                     self._exhausted[i] = True
                     last_error = str(exc)
+                    self.failure_reason = str(exc)
                     log.warning("extractor_quota_exhausted",
                                 provider=primary.__class__.__name__, reason=str(exc))
                 except ExtractorUnavailableError as exc:
@@ -762,6 +801,7 @@ class FallbackExtractor:
                     await asyncio.sleep(wait + 0.1)
                     continue
             break
+        self._note_failure(last_error)
         raise ExtractorUnavailableError(f"{method} unavailable: {last_error}")
 
     @property
@@ -838,3 +878,36 @@ class FallbackExtractor:
     async def chat(self, user_msg: str, temperature: float = 0.3) -> str:
         """Free-form chat completion with provider fallback."""
         return await self._call("chat", "chat", user_msg, temperature)
+
+    #: Short synthetic page for preflight(). Deliberately looks like a real
+    #: listing so a working provider returns parseable JSON — an empty result is
+    #: still a pass; only an exception fails the check.
+    _PREFLIGHT_TEXT = (
+        "Riverside Running Club. The club meets every Tuesday at 18:00 in the "
+        "city park and welcomes new members of every level. "
+        "Contact: info@example.org"
+    )
+
+    async def preflight(self) -> None:
+        """One tiny live extraction before a run's pair loops start.
+
+        A provider-side breaking change — a retired model name, a revoked key, a
+        response that no longer parses — is otherwise invisible until thousands
+        of pages have been walked and skipped one at a time (2026-07-24: a whole
+        off-peak window produced 5 records). One call up front turns that into an
+        immediate, named run failure.
+
+        No-op when no provider is configured (a deliberate no-LLM run). The
+        result is discarded and never cached; raises the same typed errors as a
+        normal extraction so the caller can abort with the reason attached.
+        """
+        if not self.primaries:
+            return
+        await self.extract(
+            text=self._PREFLIGHT_TEXT,
+            city="Preflight",
+            topic="running",
+            locale="en",
+            source_url="https://example.com/preflight",
+        )
+        log.info("extractor_preflight_ok", model=self.model)

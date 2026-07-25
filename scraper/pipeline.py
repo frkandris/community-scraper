@@ -226,6 +226,7 @@ def _new_pair_log(city_name: str, topic_name: str, queries: list[str]) -> dict:
         "search_failed": False,
         "search_error": None,
         "extract_failed": 0,
+        "extract_error": None,
     }
 
 
@@ -359,6 +360,19 @@ async def run_pipeline(
     if not pairs_to_run:
         log.info("pipeline_all_pairs_done", run_mode=run_mode)
         return pair_logs, total_new
+
+    # Preflight: one live extraction before the pair loops start. A provider-side
+    # breaking change (retired model name, revoked key, unparseable response)
+    # otherwise burns the whole run window one skipped page at a time — the
+    # 2026-07-24 off-peak window produced 5 records from 1368 pages before anyone
+    # noticed. search_only never calls the LLM, so it skips the check.
+    if run_mode != "search_only" and (run_communities or run_venues or run_persons):
+        try:
+            await extractor.preflight()
+        except Exception as exc:
+            log.error("extractor_preflight_failed", run_mode=run_mode, error=str(exc))
+            raise ExtractorUnavailableError(
+                f"extractor preflight failed, no work attempted: {exc}") from exc
 
     if run_mode == "ai_only":
         total_new, pair_logs = await _run_ai_only(
@@ -605,6 +619,7 @@ async def _run_full(
                 continue
 
             records = []
+            extract_dead = False
             for url, text in fetched:
                 community_names: list[str] = []
 
@@ -621,10 +636,20 @@ async def _run_full(
                         community_cache_hit = True
 
                 if not community_cache_hit and run_communities:
+                    if extractor.providers_down:
+                        # Every configured LLM provider died this run (quota gone
+                        # or the circuit breaker opened). Abort instead of walking
+                        # the remaining pages one by one: nothing is cached, so
+                        # every skipped page is retried next run, and the run is
+                        # visibly failed with the reason attached.
+                        pair_log["extract_failed"] += 1
+                        pair_log["extract_error"] = getattr(extractor, "failure_reason", None)
+                        extract_dead = True
+                        break
                     if extractor.exhausted:
-                        # LLM quota gone for this run: leave the page un-extracted
-                        # (cached raw text stays; next run picks it up). Do NOT
-                        # cache an empty result.
+                        # No LLM configured at all (deliberate no-key setup):
+                        # leave the page un-extracted, cached raw text stays.
+                        # Do NOT cache an empty result.
                         pair_log["extract_failed"] += 1
                         continue
                     if on_progress:
@@ -712,6 +737,10 @@ async def _run_full(
                                                        fingerprint=extractor.canonical_venue_fingerprint,
                                                        model=extractor.model)
                     except Exception as exc:
+                        # Counted like a failed community extraction: nothing was
+                        # cached, so the page is retried — and the daily report
+                        # must not show a venue-blind run as a clean ✓.
+                        pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
                         log.warning("venues_extract_error", url=url, error=str(exc))
 
                 # ── Person extraction (with fingerprint cache) ───────────────
@@ -739,6 +768,7 @@ async def _run_full(
                                                             fingerprint=extractor.canonical_person_fingerprint,
                                                             model=extractor.model)
                         except Exception as exc:
+                            pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
                             log.warning("persons_extract_error", url=url, error=str(exc))
 
             # ── Synthesize PersonRecords from community leader fields ────────
@@ -764,6 +794,12 @@ async def _run_full(
             count = save_results(city.name, topic.name, records, config.db_path)
             run_stats[city.name][topic.name] = count
             pair_logs.append(pair_log)
+
+            if extract_dead:
+                log.warning("extract_provider_down_run_aborted", city=city.name,
+                            topic=topic.name, reason=pair_log["extract_error"])
+                aborted = True
+                break
 
     if pw_fetcher:
         await pw_fetcher.stop()
@@ -834,6 +870,7 @@ async def _run_ai_only(
                 all_fps, city=city.name, topic=topic.name
             )
             records = []
+            extract_dead = False
             for url, text in pages:
                 await asyncio.sleep(0)
                 community_names: list[str] = []
@@ -852,6 +889,13 @@ async def _run_ai_only(
                     community_cache_hit = True
 
                 if not community_cache_hit and run_communities:
+                    if extractor.providers_down:
+                        # See _run_full: a dead provider chain aborts the run
+                        # rather than logging one failure per page for hours.
+                        pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
+                        pair_log["extract_error"] = getattr(extractor, "failure_reason", None)
+                        extract_dead = True
+                        break
                     if extractor.exhausted:
                         pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
                         continue
@@ -900,6 +944,10 @@ async def _run_ai_only(
                                                    fingerprint=extractor.canonical_venue_fingerprint,
                                                    model=extractor.model)
                     except Exception as exc:
+                        # Counted like a failed community extraction: nothing was
+                        # cached, so the page is retried — and the daily report
+                        # must not show a venue-blind run as a clean ✓.
+                        pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
                         log.warning("venues_extract_error", url=url, error=str(exc))
 
                 # ── Person extraction (with fingerprint cache) ───────────────
@@ -925,6 +973,7 @@ async def _run_ai_only(
                                                         fingerprint=extractor.canonical_person_fingerprint,
                                                         model=extractor.model)
                         except Exception as exc:
+                            pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
                             log.warning("persons_extract_error", url=url, error=str(exc))
 
             # ── Synthesize PersonRecords from community leader fields ────────
@@ -950,6 +999,11 @@ async def _run_ai_only(
             count = save_results(city.name, topic.name, records, config.db_path)
             run_stats[city.name][topic.name] = count
             pair_logs.append(pair_log)
+
+            if extract_dead:
+                log.warning("extract_provider_down_run_aborted", city=city.name,
+                            topic=topic.name, reason=pair_log.get("extract_error"))
+                return total_new, pair_logs
 
     return total_new, pair_logs
 

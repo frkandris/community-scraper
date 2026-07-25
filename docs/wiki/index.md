@@ -88,6 +88,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[shared-run-task-slot]] — Pipeline, scheduled, and startup runs reserve one coordinator-owned task slot with identity-safe cleanup.
 - [[url-hash-triplicated]] — SHA-256(url)[:16] is repeated across cache, DB, pipeline, and web paths; every copy must remain byte-for-byte compatible.
 - [[function-local-import-shadowing]] — A from-import inside one branch makes the name local to the entire function, so other branches crash with UnboundLocalError even though the module-level import exists.
+- [[extractor-circuit-breaker]] — A dead LLM provider now fails a run in seconds — one live preflight extraction before the pair loops, plus a breaker that opens after 20 consecutive failed calls.
 
 ## SEO
 

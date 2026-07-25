@@ -60,3 +60,11 @@ strategy doesn't want.
 - Trade-off accepted: v4-flash extractions now write under the deepseek-chat
   fingerprint, so the cache mixes two model generations. Remove the pin if a
   full re-extraction is ever intended.
+
+## Follow-up (2026-07-25)
+
+The rename fix restored extraction but not visibility, so the detection gap was closed
+separately: `run_pipeline()` now runs a live `preflight()` extraction before any pair
+loop, and `FallbackExtractor` opens a circuit breaker after 20 consecutive failures. The
+same incident today would fail the run in seconds with the provider's own error text in
+the daily email. See [[extractor-circuit-breaker]].

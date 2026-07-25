@@ -46,3 +46,12 @@ A record with no website/social/contact and `confidence ≥ 0.7` gets a second p
 ## Fingerprints
 
 Each extractor exposes `model_fingerprint` / `venue_fingerprint` / `person_fingerprint` (SHA-256[:12] of `prompt + model`) plus `canonical_fingerprint`. The canonical one always uses `primaries[0]` so pages extracted by the *fallback* provider still store under the primary's key — see [[canonical-fingerprint-provider-shift]] and [[extraction-fingerprints]].
+
+## Failure handling
+
+`FallbackExtractor` turns provider trouble into typed errors and never returns an empty
+result on failure ([[non-quota-errors-drop-page]]). Beyond per-call retry, two run-level
+guards exist since 2026-07-25: a `preflight()` live check before any pair loop, and a
+circuit breaker that marks every provider exhausted after 20 consecutive failed calls.
+`providers_down` (as opposed to `exhausted`, which is also true with no API key
+configured) is what aborts a run. See [[extractor-circuit-breaker]].

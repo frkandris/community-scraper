@@ -141,8 +141,8 @@ def build_report_html(day: str, summary: dict, traffic: dict,
             state = "✅" if r["success"] else "❌"
             fails = ""
             if r["search_failed"] or r["extract_failed"]:
-                cause = (f" · ok: {html_lib.escape(r['search_error'])}"
-                         if r.get("search_error") else "")
+                causes = [c for c in (r.get("search_error"), r.get("extract_error")) if c]
+                cause = (f" · ok: {html_lib.escape(' / '.join(causes))}" if causes else "")
                 fails = (f" — <span style='color:#B4231F'>hibák: "
                          f"{r['search_failed']} keresés, {r['extract_failed']} oldal"
                          f" (nem cache-elve, újrapróbálva){cause}</span>")

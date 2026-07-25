@@ -301,3 +301,110 @@ def test_extract_failure_not_cached_as_empty(tmp_path):
     assert cache.get_extracted("https://klub.test/x", fingerprint="fp-stub") is None, \
         "a failed extraction must not be cached as an empty result"
     assert sum(p.get("extract_failed", 0) for p in logs) == 1
+
+
+# ── extractor circuit breaker + preflight ───────────────────────────────────
+
+def test_circuit_breaker_opens_after_consecutive_failures():
+    """A dead provider must stop the chain instead of failing page after page.
+
+    2026-07-24: a retired model name 400'd 2736 times across a whole off-peak
+    window because nothing counted the repetition.
+    """
+    p = StubPrimary([ExtractorUnavailableError("HTTP 400")] * 20)
+    fe = FallbackExtractor(primaries=[p], failure_threshold=3)
+    for _ in range(3):
+        with pytest.raises(ExtractorUnavailableError):
+            asyncio.run(fe.extract("t", "c", "top", "hu", "http://x"))
+    assert fe.providers_down
+    assert "HTTP 400" in (fe.failure_reason or "")
+    # breaker open → no further provider calls (3 attempts × 2 retry rounds)
+    calls_when_open = p.calls
+    with pytest.raises(ExtractorUnavailableError):
+        asyncio.run(fe.extract("t", "c", "top", "hu", "http://x"))
+    assert p.calls == calls_when_open
+
+
+def test_success_resets_circuit_breaker_counter():
+    """Scattered transient errors must never trip the breaker."""
+    p = StubPrimary([
+        ExtractorUnavailableError("500"), ExtractorUnavailableError("500"),
+        ["ok"],
+        ExtractorUnavailableError("500"), ExtractorUnavailableError("500"),
+    ])
+    fe = FallbackExtractor(primaries=[p], failure_threshold=2)
+    with pytest.raises(ExtractorUnavailableError):
+        asyncio.run(fe.extract("t", "c", "top", "hu", "http://x"))
+    assert asyncio.run(fe.extract("t", "c", "top", "hu", "http://x")) == ["ok"]
+    with pytest.raises(ExtractorUnavailableError):
+        asyncio.run(fe.extract("t", "c", "top", "hu", "http://x"))
+    assert not fe.providers_down
+
+
+def test_no_provider_configured_is_not_providers_down():
+    """An unset API key is a deliberate no-LLM run, not an outage — it must not
+    abort search/fetch work."""
+    fe = FallbackExtractor(primaries=[])
+    assert fe.exhausted
+    assert not fe.providers_down
+
+
+def test_preflight_noop_without_providers():
+    assert asyncio.run(FallbackExtractor(primaries=[]).preflight()) is None
+
+
+def test_preflight_raises_on_dead_provider():
+    fe = FallbackExtractor(primaries=[StubPrimary([ExtractorUnavailableError("HTTP 400")] * 2)])
+    with pytest.raises(ExtractorUnavailableError):
+        asyncio.run(fe.preflight())
+
+
+def test_run_pipeline_aborts_before_any_work_when_preflight_fails(tmp_path):
+    """A broken model name must fail the run immediately, not one page at a time."""
+    from scraper.pipeline import run_pipeline
+    db, cfg, cities, topics = _pipeline_fixtures(tmp_path)
+    searched = []
+
+    class OkSearch:
+        exhausted = False
+        def __init__(self, primaries): ...
+        async def search_all(self, *a, **k):
+            searched.append(a)
+            return [SearchResult(url="https://klub.test/x", title="t")]
+
+    dead = FallbackExtractor(primaries=[StubPrimary([ExtractorUnavailableError("HTTP 400")] * 4)])
+
+    with patch("scraper.pipeline.FallbackSearchClient", OkSearch), \
+         patch("scraper.pipeline.FallbackExtractor", lambda primaries: dead):
+        with pytest.raises(ExtractorUnavailableError) as exc:
+            asyncio.run(run_pipeline(cities, topics, cfg, cache=None, run_mode="full"))
+
+    assert "preflight" in str(exc.value)
+    assert not searched, "no paid search may run once the extractor is known dead"
+
+
+def test_ai_only_aborts_when_extractor_dies_midrun(tmp_path):
+    """The breaker must end the run, not log one failure per cached page."""
+    from scraper.cache import CacheManager
+    from scraper.pipeline import _run_ai_only
+    db, cfg, cities, topics = _pipeline_fixtures(tmp_path)
+    cache = CacheManager(db)
+    cities = [CityConfig(name=n, locale="hu", search_variants=[])
+              for n in ("Budapest", "Szeged")]
+    from scraper.db import save_search_cache
+    for city in ("Budapest", "Szeged"):
+        for url in (f"https://{city}.test/a", f"https://{city}.test/b"):
+            cache.save_scraped(url, "Elég hosszú oldalszöveg a teszthez.", city, "running")
+        save_search_cache(db, city, "running",
+                          [f"https://{city}.test/a", f"https://{city}.test/b"], ["q"])
+
+    dead = FallbackExtractor(
+        primaries=[StubPrimary([ExtractorUnavailableError("HTTP 400")] * 10)],
+        failure_threshold=1)
+
+    _, logs = asyncio.run(_run_ai_only(
+        cities, topics, cfg, dead, cache, True, {}, None,
+        run_venues=False, run_persons=False))
+
+    assert len(logs) == 1, "the run must abort at the first pair, not walk both cities"
+    assert logs[0]["extract_error"] and "HTTP 400" in logs[0]["extract_error"]
