@@ -83,6 +83,11 @@ The deployment is Docker on Coolify (Hetzner); only `/app/data` (SQLite) and
 optional — missing keys degrade to a no-op rather than an error. See
 [deployment](docs/wiki/pages/operations/deployment-coolify.md) for the full list.
 
+## License
+
+[MIT](LICENSE) — do what you like with the code. The community data itself is extracted
+from public web pages and belongs to the communities that published it.
+
 ## Data quality
 
 Every record is machine-extracted from a public web page. Information can be incomplete,
