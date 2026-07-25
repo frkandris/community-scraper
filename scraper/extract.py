@@ -472,9 +472,15 @@ class _ApiExtractor:
         timeout_seconds: int = 60,
         max_text_chars: int = 6000,
         rate_limit_seconds: float = 1.0,
+        fingerprint_model: str | None = None,
     ):
         self.api_key = api_key
         self.model = model
+        # Cache-identity override: fingerprints hash prompt + this name, NOT the
+        # wire model. Set when a provider renames a model (deepseek-chat →
+        # deepseek-v4-flash, 2026-07) and re-extracting the whole cache under
+        # the new name is not worth the cost. Empty/None → wire model.
+        self.fingerprint_model = fingerprint_model or model
         self.temperature = temperature
         self.timeout_seconds = timeout_seconds
         self.max_text_chars = max_text_chars
@@ -483,19 +489,19 @@ class _ApiExtractor:
 
     @property
     def model_fingerprint(self) -> str:
-        return _prompt_hash(get_prompt("extraction_system") + self.model)
+        return _prompt_hash(get_prompt("extraction_system") + self.fingerprint_model)
 
     @property
     def venue_fingerprint(self) -> str:
-        return _prompt_hash(get_prompt("venue_system") + self.model)
+        return _prompt_hash(get_prompt("venue_system") + self.fingerprint_model)
 
     @property
     def person_fingerprint(self) -> str:
-        return _prompt_hash(get_prompt("person_system") + self.model)
+        return _prompt_hash(get_prompt("person_system") + self.fingerprint_model)
 
     @property
     def enrich_fingerprint(self) -> str:
-        return _prompt_hash(get_prompt("enrich_system") + self.model)
+        return _prompt_hash(get_prompt("enrich_system") + self.fingerprint_model)
 
     def _headers(self) -> dict:
         return {"Authorization": f"Bearer {self.api_key}"}
@@ -672,8 +678,10 @@ class DeepSeekExtractor(_ApiExtractor):
         timeout_seconds: int = 60,
         max_text_chars: int = 8000,
         rate_limit_seconds: float = 1.0,
+        fingerprint_model: str | None = None,
     ):
-        super().__init__(api_key, model, temperature, timeout_seconds, max_text_chars, rate_limit_seconds)
+        super().__init__(api_key, model, temperature, timeout_seconds, max_text_chars,
+                         rate_limit_seconds, fingerprint_model=fingerprint_model)
 
 
 _GROQ_RETRY_DEFAULT_WAIT = _API_RETRY_DEFAULT_WAIT

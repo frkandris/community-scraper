@@ -1,5 +1,10 @@
 deepseek:
-  model: deepseek-chat
+  # 2026-07: DeepSeek retired the "deepseek-chat" model name (supported names:
+  # deepseek-v4-pro / deepseek-v4-flash). fingerprint_model pins the extraction
+  # cache identity to the old name so the rename does NOT invalidate the whole
+  # cache — remove it only if a full re-extraction is intended.
+  model: deepseek-v4-flash
+  fingerprint_model: deepseek-chat
   temperature: 0.1
   timeout_seconds: 60
   max_text_chars: 8000

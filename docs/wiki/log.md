@@ -2,6 +2,9 @@
 
 Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
+## 2026-07-25
+- **Creation**: [[2026-07-deepseek-model-retired]] — DeepSeek dropped `deepseek-chat` (→ v4-pro/v4-flash) and the 2026-07-24 ai_only window 400'd on all 1368 pages; new `deepseek.fingerprint_model` pin keeps the 74K-page cache valid while the wire model moves to `deepseek-v4-flash`. [[deepseek]] updated for the model rename + peak-valley pricing (extract window unaffected).
+
 ## 2026-07-24
 - **Creation**: [[wrong-city-detection]] — new `wrong_city.py` scan + `wrong_city_candidates` table + `/admin/wrong-city` review queue; admin nav gains a "Data quality" dropdown grouping it with [[duplicate-detection]]. [[sqlite-schema]] table added; interaction admin pages (edit requests, duplicates, not-community) now link to the live public community page.
 - **Creation**: [[2026-07-wrong-city-approve-conflict]] — approving a wrong_city edit request failed on a boolean-collapsed error; `apply_community_edit` now returns statuses and merges into an existing target identity instead of failing.

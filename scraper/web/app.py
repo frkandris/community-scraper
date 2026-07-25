@@ -2716,6 +2716,7 @@ def _build_extractor(cfg):
             temperature=cfg.deepseek_temperature, timeout_seconds=cfg.deepseek_timeout,
             max_text_chars=cfg.deepseek_max_text_chars,
             rate_limit_seconds=cfg.deepseek_rate_limit_seconds,
+            fingerprint_model=cfg.deepseek_fingerprint_model or None,
         ))
     return FallbackExtractor(primaries=primaries)
 

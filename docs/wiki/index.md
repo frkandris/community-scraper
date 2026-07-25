@@ -33,7 +33,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 ## Integrations
 
 - [[dataforseo]] — The sole paid search provider — live mode ($2/1K, seconds) vs standard task queue ($0.6/1K, minutes); quota and transient failures raise typed errors that are never cached.
-- [[deepseek]] — The sole LLM extractor — OpenAI-compatible chat API with a 50–75% off-peak discount window (UTC 16:30–00:30) that the extract cron is boxed into.
+- [[deepseek]] — The sole LLM extractor — OpenAI-compatible chat API; the 2026-07 peak-valley pricing (2× at UTC 01–04 and 06–10) and the v4 model rename shape the extract schedule and the fingerprint_model cache pin.
 - [[resend-email]] — All outbound email (feedback routes + daily report) goes through Resend from info@kozossegek.com; the free plan allows one verified domain, so meetapedia.com has no sender identity.
 - [[ga4-reporting]] — The daily email reads visitor/session/pageview numbers from the GA4 Data API via a service account; property 536914034 covers both domains, split by hostName.
 
@@ -104,6 +104,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[2026-07-search-only-cache-replay]] — The first saver collector replayed extraction-cache records into Hungarian communities and retried pairs forever when any selected URL could not be fetched.
 - [[2026-07-search-provider-down-noise]] — Unmapped city locales made every task_post fail with 40501 Invalid Field location_name; the fail-fast then amplified 3 poisoned pairs into 4972 logged failures while the email lost the original error.
 - [[2026-07-wrong-city-approve-conflict]] — Approving a wrong_city edit request failed with "community not found or unsupported change type" — apply_community_edit collapsed three distinct failures into one boolean, hiding that the record already existed under the correct city.
+- [[2026-07-deepseek-model-retired]] — DeepSeek dropped the deepseek-chat model name and the whole 2026-07-24 ai_only window failed with 1368 uncached pages; the fix swaps to deepseek-v4-flash while fingerprint_model pins the cache identity so 74K cached extractions survive.
 
 ## Operations
 

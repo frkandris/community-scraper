@@ -1,9 +1,9 @@
 ---
 type: Integration
 title: DeepSeek
-description: The sole LLM extractor — OpenAI-compatible chat API with a 50–75% off-peak discount window (UTC 16:30–00:30) that the extract cron is boxed into.
+description: The sole LLM extractor — OpenAI-compatible chat API; the 2026-07 peak-valley pricing (2× at UTC 01–04 and 06–10) and the v4 model rename shape the extract schedule and the fingerprint_model cache pin.
 tags: [integration, llm, deepseek, extraction, off-peak, cost]
-timestamp: 2026-07-24
+timestamp: 2026-07-25
 resource: scraper/extract.py
 ---
 
@@ -16,13 +16,18 @@ extraction. Pricing is time-of-day dependent, which shapes the whole schedule.*
 
 - **Auth**: `DEEPSEEK_API_KEY` env var; `DeepSeekExtractor` (on the `_ApiExtractor`
   base) in `scraper/extract.py`.
+- **Model names (2026-07)**: DeepSeek retired `deepseek-chat`; supported names are
+  `deepseek-v4-pro` and `deepseek-v4-flash`. Production runs `deepseek-v4-flash`
+  with `fingerprint_model: deepseek-chat` pinning the cache identity — see
+  [[2026-07-deepseek-model-retired]].
 - **Model + prompts**: four prompt families (community, venue, person, enrich),
-  all live-editable from `/admin/prompts`. Any prompt or model change rotates the
-  extraction fingerprint and stales the corresponding cache
-  ([[extraction-fingerprint-cache]]).
-- **Off-peak discount**: UTC 16:30–00:30, roughly 50–75% cheaper depending on model.
-  The extractor cron (16:35→00:20 UTC, `ai_only` mode, `stop_at`-boxed) lives entirely
-  inside this window — see [[cost-saver-schedule]].
+  all live-editable from `/admin/prompts`. Any prompt change rotates the extraction
+  fingerprint and stales the corresponding cache ([[extraction-fingerprint-cache]]);
+  a model change does too **unless** `deepseek.fingerprint_model` pins the old name.
+- **Peak-valley pricing (2026-07)**: peak hours UTC 01:00–04:00 and 06:00–10:00 cost
+  2× on all billing items (replacing the old flat off-peak discount). The extractor
+  cron (16:35→00:20 UTC, `ai_only` mode, `stop_at`-boxed) sits entirely outside the
+  peak windows, so the schedule needed no change — see [[cost-saver-schedule]].
 
 ## Quirks and hard-won rules
 

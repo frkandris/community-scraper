@@ -266,6 +266,9 @@ class PipelineConfig:
     dataforseo_password: str = ""
     deepseek_api_key: str = ""
     deepseek_model: str = "deepseek-chat"
+    # Cache-identity pin: fingerprints derive from this name when set, so a
+    # provider-side model rename doesn't invalidate the whole extraction cache.
+    deepseek_fingerprint_model: str = ""
     deepseek_temperature: float = 0.1
     deepseek_timeout: int = 60
     deepseek_max_text_chars: int = 8000
@@ -314,6 +317,7 @@ async def run_pipeline(
             timeout_seconds=config.deepseek_timeout,
             max_text_chars=config.deepseek_max_text_chars,
             rate_limit_seconds=config.deepseek_rate_limit_seconds,
+            fingerprint_model=config.deepseek_fingerprint_model or None,
         ))
     extractor: FallbackExtractor = FallbackExtractor(primaries=primaries)
     log.info("extractor", primaries=[p.model for p in primaries])
@@ -327,7 +331,8 @@ async def run_pipeline(
     # which also keeps the catch-up pass from re-searching tiered-out pairs.
     all_pairs = {(c.name, t.name) for c in cities for t in topics
                  if _tier_allows(c, t.name, config.core_topics)}
-    model = primaries[0].model if primaries else config.deepseek_model
+    model = (primaries[0].fingerprint_model if primaries
+             else (config.deepseek_fingerprint_model or config.deepseek_model))
     current_fp = get_extract_fingerprint(model)
     venue_fp = get_venue_fingerprint(model)
     person_fp = get_person_fingerprint(model)
@@ -965,6 +970,7 @@ async def scrape_submitted_url(
             timeout_seconds=config.deepseek_timeout,
             max_text_chars=config.deepseek_max_text_chars,
             rate_limit_seconds=config.deepseek_rate_limit_seconds,
+            fingerprint_model=config.deepseek_fingerprint_model or None,
         ))
     extractor: FallbackExtractor = FallbackExtractor(primaries=primaries)
 
@@ -1030,6 +1036,7 @@ async def reextract_community(
             timeout_seconds=config.deepseek_timeout,
             max_text_chars=config.deepseek_max_text_chars,
             rate_limit_seconds=config.deepseek_rate_limit_seconds,
+            fingerprint_model=config.deepseek_fingerprint_model or None,
         ))
     extractor: FallbackExtractor = FallbackExtractor(primaries=primaries)
 

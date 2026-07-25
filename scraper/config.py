@@ -76,6 +76,7 @@ def load_config_from_docs(
         dataforseo_password=os.environ.get("DATAFORSEO_PASSWORD", ""),
         deepseek_api_key=os.environ.get("DEEPSEEK_API_KEY", ""),
         deepseek_model=deepseek_cfg.get("model", "deepseek-chat"),
+        deepseek_fingerprint_model=deepseek_cfg.get("fingerprint_model", ""),
         deepseek_temperature=deepseek_cfg.get("temperature", 0.1),
         deepseek_timeout=deepseek_cfg.get("timeout_seconds", 60),
         deepseek_max_text_chars=deepseek_cfg.get("max_text_chars", 8000),
