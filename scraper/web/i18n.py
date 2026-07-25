@@ -867,13 +867,12 @@ _T: dict[str, dict[str, str]] = {
     "about_description": "{site_name} started in 2026 with a simple goal: make it easier to find local hobby groups, clubs and communities without spending hours searching the web. The aim is to eventually cover every major city in the world across dozens of interest categories, so anyone relocating or looking for new people can find their people in minutes.",
     "about_how_it_works": "How it works",
     "about_how_it_works_text": "An automated pipeline searches the web for community groups matching each city × interest combination. It downloads the relevant pages and runs an AI language model to extract structured data — meeting schedules, locations, contacts, websites — then filters out results that aren't genuine joinable groups.",
-    "about_project_title": "The project",
-    "about_project_hobby": "A hobby project by {author}, built and run in the open.",
-    "about_project_open_source": "The whole thing is open source: the pipeline, the extraction prompts and the engineering wiki are all public, so you can see exactly how a listing on this site came to be.",
-    "about_project_repo": "Source code on GitHub",
-    "about_project_author_link": "About the author",
-    "about_sister_hu": "{sister_name} is the Hungarian edition of this project — the same directory, in Hungarian, for Hungarian cities.",
-    "about_sister_en": "This site is the Hungarian edition of {sister_name}, the same project covering cities worldwide.",
+    # The About page's project line. {author}/{open_source}/{sister} arrive as
+    # ready-made <a> tags from the template and the result is rendered |safe —
+    # the link text has to sit inside the sentence, not next to it.
+    "about_open_source": "open source",
+    "about_project_line_hu": "It is an {open_source} hobby project by {author}; its Hungarian edition is {sister}.",
+    "about_project_line_en": "This site is part of the {sister} project — an {open_source} hobby project by {author}.",
     "footer_tagline": "Every community in the world, in one place",
     # Cross-domain (Wikipedia-style "also available in …"). Two separate keys
     # instead of one language-dependent string: meetapedia.com can be read in
@@ -1055,13 +1054,9 @@ _T: dict[str, dict[str, str]] = {
     "about_description": "A {site_name} 2026-ban jött létre azzal a céllal, hogy segítsen helyi közösségeket és új, hasonló érdeklődésű barátokat találni.",
     "about_how_it_works": "Hogyan működik",
     "about_how_it_works_text": "Egy automatizált rendszer keres az interneten közösségi csoportokat minden város × érdeklődési kör kombináció alapján. Letölti a releváns oldalakat, és egy AI nyelvi modellel strukturált adatokat nyer ki belőlük — találkozási időpontok, helyszínek, elérhetőségek, weboldalak —, majd kiszűri azokat az eredményeket, amelyek nem valódi, csatlakozható csoportok.",
-    "about_project_title": "A projekt",
-    "about_project_hobby": "{author} hobbiprojektje, nyíltan fejlesztve és üzemeltetve.",
-    "about_project_open_source": "Az egész nyílt forráskódú: a pipeline, a kinyerő promptok és a fejlesztői wiki is nyilvános, így pontosan látható, hogyan került ide egy-egy közösség.",
-    "about_project_repo": "Forráskód a GitHubon",
-    "about_project_author_link": "A szerzőről",
-    "about_sister_hu": "A {sister_name} ennek a projektnek a magyar kiadása — ugyanez a katalógus, magyarul, magyar városokra.",
-    "about_sister_en": "Ez az oldal a {sister_name} magyar kiadása — ugyanaz a projekt, ott a világ városaival.",
+    "about_open_source": "nyílt forráskódú",
+    "about_project_line_hu": "{author} {open_source} hobbiprojektje; magyar kiadása a {sister}.",
+    "about_project_line_en": "Ez az oldal a {sister} projekt része — {author} {open_source} hobbiprojektje.",
     "footer_tagline": "Magyarország közösségei egy helyen",
     "sister_notice_hu": "Ez az oldal magyarul is elérhető itt: {sister_name}",
     "sister_notice_en": "Ez az oldal angolul is elérhető itt: {sister_name}",

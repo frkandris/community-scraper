@@ -102,7 +102,18 @@ def test_about_page_credits_the_author_and_repo(client):
 
 def test_about_page_names_the_sister_edition(client):
     koz = client.get("/rolunk", headers=KOZ)
-    assert "meetapedia.com magyar kiadása" in koz.text
+    assert "meetapedia.com</a> projekt része" in koz.text
 
     meet = client.get("/rolunk", headers=MEET)
-    assert "Hungarian edition of this project" in meet.text
+    assert "Hungarian edition is" in meet.text
+    assert "közösségek.com</a>" in meet.text
+
+
+def test_about_project_line_links_sit_inside_the_sentence(client):
+    """The author, open-source and sister names are anchors in the prose, not
+    a button row underneath it."""
+    r = client.get("/rolunk", headers=KOZ)
+    assert f'>{"P. Tóth András"}</a>' in r.text
+    assert ">nyílt forráskódú</a>" in r.text
+    assert "About the author" not in r.text  # the old button row is gone
+    assert "Forráskód a GitHubon" not in r.text

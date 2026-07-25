@@ -54,8 +54,10 @@ warrant leaving the indexing side alone.
 - **Community record card** (`public_community.html`) — a translate icon in the card's
   top-right corner, tooltip only, `sister_url`. Community pages *only*.
 - **Footer** — always the sister *home page*, even where the record twin is suppressed.
-- **About page** — the project relationship in prose, plus buttons to the sister site,
-  the GitHub repo, and the author ([[web-app]]).
+- **About page** — one sentence running on from the intro paragraph, with the author
+  (LinkedIn), "open source" (GitHub repo) and the sister site as inline anchors. The
+  translated string takes ready-made `<a>` tags as format arguments and is rendered
+  `|safe`; every value is a `lang_context` constant, no user input ([[web-app]]).
 
 The first version (2026-07-25 morning) rendered a full-width notice strip above the
 content on *every* page. It was too loud for something a reader needs on one page type,

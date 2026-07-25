@@ -12,37 +12,22 @@
 
 <div class="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-12">
 
-  <!-- Mission: trust-first -->
+  <!-- Mission: trust-first, with the project line running on from it -->
+  {#- Links are built here and injected into the translated sentence, so the
+      anchor text sits inside the prose instead of trailing after it. Every
+      value is a constant from lang_context — no user input reaches |safe. -#}
+  {%- set _link_cls = 'font-semibold text-[#A8512F] hover:text-[#8A4226] underline underline-offset-2' -%}
+  {%- set _author = '<a href="' ~ project_author_url ~ '" target="_blank" rel="noopener" class="' ~ _link_cls ~ '">' ~ project_author ~ '</a>' -%}
+  {%- set _open_source = '<a href="' ~ project_repo_url ~ '" target="_blank" rel="noopener" class="' ~ _link_cls ~ '">' ~ t('about_open_source') ~ '</a>' -%}
+  {%- set _sister_home = 'https://kozossegek.com' if sister_key == 'hu' else 'https://meetapedia.com' -%}
+  {%- set _sister = '<a href="' ~ _sister_home ~ '" class="' ~ _link_cls ~ '">' ~ sister_name ~ '</a>' -%}
   <div class="max-w-3xl border-b border-[#EAE5DB] pb-10">
     <div class="space-y-4 text-[#6A6259] leading-relaxed">
-      <p>{{ t('about_description') }}</p>
-    </div>
-  </div>
-
-  <!-- The project: author, open source, sister site -->
-  <div class="max-w-3xl border-b border-[#EAE5DB] pb-10">
-    <h2 class="text-xl font-bold text-[#1C1917] mb-4">{{ t('about_project_title') }}</h2>
-    <div class="space-y-3 text-[#6A6259] leading-relaxed">
-      <p>{{ t('about_project_hobby') }}</p>
-      <p>{{ t('about_project_open_source') }}</p>
-      <p>{{ t('about_sister_hu' if sister_key == 'hu' else 'about_sister_en') }}</p>
-    </div>
-    <div class="flex flex-wrap items-center gap-2 mt-5">
-      <a href="{{ project_repo_url }}" target="_blank" rel="noopener"
-         class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#EAE5DB] rounded-lg text-sm font-semibold text-[#4A4441]
-                hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 hover:text-[#8A4226] transition-colors">
-        <i class="ph ph-github-logo text-base"></i>{{ t('about_project_repo') }}
-      </a>
-      <a href="{{ project_author_url }}" target="_blank" rel="noopener"
-         class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#EAE5DB] rounded-lg text-sm font-semibold text-[#4A4441]
-                hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 hover:text-[#8A4226] transition-colors">
-        <i class="ph ph-linkedin-logo text-base"></i>{{ t('about_project_author_link') }}
-      </a>
-      <a href="{{ sister_url or ('https://kozossegek.com' if sister_key == 'hu' else 'https://meetapedia.com') }}"
-         class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#EAE5DB] rounded-lg text-sm font-semibold text-[#4A4441]
-                hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 hover:text-[#8A4226] transition-colors">
-        <i class="ph ph-arrow-square-out text-base"></i>{{ sister_name }}
-      </a>
+      <p>
+        {{ t('about_description') }}
+        {{ t('about_project_line_hu' if sister_key == 'hu' else 'about_project_line_en',
+              author=_author, open_source=_open_source, sister=_sister) | safe }}
+      </p>
     </div>
   </div>
 
