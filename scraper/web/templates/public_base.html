@@ -143,19 +143,6 @@
 })();
 </script>
 
-{# Wikipedia-style "this page also exists in the other edition" strip. sister_url
-   is None on pages the other domain doesn't carry (non-Hungarian city content). #}
-{% if sister_url %}
-<div class="bg-[#F5F2EC] border-b border-[#EAE5DB]">
-  <a href="{{ sister_url }}"
-     class="max-w-6xl mx-auto px-4 sm:px-6 py-1.5 flex items-center gap-1.5 text-xs text-[#8C8478] hover:text-[#A8512F] transition-colors">
-    <i class="ph ph-translate text-sm shrink-0"></i>
-    <span class="truncate underline underline-offset-2 decoration-[#D8D1C4]">
-      {{ t('sister_notice_hu' if sister_key == 'hu' else 'sister_notice_en') }}</span>
-  </a>
-</div>
-{% endif %}
-
 <main>
   {% block content %}{% endblock %}
 </main>

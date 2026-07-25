@@ -1,7 +1,7 @@
 ---
 type: SEO
 title: Sister-Site Cross Links
-description: Wikipedia-style "also available in the other edition" links between kozossegek.com and meetapedia.com — same path, no redirect hop, suppressed where the twin would 302 home.
+description: The twin-record link between kozossegek.com and meetapedia.com — an icon on the community card only, same path, no redirect hop, suppressed where the twin would 302 home.
 tags: [two-domain, i18n, internal-linking, sister-site, about-page]
 timestamp: 2026-07-25
 resource: scraper/web/i18n.py
@@ -9,9 +9,9 @@ resource: scraper/web/i18n.py
 
 # Sister-Site Cross Links
 
-*The two domains are editions of one project, and now say so: a strip above the content
-links the same page on the other site, the footer links the other site's home page, and
-the About page explains the relationship.*
+*The two domains are editions of one project, and now say so: the community record card
+carries a small link to its twin on the other site, the footer links the other site's
+home page, and the About page explains the relationship.*
 
 ## Why same-path works
 
@@ -51,8 +51,14 @@ warrant leaving the indexing side alone.
 
 ## Where it renders
 
-- **Strip above `<main>`** (`public_base.html`) — page-level twin, `sister_url`.
-- **Footer** — always the sister *home page*, even where the page-level twin is
-  suppressed.
+- **Community record card** (`public_community.html`) — a translate icon in the card's
+  top-right corner, tooltip only, `sister_url`. Community pages *only*.
+- **Footer** — always the sister *home page*, even where the record twin is suppressed.
 - **About page** — the project relationship in prose, plus buttons to the sister site,
   the GitHub repo, and the author ([[web-app]]).
+
+The first version (2026-07-25 morning) rendered a full-width notice strip above the
+content on *every* page. It was too loud for something a reader needs on one page type,
+and repeating "this page is also available in …" on the home page, city listings and the
+About page devalued it. Scope narrowed the same day: one page type, one icon. `lang_context`
+still computes `sister_url` everywhere, so widening it again is a template change.

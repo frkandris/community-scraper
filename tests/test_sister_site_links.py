@@ -50,44 +50,33 @@ def client(tmp_path: Path):
         app_state.db_path, app_state.cities = old_db, old_cities
 
 
-def test_kozossegek_home_links_the_same_page_on_meetapedia(client):
-    r = client.get("/", headers=KOZ)
-    assert "https://meetapedia.com/" in r.text
-    assert "angolul is elérhető" in r.text
+def test_community_page_links_its_twin_both_ways(client):
+    """The twin link lives on the community record card, and nowhere else."""
+    koz = client.get("/budapest/zenei-kor", headers=KOZ)
+    assert "https://meetapedia.com/budapest/zenei-kor" in koz.text
+    assert "ph-translate" in koz.text
+
+    meet = client.get("/budapest/zenei-kor", headers=MEET)
+    assert "https://kozossegek.com/budapest/zenei-kor" in meet.text
+    assert "ph-translate" in meet.text
 
 
-def test_meetapedia_home_links_the_same_page_on_kozossegek(client):
-    r = client.get("/", headers=MEET)
-    assert "https://kozossegek.com/" in r.text
-    assert "available in Hungarian" in r.text
-
-
-def test_twin_link_keeps_the_path(client):
-    r = client.get("/budapest", headers=KOZ)
-    assert "https://meetapedia.com/budapest" in r.text
-
-
-def test_hu_city_page_on_meetapedia_has_a_twin(client):
-    r = client.get("/budapest", headers=MEET)
-    assert "https://kozossegek.com/budapest" in r.text
-
-
-def test_foreign_city_page_on_meetapedia_has_no_twin(client):
-    """kozossegek.com redirects /stockholm to its home page — never link there."""
-    r = client.get("/stockholm", headers=MEET)
-    assert "https://kozossegek.com/stockholm" not in r.text
-    assert "available in Hungarian" not in r.text
-
-
-def test_foreign_community_page_on_meetapedia_has_no_twin(client):
+def test_foreign_community_page_has_no_twin(client):
+    """kozossegek.com redirects /stockholm home — never link a visitor there."""
     r = client.get("/stockholm/stockholm-runners", headers=MEET)
     assert r.status_code == 200
     assert "https://kozossegek.com/stockholm" not in r.text
+    assert "ph-translate" not in r.text
 
 
-def test_hu_community_page_on_meetapedia_has_a_twin(client):
-    r = client.get("/budapest/zenei-kor", headers=MEET)
-    assert "https://kozossegek.com/budapest/zenei-kor" in r.text
+def test_no_twin_link_outside_community_pages(client):
+    """Home, city, explore, about: no language notice — it was too prominent."""
+    for path, headers in (("/", KOZ), ("/", MEET), ("/budapest", KOZ),
+                          ("/budapest", MEET), ("/felfedezes", KOZ), ("/rolunk", KOZ)):
+        r = client.get(path, headers=headers)
+        assert "ph-translate" not in r.text, f"{path} still renders the language icon"
+        assert "angolul is elérhető" not in r.text, path
+        assert "available in Hungarian on" not in r.text, path
 
 
 def test_footer_links_the_sister_home_page_both_ways(client):

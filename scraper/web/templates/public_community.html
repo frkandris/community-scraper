@@ -39,6 +39,20 @@
   <!-- Header card -->
   <div class="bg-white rounded-xl border border-[#EAE5DB] p-6 sm:p-8 mb-4">
 
+    {# Twin record on the other edition — icon only, in the card's top-right
+       corner. Community pages only: this is the one page type where "the same
+       record, in the other language" is a real thing a reader wants. Absent
+       when the other domain doesn't carry this city (see app.py:_sister_url). #}
+    {% if sister_url %}
+    <a href="{{ sister_url }}"
+       title="{{ t('sister_notice_hu' if sister_key == 'hu' else 'sister_notice_en') }}"
+       aria-label="{{ t('sister_notice_hu' if sister_key == 'hu' else 'sister_notice_en') }}"
+       class="float-right -mt-1 -mr-1 inline-flex items-center justify-center w-8 h-8 rounded-lg text-[#B5ADA0]
+              hover:text-[#A8512F] hover:bg-[#FDF0EA] transition-colors">
+      <i class="ph ph-translate text-lg"></i>
+    </a>
+    {% endif %}
+
     <!-- Identity -->
     <div class="flex items-start gap-4 mb-5">
       <div class="w-12 h-12 rounded-xl bg-[#FDF0EA] border border-[#FAD9C7] flex items-center justify-center shrink-0">
