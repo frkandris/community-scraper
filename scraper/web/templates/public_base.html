@@ -143,6 +143,19 @@
 })();
 </script>
 
+{# Wikipedia-style "this page also exists in the other edition" strip. sister_url
+   is None on pages the other domain doesn't carry (non-Hungarian city content). #}
+{% if sister_url %}
+<div class="bg-[#F5F2EC] border-b border-[#EAE5DB]">
+  <a href="{{ sister_url }}"
+     class="max-w-6xl mx-auto px-4 sm:px-6 py-1.5 flex items-center gap-1.5 text-xs text-[#8C8478] hover:text-[#A8512F] transition-colors">
+    <i class="ph ph-translate text-sm shrink-0"></i>
+    <span class="truncate underline underline-offset-2 decoration-[#D8D1C4]">
+      {{ t('sister_notice_hu' if sister_key == 'hu' else 'sister_notice_en') }}</span>
+  </a>
+</div>
+{% endif %}
+
 <main>
   {% block content %}{% endblock %}
 </main>
@@ -175,9 +188,17 @@
   </div>
   <!-- Footer links -->
   <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-    <div class="flex items-center gap-2">
-      <span class="font-semibold text-[#1C1917] text-sm">{{ site_name }}</span>
-      <span class="text-xs text-[#8C8478]">· {{ t('footer_tagline') }}</span>
+    <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+      <div class="flex items-center gap-2">
+        <span class="font-semibold text-[#1C1917] text-sm">{{ site_name }}</span>
+        <span class="text-xs text-[#8C8478]">· {{ t('footer_tagline') }}</span>
+      </div>
+      {# Always the sister *home page*, not the twin of the current page —
+         footer links are site-level, the strip above the content is page-level. #}
+      <a href="https://{{ 'kozossegek.com' if sister_key == 'hu' else 'meetapedia.com' }}"
+         class="text-xs text-[#8C8478] hover:text-[#A8512F] underline underline-offset-2 decoration-[#D8D1C4] transition-colors">
+        {{ t('footer_sister_hu' if sister_key == 'hu' else 'footer_sister_en') }}
+      </a>
     </div>
     <div class="flex items-center gap-4">
       <a href="{{ about_url }}" class="text-xs text-[#8C8478] hover:text-[#4A4441] transition-colors">{{ t('nav_about') }}</a>

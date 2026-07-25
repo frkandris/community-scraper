@@ -48,3 +48,10 @@ Both admin and public load the Tailwind CDN JIT runtime (not a build). All utili
 ## Flags
 
 `request_city_en` ignores its form and just 301s to `/varosok` (stub). `_render_explore` still performs per-topic/per-city DB reads in some branches (N+1 risk on large data); the homepage's heavier totals are memoized in `_home_stats_cache` per site and invalidated after a run.
+
+## Cross-edition surfaces
+
+`public_base.html` renders a language strip above `<main>` linking the same page on the
+other domain, and a footer link to the sister home page. The About page (`/rolunk`, EN
+`/about` 302s to it) credits the author, links the GitHub repo, and explains the
+kozossegek ↔ meetapedia relationship. See [[sister-site-cross-links]].

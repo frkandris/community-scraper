@@ -35,3 +35,11 @@ Topic labels are a **separate** system (`get_topic_labels(lang)`, same override-
 ## Flags
 
 `lang_context` computes `lang_dir` from an inline `("ar","he","fa","ur")` set instead of the module-level `RTL_LANGS` (which also has `ps, sd`) — so `ps`/`sd` render LTR despite being marked RTL. HU-specific topics (`hagyomanyorzes` → "Folk Traditions") are left untranslated in non-HU languages.
+
+## Sister-site context
+
+`lang_context` also injects `sister_url` (same path on the other host), `sister_name`,
+`sister_key` (the *other* site's language: `hu` on meetapedia, `en` on kozossegek) and
+the project identity constants `PROJECT_AUTHOR` / `PROJECT_AUTHOR_URL` /
+`PROJECT_REPO_URL` used by the About page. City-scoped routes override `sister_url`
+after the spread. See [[sister-site-cross-links]].

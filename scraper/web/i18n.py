@@ -866,8 +866,22 @@ _T: dict[str, dict[str, str]] = {
     "explore_near_you": "Near you",
     "about_description": "{site_name} started in 2026 with a simple goal: make it easier to find local hobby groups, clubs and communities without spending hours searching the web. The aim is to eventually cover every major city in the world across dozens of interest categories, so anyone relocating or looking for new people can find their people in minutes.",
     "about_how_it_works": "How it works",
-    "about_how_it_works_text": "Every few hours an automated pipeline searches the web for community groups matching each city × interest combination. It downloads the relevant pages and runs a local AI language model to extract structured data — meeting schedules, locations, contacts, websites — then filters out results that aren't genuine joinable groups.",
+    "about_how_it_works_text": "An automated pipeline searches the web for community groups matching each city × interest combination. It downloads the relevant pages and runs an AI language model to extract structured data — meeting schedules, locations, contacts, websites — then filters out results that aren't genuine joinable groups.",
+    "about_project_title": "The project",
+    "about_project_hobby": "A hobby project by {author}, built and run in the open.",
+    "about_project_open_source": "The whole thing is open source: the pipeline, the extraction prompts and the engineering wiki are all public, so you can see exactly how a listing on this site came to be.",
+    "about_project_repo": "Source code on GitHub",
+    "about_project_author_link": "About the author",
+    "about_sister_hu": "{sister_name} is the Hungarian edition of this project — the same directory, in Hungarian, for Hungarian cities.",
+    "about_sister_en": "This site is the Hungarian edition of {sister_name}, the same project covering cities worldwide.",
     "footer_tagline": "Every community in the world, in one place",
+    # Cross-domain (Wikipedia-style "also available in …"). Two separate keys
+    # instead of one language-dependent string: meetapedia.com can be read in
+    # Hungarian too, and the notice must name the *other site's* language.
+    "sister_notice_hu": "This page is also available in Hungarian on {sister_name}",
+    "sister_notice_en": "This page is also available in English on {sister_name}",
+    "footer_sister_hu": "Hungarian edition: {sister_name}",
+    "footer_sister_en": "Part of the {sister_name} project",
     "cities_title": "Cities we track",
     "cities_count": "{n} cities",
     "cities_all_countries": "← All countries",
@@ -1040,8 +1054,19 @@ _T: dict[str, dict[str, str]] = {
     "explore_near_you": "A közeledben",
     "about_description": "A {site_name} 2026-ban jött létre azzal a céllal, hogy segítsen helyi közösségeket és új, hasonló érdeklődésű barátokat találni.",
     "about_how_it_works": "Hogyan működik",
-    "about_how_it_works_text": "Néhány óránként egy automatizált rendszer keres az interneten közösségi csoportokat minden város × érdeklődési kör kombináció alapján. Letölti a releváns oldalakat, és egy helyi AI nyelvi modellel strukturált adatokat nyer ki belőlük — találkozási időpontok, helyszínek, elérhetőségek, weboldalak —, majd kiszűri azokat az eredményeket, amelyek nem valódi, csatlakozható csoportok.",
+    "about_how_it_works_text": "Egy automatizált rendszer keres az interneten közösségi csoportokat minden város × érdeklődési kör kombináció alapján. Letölti a releváns oldalakat, és egy AI nyelvi modellel strukturált adatokat nyer ki belőlük — találkozási időpontok, helyszínek, elérhetőségek, weboldalak —, majd kiszűri azokat az eredményeket, amelyek nem valódi, csatlakozható csoportok.",
+    "about_project_title": "A projekt",
+    "about_project_hobby": "{author} hobbiprojektje, nyíltan fejlesztve és üzemeltetve.",
+    "about_project_open_source": "Az egész nyílt forráskódú: a pipeline, a kinyerő promptok és a fejlesztői wiki is nyilvános, így pontosan látható, hogyan került ide egy-egy közösség.",
+    "about_project_repo": "Forráskód a GitHubon",
+    "about_project_author_link": "A szerzőről",
+    "about_sister_hu": "A {sister_name} ennek a projektnek a magyar kiadása — ugyanez a katalógus, magyarul, magyar városokra.",
+    "about_sister_en": "Ez az oldal a {sister_name} magyar kiadása — ugyanaz a projekt, ott a világ városaival.",
     "footer_tagline": "Magyarország közösségei egy helyen",
+    "sister_notice_hu": "Ez az oldal magyarul is elérhető itt: {sister_name}",
+    "sister_notice_en": "Ez az oldal angolul is elérhető itt: {sister_name}",
+    "footer_sister_hu": "Magyar kiadás: {sister_name}",
+    "footer_sister_en": "A {sister_name} projekt része",
     "cities_title": "Magyar városok",
     "cities_count": "{n} magyar város",
     "cities_all_countries": "← Összes ország",
@@ -2438,6 +2463,30 @@ def make_t(lang: str, **defaults):
     return t
 
 
+# Project identity — one source of truth for the About page and any template
+# that credits the project. The repo URL follows the 2026-07 rename to
+# meetapedia; GitHub redirects the old community-scraper path.
+PROJECT_AUTHOR = "P. Tóth András"
+PROJECT_AUTHOR_URL = "https://www.linkedin.com/in/ptothandras/"
+PROJECT_REPO_URL = "https://github.com/frkandris/meetapedia"
+
+
+def sister_url(request: Request) -> str:
+    """Same page on the other domain — Wikipedia's "other languages" link.
+
+    Every public path is served by the same FastAPI app on both hosts, so the
+    twin URL is the identical path on the sister host; no path translation and
+    no redirect hop. Query strings are kept (a filtered explore page's twin is
+    the same filtered page). Callers decide *whether* a twin exists — see
+    app.py:_sister_url, which drops the link on non-Hungarian city content that
+    kozossegek.com would just bounce to its home page.
+    """
+    other = ("https://meetapedia.com" if _detect_site(request) == "kozossegek"
+             else "https://kozossegek.com")
+    query = request.url.query
+    return f"{other}{request.url.path}" + (f"?{query}" if query else "")
+
+
 def lang_context(request: Request) -> dict:
     site = _detect_site(request)
     if site == "meetapedia":
@@ -2463,6 +2512,13 @@ def lang_context(request: Request) -> dict:
         cities_url = "/varosok"
         submit_url = "/kozosseg-bekuldes"
         map_center = {"lat": 47.5, "lng": 19.0, "zoom": 7}
+    # Sister site: the two domains are editions of one project. kozossegek.com is
+    # the Hungarian edition of meetapedia.com, so the notice on each side names
+    # the other side's language ("_hu" = the twin is Hungarian).
+    if site == "meetapedia":
+        sister_name, sister_key = "közösségek.com", "hu"
+    else:
+        sister_name, sister_key = "meetapedia.com", "en"
     return {
         "lang": lang,
         "site": site,
@@ -2470,7 +2526,14 @@ def lang_context(request: Request) -> dict:
         "site_url": site_url,
         "locale": locale,
         "lang_dir": "rtl" if lang in RTL_LANGS else "ltr",
-        "t": make_t(lang, site_name=site_name),
+        "t": make_t(lang, site_name=site_name, sister_name=sister_name,
+                    author=PROJECT_AUTHOR),
+        "sister_name": sister_name,
+        "sister_key": sister_key,
+        "sister_url": sister_url(request),
+        "project_author": PROJECT_AUTHOR,
+        "project_author_url": PROJECT_AUTHOR_URL,
+        "project_repo_url": PROJECT_REPO_URL,
         "languages": dict(sorted(LANGUAGES.items(), key=lambda x: x[1]["name"])),
         "current_lang": LANGUAGES.get(lang, LANGUAGES["en"]),
         "topic_labels": get_topic_labels(lang),

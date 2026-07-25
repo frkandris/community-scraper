@@ -232,7 +232,7 @@ class _BasicAuth:
             "type": "http.response.start",
             "status": 401,
             "headers": [
-                [b"www-authenticate", b'Basic realm="Community Scraper Admin"'],
+                [b"www-authenticate", b'Basic realm="Meetapedia Admin"'],
                 [b"content-length", b"0"],
             ],
         })
@@ -268,7 +268,7 @@ class _BasicAuth:
             return False
 
 
-_fastapi = FastAPI(title="Community Scraper")
+_fastapi = FastAPI(title="Meetapedia")
 
 
 _BOT_UA_MARKERS = ("bot", "spider", "crawl", "curl", "wget", "python-", "headless",
@@ -836,6 +836,22 @@ def _canonical_base(request: Request, city_name: str) -> str:
     return "https://meetapedia.com"
 
 
+def _sister_url(request: Request, city_name: str | None) -> str | None:
+    """Twin-page URL for city-scoped pages, or None when there is no twin.
+
+    meetapedia.com carries every city; kozossegek.com only Hungarian ones and
+    bounces the rest to its home page (see public_city). Offering a link that
+    lands on an unrelated page is worse than offering none, so non-Hungarian
+    city content on meetapedia.com gets no sister link. The reverse direction
+    always has a twin — meetapedia is the superset.
+    """
+    from .i18n import _detect_site
+    from .i18n import sister_url as _twin
+    if _detect_site(request) == "meetapedia" and city_name and city_name not in _hu_city_names():
+        return None
+    return _twin(request)
+
+
 def _global_topic_counts() -> dict[str, int]:
     return get_topic_counts(_db())
 
@@ -1277,6 +1293,8 @@ async def _render_explore(
         "page_noindex": bool(city and topic and total == 0),
         "nearby_cities": _nearby_cities(request, city) if city else [],
         **lang_context(request),
+        # After lang_context — it would otherwise overwrite the city-aware value.
+        "sister_url": _sister_url(request, city or None),
     })
 
 
@@ -1670,6 +1688,11 @@ def _render_cities_page(request: Request, requested: str, country: str):
         "country_filter": country,
         "countries_list": countries_list,
         **lang_context(request),
+        # A country page only has a twin when that country exists on the other
+        # site — kozossegek.com knows Hungary alone.
+        "sister_url": (_sister_url(request, None) if not country
+                       else (_sister_url(request, None) if country == "Hungary"
+                             or _detect_site(request) == "kozossegek" else None)),
     })
 
 
@@ -2648,6 +2671,7 @@ async def trigger_run(
         success = False
         pair_logs: list = []
         total_new = 0
+        run_error: str | None = None
         try:
             pair_logs, total_new = await run_pipeline(
                 cities,
@@ -2672,6 +2696,9 @@ async def trigger_run(
             extract_failures = sum(row.get("extract_failed", 0) for row in pair_logs)
             success = not (search_failures or extract_failures)
         except Exception as exc:
+            # Persisted, not just logged: a preflight abort or any top-level
+            # failure must name itself in the run history and the daily email.
+            run_error = str(exc)
             log.error("manual_run_failed", error=str(exc))
         finally:
             global _home_stats_cache
@@ -2681,7 +2708,7 @@ async def trigger_run(
                     _finish_run(app_state.db_path, _run_id, datetime.now(timezone.utc),
                                 success,
                                 json.dumps(pair_logs) if pair_logs else None,
-                                total_new)
+                                total_new, error=run_error)
             finally:
                 app_state.run_coordinator.release(asyncio.current_task())
 
@@ -3800,6 +3827,7 @@ async def public_venue_detail(request: Request, city_slug: str, venue_slug: str)
         "topic_labels": TOPIC_LABELS,
         "canonical_base": _canonical_base(request, city_name),
         **lang_context(request),
+        "sister_url": _sister_url(request, city_name),
     })
 
 
@@ -3861,6 +3889,7 @@ async def public_person_detail(request: Request, city_slug: str, name_slug: str)
         "topic_labels": TOPIC_LABELS,
         "canonical_base": _canonical_base(request, city_name),
         **lang_context(request),
+        "sister_url": _sister_url(request, city_name),
     })
 
 
@@ -3915,6 +3944,7 @@ async def public_city_segment(
             "canonical_base": _canonical_base(request, city_name),
             "page_noindex": not (record.get("description") or "").strip(),
             **lang_context(request),
+            "sister_url": _sister_url(request, city_name),
         })
     return RedirectResponse(f"/{city_slug}", status_code=302)
 

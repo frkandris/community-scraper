@@ -19,6 +19,33 @@
     </div>
   </div>
 
+  <!-- The project: author, open source, sister site -->
+  <div class="max-w-3xl border-b border-[#EAE5DB] pb-10">
+    <h2 class="text-xl font-bold text-[#1C1917] mb-4">{{ t('about_project_title') }}</h2>
+    <div class="space-y-3 text-[#6A6259] leading-relaxed">
+      <p>{{ t('about_project_hobby') }}</p>
+      <p>{{ t('about_project_open_source') }}</p>
+      <p>{{ t('about_sister_hu' if sister_key == 'hu' else 'about_sister_en') }}</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2 mt-5">
+      <a href="{{ project_repo_url }}" target="_blank" rel="noopener"
+         class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#EAE5DB] rounded-lg text-sm font-semibold text-[#4A4441]
+                hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 hover:text-[#8A4226] transition-colors">
+        <i class="ph ph-github-logo text-base"></i>{{ t('about_project_repo') }}
+      </a>
+      <a href="{{ project_author_url }}" target="_blank" rel="noopener"
+         class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#EAE5DB] rounded-lg text-sm font-semibold text-[#4A4441]
+                hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 hover:text-[#8A4226] transition-colors">
+        <i class="ph ph-linkedin-logo text-base"></i>{{ t('about_project_author_link') }}
+      </a>
+      <a href="{{ sister_url or ('https://kozossegek.com' if sister_key == 'hu' else 'https://meetapedia.com') }}"
+         class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#EAE5DB] rounded-lg text-sm font-semibold text-[#4A4441]
+                hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 hover:text-[#8A4226] transition-colors">
+        <i class="ph ph-arrow-square-out text-base"></i>{{ sister_name }}
+      </a>
+    </div>
+  </div>
+
   <!-- Stats -->
   <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
     <a href="/felfedezes" class="bg-white border border-[#EAE5DB] rounded-lg p-4 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/50 transition-colors group">
