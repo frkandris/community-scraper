@@ -12,7 +12,7 @@ def _run(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
 
 
 def ensure_git_identity(repo_dir: Path) -> None:
-    user_name = os.environ.get("GIT_USER_NAME", "community-scraper-bot")
+    user_name = os.environ.get("GIT_USER_NAME", "meetapedia-bot")
     user_email = os.environ.get("GIT_USER_EMAIL", "bot@localhost")
     _run(["git", "config", "--local", "user.name", user_name], repo_dir)
     _run(["git", "config", "--local", "user.email", user_email], repo_dir)

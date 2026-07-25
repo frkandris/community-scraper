@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Progress – Community Scraper{% endblock %}
+{% block title %}Progress – Meetapedia{% endblock %}
 
 {%- macro phase_cell(phase, done_at, dur_s, url_hash, run_url, can_run, extra_tip='', model=None) -%}
 {%- set label = {'scrape': 'ph-arrow-circle-down', 'extract': 'ph-brain', 'enrich_scrape': 'ph-arrow-circle-down', 'enrich_extract': 'ph-brain'}[phase] -%}

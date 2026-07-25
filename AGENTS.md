@@ -1,6 +1,10 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+<!-- GENERATED FILE — do not edit directly.
+     Source: CLAUDE.md · Regenerate: PYTHONPATH=. .venv/bin/python scripts/sync_agents_md.py -->
+
+This file provides guidance to coding agents (Codex, Copilot, and friends) working
+with code in this repository. It is a verbatim copy of CLAUDE.md.
 
 ## Commands
 

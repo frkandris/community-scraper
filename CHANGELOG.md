@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-07-25
+
+- **Extractor preflight**: minden futás egyetlen élő mini-extrakcióval indul; hibás modellnév vagy visszavont kulcs másodpercek alatt, nevesített hibával bukik, nem oldalanként (a 07-24-i ablak 1368 oldalt vesztett így)
+- **Circuit breaker**: 20 egymást követő sikertelen LLM-hívás után a `FallbackExtractor` minden providert kimerültnek jelöl; egy siker nullázza a számlálót. A `providers_down` (nem az `exhausted`) abortálja a futást, az ok bekerül a pár-logba, a run-detail piros sávjába és a napi e-mailbe
+- **Hibaszámlálás**: a helyszín- és személy-kinyerés hibái is `extract_failed`-nek számítanak; a manuális futás kivétele a `runs.error`-ba kerül
+- **Két oldal összekötése**: Wikipédia-stílusú sáv a tartalom fölött ugyanarra az oldalra a másik domainen (elrejtve ott, ahol a kozossegek.com úgyis a főoldalra dobna), footer-link oda-vissza, és About-szekció a projektről, a szerzőről és a nyílt forráskódról
+- **Átnevezés**: `community-scraper` → `meetapedia` (pyproject, admin címek, bot-név, git remote); a `README.md` projektbemutató lett, a `PROJECT.md` archiválva, az `AGENTS.md` a `CLAUDE.md`-ből generálódik (teszt őrzi a szinkront)
+
 ## 2026-07-21
 
 - **AI-only OOM javítás**: az extractor többé nem tölti memóriába a teljes `cache_pages` raw szövegállományát; mindig csak az aktuális város–téma pár oldalait olvassa be

@@ -1,6 +1,6 @@
 # Wiki Schema
 
-This is the LLM-maintained knowledge base for the **community-scraper** project. It
+This is the LLM-maintained knowledge base for the **meetapedia** project. It
 combines two conventions:
 
 - **Karpathy LLM Wiki pattern** — a persistent, interlinked markdown wiki that an LLM

@@ -1,7 +1,15 @@
-# Community Scraper — Complete Project Reference
+# Meetapedia — Project Reference (ARCHIVED, May 2026)
 
-> Written for AI assistants continuing work on this codebase. Covers every module,
-> design decision, data model, API, and known gotcha as of May 2026.
+> **⚠️ OUT OF DATE — DO NOT TRUST THIS FILE.** It describes the system as of May 2026
+> and was never updated. Providers listed below (Serper, Brave, SearXNG, Groq, Ollama)
+> were all removed in July 2026; the run modes, scheduling and admin flows described
+> here no longer exist.
+>
+> **Current sources of truth:** [`README.md`](README.md) (what the project is),
+> [`CLAUDE.md`](CLAUDE.md) (architecture + patterns for anyone changing code), and
+> [`docs/wiki/`](docs/wiki/index.md) (the maintained knowledge base).
+>
+> Kept only for historical context; safe to delete.
 
 ---
 

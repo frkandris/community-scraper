@@ -1,96 +1,91 @@
-# közösségek.com / meetapedia.com — Community Directory Scraper
+# Meetapedia
 
-A self-hosted scraper and public directory of local community groups.
-The app continuously discovers running clubs, choirs, board-game nights, yoga circles, etc.
-by city and interest topic, then serves them at **közösségek.com** (HU) and **meetapedia.com** (EN/international).
+**A directory of local community groups — running clubs, choirs, board-game nights,
+climbing crews, book circles — collected from the open web, city by city.**
 
-## What it does
+Two sites, one project:
 
-For each `(city, topic)` pair it:
+- **[meetapedia.com](https://meetapedia.com)** — the international edition, cities worldwide, English (plus other languages).
+- **[közösségek.com](https://kozossegek.com)** — the Hungarian edition: the same directory in Hungarian, for Hungarian cities.
 
-1. Generates search queries in the city's language.
-2. Searches the web — DataForSEO.
-3. Fetches and cleans pages (`httpx` + `trafilatura`). Social media domains (Facebook, Instagram, etc.) are blocked immediately.
-4. Runs LLM extraction — DeepSeek.
-5. Saves structured community, venue, and person records to SQLite.
-6. Serves the data through a public website and a password-protected admin UI.
+## Why it exists
 
-The scheduled **Smart run** works in two phases, both city-ordered (largest cities first):
-1. **Re-AI phase** — re-extracts all cached pages where the extraction fingerprint is stale (prompt or model changed).
-2. **Search phase** — searches for new `(city, topic)` pairs not yet covered.
+Finding a local group to join is oddly hard. The information exists — on club pages,
+municipal sites, parish newsletters, sports association listings — but it is scattered
+across thousands of pages nobody thinks to search, in the local language, often without
+so much as a meeting time on the front page.
 
-## Architecture
+Meetapedia reads those pages so you don't have to. For every city × interest pair it
+searches the open web, downloads what it finds, and uses a language model to pull out the
+few things that actually matter: what the group is, where and when it meets, and how to
+reach it. Groups you can't actually join — commercial classes, one-off events, dead pages —
+are filtered out.
 
-```
-pipeline.py
-  └── search.py      (DataForSEO)
-  └── fetch.py       (httpx + trafilatura; social domains blocked)
-  └── extract.py     (DeepSeek)
-  └── store.py       (SQLite via db.py)
+At the time of writing it tracks 774 cities across 63 countries and 36 interest topics.
 
-web/app.py           (FastAPI — public site + /admin)
-main.py              (APScheduler + uvicorn)
-```
+## Who makes it
 
-Two domains, one container. `_detect_site(request)` reads the `Host` header and switches language, URL paths, city scope, and map center accordingly.
+A hobby project by **[P. Tóth András](https://www.linkedin.com/in/ptothandras/)**, built
+and run in the open. Nothing here is a company, a product, or a business — it is one
+person's answer to "why is this so hard to look up?"
 
-## Public site
+Everything is public: the pipeline, the extraction prompts, the operational history, and
+the engineering wiki. If a listing on the site looks wrong, you can read the exact code
+path that produced it — every public page links back to the source it was extracted from.
 
-| Page | közösségek.com | meetapedia.com |
-|------|----------------|----------------|
-| Home | `/` | `/` |
-| City directory | `/:city` | `/:city` |
-| Explore by tag | `/felfedezes` | `/explore` |
-| Venue list | `/helyszinek` | `/venues` |
-| People list | `/emberek` | `/people` |
-| Map | `/terkep` | `/map` |
-| About | `/rolunk` | `/about` |
-| Submit | `/kozosseg-bekuldes` | `/submit-community` |
+## How it works
 
-## Admin UI (`/admin`)
+For each `(city, topic)` pair:
 
-| Section | Purpose |
-|---------|---------|
-| Dashboard | Run controls, stats, Hungary/Global scope toggle |
-| Results → Communities / Venues / People | Browse and edit scraped records |
-| Moderation → Duplicates | Review and merge duplicate communities |
-| Moderation → Edit requests | User-submitted corrections |
-| Moderation → Not community | Mark false positives |
-| Moderation → Beküldések | User submissions |
-| Moderation → Recategorize | AI re-categorizes "other"-topic communities |
-| System → Progress | Per city/topic scrape progress |
-| System → Logs | Real-time log stream (SSE) |
-| System → Config | Edit YAML config in-browser |
-| System → Prompts | Edit LLM prompts live |
-| Subscribers | Newsletter subscriber list |
+1. Search queries are built in the city's own language and sent to a search API.
+2. Result pages are fetched and stripped to clean text (social media domains are skipped).
+3. A language model extracts structured records — communities, venues, and people.
+4. Records are deduplicated, quality-gated, and stored in SQLite.
+5. A FastAPI app serves both domains from a single container.
 
-## Configuration
+Everything is aggressively cached and fingerprinted, because the whole thing runs on a
+hobby budget: pages are downloaded once, extractions are re-run only when the prompt or
+model changes, and the expensive LLM work is scheduled inside the provider's off-peak
+discount window.
 
-| File | Purpose |
-|------|---------|
-| `config/cities.yaml` | City list: name, country, locale, search variants |
-| `config/topics.yaml` | Topic list: per-locale search terms |
-| `config/settings.yaml` | Model/API/cache/schedule config |
+## Documentation
 
-## Environment variables
+The real documentation is the **[engineering wiki](docs/wiki/index.md)** — an LLM-maintained
+knowledge base of how the system actually behaves, including the parts that went wrong.
 
-| Variable | Description |
-|----------|-------------|
-| `ADMIN_PASSWORD` | Required — gates the entire `/admin` UI |
-| `DEEPSEEK_API_KEY` | Primary LLM extraction (recommended) |
-| `DATAFORSEO_LOGIN` | Primary search (recommended) |
-| `DATAFORSEO_PASSWORD` | Primary search |
+Good starting points:
 
-## Deployment
+| Page | What it covers |
+|---|---|
+| [End-to-end walkthrough](docs/wiki/pages/architecture/end-to-end-pair-walkthrough.md) | One city × topic pair traced from scheduler wake-up to public page |
+| [Two domains, one container](docs/wiki/pages/architecture/two-domain-single-container.md) | How one app serves both sites |
+| [Pipeline orchestration](docs/wiki/pages/subsystems/pipeline-orchestration.md) | Run modes, done-pair filtering, city priority |
+| [Extraction layer](docs/wiki/pages/subsystems/extraction-layer.md) | Prompts, schemas, fingerprint-keyed caching |
+| [Cost-saver schedule](docs/wiki/pages/operations/cost-saver-schedule.md) | Why collection and extraction run at different times of day |
+| [Post-mortems](docs/wiki/index.md#post-mortems) | Every incident that taught the system something |
+| [Glossary](docs/wiki/glossary.md) · [FAQ](docs/wiki/faq.md) | Domain vocabulary and recurring questions |
 
-Runs on Coolify (Hetzner) via Docker. Persist `/app/data` (SQLite) and `/app/config` (YAML edits).
+`CLAUDE.md` in the repo root is the working brief for coding agents (and a decent
+orientation for humans): commands, architecture, and the patterns that are easy to get
+wrong. `AGENTS.md` is a generated copy of it.
 
-## Development
+## Running it yourself
 
 ```bash
 pip install -e ".[dev]"
-pytest                   # run tests
-ruff check scraper/      # lint
+PYTHONPATH=. pytest              # tests
+.venv/bin/ruff check scraper/    # lint
 ```
 
-No local server needed — the app runs on Hetzner. Read templates and code directly for verification.
+The deployment is Docker on Coolify (Hetzner); only `/app/data` (SQLite) and
+`/app/config` (YAML) are persisted. `ADMIN_PASSWORD` is required; `DEEPSEEK_API_KEY`,
+`DATAFORSEO_LOGIN`/`DATAFORSEO_PASSWORD`, `RESEND_API_KEY` and the GA4 credentials are
+optional — missing keys degrade to a no-op rather than an error. See
+[deployment](docs/wiki/pages/operations/deployment-coolify.md) for the full list.
+
+## Data quality
+
+Every record is machine-extracted from a public web page. Information can be incomplete,
+outdated, or plain wrong; nothing is verified by hand. Always check with the community
+itself before showing up. Each public page carries a link to its source, a "report this"
+button, and an edit-suggestion form — corrections are reviewed and applied.
