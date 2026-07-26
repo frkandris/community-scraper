@@ -39,7 +39,7 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 
 (The former `revalidate`, `recategorize`, and description-maintenance admin flows were deleted 2026-07-23 — the focus is low-cost world indexing. Historical `revalidate` rows may still appear in `runs`.)
 
-**Pipeline city priority**: bounded scheduled saver runs call `run_pipeline()` in Sweden → rest of world → Hungary order so the active expansion market gets the daily window first. Startup recovery retains Hungary → Sweden → rest of world order. The split is in `main.py`, not `pipeline.py`.
+**Pipeline city priority**: bounded scheduled saver runs call `run_pipeline()` in Sweden → rest of world → Hungary order (`_saver_city_groups`) so the active expansion market gets the daily window first. Startup crash-recovery resumes the interrupted saver run and uses the **same** Sweden-first order (it is continuing that run; Hungary is fully indexed and frozen, so reaching it last within the bounded window loses nothing). The grouping lives in `main.py`, not `pipeline.py`.
 
 **Done-pair pre-filter**: `run_pipeline()` calls `get_fully_processed_pairs(db_path, current_fp)` (one SQL query) before inner loops and passes the complement as `pairs_filter`. Pairs with a `search_cache` entry AND all `cache_pages` at the current `extract_fingerprint` are skipped entirely — no loop iteration, no log entry. Fully-covered cities should not appear in the log.
 
@@ -116,7 +116,7 @@ commit** as the code change that triggered them; validate with
 
 **Person + venue extraction skip**: in `_run_full` and `_run_ai_only`, both the person AND venue cache lookups and AI calls are skipped entirely when `community_names` is empty for a URL. No communities → no persons/venues to extract (the majority of URLs yield 0 communities). Venue/person cache read/write uses `canonical_venue_fingerprint` / `canonical_person_fingerprint` (always primaries[0]) so fallback-provider extractions don't re-run when DeepSeek recovers.
 
-**settings.yaml schedule flags**: `schedule.auto_run_on_startup: true/false` controls whether the pipeline runs automatically on deploy/restart (read at startup, not hot-reloaded). The cron job slot exists but is intentionally empty — automatic scheduled runs are disabled.
+**settings.yaml schedule flags**: `schedule.auto_run_on_startup` (read at startup, not hot-reloaded) is **on** — but startup is only a *crash-recovery net*, not a driver. `_startup_plan()` in `main.py` decides: under the saver schedule, a mid-window deploy/restart that interrupted a `search_only`/`ai_only` run resumes that same mode **boxed to its window** (`search_until`/`extract_until`); a clean boot (last run succeeded) does **nothing** — the twin crons drive the day and startup must never launch a `full` (LLM) run outside the off-peak split. When `saver_enabled` is off, the legacy escalation (`ai_only → full`, unbounded) is preserved. This exists because deploys during the 15 h collector window (01:00→16:20 UTC) were silently truncating that day's collection (2026-07-24/25). The legacy combined cron slot (`cron_enabled`) is still off.
 
 **Two-domain nav active-state**: nav links in `public_base.html` use `or` prefix checks for both HU and EN paths (e.g. `_p.startswith('/terkep') or _p.startswith('/map')`). Add both prefixes when introducing a new route that exists on both domains.
 

@@ -21,14 +21,25 @@ resource: scraper/main.py
 
 "Smart" (`full`) internally runs `ai_only` first, then `_run_full`, then a catch-up pass — see [[pipeline-orchestration]]. Revalidate is a separate flow (LLM QA over the DB, no scraping).
 
-## Startup escalation
+## Startup recovery
 
-`_startup_run` (gated on `schedule.auto_run_on_startup`) inspects the last run:
+`_startup_run` (gated on `schedule.auto_run_on_startup`, **now on**) delegates the
+decision to the pure `_startup_plan(last_row, schedule_cfg, now)`:
 
-- interrupted/failed → retry the **same** mode (a historical `revalidate` row falls back to `ai_only`).
-- succeeded → escalate `ai_only → full → full` (full is the steady state).
+- **Saver schedule on (production)** — startup is a *crash-recovery net only*. An
+  interrupted `search_only`/`ai_only` run (deploy killed it mid-window) resumes the
+  **same** mode, boxed to its window (`search_until`/`extract_until` via
+  `_next_window_end`). A clean boot, or an interrupted non-bounded mode, does
+  **nothing** — the twin crons drive the day and startup must never launch a `full`
+  (LLM) run outside the off-peak split.
+- **Saver off (legacy)** — unchanged: interrupted/failed retries the same mode
+  (historical `revalidate` → `ai_only`); succeeded escalates `ai_only → full → full`,
+  unbounded.
 
-This resumes work after a redeploy and climbs to more expensive passes once stable.
+This exists because deploys during the 15 h collector window (01:00→16:20 UTC) were
+silently truncating the day's collection — see [[2026-07-deploy-truncates-collector]].
+Recovery still reserves the shared coordinator slot, so it is skipped if a scheduled
+run is already active.
 
 ## Scheduled runs
 

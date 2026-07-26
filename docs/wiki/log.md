@@ -2,6 +2,9 @@
 
 Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
+## 2026-07-26
+- **Creation**: [[2026-07-deploy-truncates-collector]] — production `runs` table (via SSH+sqlite) showed the 01:00 `search_only` collector cancelled hours in on 07-24/07-25 by mid-window deploys; with `auto_run_on_startup: false` it never resumed and APScheduler won't re-fire a job that already fired, so the day's remaining page collection was silently lost. Fix: `_startup_plan()` makes startup a saver-aware crash-recovery net (resume interrupted `search_only`/`ai_only` boxed to its window; clean boots do nothing; never launch `full` under the saver split), `auto_run_on_startup: true`. Updated [[run-modes-and-startup]], root `CLAUDE.md`/`AGENTS.md`; new `tests/test_startup_recovery.py`.
+
 ## 2026-07-25
 - **Update**: [[sister-site-cross-links]] — the About page's project block became one sentence continuing the intro paragraph, with author / open-source / sister-site as inline links instead of a heading plus a button row.
 - **Update**: [[sister-site-cross-links]] — the cross-edition notice was scoped down the same day it shipped: the full-width strip above the content is gone, replaced by a translate icon in the top-right corner of the community record card, and it renders on community pages only.

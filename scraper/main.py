@@ -129,6 +129,92 @@ def _settings_cron_enabled() -> bool:
     return False
 
 
+def _startup_until(startup_mode: str, schedule_cfg: dict) -> str | None:
+    """Window-end HH:MM to box a startup recovery run to, matching the saver twin
+    windows so a resumed collector/extractor stops exactly where its cron twin
+    would. `full` (the legacy escalated steady state) stays unbounded."""
+    if startup_mode == "search_only":
+        return schedule_cfg.get("search_until")
+    if startup_mode == "ai_only":
+        return schedule_cfg.get("extract_until")
+    return None
+
+
+def _startup_window(startup_mode: str, schedule_cfg: dict) -> tuple[str | None, str | None]:
+    """(start_hhmm, end_hhmm) for a bounded saver mode, else (None, None). Start is
+    derived from the mode's cron minute/hour; end from its `*_until`."""
+    if startup_mode == "search_only":
+        cron = str(schedule_cfg.get("search_cron") or "0 1 * * *")
+        end = schedule_cfg.get("search_until")
+    elif startup_mode == "ai_only":
+        cron = str(schedule_cfg.get("extract_cron") or "35 16 * * *")
+        end = schedule_cfg.get("extract_until")
+    else:
+        return None, None
+    parts = cron.split()
+    try:
+        start = f"{int(parts[1]):02d}:{int(parts[0]):02d}"
+    except (IndexError, ValueError):
+        start = None
+    return start, end
+
+
+def _within_window(now: "datetime", start_hhmm: str | None, end_hhmm: str | None) -> bool:
+    """Is `now` (UTC) inside the [start, end) daily window? Handles windows that
+    cross midnight (extract 16:35 → 00:20). Permissive (True) if a bound is
+    unparseable — recovery must not be silently skipped on a config typo."""
+    try:
+        sh, sm = (int(p) for p in start_hhmm.strip().split(":"))
+        eh, em = (int(p) for p in end_hhmm.strip().split(":"))
+    except (AttributeError, ValueError):
+        return True
+    now_m = now.hour * 60 + now.minute
+    start_m, end_m = sh * 60 + sm, eh * 60 + em
+    if start_m <= end_m:
+        return start_m <= now_m < end_m
+    return now_m >= start_m or now_m < end_m  # crosses midnight
+
+
+def _startup_plan(
+    last_row: dict | None, schedule_cfg: dict, now: "datetime"
+) -> tuple[str | None, "datetime | None"]:
+    """Decide what a startup recovery should do → (startup_mode, stop_at).
+
+    A `None` startup_mode means *do nothing on startup*.
+
+    Under the saver schedule, startup is only a crash-recovery net: a mid-window
+    deploy/restart kills the in-flight bounded run (search_only/ai_only), so we
+    resume that same mode boxed to its window. A clean boot (last run succeeded)
+    does nothing — the twin crons drive the day, and we must never launch a
+    `full` LLM run outside the off-peak split. When the saver schedule is off,
+    the legacy escalation is preserved unchanged (and unbounded)."""
+    saver = bool(schedule_cfg.get("saver_enabled"))
+    if not last_row:
+        return (None, None) if saver else ("full", None)
+
+    interrupted = last_row["finished_at"] is None or not last_row["success"]
+    prev_mode = last_row["run_mode"]
+
+    if saver:
+        if not interrupted or prev_mode not in ("search_only", "ai_only"):
+            return None, None
+        # Only resume while still inside the interrupted mode's own window. Outside
+        # it, _next_window_end would wrap to tomorrow — a ~day-long run that holds
+        # the coordinator slot and starves the complementary cron. The crons drive
+        # the next cycle instead.
+        start, until = _startup_window(prev_mode, schedule_cfg)
+        if until and not _within_window(now, start, until):
+            return None, None
+        return prev_mode, (_next_window_end(now, until) if until else None)
+
+    # Legacy (saver disabled): unchanged escalation, always unbounded.
+    if interrupted:
+        mode = prev_mode if prev_mode in ("full", "ai_only", "search_only") else "ai_only"
+    else:
+        mode = {"revalidate": "ai_only", "ai_only": "full"}.get(prev_mode or "full", "full")
+    return mode, None
+
+
 def _saver_city_groups(cities: list) -> tuple[list, list, list]:
     """Expansion-first order for the bounded collector/extractor windows."""
     se = [city for city in cities if city.country == "Sweden"]
@@ -296,21 +382,18 @@ async def main() -> None:
     async def _startup_run() -> None:
         await asyncio.sleep(5)
 
+        now = datetime.now(timezone.utc)
         last_row = get_last_run_row(db_path)
-        if last_row and (last_row["finished_at"] is None or not last_row["success"]):
-            # Interrupted (redeploy) or failed → re-run same mode until it succeeds
-            # Revalidate can't run from here, fall back to ai_only
-            prev_mode = last_row["run_mode"]
-            startup_mode = prev_mode if prev_mode in ("full", "ai_only", "search_only") else "ai_only"
-            reason = "interrupted" if last_row["finished_at"] is None else "failed"
-            log.info("startup_run_retry", reason=reason, prev_mode=prev_mode, startup_mode=startup_mode)
-        else:
-            last_mode = last_row["run_mode"] if last_row else None
-            # Completed successfully → progress: revalidate → ai_only → full → full
-            startup_mode = {"revalidate": "ai_only", "ai_only": "full"}.get(last_mode or "full", "full")
-            log.info("startup_run_triggered", last_mode=last_mode, startup_mode=startup_mode)
+        startup_mode, stop_at = _startup_plan(last_row, _settings_schedule(), now)
+        if startup_mode is None:
+            log.info("startup_run_skipped", reason="nothing_to_recover",
+                     last_mode=last_row["run_mode"] if last_row else None)
+            return
+        log.info("startup_run_triggered", last_mode=last_row["run_mode"] if last_row else None,
+                 startup_mode=startup_mode, stop_at=stop_at.isoformat() if stop_at else None)
 
-        mode_label = "re-ai" if startup_mode == "ai_only" else "smart"
+        # Mirror the cron labels so /admin/api/status shows the true active mode.
+        mode_label = {"ai_only": "re-ai", "search_only": "collect"}.get(startup_mode, "smart")
         task = asyncio.current_task()
         if not app_state.run_coordinator.reserve(mode_label, task):
             log.info("startup_run_skipped", reason="already_running")
@@ -325,6 +408,9 @@ async def main() -> None:
             for group in groups:
                 if not group:
                     continue
+                if stop_at and datetime.now(timezone.utc) >= stop_at:
+                    log.info("startup_run_window_closed", mode=startup_mode)
+                    break
                 group_logs, _ = await run_pipeline(
                     group,
                     app_state.topics,
@@ -333,6 +419,7 @@ async def main() -> None:
                     on_progress=_on_progress,
                     on_pair_start=_on_pair_start,
                     run_mode=startup_mode,
+                    stop_at=stop_at,
                 )
                 pair_logs += group_logs
             app_state.last_run_at = datetime.now(timezone.utc)
