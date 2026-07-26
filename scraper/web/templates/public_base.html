@@ -32,6 +32,7 @@
   <meta name="twitter:image" content="{{ site_url }}{{ self.og_image_url() }}">
   {% endblock %}
   {% block head %}{% endblock %}
+  {% if breadcrumbs %}<script type="application/ld+json">{{ breadcrumbs | breadcrumb_jsonld | safe }}</script>{% endif %}
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-XD0Z4FE8LX"></script>
   <script>
     window.dataLayer = window.dataLayer || [];

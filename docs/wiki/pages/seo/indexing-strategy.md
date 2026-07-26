@@ -45,6 +45,17 @@ Rationale: stop Google indexing empty/thin programmatic pages, a major trigger o
 
 Per-domain `Sitemap:` line. Disallows `/admin, /source/, /api/, /set-lang, /unsubscribe, /community/, /healthz, /kereses`; special-cases `facebookexternalhit` with `Allow: /` for link previews. `/set-lang` also sends `X-Robots-Tag: noindex, nofollow`.
 
+## Breadcrumbs
+
+`schema.py:breadcrumb_jsonld` emits a `BreadcrumbList` (Home → City → Topic →
+Community, and the venue/person/global-topic variants) into every city-scoped page's
+`<head>`; the route builds the trail via `_crumbs()` and passes it as `breadcrumbs`.
+Topic labels are localized (`get_topic_labels(lang)`), and multi-topic explore filters
+add no topic crumb (no canonical URL). `public_base.html` renders **only** the JSON-LD —
+no visible base nav — because each page template already shows its own visible bar
+(avoids a double breadcrumb). This reinforces the site hierarchy for SERP breadcrumbs
+and internal linking without altering page content.
+
 ## JSON-LD
 
 `schema.py:records_to_jsonld` builds a `@graph` of schema.org types (`SportsClub`/`MusicGroup`/`DanceGroup`/`PerformingGroup`, default `Organization`) mapped from topic, injected into `<head>` on community and explore pages. It escapes `</` → `<\/` to prevent script-tag breakout.

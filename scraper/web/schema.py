@@ -59,6 +59,26 @@ def community_to_schema(record: Union["CommunityRecord", dict]) -> dict:
     return obj
 
 
+def breadcrumb_jsonld(items: list) -> str:
+    """BreadcrumbList JSON-LD from a list of {"name", "url"} dicts (absolute URLs).
+
+    Gives Google the site hierarchy (home → city → topic → community) for SERP
+    breadcrumb display and reinforces internal structure. Empty string if <2 items.
+    """
+    items = [it for it in (items or []) if it.get("name") and it.get("url")]
+    if len(items) < 2:
+        return ""
+    ld = {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {"@type": "ListItem", "position": i, "name": it["name"], "item": it["url"]}
+            for i, it in enumerate(items, 1)
+        ],
+    }
+    return json.dumps(ld, ensure_ascii=False).replace("</", "<\\/")
+
+
 def records_to_jsonld(records: list) -> str:
     """Convert CommunityRecord objects or dicts to a JSON-LD string."""
     items = [item for r in records if (item := community_to_schema(r))]

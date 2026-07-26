@@ -95,7 +95,7 @@ from ..url_safety import (UnsafeURLError, assert_safe_public_url,
                           is_public_http_url)
 from .i18n import get_topic_labels, lang_context
 from .log_stream import broadcaster
-from .schema import records_to_jsonld
+from .schema import breadcrumb_jsonld, records_to_jsonld
 from .state import app_state
 
 log = structlog.get_logger()
@@ -392,6 +392,7 @@ def _slugify(text: str) -> str:
 
 
 templates.env.filters["slugify"] = _slugify
+templates.env.filters["breadcrumb_jsonld"] = breadcrumb_jsonld
 
 _ROLE_HU = {
     "leader": "vezető",
@@ -3101,6 +3102,20 @@ def _canonical_base(request: Request, city_name: str) -> str:
     return "https://meetapedia.com"
 
 
+def _crumbs(request: Request, *pairs: tuple[str, str]) -> list[dict]:
+    """Build breadcrumb items from (name, path) pairs. Each gets an absolute `url`
+    (for BreadcrumbList JSON-LD) on the serving site plus the relative `path` (for
+    the visible nav). A leading Home crumb is prepended automatically."""
+    from .i18n import lang_context as _lc
+    ctx = _lc(request)
+    base = ctx["site_url"]
+    items = [{"name": ctx["t"]("breadcrumb_home"), "path": "/", "url": f"{base}/"}]
+    for name, path in pairs:
+        if name:
+            items.append({"name": name, "path": path, "url": f"{base}{path}"})
+    return items
+
+
 def _hu_redirect(request: Request, city_name: str | None):
     """On meetapedia.com, Hungarian-city pages **301** to kozossegek.com.
 
@@ -3558,6 +3573,24 @@ async def _render_explore(
             if coords:
                 city_coords_for_js[cs_city["city"]] = [coords[0], coords[1]]
 
+    # BreadcrumbList JSON-LD (base renders no visible bar — each page keeps its own).
+    # Home → City → Topic (city+single topic), Home → City (city page), or
+    # Home → Topic (global /felfedezes/<topic>). Multi-topic filters have no
+    # canonical URL, so no crumb beyond the city.
+    _tl = get_topic_labels(lang_context(request)["lang"])
+    def _tlabel(t):
+        return _tl.get(t, t.replace("_", " ").title())
+    if city and len(topic) == 1:
+        _bc = _crumbs(request, (city, f"/{_slugify(city)}"),
+                      (_tlabel(topic[0]),
+                       f"/{_slugify(city)}/{_topic_url_slug(topic[0], _city_locale(city))}"))
+    elif city:
+        _bc = _crumbs(request, (city, f"/{_slugify(city)}"))
+    elif len(topic) == 1:
+        _bc = _crumbs(request, (_tlabel(topic[0]), request.url.path))
+    else:
+        _bc = None
+
     return templates.TemplateResponse(request, "public_explore.html", {
         "city": city,
         "topics": topics,
@@ -3579,6 +3612,7 @@ async def _render_explore(
         "canonical_base": _canonical_base(request, city) if city else None,
         "page_noindex": bool(city and topic and total == 0),
         "nearby_cities": _nearby_cities(request, city) if city else [],
+        "breadcrumbs": _bc,
         **lang_context(request),
         # After lang_context — it would otherwise overwrite the city-aware value.
         "sister_url": _sister_url(request, city or None),
@@ -6137,6 +6171,10 @@ async def public_venue_detail(request: Request, city_slug: str, venue_slug: str)
         "topic_icons": TOPIC_ICONS,
         "topic_labels": TOPIC_LABELS,
         "canonical_base": _canonical_base(request, city_name),
+        "breadcrumbs": _crumbs(
+            request, (city_name, f"/{city_slug}"),
+            (venue.get("name", ""), f"/{city_slug}/helyszin/{venue_slug}"),
+        ),
         **lang_context(request),
         "sister_url": _sister_url(request, city_name),
     })
@@ -6201,6 +6239,10 @@ async def public_person_detail(request: Request, city_slug: str, name_slug: str)
         "topic_icons": TOPIC_ICONS,
         "topic_labels": TOPIC_LABELS,
         "canonical_base": _canonical_base(request, city_name),
+        "breadcrumbs": _crumbs(
+            request, (city_name, f"/{city_slug}"),
+            (person.get("name", ""), f"/{city_slug}/ember/{name_slug}"),
+        ),
         **lang_context(request),
         "sister_url": _sister_url(request, city_name),
     })
@@ -6258,6 +6300,14 @@ async def public_city_segment(
                                 for t in (app_state.topics or [])],
             "canonical_base": _canonical_base(request, city_name),
             "page_noindex": not (record.get("description") or "").strip(),
+            "breadcrumbs": _crumbs(
+                request,
+                (city_name, f"/{city_slug}"),
+                (get_topic_labels(lang_context(request)["lang"]).get(
+                    rec_topic, rec_topic.replace("_", " ").title()),
+                 f"/{city_slug}/{_topic_url_slug(rec_topic, city_locale)}"),
+                (record.get("name", ""), f"/{city_slug}/{_slugify(record.get('name',''))}"),
+            ),
             **lang_context(request),
             "sister_url": _sister_url(request, city_name),
         })
