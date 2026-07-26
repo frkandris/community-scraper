@@ -169,3 +169,27 @@ def test_venues_page_has_name_search_structure(tmp_path):
     finally:
         app_state.db_path = old_db
         app_state.cities = old_cities
+
+
+def test_hub_pages_have_unique_intro_copy(tmp_path):
+    from scraper.pipeline import TopicConfig
+    db = _db(tmp_path)
+    _setup_persons(db)  # not needed, but keeps db warm
+    from scraper.models import CommunityRecord
+    from scraper.store import save_results
+    save_results("Budapest", "running", [CommunityRecord(
+        name="Budapesti Futók", topic="running", city="Budapest", locale="hu",
+        source_url="https://a.test", extracted_at="2026-01-01T00:00:00+00:00",
+        description="Heti közösségi futás.")], db)
+    old_db, old_cities, old_topics = app_state.db_path, app_state.cities, app_state.topics
+    try:
+        app_state.db_path = db
+        app_state.cities = _cities()
+        app_state.topics = [TopicConfig(name="running", search_terms={"hu": ["futás"]})]
+        c = TestClient(web_app.app)
+        # city+topic hub: unique intro sentence
+        assert "Böngéssz" in c.get("/budapest/running").text
+        # city hub: unique intro sentence
+        assert "Fedezd fel" in c.get("/budapest").text
+    finally:
+        app_state.db_path, app_state.cities, app_state.topics = old_db, old_cities, old_topics

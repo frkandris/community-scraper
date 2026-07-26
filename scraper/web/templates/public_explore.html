@@ -84,6 +84,23 @@
 
 <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
 
+  {# Unique, crawlable intro for single-topic and city-only hubs. Multi-topic
+     filters get none: the city-wide "every topic" copy would be factually wrong. #}
+  {% if city and not tag %}
+  {% if selected_topics | length == 1 and total > 0 %}
+  <p class="text-sm text-[#6A6259] leading-relaxed mb-6 max-w-3xl">
+    {{ t('explore_intro_topic_city', label=topic_labels.get(selected_topics[0], selected_topics[0].replace('_',' ').title()), city=city, n=total) }}
+  </p>
+  {% elif not selected_topics %}
+  {% set city_total = available_topics.values() | sum %}
+  {% if city_total > 0 %}
+  <p class="text-sm text-[#6A6259] leading-relaxed mb-6 max-w-3xl">
+    {{ t('explore_intro_city', city=city, n=city_total) }}
+  </p>
+  {% endif %}
+  {% endif %}
+  {% endif %}
+
   {% if subscribed %}
   <div class="mb-6 bg-[#FDF0EA] border border-[#FAD9C7] rounded-lg px-5 py-4 flex items-center gap-3">
     <i class="ph ph-check-circle text-[#C2613A] text-xl shrink-0"></i>
