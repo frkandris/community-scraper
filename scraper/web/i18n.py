@@ -773,6 +773,16 @@ _T: dict[str, dict[str, str]] = {
     "cities_og_desc": "Browse by city and find local communities.",
     "map_og_desc": "Communities on an interactive map — click a city to explore its local groups.",
     "people_og_desc": "Active members and organizers from local communities.",
+    "people_kicker": "Community people",
+    "people_title": "Community leaders",
+    "people_count": "{n} people in {city}",
+    "people_city_label": "City",
+    "people_choose_city": "Choose a city…",
+    "people_filter_label": "Filter",
+    "people_search_placeholder": "Filter by name…",
+    "people_pick_prompt": "Choose a city to see its community leaders.",
+    "people_none_in_city": "No people found for this city yet.",
+    "people_explore_cta": "Explore communities →",
     "venues_og_desc": "Venues and community spaces where interest groups meet.",
     "person_og_desc": "{name} — active community member in {city}.",
     "community_source_links": "Source",
@@ -960,6 +970,16 @@ _T: dict[str, dict[str, str]] = {
     "cities_og_desc": "Böngéssz városok szerint és találd meg a helyi közösségeket.",
     "map_og_desc": "Közösségek interaktív térképen – kattints egy városra és fedezd fel a helyi csoportokat.",
     "people_og_desc": "Aktív tagok és szervezők a helyi közösségekből.",
+    "people_kicker": "Közösségi emberek",
+    "people_title": "Közösségi vezetők",
+    "people_count": "{n} személy – {city}",
+    "people_city_label": "Város",
+    "people_choose_city": "Válassz várost…",
+    "people_filter_label": "Szűrés",
+    "people_search_placeholder": "Névre szűrés…",
+    "people_pick_prompt": "Válassz várost a közösségi vezetők megtekintéséhez.",
+    "people_none_in_city": "Ehhez a városhoz még nincsenek személyek.",
+    "people_explore_cta": "Közösségek felfedezése →",
     "venues_og_desc": "Helyszínek és közösségi terek, ahol érdeklődési csoportok találkoznak.",
     "person_og_desc": "{name} – közösségi személy, {city}.",
     "community_source_links": "Forrás",
@@ -2495,6 +2515,7 @@ def lang_context(request: Request) -> dict:
         about_url = "/about"
         cities_url = "/cities"
         submit_url = "/submit-community"
+        people_url = "/people"
         map_center = {"lat": 20.0, "lng": 0.0, "zoom": 2}
     else:
         lang = "hu"
@@ -2506,6 +2527,7 @@ def lang_context(request: Request) -> dict:
         about_url = "/rolunk"
         cities_url = "/varosok"
         submit_url = "/kozosseg-bekuldes"
+        people_url = "/emberek"
         map_center = {"lat": 47.5, "lng": 19.0, "zoom": 7}
     # Sister site: the two domains are editions of one project. kozossegek.com is
     # the Hungarian edition of meetapedia.com, so the notice on each side names
@@ -2538,5 +2560,6 @@ def lang_context(request: Request) -> dict:
         "about_url": about_url,
         "cities_url": cities_url,
         "submit_url": submit_url,
+        "people_url": people_url,
         "map_center": map_center,
     }

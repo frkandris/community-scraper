@@ -1,58 +1,48 @@
 {% extends "public_base.html" %}
-{% block title %}Emberek – {{ site_name }}{% endblock %}
+{% block title %}{{ t('nav_people') }} – {{ site_name }}{% endblock %}
 {% block og_desc %}{{ t('people_og_desc') }}{% endblock %}
 {% block content %}
 
 <div class="brand-gradient relative overflow-hidden">
   <div class="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 relative">
-    <p class="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">Közösségi emberek</p>
-    <h1 class="text-xl sm:text-2xl font-black tracking-[-0.025em] text-white leading-tight">Közösségi vezetők és oktatók</h1>
-    <p class="text-sm text-white/75 mt-1">{{ total_persons }} személy</p>
+    <p class="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">{{ t('people_kicker') }}</p>
+    <h1 class="text-xl sm:text-2xl font-black tracking-[-0.025em] text-white leading-tight">{{ t('people_title') }}</h1>
+    {% if selected_city %}
+    <p class="text-sm text-white/75 mt-1">{{ t('people_count', n=total_persons, city=selected_city) }}</p>
+    {% endif %}
   </div>
 </div>
 
 <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
 
-  <!-- Filters -->
-  <div class="mb-6 flex flex-wrap gap-3 items-end">
-    <form method="GET" action="/emberek" class="flex flex-wrap gap-2 items-end">
-      <div class="flex flex-col gap-1">
-        <label class="text-[11px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">Város</label>
-        <select name="city" onchange="this.form.submit()"
-          class="text-sm border border-[#D8D1C4] rounded-lg px-3 py-2 bg-white text-[#1C1917]
-                 focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20">
-          <option value="">Összes város</option>
-          {% for c in all_cities %}
-          <option value="{{ c }}" {% if c == selected_city %}selected{% endif %}>{{ c }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="flex flex-col gap-1">
-        <label class="text-[11px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">Szerepkör</label>
-        <select name="role" onchange="this.form.submit()"
-          class="text-sm border border-[#D8D1C4] rounded-lg px-3 py-2 bg-white text-[#1C1917]
-                 focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20">
-          <option value="">Összes szerepkör</option>
-          {% for r in all_roles %}
-          <option value="{{ r }}" {% if r == selected_role %}selected{% endif %}>{{ r | role_hu }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      {% if selected_city or selected_role %}
-      <a href="/emberek" class="text-xs text-[#A8512F] hover:text-[#8A4226] self-end pb-2.5 transition-colors">
-        Szűrők törlése
-      </a>
-      {% endif %}
-    </form>
+  <form method="GET" class="mb-6 flex flex-wrap gap-3 items-end">
     <div class="flex flex-col gap-1">
-      <label class="text-[11px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">Keresés</label>
-      <input id="people-search" type="search" placeholder="Névre szűrés…"
+      <label class="text-[11px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">{{ t('people_city_label') }}</label>
+      <select name="city" onchange="this.form.submit()"
+        class="text-sm border border-[#D8D1C4] rounded-lg px-3 py-2 bg-white text-[#1C1917] min-w-[16rem]
+               focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20">
+        <option value="">{{ t('people_choose_city') }}</option>
+        {% for c in all_cities %}
+        <option value="{{ c }}" {% if c == selected_city %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% if selected_city and city_groups %}
+    <div class="flex flex-col gap-1">
+      <label class="text-[11px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">{{ t('people_filter_label') }}</label>
+      <input id="people-search" type="search" placeholder="{{ t('people_search_placeholder') }}"
         class="text-sm border border-[#D8D1C4] rounded-lg px-3 py-2 bg-white text-[#1C1917]
                focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 w-48">
     </div>
-  </div>
+    {% endif %}
+  </form>
 
-  {% if city_groups %}
+  {% if not selected_city %}
+  <div class="text-center py-20 text-[#B5ADA0]">
+    <i class="ph ph-map-pin-line text-5xl mb-4 block"></i>
+    <p class="text-base">{{ t('people_pick_prompt') }}</p>
+  </div>
+  {% elif city_groups %}
   {% for group in city_groups %}
   <section data-city-section class="mb-8">
     <h2 class="text-xs font-bold uppercase tracking-[0.1em] text-[#8C8478] mb-4 flex items-center gap-2">
@@ -71,9 +61,6 @@
         {% if p.community_name %}
         <p class="text-xs text-[#8C8478] truncate">{{ p.community_name }}</p>
         {% endif %}
-        {% if p.role %}
-        <span class="text-[11px] font-medium px-1.5 py-0.5 rounded bg-[#F5F2EC] text-[#8C8478] border border-[#EAE5DB] self-start">{{ p.role | role_hu }}</span>
-        {% endif %}
       </a>
       {% endfor %}
     </div>
@@ -82,8 +69,8 @@
   {% else %}
   <div class="text-center py-20 text-[#B5ADA0]">
     <i class="ph ph-users text-5xl mb-4 block"></i>
-    <p class="text-base">Még nincsenek személyek az adatbázisban.</p>
-    <a href="/" class="mt-3 inline-block text-sm text-[#A8512F] hover:underline">Közösségek felfedezése →</a>
+    <p class="text-base">{{ t('people_none_in_city') }}</p>
+    <a href="{{ explore_url }}" class="mt-3 inline-block text-sm text-[#A8512F] hover:underline">{{ t('people_explore_cta') }}</a>
   </div>
   {% endif %}
 

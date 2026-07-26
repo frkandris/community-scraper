@@ -21,3 +21,6 @@ scraper/web/static/css/app.css
 .claude/
 .superpowers/
 skills-lock.json
+
+# Playwright MCP browser-session artifacts (screenshots, console logs, snapshots)
+.playwright-mcp/

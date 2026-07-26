@@ -80,7 +80,7 @@ def test_people_listing_deduplicates_persons(tmp_path):
     try:
         app_state.db_path = db
         app_state.cities = [CityConfig(name="Budapest", country="Hungary", locale="hu", search_variants=[])]
-        resp = TestClient(web_app.app).get("/emberek")
+        resp = TestClient(web_app.app).get("/emberek?city=Budapest")
         assert resp.status_code == 200
         assert resp.text.count("/budapest/ember/kovacs-janos") == 1
     finally:

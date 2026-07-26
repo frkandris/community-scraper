@@ -220,7 +220,8 @@ def test_emberek_page_lists_persons(tmp_path):
     try:
         app_state.db_path = db
         app_state.cities = [CityConfig(name="Budapest", country="Hungary", locale="hu", search_variants=[])]
-        resp = TestClient(web_app.app).get("/emberek")
+        # People list is empty until a city is chosen (post-2026-07-26 rework).
+        resp = TestClient(web_app.app).get("/emberek?city=Budapest")
         assert resp.status_code == 200
         assert "Kovács János" in resp.text
         assert "/budapest/ember/kovacs-janos" in resp.text

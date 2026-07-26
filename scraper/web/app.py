@@ -4151,7 +4151,7 @@ async def sitemap(request: Request):
         # list canonical URLs, so they are omitted here.
         site_city_names -= _hu_city_names()
     if is_meetapedia:
-        static_paths = ["/", "/about", "/map", "/cities", "/explore", "/submit-community"]
+        static_paths = ["/", "/about", "/map", "/people", "/cities", "/explore", "/submit-community"]
         venue_prefix = "/venue/"
         person_prefix = "/person/"
     else:
@@ -5994,55 +5994,56 @@ async def public_venues_en():
     return RedirectResponse("/helyszinek", status_code=301)
 
 
-@_fastapi.get("/emberek", response_class=HTMLResponse)
-async def public_people(request: Request, city: str = "", role: str = ""):
+async def _render_people(request: Request, city: str = ""):
+    """People index. Empty by default — the person list appears only after a city
+    is picked (avoids dumping every city/person). No role filter/label: the only
+    role we extract is 'leader'. URL is localized per site (/people vs /emberek)."""
     if not app_state.db_path:
         return templates.TemplateResponse(request, "public_people.html", {
-            "city_groups": [], "total_persons": 0,
-            "all_cities": [], "all_roles": [],
-            "selected_city": city, "selected_role": role,
-            **lang_context(request),
+            "city_groups": [], "total_persons": 0, "all_cities": [],
+            "selected_city": city, **lang_context(request),
         })
     init_db(app_state.db_path)
     site_names = {c.name for c in _site_cities(request)}
     all_persons = get_all_persons(app_state.db_path)
-    site_persons = [p for p in all_persons if p.get("city", "") in site_names]
-
     # Deduplicate: one card per person (name+city slug), merged across communities
-    from collections import defaultdict
     seen: dict[tuple, dict] = {}
-    for p in site_persons:
+    for p in all_persons:
+        if p.get("city", "") not in site_names:
+            continue
         key = (_slugify(p.get("name", "")), _slugify(p.get("city", "")))
-        if key not in seen:
-            seen[key] = p
+        seen.setdefault(key, p)
     unique = list(seen.values())
+    from .i18n import _detect_site
+    # Hungarian collation only on the HU site; elsewhere plain case-insensitive
+    # (avoids _hu_sort_key misplacing international names like Örebro).
+    sort_key = _hu_sort_key if _detect_site(request) == "kozossegek" else (lambda s: s.casefold())
+    all_cities = sorted({p.get("city", "") for p in unique if p.get("city")}, key=sort_key)
 
-    all_cities = sorted({p.get("city", "") for p in unique if p.get("city")})
-    all_roles = sorted({p.get("role", "") for p in unique if p.get("role")})
-
-    filtered = unique
+    city_groups: list = []
+    total = 0
     if city:
-        filtered = [p for p in filtered if p.get("city", "").lower() == city.lower()]
-    if role:
-        filtered = [p for p in filtered if p.get("role", "") == role]
-
-    city_map: dict = defaultdict(list)
-    for p in filtered:
-        city_map[p.get("city") or "—"].append(p)
-    city_groups = [
-        {"name": c, "persons": sorted(persons, key=lambda x: x.get("name", ""))}
-        for c, persons in sorted(city_map.items())
-    ]
-    total = sum(len(g["persons"]) for g in city_groups)
+        persons = sorted((p for p in unique if p.get("city", "").lower() == city.lower()),
+                         key=lambda x: x.get("name", ""))
+        if persons:
+            city_groups = [{"name": persons[0].get("city") or city, "persons": persons}]
+            total = len(persons)
     return templates.TemplateResponse(request, "public_people.html", {
         "city_groups": city_groups,
         "total_persons": total,
         "all_cities": all_cities,
-        "all_roles": all_roles,
         "selected_city": city,
-        "selected_role": role,
         **lang_context(request),
     })
+
+
+@_fastapi.get("/emberek", response_class=HTMLResponse)
+async def public_people(request: Request, city: str = ""):
+    from .i18n import _detect_site
+    if _detect_site(request) == "meetapedia":
+        return RedirectResponse("/people" + (f"?city={_url_quote(city, safe='')}" if city else ""),
+                                status_code=301)
+    return await _render_people(request, city)
 
 
 @_fastapi.get("/kereses", response_class=HTMLResponse)
@@ -6075,8 +6076,12 @@ async def public_search(request: Request):
 
 
 @_fastapi.get("/people", response_class=HTMLResponse)
-async def public_people_en():
-    return RedirectResponse("/emberek", status_code=301)
+async def public_people_en(request: Request, city: str = ""):
+    from .i18n import _detect_site
+    if _detect_site(request) == "kozossegek":
+        return RedirectResponse("/emberek" + (f"?city={_url_quote(city, safe='')}" if city else ""),
+                                status_code=301)
+    return await _render_people(request, city)
 
 
 @_fastapi.get("/{city_slug}/helyszin/{venue_slug}", response_class=HTMLResponse)

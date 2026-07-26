@@ -24,7 +24,7 @@
     <a href="/{{ city_slug }}" class="hover:text-[#1C1917] transition-colors shrink-0">{{ city }}</a>
     {% endif %}
     <span class="text-[#D8D1C4]">/</span>
-    <a href="/emberek?city={{ city | urlencode }}" class="hover:text-[#1C1917] transition-colors shrink-0">Emberek</a>
+    <a href="{{ people_url }}?city={{ city | urlencode }}" class="hover:text-[#1C1917] transition-colors shrink-0">{{ t('nav_people') }}</a>
     <span class="text-[#D8D1C4]">/</span>
     <span class="text-[#4A4441] font-medium truncate">{{ person.name }}</span>
   </nav>
