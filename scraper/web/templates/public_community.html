@@ -342,6 +342,47 @@
   </div>
   {% endif %}
 
+  <!-- Backlink badge / embed (encourages owners to link back → SEO authority).
+       The snippet is assembled in JS from data-* attributes with explicit HTML
+       escaping so an untrusted community name can never produce executable or
+       malformed markup in the copied code. -->
+  <details class="mt-4 bg-white border border-[#EAE5DB] rounded-xl overflow-hidden group">
+    <summary class="px-5 py-3 flex items-center gap-2 text-sm text-[#8C8478] hover:text-[#4A4441] cursor-pointer list-none">
+      <i class="ph ph-code text-base group-hover:text-[#A8512F] transition-colors"></i>
+      <span>{{ t('community_badge_title') }}</span>
+      <i class="ph ph-caret-right ml-auto text-[#D8D1C4] group-open:rotate-90 transition-transform"></i>
+    </summary>
+    <div class="px-5 pb-5 pt-4 border-t border-[#F5F2EC]">
+      <p class="text-xs text-[#8C8478] mb-2">{{ t('community_badge_desc') }}</p>
+      <textarea id="badge-code" readonly rows="2"
+        data-url="{{ (canonical_base or site_url) ~ '/' ~ (city | slugify) ~ '/' ~ (r.name | slugify) }}"
+        data-name="{{ r.name }}" data-site="{{ site_name }}"
+        class="w-full text-xs font-mono border border-[#D8D1C4] rounded-lg px-3 py-2 bg-[#FAF8F4] text-[#4A4441] resize-none focus:outline-none focus:border-[#C2613A]"></textarea>
+      <button type="button" onclick="copyBadge(this)"
+        class="mt-2 text-xs font-medium px-3 py-1.5 rounded-md bg-[#F5F2EC] border border-[#EAE5DB] text-[#4A4441] hover:border-[#C2613A] transition-colors"
+        data-copy="{{ t('community_badge_copy') }}" data-copied="{{ t('community_badge_copied') }}">{{ t('community_badge_copy') }}</button>
+    </div>
+  </details>
+  <script>
+  (function () {
+    var ta = document.getElementById('badge-code');
+    if (!ta) return;
+    var esc = function (s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    };
+    ta.value = '<a href="' + esc(ta.dataset.url) + '">'
+      + esc(ta.dataset.name) + ' · ' + esc(ta.dataset.site) + '</a>';
+  })();
+  function copyBadge(btn) {
+    var ta = document.getElementById('badge-code');
+    navigator.clipboard.writeText(ta.value).then(function () {
+      btn.textContent = btn.dataset.copied;
+      setTimeout(function () { btn.textContent = btn.dataset.copy; }, 2000);
+    });
+  }
+  </script>
+
   <!-- Unified report problem -->
   <div class="mt-4 bg-white border border-[#EAE5DB] rounded-xl overflow-hidden" id="report-section">
 
