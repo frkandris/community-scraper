@@ -60,6 +60,14 @@ and internal linking without altering page content.
 
 `schema.py:records_to_jsonld` builds a `@graph` of schema.org types (`SportsClub`/`MusicGroup`/`DanceGroup`/`PerformingGroup`, default `Organization`) mapped from topic, injected into `<head>` on community and explore pages. It escapes `</` → `<\/` to prevent script-tag breakout.
 
-## Known gap
+## hreflang
 
-There are **no `hreflang`/`rel=alternate`** tags anywhere, despite the same content on two domains and ~50 language variants. Cross-domain canonical is the only consolidation signal. Acceptable while the two domains serve identical (untranslated) HU content; revisit if meetapedia ever serves genuinely translated pages.
+`i18n.py:_hreflang_alternates(path)` emits `rel=alternate hreflang` (hu / en /
+x-default) in `<head>` for the **shared static pages with clean site-aware URLs**:
+home (`/`↔`/`), map (`/terkep`↔`/map`), people (`/emberek`↔`/people`) — the pages
+whose two URLs each serve on their own domain and 301 to the twin otherwise. The
+list (`_STATIC_ALTERNATES`) deliberately **excludes** content pages (communities are
+country-specific and HU ones 301 to kozossegek) and the not-yet-URL-localized static
+pages (about/explore/cities/submit still share a single HU path or redirect EN→HU —
+listing them would emit wrong alternates). Extend the list once those URLs are fully
+localized.

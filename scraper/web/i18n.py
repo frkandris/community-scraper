@@ -2508,6 +2508,34 @@ def sister_url(request: Request) -> str:
     return f"{other}{request.url.path}" + (f"?{query}" if query else "")
 
 
+# Shared static pages that exist as HU↔EN language editions with clean,
+# site-aware canonical URLs (kozossegek path, meetapedia path): home, map, people.
+# These are the pages whose two URLs each serve directly on their own domain and
+# 301 to the twin otherwise, so the hreflang pair is unambiguous. Other static
+# pages (about/explore/cities/submit) still share a single HU path or redirect
+# EN→HU, so listing them would emit wrong alternates — extend this only after
+# their URLs are fully localized. Content pages (communities) are country-specific
+# and HU ones 301 to kozossegek, so they get no hreflang either.
+_STATIC_ALTERNATES = [
+    ("/", "/"),
+    ("/terkep", "/map"),
+    ("/emberek", "/people"),
+]
+
+
+def _hreflang_alternates(path: str) -> list[dict]:
+    """rel=alternate hreflang links for a shared static page, or [] if the path
+    is not one (content pages get none — see _STATIC_ALTERNATES)."""
+    for hu, en in _STATIC_ALTERNATES:
+        if path == hu or path == en:
+            return [
+                {"lang": "hu", "href": f"https://kozossegek.com{hu}"},
+                {"lang": "en", "href": f"https://meetapedia.com{en}"},
+                {"lang": "x-default", "href": f"https://meetapedia.com{en}"},
+            ]
+    return []
+
+
 def lang_context(request: Request) -> dict:
     site = _detect_site(request)
     if site == "meetapedia":
@@ -2568,4 +2596,5 @@ def lang_context(request: Request) -> dict:
         "submit_url": submit_url,
         "people_url": people_url,
         "map_center": map_center,
+        "hreflang_alternates": _hreflang_alternates(request.url.path),
     }
