@@ -3,6 +3,7 @@
 Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
 ## 2026-07-26
+- **Update**: [[seo-cross-domain-canonical]] — HU pages on meetapedia now **301** to kozossegek (was canonical-only, which GSC showed Google ignored: meetapedia won 551 HU impressions to kozossegek's 33, and only 43 of kozossegek's 27K pages were indexed). New `_hu_redirect()` in `web/app.py` called from every city-scoped route; keyword-rich community `<title>` (name – topic city | site). Tests: `tests/test_hu_redirect.py`. Diagnosed via the GA4 service account granted Search Console API access.
 - **Creation**: [[2026-07-deploy-truncates-collector]] — production `runs` table (via SSH+sqlite) showed the 01:00 `search_only` collector cancelled hours in on 07-24/07-25 by mid-window deploys; with `auto_run_on_startup: false` it never resumed and APScheduler won't re-fire a job that already fired, so the day's remaining page collection was silently lost. Fix: `_startup_plan()` makes startup a saver-aware crash-recovery net (resume interrupted `search_only`/`ai_only` boxed to its window; clean boots do nothing; never launch `full` under the saver split), `auto_run_on_startup: true`. Updated [[run-modes-and-startup]], root `CLAUDE.md`/`AGENTS.md`; new `tests/test_startup_recovery.py`.
 
 ## 2026-07-25

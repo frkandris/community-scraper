@@ -21,10 +21,26 @@ The fix makes **all** HU-city pages point their canonical at kozossegek.com rega
 
 `canonical_base` is passed from the city-scoped renderers: `_render_explore` (only when `city` is set), venue detail, person detail, and the community page in `public_city_segment`. The template falls back to `site_url` when `canonical_base` is absent (non-city pages self-canonicalize). It composes with the [[indexing-strategy]] sitemap rule (meetapedia sitemap omits HU cities) — canonical and sitemap must agree, or Google gets mixed signals.
 
+## 2026-07-26: upgraded from canonical hint to hard 301
+
+GSC (28 days to 2026-07-23) proved the canonical was **not enough**: Google ignored
+it and kept meetapedia as the HU winner — meetapedia earned 551 HU impressions to
+kozossegek's 33, and only 43 of kozossegek's 27K pages got any impression at all
+(≈deindexed). A `rel=canonical` is a hint; a 301 is a command.
+
+`_hu_redirect(request, city_name)` (`web/app.py`) now returns a **301** to
+`https://kozossegek.com{path}?{query}` whenever `_detect_site == "meetapedia"` and
+the city is Hungarian. It is called at the top of every city-scoped route
+(`_render_explore`, `public_city_segment`, `public_city`, `public_venue_detail`,
+`public_person_detail`). Non-HU cities (meetapedia's own market) render normally;
+kozossegek never redirects its own HU pages. The canonical tag stays as a
+belt-and-braces signal, and the sitemap already omits HU cities on meetapedia — all
+three now agree. See [[2026-06-seo-traffic-collapse]] and [[indexing-strategy]].
+
 ## Verification
 
 ```
-curl -s https://meetapedia.com/szombathely/ezustkor-filmklub | grep canonical
-# → <link rel="canonical" href="https://kozossegek.com/szombathely/ezustkor-filmklub">
+curl -sI https://meetapedia.com/szombathely/ezustkor-filmklub | grep -i location
+# → location: https://kozossegek.com/szombathely/ezustkor-filmklub   (301)
 curl -s https://meetapedia.com/sitemap.xml | grep -c szombathely   # → 0
 ```

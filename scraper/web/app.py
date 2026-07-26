@@ -836,6 +836,26 @@ def _canonical_base(request: Request, city_name: str) -> str:
     return "https://meetapedia.com"
 
 
+def _hu_redirect(request: Request, city_name: str | None):
+    """On meetapedia.com, Hungarian-city pages **301** to kozossegek.com.
+
+    A `rel=canonical` was only a hint that Google ignored — it kept the HU
+    duplicates indexed on meetapedia and starved kozossegek (GSC 2026-07:
+    meetapedia won 551 HU impressions to kozossegek's 33). A 301 removes the
+    duplicate outright. kozossegek serves the identical path, so path + query are
+    preserved. Returns a RedirectResponse or None (no redirect needed).
+    See [[seo-cross-domain-canonical]].
+    """
+    from .i18n import _detect_site
+    if _detect_site(request) == "meetapedia" and city_name and city_name in _hu_city_names():
+        q = request.url.query
+        return RedirectResponse(
+            f"https://kozossegek.com{request.url.path}" + (f"?{q}" if q else ""),
+            status_code=301,
+        )
+    return None
+
+
 def _sister_url(request: Request, city_name: str | None) -> str | None:
     """Twin-page URL for city-scoped pages, or None when there is no twin.
 
@@ -1123,6 +1143,8 @@ async def _render_explore(
 ) -> HTMLResponse:
     if topic is None:
         topic = []
+    if (redirect := _hu_redirect(request, city)):
+        return redirect
     cities = app_state.cities or []
     topics = app_state.topics or []
 
@@ -3809,6 +3831,8 @@ async def public_venue_detail(request: Request, city_slug: str, venue_slug: str)
     venue = next((v for v in venues if _slugify(v.get("name", "")) == venue_slug), None)
     if not venue or not city_name:
         return RedirectResponse("/helyszinek", status_code=302)
+    if (redirect := _hu_redirect(request, city_name)):
+        return redirect
     community_ids = venue.get("community_ids") or []
     communities = get_communities_for_venue(
         app_state.db_path, community_ids, venue.get("name", ""), city_name
@@ -3846,6 +3870,8 @@ async def public_person_detail(request: Request, city_slug: str, name_slug: str)
             city_name = all_persons[0].get("city", city_slug)
     if not city_name:
         return RedirectResponse("/emberek", status_code=302)
+    if (redirect := _hu_redirect(request, city_name)):
+        return redirect
     merged = [p for p in all_persons if _slugify(p.get("name", "")) == name_slug]
     if not merged:
         return RedirectResponse("/emberek", status_code=302)
@@ -3902,6 +3928,8 @@ async def public_city_segment(
         return RedirectResponse("/", status_code=302)
     if city_name not in {c.name for c in _site_cities(request)}:
         return RedirectResponse("/", status_code=302)
+    if (redirect := _hu_redirect(request, city_name)):
+        return redirect
     topic_names = {t.name for t in (app_state.topics or [])}
     city_locale = _city_locale(city_name)
     # Try localized slug first, then fall back to English slug

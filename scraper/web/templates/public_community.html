@@ -1,6 +1,6 @@
 {% extends "public_base.html" %}
 {% block head %}{% if schema_json %}<script type="application/ld+json">{{ schema_json | safe }}</script>{% endif %}{% endblock %}
-{% block title %}{{ r.name }} – {{ site_name }}{% endblock %}
+{% block title %}{{ r.name }}{% if topic %} – {{ topic_labels.get(topic, topic) }}{% if city %} {{ city }}{% endif %}{% elif city %} – {{ city }}{% endif %} | {{ site_name }}{% endblock %}
 {% block og_image_url %}/static/img/og/{{ topic or 'default' }}.png{% endblock %}
 {% block og_desc %}{{ r.description | truncate(160, True, '...') if r.description else t('community_og_fallback', name=r.name) }}{% endblock %}
 
