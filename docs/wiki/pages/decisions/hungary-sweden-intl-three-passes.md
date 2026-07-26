@@ -9,7 +9,14 @@ resource: scraper/main.py
 
 # Three Geographic Passes with Mode-Specific Priority
 
-*Both `_scheduled_run` and `_startup_run` partition `app_state.cities` into three lists and call `run_pipeline` three times sequentially.*
+*Both `_scheduled_run` and `_startup_run` partition `app_state.cities` into lists and call `run_pipeline` sequentially per group.*
+
+> **Update 2026-07-27.** Now **four** groups, Germany-first: `_saver_city_groups`
+> returns Germany → Sweden → rest-of-world → Hungary, and **startup recovery uses the
+> same order** (no longer Hungary-first) — see [[sweden-pipeline-priority]] and the
+> 2026-07-26 log entry. Germany is the active expansion market (~2,057 Städte);
+> Sweden and Hungary are fully indexed and fast-skipped by the done-pair pre-filter.
+> The three-group description below is historical.
 
 - `hu_cities` = `country == "Hungary"` — **339** cities
 - `se_cities` = `country == "Sweden"` — **290** cities (all Swedish kommuner)

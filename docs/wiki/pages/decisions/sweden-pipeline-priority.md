@@ -11,6 +11,13 @@ resource: scraper/main.py
 
 *Added in May 2026 when 290 Swedish municipalities were added to the config.*
 
+> **Update 2026-07-27 — superseded by Germany-first.** Sweden is now fully indexed
+> (4200/4200 pairs). `_saver_city_groups` leads with **Germany** (the ~2,057 Städte
+> added 2026-07-26), then Sweden, then rest of world, then Hungary — startup recovery
+> uses the same order. Sweden/Hungary are fast-skipped by the done-pair pre-filter.
+> The four-group ordering below replaces the three-group split. See `main.py` and the
+> 2026-07-26 log entry.
+
 ## Priority order
 
 1. Sweden (active expansion market, 290 municipalities)
