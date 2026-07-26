@@ -28,6 +28,7 @@ from ..db import (
     get_community_history,
     get_all_communities,
     get_city_topic_counts,
+    get_community_lastmods,
     get_city_totals,
     get_communities,
     get_communities_by_ids,
@@ -4170,9 +4171,11 @@ async def sitemap(request: Request):
         person_prefix = "/ember/"
 
     locs: list[str] = [base + p for p in static_paths]
+    lastmods: dict[str, str] = {}  # loc → YYYY-MM-DD (community pages only)
 
     if app_state.db_path:
         init_db(app_state.db_path)
+        lastmod_map = get_community_lastmods(_db())
 
         if is_meetapedia:
             # country landing pages (/cities/<slug>) — only countries with live
@@ -4199,7 +4202,11 @@ async def sitemap(request: Request):
                         continue  # thin page, noindexed — keep out of the sitemap
                     name_sl = _slugify(record.get("name", ""))
                     if name_sl:
-                        locs.append(f"{base}/{city_sl}/{name_sl}")
+                        loc = f"{base}/{city_sl}/{name_sl}"
+                        locs.append(loc)
+                        lm = lastmod_map.get((city_name, name_sl))
+                        if lm and len(lm) == 10:  # YYYY-MM-DD
+                            lastmods.setdefault(loc, lm)
 
         if not is_meetapedia:
             for v in get_all_venues(app_state.db_path):
@@ -4225,8 +4232,9 @@ async def sitemap(request: Request):
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
     ]
     for loc in dict.fromkeys(locs):  # deduplicate while preserving order
+        lastmod = f"<lastmod>{lastmods[loc]}</lastmod>" if loc in lastmods else ""
         lines.append(
-            f"  <url><loc>{loc}</loc><changefreq>weekly</changefreq></url>"
+            f"  <url><loc>{loc}</loc>{lastmod}<changefreq>weekly</changefreq></url>"
         )
     lines.append("</urlset>")
     return _Response("\n".join(lines), media_type="application/xml")

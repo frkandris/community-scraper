@@ -754,10 +754,23 @@ def _merge_source_urls(old_data: dict | None, record: dict) -> dict:
     return {**record, "source_urls": list(dict.fromkeys(new_urls + prev_urls))}
 
 
+# Fields that change on every extraction without any user-visible content change;
+# excluded from the change-detection fingerprint so `updated_at`/`<lastmod>` stay stable.
+_VOLATILE_COMMUNITY_FIELDS = {"extracted_at"}
+
+
+def _community_content_fingerprint(data: dict) -> str:
+    return json.dumps(
+        {k: v for k, v in data.items() if k not in _VOLATILE_COMMUNITY_FIELDS},
+        ensure_ascii=False, sort_keys=True,
+    )
+
+
 def _bulk_upsert_communities(
     conn: sqlite3.Connection,
     records: list[dict],
     previous: dict[str, dict] | None = None,
+    prev_updated: dict[str, str] | None = None,
 ) -> None:
     now = datetime.now(timezone.utc).isoformat()
     for record in records:
@@ -765,14 +778,26 @@ def _bulk_upsert_communities(
 
         # Prefer pre-delete snapshot; fall back to live row (used by bulk_upsert_communities)
         old_data = (previous or {}).get(key)
+        old_updated = (prev_updated or {}).get(key)
         if old_data is None:
             existing_row = conn.execute(
-                "SELECT data FROM communities WHERE record_key=?", (key,)
+                "SELECT data, updated_at FROM communities WHERE record_key=?", (key,)
             ).fetchone()
             if existing_row:
                 old_data = json.loads(existing_row[0])
+                old_updated = existing_row[1]
 
         record = _merge_source_urls(old_data, record)
+        data_str = json.dumps(record, ensure_ascii=False)
+        # Only advance updated_at on a real content change, so it is a trustworthy
+        # sitemap <lastmod> and a re-extraction that reproduces identical data does
+        # not churn the whole corpus's freshness dates. (replace_communities_for_topic
+        # DELETEs first, so the ON CONFLICT branch never fires there — the preserved
+        # timestamp must be computed here and passed as the inserted value.)
+        row_updated = now
+        if old_data is not None and old_updated and \
+                _community_content_fingerprint(record) == _community_content_fingerprint(old_data):
+            row_updated = old_updated
 
         conn.execute("""
             INSERT INTO communities (record_key, community_id, city, topic, data, updated_at)
@@ -782,7 +807,7 @@ def _bulk_upsert_communities(
                 community_id=excluded.community_id,
                 updated_at=excluded.updated_at
         """, (key, record.get("community_id", ""), record["city"], record["topic"],
-              json.dumps(record, ensure_ascii=False), now))
+              data_str, row_updated))
 
         _log_community_changes(conn, record.get("community_id", ""), old_data, record)
 
@@ -805,20 +830,22 @@ def replace_communities_for_topic(
         # otherwise a merged/reported (hidden) community resurfaces publicly on
         # the next scrape.
         rows = conn.execute(
-            "SELECT data, hidden FROM communities WHERE city=? AND topic=?",
+            "SELECT data, hidden, updated_at FROM communities WHERE city=? AND topic=?",
             (city, topic)
         ).fetchall()
         previous: dict[str, dict] = {}
+        prev_updated: dict[str, str] = {}
         hidden_keys: set[str] = set()
-        for data_str, hidden in rows:
+        for data_str, hidden, updated_at in rows:
             d = json.loads(data_str)
             key = _community_record_key(d["name"], d["city"], d["topic"])
             previous[key] = d
+            prev_updated[key] = updated_at
             if hidden:
                 hidden_keys.add(key)
 
         conn.execute("DELETE FROM communities WHERE city=? AND topic=?", (city, topic))
-        _bulk_upsert_communities(conn, records, previous)
+        _bulk_upsert_communities(conn, records, previous, prev_updated)
         for key in hidden_keys:
             conn.execute(
                 "UPDATE communities SET hidden=1 WHERE record_key=?", (key,)
@@ -841,6 +868,30 @@ def get_communities(db_path: Path, city: str, topic: str) -> list[dict]:
             (city, topic)
         ).fetchall()
     return [json.loads(r[0]) for r in rows]
+
+
+def get_community_lastmods(db_path: Path) -> dict[tuple[str, str], str]:
+    """(city, name_slug) → updated_at date (YYYY-MM-DD) for visible communities.
+
+    Keyed by public slug and ordered by (topic, id) with first-wins, so the date
+    is the one for the exact record the public URL resolves to (see
+    `_find_community_by_slug` / `get_communities_for_city`) — even when a name
+    exists under multiple topics or two names share a slug. `updated_at` only
+    advances on real content changes (see `_bulk_upsert_communities`), so it is a
+    stable <lastmod>. One query for the whole sitemap.
+    """
+    if not db_path.exists():
+        return {}
+    from .identity import public_slug
+    out: dict[tuple[str, str], str] = {}
+    with _connect(db_path) as conn:
+        for city, name, updated_at in conn.execute(
+            "SELECT city, json_extract(data,'$.name'), updated_at "
+            "FROM communities WHERE hidden=0 ORDER BY topic, id"
+        ):
+            if name and updated_at:
+                out.setdefault((city, public_slug(name)), updated_at[:10])
+    return out
 
 
 def search_communities_by_tag(db_path: Path, tag: str, city: str = "") -> list[dict]:

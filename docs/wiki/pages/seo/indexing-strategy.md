@@ -32,7 +32,14 @@ Rationale: stop Google indexing empty/thin programmatic pages, a major trigger o
 - **Thin community pages are skipped** (no description) — consistent with `page_noindex`.
 - Venue/person URLs are emitted only for kozossegek.
 - **Country landing pages** (`/cities/<slug>`, meetapedia only) are listed for countries with live content, minus Hungary — see [[country-landing-pages]].
-- Order-preserving dedup via `dict.fromkeys`; `changefreq weekly`, no `lastmod`/`priority`.
+- Order-preserving dedup via `dict.fromkeys`; `changefreq weekly`, no `priority`.
+- **`<lastmod>` on community pages** (2026-07-26): `get_community_lastmods()` supplies
+  each community URL's `updated_at` date, keyed by `(city, public_slug)` and resolved
+  the same way as the public route (`ORDER BY topic, id`, first-wins) so the date
+  matches the record actually served. `updated_at` only advances on a real content
+  change — `_bulk_upsert_communities` compares a content fingerprint that excludes the
+  volatile `extracted_at` — so a fingerprint re-extraction does not churn every page's
+  `<lastmod>` (the [[2026-06-seo-traffic-collapse]] stability lesson). See [[persistence-layer]].
 
 ## robots.txt and other signals
 
