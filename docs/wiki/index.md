@@ -67,6 +67,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[scheduler-disabled-no-cron]] — APScheduler registers the enabled twin cost-saver jobs and daily report; the legacy combined cron remains opt-in.
 - [[cost-optimization-2026-07]] — Cost controls reduce paid search and LLM work through caching, query short-circuiting, venue gates, off-peak extraction, standard search, and topic tiers.
 - [[admin-simplification-2026-07]] — Removed the revalidate, recategorize, description-maintenance and Full Rebuild admin flows; the admin now centers on low-cost world indexing plus a user-interaction Inbox with pending badges.
+- [[description-enrichment-plan]] — Enriching thin community descriptions (~80→250 words) from cached raw_text is the biggest re-indexing lever, but must be run staged and supervised — not autonomously — because it costs LLM money at scale and risks re-triggering the 2026-06 corpus-churn devaluation.
 - [[doc-drift-project-readme]] — PROJECT.md was archived behind an out-of-date banner on 2026-07-25; README.md is now a project introduction, CLAUDE.md the agent brief (AGENTS.md is generated from it), and this wiki the technical source of truth.
 
 ## Hacks

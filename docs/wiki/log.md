@@ -2,6 +2,9 @@
 
 Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
+## 2026-07-27
+- **Creation**: [[description-enrichment-plan]] — recorded the staged plan for enriching thin community descriptions (biggest re-indexing lever) and the deliberate decision to defer the run to supervised, capped, off-peak batches rather than executing it autonomously (cost at 26K-page scale + [[2026-06-seo-traffic-collapse]] corpus-churn risk + unreviewable AI copy).
+
 ## 2026-07-26
 - **Update**: [[web-app]] — community pages offer a copyable **backlink badge** ("Feature this on your website"): a collapsible section with the escaped `<a href=…>` snippet linking to the canonical community URL + a copy button. Encourages community owners to link back → inbound links / domain authority for the SEO recovery. i18n keys `community_badge_*`; test `test_community_badge.py`.
 - **Update**: [[indexing-strategy]] — hreflang added (`i18n.py:_hreflang_alternates`): `rel=alternate` hu/en/x-default in `<head>` for the shared static pages with clean site-aware URLs (home, map, people). Deliberately excludes content pages (301'd/country-specific) and the not-yet-localized static aliases (about/explore/cities/submit) to avoid wrong alternates. Closes the long-standing "no hreflang anywhere" gap for the pages where it's valid. Tests: `test_hreflang.py`. Full international *content* localization (translated UI per locale) remains a separate large effort.

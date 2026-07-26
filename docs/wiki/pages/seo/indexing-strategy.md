@@ -22,7 +22,7 @@ resource: scraper/web/app.py
 - **Explore**: `city and topic and total == 0` — a city+topic combo with zero communities.
 - **Community detail**: the record has no non-empty `description`.
 
-Rationale: stop Google indexing empty/thin programmatic pages, a major trigger of the mass "Crawled – currently not indexed" devaluation.
+Rationale: stop Google indexing empty/thin programmatic pages, a major trigger of the mass "Crawled – currently not indexed" devaluation. Thickening the *non-empty-but-thin* descriptions (the bigger population) is the complementary lever — planned, staged, and deferred to supervised runs in [[description-enrichment-plan]].
 
 ## Sitemap scoping
 
