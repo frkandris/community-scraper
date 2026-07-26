@@ -215,12 +215,16 @@ def _startup_plan(
     return mode, None
 
 
-def _saver_city_groups(cities: list) -> tuple[list, list, list]:
-    """Expansion-first order for the bounded collector/extractor windows."""
+def _saver_city_groups(cities: list) -> tuple[list, list, list, list]:
+    """Expansion-first order for the bounded collector/extractor windows: the
+    active expansion market (Germany) leads, then Sweden (fully indexed — the
+    done-pair pre-filter fast-skips it), then the rest of the world, then
+    Hungary (also fully indexed)."""
+    de = [city for city in cities if city.country == "Germany"]
     se = [city for city in cities if city.country == "Sweden"]
-    intl = [city for city in cities if city.country not in {"Hungary", "Sweden"}]
+    intl = [city for city in cities if city.country not in {"Hungary", "Sweden", "Germany"}]
     hu = [city for city in cities if city.country == "Hungary"]
-    return se, intl, hu
+    return de, se, intl, hu
 
 
 async def main() -> None:

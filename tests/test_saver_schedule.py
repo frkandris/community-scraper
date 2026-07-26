@@ -164,15 +164,16 @@ def test_next_window_end_same_day_and_midnight_cross():
     assert _next_window_end(start2, "garbage") is None
 
 
-def test_saver_city_groups_prioritize_sweden_then_world_then_hungary():
+def test_saver_city_groups_prioritize_germany_then_sweden_then_world_then_hungary():
     cities = [
         CityConfig(name="Budapest", country="Hungary", locale="hu", search_variants=[]),
         CityConfig(name="Berlin", country="Germany", locale="de", search_variants=[]),
         CityConfig(name="Stockholm", country="Sweden", locale="sv", search_variants=[]),
+        CityConfig(name="Oslo", country="Norway", locale="no", search_variants=[]),
     ]
     groups = _saver_city_groups(cities)
     assert [[city.country for city in group] for group in groups] == [
-        ["Sweden"], ["Germany"], ["Hungary"],
+        ["Germany"], ["Sweden"], ["Norway"], ["Hungary"],
     ]
 
 
