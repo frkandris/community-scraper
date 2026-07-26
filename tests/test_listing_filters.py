@@ -138,6 +138,18 @@ def test_people_url_localized_per_site(tmp_path):
         app_state.cities = old_cities
 
 
+def test_map_url_localized_per_site():
+    c = TestClient(web_app.app)
+    r = c.get("/terkep", headers={"host": "meetapedia.com"}, follow_redirects=False)
+    assert r.status_code == 301 and r.headers["location"] == "/map"
+    r = c.get("/map", headers={"host": "kozossegek.com"}, follow_redirects=False)
+    assert r.status_code == 301 and r.headers["location"] == "/terkep"
+    r = c.get("/map", headers={"host": "meetapedia.com"}, follow_redirects=False)
+    assert r.status_code == 200
+    r = c.get("/terkep", headers={"host": "kozossegek.com"}, follow_redirects=False)
+    assert r.status_code == 200
+
+
 def test_venues_page_has_name_search_structure(tmp_path):
     db = _db(tmp_path)
     upsert_venues(db, [

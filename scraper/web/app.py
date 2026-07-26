@@ -3910,8 +3910,7 @@ async def set_lang(lang: str = "en", next: str = "/"):
     return resp
 
 
-@_fastapi.get("/terkep", response_class=HTMLResponse)
-async def public_map(request: Request):
+async def _render_map(request: Request):
     from ..db import get_city_totals
     city_totals = dict(get_city_totals(_db())) if app_state.db_path else {}
     cities_data = []
@@ -3936,6 +3935,14 @@ async def public_map(request: Request):
         "cities_tracked": len(cities_data),
         **lang_context(request),
     })
+
+
+@_fastapi.get("/terkep", response_class=HTMLResponse)
+async def public_map(request: Request):
+    from .i18n import _detect_site
+    if _detect_site(request) == "meetapedia":
+        return RedirectResponse("/map", status_code=301)
+    return await _render_map(request)
 
 
 def _country_from_slug(slug: str) -> str | None:
@@ -4069,7 +4076,10 @@ async def public_about_en(request: Request):
 
 @_fastapi.get("/map", response_class=HTMLResponse)
 async def public_map_en(request: Request):
-    return RedirectResponse("/terkep", status_code=302)
+    from .i18n import _detect_site
+    if _detect_site(request) == "kozossegek":
+        return RedirectResponse("/terkep", status_code=301)
+    return await _render_map(request)
 
 
 @_fastapi.get("/submit-community", response_class=HTMLResponse)
