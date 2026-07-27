@@ -385,10 +385,10 @@ async def main() -> None:
                     fetch_missing=False,
                     blocked_domains=app_state.pipeline_cfg.fetch_blocked_domains,
                     deadline=deadline)
+                total += stats["enriched"]  # count before any early exit
                 if stats.get("stopped_at_deadline"):
                     log.info("enrich_window_closed", enriched_this_window=total)
                     break
-                total += stats["enriched"]
                 if stats["pool"] == 0:
                     log.info("enrich_complete", enriched_this_window=total)
                     break
