@@ -3,6 +3,7 @@
 Date-grouped operation log, newest first. See [SCHEMA.md](SCHEMA.md).
 
 ## 2026-07-27
+- **Creation**: `scraper/enrich.py` + `POST /admin/api/enrich` — SEO description enrichment tool. New `CommunityRecord.short_description` (cards/meta) + `long_description` (~200-word page body), generated together by `extractor.write_descriptions` from the community's page text (cached or fetched fresh). Separate from the extractor's `description` and preserved across re-extraction by `_merge_source_urls` (durable; `long_description` present = the "already enriched" marker). Reads: community page → long, cards/OG → short. Prompt-injection bounded (system-message instructions + untrusted-data delimiting), output validated, endpoint reserves the run coordinator + hard cap. Updated [[description-enrichment-plan]]. Tests `test_enrich.py`. Refined across 3 codex rounds (cache-revert, coordinator, starvation, marker-drop, multiple-source durability, injection).
 - **Creation**: [[description-enrichment-plan]] — recorded the staged plan for enriching thin community descriptions (biggest re-indexing lever) and the deliberate decision to defer the run to supervised, capped, off-peak batches rather than executing it autonomously (cost at 26K-page scale + [[2026-06-seo-traffic-collapse]] corpus-churn risk + unreviewable AI copy).
 
 ## 2026-07-26

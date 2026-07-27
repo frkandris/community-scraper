@@ -131,8 +131,8 @@
         </a>
         {% endif %}
       </div>
-      {% if r.description %}
-      <p class="text-xs text-[#6A6259] leading-relaxed line-clamp-2">{{ r.description }}</p>
+      {% if r.short_description or r.description %}
+      <p class="text-xs text-[#6A6259] leading-relaxed line-clamp-2">{{ r.short_description or r.description }}</p>
       {% endif %}
     </div>
     {% endfor %}
@@ -181,8 +181,8 @@
             <i class="ph ph-{{ topic_icons.get(r.topic, 'circle') }} text-[#C2613A] text-xs shrink-0"></i>
             <span>{{ r.name }}</span>
           </h4>
-          {% if r.description %}
-          <p class="text-[11px] text-[#6A6259] leading-relaxed line-clamp-2">{{ r.description }}</p>
+          {% if r.short_description or r.description %}
+          <p class="text-[11px] text-[#6A6259] leading-relaxed line-clamp-2">{{ r.short_description or r.description }}</p>
           {% endif %}
         </a>
         {% endfor %}
@@ -266,8 +266,8 @@
         <span>{{ r.name }}</span>
       </h3>
 
-      {% if r.description %}
-      <p class="text-sm text-[#6A6259] leading-relaxed line-clamp-2">{{ r.description }}</p>
+      {% if r.short_description or r.description %}
+      <p class="text-sm text-[#6A6259] leading-relaxed line-clamp-2">{{ r.short_description or r.description }}</p>
       {% endif %}
 
     </div>

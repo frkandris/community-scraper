@@ -4232,7 +4232,8 @@ async def sitemap(request: Request):
                 topic_sl = _topic_url_slug(topic_name, city_locale)
                 locs.append(f"{base}/{city_sl}/{topic_sl}")
                 for record in get_communities(_db(), city_name, topic_name):
-                    if not (record.get("description") or "").strip():
+                    if not ((record.get("description") or "").strip()
+                            or (record.get("long_description") or "").strip()):
                         continue  # thin page, noindexed — keep out of the sitemap
                     name_sl = _slugify(record.get("name", ""))
                     if name_sl:
@@ -4866,6 +4867,63 @@ async def api_send_daily_report(day: str = Form("")):
     hu = _hu_city_names()
     result = await send_daily_report(app_state.db_path, hu, day.strip() or None)
     return JSONResponse(result, status_code=200 if result.get("ok") else 400)
+
+
+@admin.post("/api/enrich")
+async def api_enrich(scope: str = Form("hungary"), limit: int = Form(20),
+                     dry_run: str = Form(""), fetch_missing: str = Form("1")):
+    """Staged description enrichment for one scope ('hungary' or a country name).
+    Admin-triggered, hard-capped; generates short + long descriptions from each
+    community's page text (cached, or fetched fresh when missing). Returns stats +
+    before/after samples. See the docs enrichment plan."""
+    from ..enrich import enrich_batch
+    if not app_state.db_path or not app_state.pipeline_cfg:
+        return JSONResponse({"error": "no db/config"}, status_code=400)
+    if scope.strip().lower() in ("hungary", "hu"):
+        city_names = _hu_city_names()
+    else:
+        city_names = {c.name for c in (app_state.cities or [])
+                      if (c.country or "").lower() == scope.strip().lower()}
+    if not city_names:
+        return JSONResponse({"error": f"no cities for scope {scope!r}"}, status_code=400)
+    extractor = _build_extractor(app_state.pipeline_cfg)
+    if extractor.exhausted:
+        return JSONResponse({"error": "no extractor configured (DEEPSEEK_API_KEY unset)"},
+                            status_code=400)
+    def _truthy(s: str) -> bool:
+        return s.strip().lower() in ("1", "true", "yes", "on")
+    is_dry, do_fetch = _truthy(dry_run), _truthy(fetch_missing)
+    # Reserve the shared run slot (can't overlap a scheduled/manual pipeline run).
+    if not app_state.run_coordinator.reserve("enrich"):
+        return JSONResponse({"error": "a run is already in progress"}, status_code=409)
+    db_path, blocked = app_state.db_path, app_state.pipeline_cfg.fetch_blocked_domains
+
+    # Run in the background — a batch of sequential fetch+LLM calls easily exceeds
+    # the request/proxy timeout. Poll GET /admin/api/enrich/result for the outcome;
+    # cancellable via /api/stop (the coordinator owns the task).
+    async def _run():
+        try:
+            app_state.last_enrich_result = await enrich_batch(
+                db_path, extractor, city_names, limit=int(limit),
+                dry_run=is_dry, fetch_missing=do_fetch, blocked_domains=blocked)
+        except asyncio.CancelledError:
+            app_state.last_enrich_result = {"error": "cancelled"}
+            raise
+        except Exception as exc:
+            app_state.last_enrich_result = {"error": str(exc)}
+
+    app_state.last_enrich_result = None
+    task = asyncio.create_task(_run())
+    app_state.run_coordinator.attach(task)
+    return JSONResponse({"started": True, "scope": scope.strip(), "limit": int(limit),
+                         "dry_run": is_dry, "poll": "/admin/api/enrich/result"})
+
+
+@admin.get("/api/enrich/result")
+async def api_enrich_result():
+    """Result of the most recent /api/enrich batch (null while still running)."""
+    return JSONResponse({"running": app_state.is_running,
+                         "result": app_state.last_enrich_result})
 
 
 @admin.post("/api/reset-city")
@@ -6299,7 +6357,8 @@ async def public_city_segment(
             "all_topic_names": [(t.name, TOPIC_LABELS.get(t.name, t.name.replace("_", " ").title()))
                                 for t in (app_state.topics or [])],
             "canonical_base": _canonical_base(request, city_name),
-            "page_noindex": not (record.get("description") or "").strip(),
+            "page_noindex": not ((record.get("description") or "").strip()
+                                  or (record.get("long_description") or "").strip()),
             "breadcrumbs": _crumbs(
                 request,
                 (city_name, f"/{city_slug}"),

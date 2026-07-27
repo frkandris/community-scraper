@@ -2,7 +2,7 @@
 {% block head %}{% if schema_json %}<script type="application/ld+json">{{ schema_json | safe }}</script>{% endif %}{% endblock %}
 {% block title %}{{ r.name }}{% if topic %} – {{ topic_labels.get(topic, topic) }}{% if city %} {{ city }}{% endif %}{% elif city %} – {{ city }}{% endif %} | {{ site_name }}{% endblock %}
 {% block og_image_url %}/static/img/og/{{ topic or 'default' }}.png{% endblock %}
-{% block og_desc %}{{ r.description | truncate(160, True, '...') if r.description else t('community_og_fallback', name=r.name) }}{% endblock %}
+{% block og_desc %}{{ r.short_description or (r.description | truncate(160, True, '...')) if (r.short_description or r.description) else t('community_og_fallback', name=r.name) }}{% endblock %}
 
 {% block content %}
 
@@ -78,8 +78,8 @@
       </div>
     </div>
 
-    {% if r.description %}
-    <p class="text-[#4A4441] leading-relaxed mb-6 text-base">{{ r.description }}</p>
+    {% if r.long_description or r.description %}
+    <p class="text-[#4A4441] leading-relaxed mb-6 text-base">{{ r.long_description or r.description }}</p>
     {% endif %}
 
     <!-- Get involved CTA zone -->

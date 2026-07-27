@@ -1,0 +1,117 @@
+"""Staged description enrichment (short + long).
+
+For thin community pages, generates a one-line `short_description` (cards/meta) and
+a ~200-word `long_description` (page body) from the community's own page text — the
+biggest re-indexing lever (see docs/wiki `description-enrichment-plan`). The two
+fields are separate from the extractor's `description`, so a re-extraction can't
+revert them (`_merge_source_urls` preserves them). Bounded + admin-triggered — never
+an auto-run — so the corpus changes gradually (the 2026-06 corpus-churn lesson) and
+a human reviews output before scaling.
+
+`long_description` present is the durable "already enriched" marker.
+"""
+from __future__ import annotations
+
+import structlog
+
+from .db import (
+    get_enrichment_candidates,
+    mark_enrichment_attempted,
+    update_community_enrichment,
+)
+from .fetch import fetch_and_clean
+
+log = structlog.get_logger()
+
+MAX_BATCH = 500          # hard ceiling per run; enrichment is gradual by design
+_MIN_LONG_WORDS = 60     # accept a long_description only if it is genuinely richer
+_MIN_LONG_CHARS = 200    # char floor so CJK output (few spaces) isn't wrongly rejected
+_MAX_SHORT_CHARS = 140
+
+_REFUSAL_MARKERS = (
+    "i cannot", "i can't", "as an ai", "i'm sorry", "sajnos nem", "nem tudok",
+    "insufficient information", "nincs elég", "cannot generate",
+)
+
+
+def _is_refusal(text: str) -> bool:
+    low = text.lower()
+    return any(m in low for m in _REFUSAL_MARKERS)
+
+
+def validate(short: str, long: str) -> tuple[str, str] | None:
+    """Return cleaned (short, long) if acceptable, else None. Guards against junk,
+    refusals, and over-long 'short' text before anything is published."""
+    short, long = (short or "").strip(), (long or "").strip()
+    # word floor for space-delimited languages, char floor for CJK (few/no spaces)
+    long_enough = len(long.split()) >= _MIN_LONG_WORDS or len(long) >= _MIN_LONG_CHARS
+    if not long_enough or _is_refusal(long) or _is_refusal(short):
+        return None
+    if not short:
+        # derive a minimal short from the long's first sentence if the model omitted it
+        short = long.split(".")[0].strip()
+    short = short[:_MAX_SHORT_CHARS].strip()
+    if not short:
+        return None
+    return short, long
+
+
+async def enrich_batch(
+    db_path, extractor, city_names: set[str], limit: int = 20,
+    dry_run: bool = False, fetch_missing: bool = True,
+    blocked_domains: list[str] | None = None,
+) -> dict:
+    """Enrich up to `limit` un-enriched communities in `city_names` (those without a
+    long_description). Uses cached source raw_text, or fetches the page fresh when
+    missing (if `fetch_missing`). Returns stats + before/after samples for review."""
+    limit = max(0, min(limit, MAX_BATCH))
+    pool = get_enrichment_candidates(
+        db_path, set(city_names), min(MAX_BATCH, max(limit * 3, limit)))
+    stats = {"pool": len(pool), "enriched": 0, "skipped": 0, "no_source": 0,
+             "failed": 0, "dry_run": dry_run, "samples": []}
+    for c in pool:
+        if stats["enriched"] >= limit:
+            break
+        text = c.get("raw_text")
+        if not text and fetch_missing:
+            # try each source in turn — the first may be blocked/dead while a
+            # later one is reachable
+            for url in c.get("source_urls") or []:
+                try:
+                    text = await fetch_and_clean(url, blocked_domains or [])
+                except Exception as exc:
+                    log.warning("enrich_fetch_failed", url=url, error=str(exc))
+                    text = None
+                if text and len(text) >= 300:
+                    break
+        if not text or len(text) < 300:
+            stats["no_source"] += 1
+            if not dry_run:
+                mark_enrichment_attempted(db_path, c["record_key"])
+            continue
+        try:
+            res = await extractor.write_descriptions(
+                c["name"], c["city"], c["topic"], c.get("locale", "hu"), text)
+        except Exception as exc:
+            log.warning("enrich_call_failed", name=c["name"], city=c["city"], error=str(exc))
+            stats["failed"] += 1
+            continue  # transient provider error — do NOT mark; retry next batch
+        ok = validate(res.get("short_description", ""), res.get("long_description", ""))
+        if not ok:
+            stats["skipped"] += 1
+            if not dry_run:
+                mark_enrichment_attempted(db_path, c["record_key"])
+            continue
+        short, long = ok
+        if not dry_run:
+            update_community_enrichment(db_path, c["record_key"], short, long)
+        stats["enriched"] += 1
+        if len(stats["samples"]) < 10:
+            stats["samples"].append({
+                "name": c["name"], "city": c["city"], "topic": c["topic"],
+                "old": c["description"], "short": short, "long": long,
+                "old_words": len((c["description"] or "").split()),
+                "long_words": len(long.split()),
+            })
+    log.info("enrich_batch_done", **{k: v for k, v in stats.items() if k != "samples"})
+    return stats

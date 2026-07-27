@@ -48,7 +48,7 @@
         <div class="min-w-0">
           <div class="font-medium text-[#1C1917] group-hover:text-[#A8512F] transition-colors truncate">{{ c.name }}</div>
           <div class="text-xs text-[#8C8478]">{{ c.city }} · {{ topic_labels.get(c.topic, c.topic) }}</div>
-          {% if c.description %}<div class="text-xs text-[#B5ADA0] truncate mt-0.5">{{ c.description | truncate(120, True, '…') }}</div>{% endif %}
+          {% if c.short_description or c.description %}<div class="text-xs text-[#B5ADA0] truncate mt-0.5">{{ (c.short_description or c.description) | truncate(120, True, '…') }}</div>{% endif %}
         </div>
       </a>
       {% endfor %}

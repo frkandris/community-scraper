@@ -28,6 +28,12 @@ class CommunityRecord(BaseModel):
     city: str
     locale: str
     description: str | None = None
+    # SEO enrichment (written by scraper/enrich.py, NOT by extraction). Kept
+    # separate from `description` so a re-extraction can't revert them, and
+    # preserved across saves by _merge_source_urls. short = one-line card/meta
+    # text; long = the rich community-page body.
+    short_description: str | None = None
+    long_description: str | None = None
     meeting_schedule: str | None = None
     location: str | None = None
     contact: str | None = None
@@ -64,7 +70,8 @@ class CommunityRecord(BaseModel):
     _LEAKED_JSON_RE = re.compile(r'[""]\s*,\s*(?:\d[\d.]*\s*[",]|true\b|false\b).*$', re.DOTALL)
 
     @field_validator(
-        "description", "meeting_schedule", "location", "contact", "website",
+        "description", "short_description", "long_description",
+        "meeting_schedule", "location", "contact", "website",
         "member_count", "fee", "age_range", "skill_level", "join_process",
         "leader", "email", "phone", "language", "history", "frequency",
         mode="before",

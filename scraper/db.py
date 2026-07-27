@@ -698,7 +698,8 @@ def _get_history(db_path: Path, table: str, id_col: str, record_id: str, limit: 
 # ── Communities ───────────────────────────────────────────────────────────────
 
 _HISTORY_FIELDS = [
-    "name", "description", "history", "website", "tags", "social_links",
+    "name", "description", "short_description", "long_description", "history",
+    "website", "tags", "social_links",
     "meeting_schedule", "location", "contact", "fee", "age_range", "skill_level",
     "join_process", "leader", "language", "frequency", "founding_year", "member_count",
     "email", "phone", "confidence", "joinable",
@@ -742,6 +743,12 @@ def _log_community_changes(
             )
 
 
+# SEO-enrichment fields written by scraper/enrich.py, never by extraction. They
+# must survive a re-extraction that rebuilds the record from cache, so they are
+# carried forward from the existing row whenever the incoming record lacks them.
+_PRESERVED_ENRICHMENT_FIELDS = ("short_description", "long_description")
+
+
 def _merge_source_urls(old_data: dict | None, record: dict) -> dict:
     if not old_data:
         return record
@@ -751,17 +758,28 @@ def _merge_source_urls(old_data: dict | None, record: dict) -> dict:
     new_urls: list[str] = record.get("source_urls") or []
     if record.get("source_url") and record["source_url"] not in new_urls:
         new_urls = [record["source_url"]] + new_urls
-    return {**record, "source_urls": list(dict.fromkeys(new_urls + prev_urls))}
+    merged = {**record, "source_urls": list(dict.fromkeys(new_urls + prev_urls))}
+    for field in _PRESERVED_ENRICHMENT_FIELDS:
+        if not merged.get(field) and old_data.get(field):
+            merged[field] = old_data[field]
+    return merged
 
 
 # Fields that change on every extraction without any user-visible content change;
 # excluded from the change-detection fingerprint so `updated_at`/`<lastmod>` stay stable.
-_VOLATILE_COMMUNITY_FIELDS = {"extracted_at"}
+# `enrich_attempted_at` is a retry marker (dropped on re-extraction) — must be volatile
+# or its removal reads as a change and falsely bumps <lastmod>.
+_VOLATILE_COMMUNITY_FIELDS = {"extracted_at", "enrich_attempted_at"}
 
 
 def _community_content_fingerprint(data: dict) -> str:
+    # Drop volatile fields AND null/empty values, so newly-added optional fields
+    # (e.g. short_description/long_description serialized as None on the first save
+    # of a pre-existing record) don't register as a content change and churn every
+    # page's <lastmod>.
     return json.dumps(
-        {k: v for k, v in data.items() if k not in _VOLATILE_COMMUNITY_FIELDS},
+        {k: v for k, v in data.items()
+         if k not in _VOLATILE_COMMUNITY_FIELDS and v not in (None, "", [], {})},
         ensure_ascii=False, sort_keys=True,
     )
 
@@ -850,6 +868,108 @@ def replace_communities_for_topic(
             conn.execute(
                 "UPDATE communities SET hidden=1 WHERE record_key=?", (key,)
             )
+        conn.commit()
+
+
+def get_enrichment_candidates(
+    db_path: Path, city_names: set[str], limit: int, retry_after_days: int = 7,
+) -> list[dict]:
+    """Communities in `city_names` still missing a `long_description` (the durable
+    enrichment marker — set fields survive re-extraction via `_merge_source_urls`).
+    Candidates attempted-but-not-enriched within the last `retry_after_days` are
+    skipped (see `mark_enrichment_attempted`) so blocked/dead sources or repeated
+    invalid output don't starve later communities while still allowing eventual
+    retry. Returns dicts with record_key/name/city/topic/locale/description + all
+    source_urls and any cached raw_text. raw_text is looked up per candidate
+    (bounded to ~limit lookups), never the whole cache at once (OOM)."""
+    import hashlib
+    from datetime import timedelta
+
+    def _uh(url: str) -> str:
+        return hashlib.sha256(url.encode()).hexdigest()[:16]
+
+    if not db_path.exists() or not city_names or limit <= 0:
+        return []
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=retry_after_days)).isoformat()
+    out: list[dict] = []
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT record_key, data FROM communities WHERE hidden=0 ORDER BY id"
+        ).fetchall()
+        for record_key, data_str in rows:
+            if len(out) >= limit:
+                break
+            try:
+                d = json.loads(data_str)
+            except (TypeError, json.JSONDecodeError):
+                continue
+            if d.get("city") not in city_names or (d.get("long_description") or "").strip():
+                continue  # already enriched (durable marker) or out of scope
+            if (d.get("enrich_attempted_at") or "") > cutoff:
+                continue  # attempted recently and failed — retry later, not now
+            urls = d.get("source_urls") or ([d["source_url"]] if d.get("source_url") else [])
+            if not urls:
+                continue
+            raw_text = None
+            for url in urls:
+                row = conn.execute(
+                    "SELECT json_extract(data, '$.raw_text') FROM cache_pages WHERE url_hash=?",
+                    (_uh(url),),
+                ).fetchone()
+                if row and row[0] and len(row[0]) >= 300:
+                    raw_text = row[0]
+                    break
+            out.append({
+                "record_key": record_key, "name": d.get("name", ""),
+                "city": d.get("city", ""), "topic": d.get("topic", ""),
+                "locale": d.get("locale", "hu"),
+                "description": d.get("description") or "",
+                "source_urls": urls, "raw_text": raw_text,
+            })
+    return out
+
+
+def update_community_enrichment(
+    db_path: Path, record_key: str, short_description: str, long_description: str,
+) -> bool:
+    """Set a community's enrichment fields (`short_description` + `long_description`)
+    and bump `updated_at` (genuine content change → correct <lastmod>). Returns
+    False if the row is gone. No cache write needed: `_merge_source_urls` carries
+    these fields forward across every re-extraction, so they are durable."""
+    with _connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT data FROM communities WHERE record_key=?", (record_key,)
+        ).fetchone()
+        if not row:
+            return False
+        old = json.loads(row[0])
+        now = datetime.now(timezone.utc).isoformat()
+        new = {**old, "short_description": short_description,
+               "long_description": long_description}
+        conn.execute(
+            "UPDATE communities SET data=?, updated_at=? WHERE record_key=?",
+            (json.dumps(new, ensure_ascii=False), now, record_key),
+        )
+        _log_community_changes(conn, new.get("community_id", ""), old, new)
+        conn.commit()
+    return True
+
+
+def mark_enrichment_attempted(db_path: Path, record_key: str) -> None:
+    """Stamp `enrich_attempted_at` so a candidate that failed/produced junk is not
+    re-selected every batch (see `get_enrichment_candidates`). Does NOT bump
+    `updated_at` (no user-visible change) or log history. Not a CommunityRecord
+    field, so a genuine re-extraction clears it and allows a fresh retry."""
+    with _connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT data FROM communities WHERE record_key=?", (record_key,)
+        ).fetchone()
+        if not row:
+            return
+        d = json.loads(row[0])
+        d["enrich_attempted_at"] = datetime.now(timezone.utc).isoformat()
+        conn.execute("UPDATE communities SET data=? WHERE record_key=?",
+                     (json.dumps(d, ensure_ascii=False), record_key))
         conn.commit()
 
 

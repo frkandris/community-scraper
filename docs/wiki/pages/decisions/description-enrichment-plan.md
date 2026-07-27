@@ -11,8 +11,21 @@ resource: scraper/extract.py
 
 *Community detail pages carry ~80–100 words of unique text; GSC (2026-07) shows
 ~97% of pages are "Crawled – currently not indexed". Thickening descriptions is the
-single biggest lever to get them re-indexed. This page records the plan; the run is
-**intentionally deferred to supervised execution** — see Why.*
+single biggest lever to get them re-indexed.*
+
+> **Update 2026-07-27 — the tool is built** (`scraper/enrich.py`, `POST
+> /admin/api/enrich`). Design evolved to **two new fields** on `CommunityRecord`:
+> `short_description` (one line → cards/meta) and `long_description` (~200-word page
+> body), generated together by `extractor.write_descriptions` from the community's
+> page text (cached, or **fetched fresh when missing**). They are separate from the
+> extractor's `description` and preserved across re-extraction by
+> `_merge_source_urls`, so a re-extraction can't revert them — `long_description`
+> present is the durable "already enriched" marker. Prompt-injection is bounded
+> (instructions in the system message; page text delimited as untrusted data) and
+> output is validated before publishing. The endpoint reserves the run coordinator
+> (cancellable via `/api/stop`, can't overlap a pipeline run) and is hard-capped
+> (`MAX_BATCH=500`). The **run** is still gated on a human: supervised, capped,
+> off-peak batches. The plan below is the operating guide.
 
 ## Why this was NOT run autonomously (2026-07-27 overnight batch)
 
