@@ -129,6 +129,15 @@ def _settings_cron_enabled() -> bool:
     return False
 
 
+def _cron_start_hhmm(cron_expr: str, fallback: str = "16:30") -> str:
+    """'HH:MM' start time from a cron expr's minute+hour fields (for window gating)."""
+    parts = cron_expr.split()
+    try:
+        return f"{int(parts[1]):02d}:{int(parts[0]):02d}"
+    except (IndexError, ValueError):
+        return fallback
+
+
 def _startup_until(startup_mode: str, schedule_cfg: dict) -> str | None:
     """Window-end HH:MM to box a startup recovery run to, matching the saver twin
     windows so a resumed collector/extractor stops exactly where its cron twin
@@ -334,6 +343,63 @@ async def main() -> None:
         # DeepSeek off-peak: extract the already-collected pages only
         await _cron_run("ai_only", "re-ai", _settings_schedule().get("extract_until"))
 
+    async def _enrich_run() -> None:
+        """Managed off-peak SEO description enrichment. Fires at enrich_cron and on
+        startup when already in-window (so a restart resumes instead of waiting a
+        day). Processes bounded rounds until the off-peak window closes or no
+        candidates remain; idempotent/resumable via the long_description marker.
+        Does NOT reserve the pipeline slot — it deliberately coexists with the
+        ai_only extractor (both DeepSeek; _merge_source_urls keeps enriched fields
+        safe if both touch a row)."""
+        if app_state._enrich_running:
+            log.info("enrich_skipped", reason="already_running")
+            return
+        cfg = _settings_schedule()
+        start = _cron_start_hhmm(cfg.get("enrich_cron") or "30 16 * * *")
+        end = cfg.get("enrich_until") or "00:30"
+        if not _within_window(datetime.now(timezone.utc), start, end):
+            return  # self-gated to the configured window: safe to call on every startup
+        if not app_state.db_path or not app_state.pipeline_cfg:
+            return
+        from .enrich import enrich_batch
+        from .web.app import _build_extractor
+        extractor = _build_extractor(app_state.pipeline_cfg)
+        if extractor.exhausted:
+            log.info("enrich_skipped", reason="no_extractor")
+            return
+        scope = {c.name for c in (app_state.cities or [])}
+        if not scope:
+            return
+        limit = int(cfg.get("enrich_batch_limit") or 200)
+        app_state._enrich_running = True
+        app_state._enrich_task = asyncio.current_task()  # so /api/stop can cancel it
+        total = 0
+        try:
+            while _within_window(datetime.now(timezone.utc), start, end):
+                stats = await enrich_batch(
+                    app_state.db_path, extractor, scope, limit=limit,
+                    fetch_missing=False,
+                    blocked_domains=app_state.pipeline_cfg.fetch_blocked_domains)
+                total += stats["enriched"]
+                if stats["pool"] == 0:
+                    log.info("enrich_complete", enriched_this_window=total)
+                    break
+                # Provider down: enrich_batch fails fast and leaves candidates
+                # unmarked, so pool stays nonzero — bail out instead of tight-looping.
+                if extractor.exhausted or (stats["enriched"] == 0 and stats["failed"] > 0):
+                    log.warning("enrich_aborted_provider_down", enriched_this_window=total)
+                    break
+                await asyncio.sleep(1)  # yield to the event loop between rounds
+            else:
+                log.info("enrich_window_closed", enriched_this_window=total)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            log.error("enrich_run_failed", error=str(exc))
+        finally:
+            app_state._enrich_running = False
+            app_state._enrich_task = None
+
     scheduler = AsyncIOScheduler()
     scheduler.start()
     app_state.scheduler = scheduler
@@ -367,6 +433,19 @@ async def main() -> None:
                  search_until=schedule_cfg.get("search_until"),
                  extract_cron=schedule_cfg.get("extract_cron"),
                  extract_until=schedule_cfg.get("extract_until"))
+    if schedule_cfg.get("enrich_enabled"):
+        # Managed off-peak description enrichment — survives restarts (re-registered
+        # here every startup + a startup-resume hook below). Runs only in DeepSeek's
+        # discount window.
+        em, eh, ed, emo, edow = _cron_fields(str(schedule_cfg.get("enrich_cron") or "30 16 * * *"))
+        scheduler.add_job(
+            _enrich_run, CronTrigger(minute=em, hour=eh, day=ed, month=emo, day_of_week=edow),
+            misfire_grace_time=3600,
+        )
+        log.info("scheduler_enrich_enabled",
+                 enrich_cron=schedule_cfg.get("enrich_cron"),
+                 enrich_until=schedule_cfg.get("enrich_until"))
+
     if _settings_schedule().get("report_enabled"):
         async def _daily_report_job() -> None:
             from .report import send_daily_report
@@ -447,6 +526,11 @@ async def main() -> None:
 
     if _settings_auto_run_on_startup():
         asyncio.create_task(_startup_run())
+
+    if schedule_cfg.get("enrich_enabled"):
+        # Resume enrichment immediately if a restart landed inside the off-peak
+        # window (otherwise it would idle until the next enrich_cron). Self-gated.
+        asyncio.create_task(_enrich_run())
 
     config = uvicorn.Config(
         web_app,

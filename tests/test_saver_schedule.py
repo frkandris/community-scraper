@@ -155,6 +155,23 @@ def test_stop_at_in_past_processes_zero_pairs(tmp_path):
     assert total == 0 and logs == []
 
 
+def test_enrich_window_gate():
+    from datetime import datetime, timezone
+    from scraper.main import _cron_start_hhmm, _within_window
+    assert _cron_start_hhmm("30 16 * * *") == "16:30"
+    assert _cron_start_hhmm("garbage") == "16:30"        # fallback
+    start, end = _cron_start_hhmm("30 16 * * *"), "00:30"
+    def at(h, m=0):
+        return datetime(2026, 7, 27, h, m, tzinfo=timezone.utc)
+    assert _within_window(at(16, 30), start, end) is True   # opens
+    assert _within_window(at(20), start, end) is True
+    assert _within_window(at(0, 10), start, end) is True    # after midnight, still in
+    assert _within_window(at(0, 30), start, end) is False   # closes
+    assert _within_window(at(6), start, end) is False       # peak
+    # an earlier configured cutoff (23:00) is honored — 00:10 is out of window
+    assert _within_window(at(0, 10), "16:30", "23:00") is False
+
+
 def test_next_window_end_same_day_and_midnight_cross():
     start = datetime(2026, 7, 9, 1, 5, tzinfo=timezone.utc)
     assert _next_window_end(start, "16:20") == datetime(2026, 7, 9, 16, 20, tzinfo=timezone.utc)

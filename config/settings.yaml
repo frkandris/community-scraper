@@ -88,6 +88,15 @@ schedule:
   search_until: "16:20"
   extract_cron: "35 16 * * *"
   extract_until: "00:20"
+  # ── Managed off-peak description enrichment ────────────────────────────────
+  # SEO short/long descriptions generated in DeepSeek's discount window only.
+  # Fires at enrich_cron and resumes on startup if a restart lands mid-window;
+  # bounded, idempotent/resumable (long_description marker). Coexists with the
+  # ai_only extractor. Turn off by setting enrich_enabled: false.
+  enrich_enabled: true
+  enrich_cron: "30 16 * * *"
+  enrich_until: "00:30"
+  enrich_batch_limit: 200
   # Daily summary email (traffic + changes per site + runs). Recipient =
   # REPORT_EMAIL or FEEDBACK_EMAIL env; sent via Resend. 04:30 UTC = 06:30 CEST.
   report_enabled: true

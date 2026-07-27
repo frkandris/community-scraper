@@ -70,6 +70,8 @@ class AppState:
     current_topic: str | None = None     # topic being processed in current pair
     _run_task: Any = None
     last_enrich_result: dict | None = None   # result of the most recent /api/enrich batch
+    _enrich_running: bool = False            # guards the managed off-peak enrichment job
+    _enrich_task: Any = None                 # manual /api/enrich task (cancellable via /api/stop)
     # Task queue — queue_items is the authoritative ordered list
     queue_items: list = field(default_factory=list)   # list of item dicts (pending/running/done)
     _queue_fns: dict = field(default_factory=dict)    # item_id -> coroutine fn

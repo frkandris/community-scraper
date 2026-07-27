@@ -4893,14 +4893,17 @@ async def api_enrich(scope: str = Form("hungary"), limit: int = Form(20),
     def _truthy(s: str) -> bool:
         return s.strip().lower() in ("1", "true", "yes", "on")
     is_dry, do_fetch = _truthy(dry_run), _truthy(fetch_missing)
-    # Reserve the shared run slot (can't overlap a scheduled/manual pipeline run).
-    if not app_state.run_coordinator.reserve("enrich"):
-        return JSONResponse({"error": "a run is already in progress"}, status_code=409)
+    # `_enrich_running` is the single enrichment mutex shared with the managed
+    # off-peak job (main.py:_enrich_run) so the two can't run the same candidate
+    # pool at once. Enrichment deliberately does NOT reserve the pipeline
+    # coordinator — it coexists with the ai_only extractor.
+    if app_state._enrich_running:
+        return JSONResponse({"error": "enrichment already running"}, status_code=409)
+    app_state._enrich_running = True
     db_path, blocked = app_state.db_path, app_state.pipeline_cfg.fetch_blocked_domains
 
-    # Run in the background — a batch of sequential fetch+LLM calls easily exceeds
-    # the request/proxy timeout. Poll GET /admin/api/enrich/result for the outcome;
-    # cancellable via /api/stop (the coordinator owns the task).
+    # Run in the background — a batch of sequential LLM calls easily exceeds the
+    # request/proxy timeout. Poll GET /admin/api/enrich/result for the outcome.
     async def _run():
         try:
             app_state.last_enrich_result = await enrich_batch(
@@ -4911,10 +4914,14 @@ async def api_enrich(scope: str = Form("hungary"), limit: int = Form(20),
             raise
         except Exception as exc:
             app_state.last_enrich_result = {"error": str(exc)}
+        finally:
+            app_state._enrich_running = False
+            app_state._enrich_task = None
 
     app_state.last_enrich_result = None
-    task = asyncio.create_task(_run())
-    app_state.run_coordinator.attach(task)
+    # Store the task so /api/stop can cancel this (paid, long-running) batch —
+    # enrichment doesn't use the run coordinator, so it needs its own handle.
+    app_state._enrich_task = asyncio.create_task(_run())
     return JSONResponse({"started": True, "scope": scope.strip(), "limit": int(limit),
                          "dry_run": is_dry, "poll": "/admin/api/enrich/result"})
 
@@ -4922,7 +4929,7 @@ async def api_enrich(scope: str = Form("hungary"), limit: int = Form(20),
 @admin.get("/api/enrich/result")
 async def api_enrich_result():
     """Result of the most recent /api/enrich batch (null while still running)."""
-    return JSONResponse({"running": app_state.is_running,
+    return JSONResponse({"running": app_state._enrich_running,
                          "result": app_state.last_enrich_result})
 
 
@@ -5117,6 +5124,12 @@ async def trigger_run(
 async def stop_run():
     if app_state.run_coordinator.cancel():
         log.info("run_cancelled_by_user")
+    # Enrichment runs outside the coordinator (coexists with the pipeline), so
+    # cancel its task separately.
+    t = app_state._enrich_task
+    if t is not None and not t.done():
+        t.cancel()
+        log.info("enrich_cancelled_by_user")
     return RedirectResponse("/admin/", status_code=302)
 
 
