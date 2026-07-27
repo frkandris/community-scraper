@@ -371,6 +371,10 @@ async def main() -> None:
         if not scope:
             return
         limit = int(cfg.get("enrich_batch_limit") or 200)
+        # Hard off-peak cutoff passed into each batch so a round started near the
+        # boundary stops issuing paid LLM calls the instant the window closes,
+        # instead of running a full limit-long round into peak pricing.
+        deadline = _next_window_end(datetime.now(timezone.utc), end)
         app_state._enrich_running = True
         app_state._enrich_task = asyncio.current_task()  # so /api/stop can cancel it
         total = 0
@@ -379,7 +383,11 @@ async def main() -> None:
                 stats = await enrich_batch(
                     app_state.db_path, extractor, scope, limit=limit,
                     fetch_missing=False,
-                    blocked_domains=app_state.pipeline_cfg.fetch_blocked_domains)
+                    blocked_domains=app_state.pipeline_cfg.fetch_blocked_domains,
+                    deadline=deadline)
+                if stats.get("stopped_at_deadline"):
+                    log.info("enrich_window_closed", enriched_this_window=total)
+                    break
                 total += stats["enriched"]
                 if stats["pool"] == 0:
                     log.info("enrich_complete", enriched_this_window=total)
