@@ -88,7 +88,15 @@ from ..extract import (ENRICH_SCHEMA, ENRICH_SYSTEM_PROMPT, EXTRACTION_SCHEMA,
 from ..fetch import fetch_and_clean
 from ..identity import public_slug
 from ..models import CommunityRecord
-from ..pipeline import _enrich_record, _needs_enrichment, run_pipeline, scrape_submitted_url, reextract_community
+from ..pipeline import (
+    RUN_ABORTED,
+    _enrich_record,
+    _needs_enrichment,
+    classify_run_outcome,
+    reextract_community,
+    run_pipeline,
+    scrape_submitted_url,
+)
 from ..search import DataForSEOClient, FallbackSearchClient
 from ..store import save_results
 from ..url_safety import (UnsafeURLError, assert_safe_public_url,
@@ -5071,7 +5079,6 @@ async def trigger_run(
             until = _settings_schedule().get("search_until")
             if until:
                 stop_at = _next_window_end(started, str(until))
-        success = False
         pair_logs: list = []
         total_new = 0
         run_error: str | None = None
@@ -5092,12 +5099,6 @@ async def trigger_run(
                 stop_at=stop_at,
             )
             app_state.last_run_at = datetime.now(timezone.utc)
-            # Same criteria as scheduled runs: provider failures make the run
-            # unsuccessful so run history and the daily report don't show a
-            # search-dead run as ✓.
-            search_failures = sum(1 for row in pair_logs if row.get("search_failed"))
-            extract_failures = sum(row.get("extract_failed", 0) for row in pair_logs)
-            success = not (search_failures or extract_failures)
         except Exception as exc:
             # Persisted, not just logged: a preflight abort or any top-level
             # failure must name itself in the run history and the daily email.
@@ -5108,10 +5109,14 @@ async def trigger_run(
             try:
                 _home_stats_cache = {}
                 if app_state.db_path and _run_id:
+                    # Same three-state classification as scheduled runs: a dead
+                    # provider is an abort, scattered retryable pair failures are
+                    # a warning, so run history never shows either as a clean ✓.
+                    _outcome = classify_run_outcome(pair_logs, run_error)
                     _finish_run(app_state.db_path, _run_id, datetime.now(timezone.utc),
-                                success,
+                                _outcome != RUN_ABORTED,
                                 json.dumps(pair_logs) if pair_logs else None,
-                                total_new, error=run_error)
+                                total_new, error=run_error, outcome=_outcome)
             finally:
                 app_state.run_coordinator.release(asyncio.current_task())
 

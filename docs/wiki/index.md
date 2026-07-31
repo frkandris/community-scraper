@@ -69,6 +69,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[admin-simplification-2026-07]] — Removed the revalidate, recategorize, description-maintenance and Full Rebuild admin flows; the admin now centers on low-cost world indexing plus a user-interaction Inbox with pending badges.
 - [[description-enrichment-plan]] — Enriching thin community descriptions (~80→250 words) from cached raw_text is the biggest re-indexing lever, but must be run staged and supervised — not autonomously — because it costs LLM money at scale and risks re-triggering the 2026-06 corpus-churn devaluation.
 - [[doc-drift-project-readme]] — PROJECT.md was archived behind an out-of-date banner on 2026-07-25; README.md is now a project introduction, CLAUDE.md the agent brief (AGENTS.md is generated from it), and this wiki the technical source of truth.
+- [[run-outcome-three-states]] — A run is ok / warning / aborted rather than a success boolean, because one retryable pair failure out of 1414 is not the same event as a provider outage that ended the window.
 
 ## Hacks
 
@@ -109,6 +110,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[2026-07-wrong-city-approve-conflict]] — Approving a wrong_city edit request failed with "community not found or unsupported change type" — apply_community_edit collapsed three distinct failures into one boolean, hiding that the record already existed under the correct city.
 - [[2026-07-deepseek-model-retired]] — DeepSeek dropped the deepseek-chat model name and the whole 2026-07-24 ai_only window failed with 1368 uncached pages; the fix swaps to deepseek-v4-flash while fingerprint_model pins the cache identity so 74K cached extractions survive.
 - [[2026-07-deploy-truncates-collector]] — A deploy landing inside the 15 h search_only window kills the in-flight collector; with auto_run_on_startup off it never resumed and lost the rest of the day's page collection — invisible because the evening extractor lived off the cached-page backlog.
+- [[2026-07-llm-bare-array-run-abort]] — DeepSeek answered one page with a top-level JSON array, `.get()` hit a list, and the untyped AttributeError escaped the extractor chain and killed the 2026-07-30 ai_only window with 0 pairs processed.
 
 ## Operations
 

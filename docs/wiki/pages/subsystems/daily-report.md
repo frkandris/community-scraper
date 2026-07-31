@@ -52,6 +52,12 @@ stand" — visitors, diffs, runs, and totals, split Hungarian / international.*
   alone cannot distinguish those states. Provider-level failures make scheduled
   runs unsuccessful; their pair-log counts are shown once, without a duplicate
   top-level error string.
+- Since 2026-07-31 the run line has **three** states, read from `runs.outcome`
+  ([[run-outcome-three-states]]): ✅ clean, ⚠️ finished with retryable item
+  failures, ❌ aborted. Before that a single transient DataForSEO timeout out of
+  1414 pairs rendered ❌, identical to a dead provider. The failure clause now
+  says the next run retries the pairs, which is what actually happens — nothing
+  is retried inside the failing run.
 - Since 2026-07-24 the history joins count `DISTINCT` entity ids/rows: a
   community indexed under several topics shares one `community_id`, and the
   plain `COUNT(*)` join multiplied new/changed counts by the number of topic

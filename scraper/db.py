@@ -124,6 +124,12 @@ def init_db(db_path: Path) -> None:
             conn.execute("ALTER TABLE runs ADD COLUMN error TEXT")
         except sqlite3.OperationalError:
             pass
+        try:
+            # 'ok' | 'warning' | 'aborted'. NULL on rows written before
+            # 2026-07-31; readers fall back to the boolean via _OUTCOME_SQL.
+            conn.execute("ALTER TABLE runs ADD COLUMN outcome TEXT")
+        except sqlite3.OperationalError:
+            pass
         conn.execute("""
             CREATE TABLE IF NOT EXISTS city_requests (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -471,6 +477,14 @@ def init_db(db_path: Path) -> None:
 
 # ── Runs ──────────────────────────────────────────────────────────────────────
 
+#: Reads the three-state outcome, falling back to the legacy boolean for rows
+#: written before the column existed (2026-07-31). Those rows only ever
+#: distinguished clean from not-clean, so a failed one maps to 'aborted'.
+_OUTCOME_SQL = (
+    "COALESCE(outcome, CASE WHEN success=1 THEN 'ok' ELSE 'aborted' END)"
+)
+
+
 def start_run(db_path: Path, started_at: datetime, run_mode: str) -> int:
     """Insert a run row immediately (finished_at=NULL). Call finish_run when done."""
     with _connect(db_path) as conn:
@@ -490,11 +504,22 @@ def finish_run(
     search_log: str | None = None,
     new_records: int = 0,
     error: str | None = None,
+    outcome: str | None = None,
 ) -> None:
+    """outcome: 'ok' | 'warning' | 'aborted' (see pipeline.classify_run_outcome).
+
+    `success` stays for every existing reader and means "the run completed" —
+    a warning run is successful. Callers that pass `outcome` should derive
+    `success` from it the same way; callers that don't get the legacy mapping.
+    """
+    if outcome is None:
+        outcome = "ok" if success else "aborted"
     with _connect(db_path) as conn:
         conn.execute(
-            "UPDATE runs SET finished_at=?, success=?, search_log=?, new_records=?, error=? WHERE id=?",
-            (finished_at.isoformat(), int(success), search_log, new_records, error, run_id),
+            "UPDATE runs SET finished_at=?, success=?, search_log=?, new_records=?,"
+            " error=?, outcome=? WHERE id=?",
+            (finished_at.isoformat(), int(success), search_log, new_records,
+             error, outcome, run_id),
         )
         conn.commit()
 
@@ -526,10 +551,12 @@ def get_last_run_row(db_path: Path) -> dict | None:
     try:
         with _connect(db_path) as conn:
             row = conn.execute(
-                "SELECT id, run_mode, finished_at, success FROM runs ORDER BY id DESC LIMIT 1"
+                f"SELECT id, run_mode, finished_at, success, {_OUTCOME_SQL}"
+                " FROM runs ORDER BY id DESC LIMIT 1"
             ).fetchone()
             if row:
-                return {"id": row[0], "run_mode": row[1], "finished_at": row[2], "success": bool(row[3])}
+                return {"id": row[0], "run_mode": row[1], "finished_at": row[2],
+                        "success": bool(row[3]), "outcome": row[4]}
     except Exception:
         return None
     return None
@@ -569,8 +596,8 @@ def get_run_history(db_path: Path, limit: int = 20) -> list[dict]:
     try:
         with _connect(db_path) as conn:
             rows = conn.execute(
-                "SELECT id, started_at, finished_at, run_mode, success, COALESCE(new_records, 0) "
-                "FROM runs ORDER BY id DESC LIMIT ?",
+                "SELECT id, started_at, finished_at, run_mode, success, COALESCE(new_records, 0), "
+                f"{_OUTCOME_SQL} FROM runs ORDER BY id DESC LIMIT ?",
                 (limit,),
             ).fetchall()
         return [
@@ -581,6 +608,7 @@ def get_run_history(db_path: Path, limit: int = 20) -> list[dict]:
                 "run_mode": r[3],
                 "success": bool(r[4]),
                 "new_records": r[5],
+                "outcome": r[6],
             }
             for r in rows
         ]
@@ -594,8 +622,8 @@ def get_run_detail(db_path: Path, run_id: int) -> dict | None:
     try:
         with _connect(db_path) as conn:
             row = conn.execute(
-                "SELECT id, started_at, finished_at, run_mode, success, search_log "
-                "FROM runs WHERE id = ?",
+                "SELECT id, started_at, finished_at, run_mode, success, search_log, "
+                f"{_OUTCOME_SQL} FROM runs WHERE id = ?",
                 (run_id,),
             ).fetchone()
             if not row:
@@ -607,6 +635,7 @@ def get_run_detail(db_path: Path, run_id: int) -> dict | None:
                 "run_mode": row[3],
                 "success": bool(row[4]),
                 "search_log": row[5],
+                "outcome": row[6],
             }
     except Exception:
         return None
@@ -3204,7 +3233,8 @@ def get_daily_summary(db_path: Path, start_iso: str, end_iso: str,
             result[scope(city)]["searches"] += cnt
 
         for row in conn.execute(
-            "SELECT id, run_mode, started_at, finished_at, success, search_log, error"
+            "SELECT id, run_mode, started_at, finished_at, success, search_log, error, "
+                f"{_OUTCOME_SQL}"
                 " FROM runs WHERE started_at >= ? AND started_at < ? ORDER BY started_at",
                 (start_iso, end_iso)).fetchall():
             interrupted_error = (
@@ -3213,6 +3243,8 @@ def get_daily_summary(db_path: Path, start_iso: str, end_iso: str,
             )
             run = {"id": row[0], "mode": row[1], "started_at": row[2],
                    "finished_at": row[3], "success": bool(row[4]),
+                   # An unfinished row is an abort however its columns read.
+                   "outcome": "aborted" if interrupted_error else row[7],
                    "pairs": 0, "records": 0, "search_failed": 0, "extract_failed": 0,
                    "search_error": "", "extract_error": "",
                    "error": row[6] or interrupted_error}

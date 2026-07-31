@@ -41,6 +41,14 @@ remaining pair), and `run_pipeline` shares one client between the main and
 catch-up passes, skipping catch-up when the provider died. See
 [[2026-07-search-provider-down-noise]].
 
+Since 2026-07-31 both `search()` and `search_all()` also catch bare `Exception`
+and route it through `_record_unavailable` as a transient failure. The
+DataForSEO parsers assume the documented response shape (`.get()` on tasks,
+results and items), so an unexpected payload raised an untyped error that
+escaped the chain and aborted the whole run — the search-side twin of
+[[2026-07-llm-bare-array-run-abort]]. Crucially it is *not* converted to an
+empty result: an empty search is cached, a failure must not be.
+
 ## Query construction
 
 `build_queries(city, variants, terms)` emits at most **3** queries (`terms[:2]` × primary variant + `terms[0]` × second variant). With the short-circuit, fruitful pairs typically pay for 1.

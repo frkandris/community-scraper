@@ -314,7 +314,54 @@ ENRICH_SCHEMA = {
 }
 
 
+def _json_items(raw: str, key: str, kind: str, source_url: str) -> list:
+    """Pull `key`'s list out of an LLM JSON response.
+
+    Valid JSON is not enough: `response_format: json_object` notwithstanding, a
+    model occasionally returns a bare array (`[{...}]`) instead of the wrapper
+    object. `.get()` on that list raised AttributeError, which is not one of the
+    typed extractor errors — so it escaped FallbackExtractor._call and killed the
+    whole run (2026-07-30 ai_only window: 0 pairs processed, "'list' object has
+    no attribute 'get'"). Anything that is not the expected shape is an
+    unavailable extraction: the page is retried, never cached as empty.
+    """
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        log.warning("llm_json_parse_failed", kind=kind, source_url=source_url,
+                    error=str(exc), raw=raw[:200])
+        # Caching [] here would permanently record a failed call as an empty
+        # page under the current fingerprint — raise so the page is retried.
+        raise ExtractorUnavailableError(f"LLM returned invalid {kind} JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        log.warning("llm_json_not_an_object", kind=kind, source_url=source_url,
+                    got=type(payload).__name__, raw=raw[:200])
+        raise ExtractorUnavailableError(
+            f"LLM {kind} output malformed (top level is {type(payload).__name__}, not an object)")
+    if key not in payload:
+        # A bare `{}` is how a model says "nothing here" — a legitimate empty
+        # extraction. A populated object *without* our key is a renamed wrapper
+        # ({"data": [...]}), and silently reading it as 0 results would cache
+        # that loss forever under the current fingerprint.
+        if payload:
+            log.warning("llm_json_key_missing", kind=kind, source_url=source_url,
+                        expected=key, got=sorted(payload)[:5], raw=raw[:200])
+            raise ExtractorUnavailableError(
+                f"LLM {kind} output malformed (no '{key}' key, got {sorted(payload)[:5]})")
+        return []
+    items = payload[key]
+    if not isinstance(items, list):
+        raise ExtractorUnavailableError(f"LLM {kind} output malformed ({key} not a list)")
+    return items
+
+
 def _apply_enrich(record: "CommunityRecord", enrichment: dict) -> "CommunityRecord":
+    if not isinstance(enrichment, dict):
+        # Same bare-array hazard as _json_items; enrich() swallows the error and
+        # returns the record unchanged, so a warning is the only trace.
+        log.warning("enrich_payload_not_an_object", community=record.name,
+                    got=type(enrichment).__name__)
+        return record
     updates: dict = {}
     if not record.website and enrichment.get("website"):
         updates["website"] = enrichment["website"]
@@ -333,16 +380,7 @@ def _apply_enrich(record: "CommunityRecord", enrichment: dict) -> "CommunityReco
 
 
 def _parse_venues(raw: str, city: str, locale: str, source_url: str) -> list[VenueRecord]:
-    try:
-        items = json.loads(raw).get("venues", [])
-        if not isinstance(items, list):
-            raise ExtractorUnavailableError("LLM venue output malformed (venues not a list)")
-    except json.JSONDecodeError as exc:
-        log.warning("llm_json_parse_failed", kind="venues", source_url=source_url,
-                    error=str(exc), raw=raw[:200])
-        # Caching [] here would permanently record a failed call as an empty
-        # page under the current fingerprint — raise so the page is retried.
-        raise ExtractorUnavailableError(f"LLM returned invalid venue JSON: {exc}") from exc
+    items = _json_items(raw, "venues", "venue", source_url)
     records = []
     extracted_at = datetime.now(timezone.utc).isoformat()
     for item in items:
@@ -372,14 +410,7 @@ def _parse_venues(raw: str, city: str, locale: str, source_url: str) -> list[Ven
 def _parse_persons(
     raw: str, city: str, topic: str, locale: str, source_url: str,
 ) -> list[PersonRecord]:
-    try:
-        items = json.loads(raw).get("persons", [])
-        if not isinstance(items, list):
-            raise ExtractorUnavailableError("LLM person output malformed (persons not a list)")
-    except json.JSONDecodeError as exc:
-        log.warning("llm_json_parse_failed", kind="persons", source_url=source_url,
-                    error=str(exc), raw=raw[:200])
-        raise ExtractorUnavailableError(f"LLM returned invalid person JSON: {exc}") from exc
+    items = _json_items(raw, "persons", "person", source_url)
     records = []
     extracted_at = datetime.now(timezone.utc).isoformat()
     for item in items:
@@ -411,14 +442,7 @@ def _parse_communities(
     locale: str,
     source_url: str,
 ) -> list[CommunityRecord]:
-    try:
-        items = json.loads(raw).get("communities", [])
-        if not isinstance(items, list):
-            raise ExtractorUnavailableError("LLM output malformed (communities not a list)")
-    except json.JSONDecodeError as exc:
-        log.warning("llm_json_parse_failed", kind="communities", source_url=source_url,
-                    error=str(exc), raw=raw[:200])
-        raise ExtractorUnavailableError(f"LLM returned invalid JSON: {exc}") from exc
+    items = _json_items(raw, "communities", "communities", source_url)
 
     records = []
     extracted_at = datetime.now(timezone.utc).isoformat()
@@ -839,6 +863,19 @@ class FallbackExtractor:
                 except ExtractorUnavailableError as exc:
                     transient_seen = True
                     last_error = str(exc)
+                except Exception as exc:
+                    # Last-resort net: an untyped bug (a parser AttributeError, a
+                    # response shape nobody anticipated) used to escape the chain
+                    # and abort the entire run from one bad page — 2026-07-30's
+                    # ai_only window died on "'list' object has no attribute
+                    # 'get'" with 0 pairs done. Treated as transient: the page is
+                    # retried and never cached, and 20 in a row still open the
+                    # breaker, so a systematic failure still fails the run fast.
+                    transient_seen = True
+                    last_error = f"{type(exc).__name__}: {exc}"
+                    log.exception("extractor_unexpected_error",
+                                  provider=primary.__class__.__name__,
+                                  method=method, label=label)
             if round_no == 0 and not self.exhausted:
                 if transient_seen:
                     continue  # one immediate retry for transient API/network errors

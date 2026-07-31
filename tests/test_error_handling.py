@@ -66,6 +66,28 @@ def test_persistent_transient_error_raises():
     assert not fe.exhausted  # transient ≠ exhausted; next page will try again
 
 
+def test_unexpected_error_becomes_unavailable_not_a_run_abort():
+    """2026-07-30: a parser AttributeError escaped the chain and killed the whole
+    ai_only window (0 pairs). Untyped bugs must surface as a skipped page."""
+    p = StubPrimary([AttributeError("'list' object has no attribute 'get'"),
+                     AttributeError("'list' object has no attribute 'get'")])
+    fe = FallbackExtractor(primaries=[p])
+    with pytest.raises(ExtractorUnavailableError):
+        asyncio.run(fe.extract("t", "c", "top", "hu", "http://x"))
+    assert p.calls == 2  # retried like any transient error
+    assert not fe.exhausted
+
+
+def test_unexpected_errors_still_open_the_circuit_breaker():
+    """A systematic bug must not be retried for a whole night either."""
+    p = StubPrimary([TypeError("boom")] * 100)
+    fe = FallbackExtractor(primaries=[p], failure_threshold=3)
+    for _ in range(3):
+        with pytest.raises(ExtractorUnavailableError):
+            asyncio.run(fe.extract("t", "c", "top", "hu", "http://x"))
+    assert fe.providers_down
+
+
 def test_rate_limit_waits_out_short_window_and_succeeds():
     p = StubPrimary([ExtractorRateLimitError(0.05), ["ok"]])
     fe = FallbackExtractor(primaries=[p])
@@ -76,6 +98,30 @@ def test_rate_limit_waits_out_short_window_and_succeeds():
 class QuotaSearchProvider:
     async def search(self, query, locale="en", num_results=10):
         raise SearchQuotaError("credits gone")
+
+
+class MalformedResponseProvider:
+    """DataForSEO parsing assumes the documented object shape; a bare array in
+    the response raises AttributeError deep inside search()."""
+
+    def __init__(self):
+        self.calls = 0
+
+    async def search(self, query, locale="en", num_results=10):
+        self.calls += 1
+        raise AttributeError("'list' object has no attribute 'get'")
+
+
+def test_untyped_search_error_does_not_escape_the_chain():
+    """Search-side twin of the 2026-07-30 extraction abort: an unexpected error
+    must become a typed, uncached failure — not a dead collector window."""
+    p = MalformedResponseProvider()
+    c = FallbackSearchClient(primaries=[p])
+    with pytest.raises(SearchUnavailableError):
+        asyncio.run(c.search_all(["q1"]))
+    with pytest.raises(SearchUnavailableError):
+        asyncio.run(c.search("q1"))
+    assert p.calls  # the provider was actually exercised
 
 
 def test_search_all_raises_when_quota_kills_everything():

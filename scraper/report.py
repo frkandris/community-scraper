@@ -138,14 +138,19 @@ def build_report_html(day: str, summary: dict, traffic: dict,
     if summary["runs"]:
         items = []
         for r in summary["runs"]:
-            state = "✅" if r["success"] else "❌"
+            # ⚠️ = the run finished, some items failed and are queued for the next
+            # run; ❌ = it stopped early. One transient timeout out of 1414 pairs
+            # is not the same event as a dead provider (2026-07-31).
+            outcome = r.get("outcome") or ("ok" if r["success"] else "aborted")
+            state = {"ok": "✅", "warning": "⚠️"}.get(outcome, "❌")
             fails = ""
             if r["search_failed"] or r["extract_failed"]:
                 causes = [c for c in (r.get("search_error"), r.get("extract_error")) if c]
                 cause = (f" · ok: {html_lib.escape(' / '.join(causes))}" if causes else "")
-                fails = (f" — <span style='color:#B4231F'>hibák: "
+                colour = "#B4231F" if outcome == "aborted" else "#8A6410"
+                fails = (f" — <span style='color:{colour}'>hibák: "
                          f"{r['search_failed']} keresés, {r['extract_failed']} oldal"
-                         f" (nem cache-elve, újrapróbálva){cause}</span>")
+                         f" (nem cache-elve, a következő futás újrapróbálja){cause}</span>")
             if r.get("error"):
                 fails += (f" — <span style='color:#B4231F'>futási hiba: "
                           f"{html_lib.escape(r['error'])}</span>")

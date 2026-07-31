@@ -14,7 +14,7 @@ from apscheduler.triggers.cron import CronTrigger
 from .cache import CacheManager
 from .config import CONFIG_DIR, load_config
 from .db import finish_run, get_last_run, get_last_run_row, init_db, start_run
-from .pipeline import run_pipeline
+from .pipeline import RUN_ABORTED, classify_run_outcome, run_pipeline
 from .web.app import app as web_app, templates
 from .web.log_stream import broadcaster
 from .web.state import app_state
@@ -201,7 +201,12 @@ def _startup_plan(
     if not last_row:
         return (None, None) if saver else ("full", None)
 
-    interrupted = last_row["finished_at"] is None or not last_row["success"]
+    # A `warning` run is NOT recovered: its failed pairs were never cached and the
+    # next scheduled run picks them up anyway (2026-07-31). Only an unfinished row
+    # or an outright abort is a crash. Rows without `outcome` (pre-2026-07-31, and
+    # callers that build the dict by hand) fall back to the legacy boolean.
+    outcome = last_row.get("outcome") or ("ok" if last_row["success"] else RUN_ABORTED)
+    interrupted = last_row["finished_at"] is None or outcome == RUN_ABORTED
     prev_mode = last_row["run_mode"]
 
     if saver:
@@ -289,7 +294,6 @@ async def main() -> None:
         started = datetime.now(timezone.utc)
         stop_at = _next_window_end(started, until_hhmm) if until_hhmm else None
         run_id = start_run(db_path, started, run_mode)
-        success = False
         run_error: str | None = None
         pair_logs: list = []
         groups = _saver_city_groups(app_state.cities or [])
@@ -314,9 +318,6 @@ async def main() -> None:
                 )
                 pair_logs += group_logs
             app_state.last_run_at = datetime.now(timezone.utc)
-            search_failures = sum(1 for row in pair_logs if row.get("search_failed"))
-            extract_failures = sum(row.get("extract_failed", 0) for row in pair_logs)
-            success = not (search_failures or extract_failures)
         except asyncio.CancelledError:
             run_error = "run cancelled (deploy, restart, or manual stop)"
             log.warning("scheduled_run_cancelled", mode=run_mode)
@@ -326,9 +327,11 @@ async def main() -> None:
             log.error("scheduled_run_failed", error=str(exc), mode=run_mode)
         finally:
             try:
-                finish_run(db_path, run_id, datetime.now(timezone.utc), success,
+                outcome = classify_run_outcome(pair_logs, run_error)
+                finish_run(db_path, run_id, datetime.now(timezone.utc),
+                           outcome != RUN_ABORTED,
                            json.dumps(pair_logs) if pair_logs else None,
-                           error=run_error)
+                           error=run_error, outcome=outcome)
             finally:
                 app_state.run_coordinator.release(task)
 
@@ -491,7 +494,6 @@ async def main() -> None:
             return
         started = datetime.now(timezone.utc)
         run_id = start_run(db_path, started, startup_mode)
-        success = False
         run_error: str | None = None
         pair_logs: list = []
         groups = _saver_city_groups(app_state.cities or [])
@@ -514,9 +516,6 @@ async def main() -> None:
                 )
                 pair_logs += group_logs
             app_state.last_run_at = datetime.now(timezone.utc)
-            search_failures = sum(1 for row in pair_logs if row.get("search_failed"))
-            extract_failures = sum(row.get("extract_failed", 0) for row in pair_logs)
-            success = not (search_failures or extract_failures)
         except asyncio.CancelledError:
             run_error = "run cancelled (deploy, restart, or manual stop)"
             log.warning("startup_run_cancelled", mode=startup_mode)
@@ -526,9 +525,11 @@ async def main() -> None:
             log.error("startup_run_failed", error=str(exc))
         finally:
             try:
-                finish_run(db_path, run_id, datetime.now(timezone.utc), success,
+                outcome = classify_run_outcome(pair_logs, run_error)
+                finish_run(db_path, run_id, datetime.now(timezone.utc),
+                           outcome != RUN_ABORTED,
                            json.dumps(pair_logs) if pair_logs else None,
-                           error=run_error)
+                           error=run_error, outcome=outcome)
             finally:
                 app_state.run_coordinator.release(task)
 

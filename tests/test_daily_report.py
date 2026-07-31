@@ -98,6 +98,55 @@ def test_report_html_shows_original_search_error():
     assert "ok: DataForSEO: insufficient credits (40201)" in html
 
 
+def test_report_html_three_run_states():
+    """2026-07-30: one transient timeout out of 1414 pairs rendered ❌, the same
+    mark a dead provider gets. A finished-but-retrying run is ⚠️ now."""
+    empty = {k: 0 for k in ("new_communities", "changed_communities", "change_rows",
+                            "new_venues", "new_persons", "pages_scraped",
+                            "pages_extracted", "searches")}
+
+    def _summary(run):
+        return {"hu": dict(empty), "intl": dict(empty), "runs": [run],
+                "totals": {"hu": 0, "intl": 0,
+                           "covered_pairs_hu": 0, "covered_pairs_intl": 0}}
+
+    base = {"id": 1, "mode": "search_only", "started_at": "2026-07-30T01:00:00",
+            "finished_at": "2026-07-30T16:00:00", "pairs": 1414, "records": 0,
+            "search_failed": 0, "extract_failed": 0, "search_error": "", "error": ""}
+
+    _, clean = build_report_html("2026-07-30", _summary(
+        {**base, "success": True, "outcome": "ok"}), {})
+    assert "✅" in clean and "⚠️" not in clean
+
+    _, warned = build_report_html("2026-07-30", _summary(
+        {**base, "success": True, "outcome": "warning", "search_failed": 1,
+         "search_error": "DataForSEO standard task timed out"}), {})
+    assert "⚠️" in warned and "❌" not in warned
+    assert "a következő futás újrapróbálja" in warned
+
+    _, dead = build_report_html("2026-07-30", _summary(
+        {**base, "success": False, "outcome": "aborted", "search_failed": 1,
+         "search_error": "search providers unavailable for this run"}), {})
+    assert "❌" in dead
+
+
+def test_report_html_falls_back_when_outcome_missing():
+    """Rows written before the outcome column still render (legacy boolean)."""
+    empty = {k: 0 for k in ("new_communities", "changed_communities", "change_rows",
+                            "new_venues", "new_persons", "pages_scraped",
+                            "pages_extracted", "searches")}
+    summary = {
+        "hu": dict(empty), "intl": dict(empty),
+        "runs": [{"id": 1, "mode": "full", "started_at": "2026-07-01T01:00:00",
+                  "finished_at": "2026-07-01T02:00:00", "success": False,
+                  "pairs": 3, "records": 0, "search_failed": 0, "extract_failed": 0,
+                  "search_error": "", "error": ""}],
+        "totals": {"hu": 0, "intl": 0, "covered_pairs_hu": 0, "covered_pairs_intl": 0},
+    }
+    _, html = build_report_html("2026-07-01", summary, {})
+    assert "❌" in html
+
+
 def test_daily_summary_extracts_search_error_from_pair_logs(tmp_path):
     import json
     from datetime import datetime, timedelta, timezone
@@ -117,6 +166,69 @@ def test_daily_summary_extracts_search_error_from_pair_logs(tmp_path):
     )
     assert summary["runs"][0]["search_error"] == "DataForSEO: HTTP 500"
     assert summary["runs"][0]["search_failed"] == 1
+
+
+def test_run_outcome_classification():
+    from scraper.pipeline import classify_run_outcome
+
+    clean = [{"city": "Stockholm", "topic": "running"}]
+    assert classify_run_outcome(clean) == "ok"
+    assert classify_run_outcome(clean, "boom") == "aborted"
+
+    # one transient pair failure out of many — retried next run, not an abort
+    warned = clean + [{"city": "Malmö", "topic": "chess", "search_failed": True,
+                       "search_error": "DataForSEO standard task timed out"}]
+    assert classify_run_outcome(warned) == "warning"
+
+    # the marker entry a provider-death abort leaves behind
+    dead = clean + [{"city": "Malmö", "topic": "chess", "search_failed": True,
+                     "search_error": "providers unavailable", "aborted": True}]
+    assert classify_run_outcome(dead) == "aborted"
+
+    assert classify_run_outcome([{"city": "A", "topic": "b", "extract_failed": 3}]) == "warning"
+
+
+def test_outcome_persisted_and_warning_counts_as_finished(tmp_path):
+    """A warning run must not look interrupted: get_last_run/get_last_run_mode
+    drive startup recovery, which would otherwise re-run it forever."""
+    import json
+    from datetime import datetime, timedelta, timezone
+
+    from scraper.db import get_last_run, get_last_run_row, get_run_detail, get_run_history
+
+    db = _db(tmp_path)
+    started = datetime.now(timezone.utc)
+    run_id = start_run(db, started, "search_only")
+    logs = [{"city": "Malmö", "topic": "chess", "search_failed": True,
+             "search_error": "timed out"}]
+    finish_run(db, run_id, started + timedelta(seconds=1), True, json.dumps(logs),
+               outcome="warning")
+
+    assert get_last_run_row(db)["outcome"] == "warning"
+    assert get_run_detail(db, run_id)["outcome"] == "warning"
+    assert get_run_history(db)[0]["outcome"] == "warning"
+    assert get_last_run(db) is not None  # counted as a completed run
+
+
+def test_legacy_run_rows_map_onto_the_three_states(tmp_path):
+    from datetime import datetime, timedelta, timezone
+
+    from scraper.db import _connect, get_run_history
+
+    db = _db(tmp_path)
+    started = datetime.now(timezone.utc)
+    ok_id = start_run(db, started, "full")
+    bad_id = start_run(db, started, "full")
+    finish_run(db, ok_id, started + timedelta(seconds=1), True)
+    finish_run(db, bad_id, started + timedelta(seconds=1), False)
+    # simulate rows written before the column existed
+    with _connect(db) as conn:
+        conn.execute("UPDATE runs SET outcome=NULL")
+        conn.commit()
+
+    outcomes = {r["id"]: r["outcome"] for r in get_run_history(db)}
+    assert outcomes[ok_id] == "ok"
+    assert outcomes[bad_id] == "aborted"
 
 
 def test_daily_summary_includes_persisted_run_error(tmp_path):

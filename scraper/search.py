@@ -330,6 +330,12 @@ class FallbackSearchClient:
                 self._record_unavailable(i, primary, str(exc))
                 hit_transient = True
                 last_error = str(exc)
+            except Exception as exc:  # see search_all: untyped bugs are transient, never empty
+                log.exception("search_unexpected_error", provider=type(primary).__name__,
+                              error=str(exc))
+                self._record_unavailable(i, primary, f"{type(exc).__name__}: {exc}")
+                hit_transient = True
+                last_error = f"{type(exc).__name__}: {exc}"
         if hit_transient:
             raise SearchUnavailableError(f"search failed before any result ({last_error})")
         return []
@@ -389,6 +395,20 @@ class FallbackSearchClient:
                 self._record_unavailable(i, primary, str(exc))
                 hit_transient = True
                 last_error = str(exc)
+                remaining = [q for q in remaining if q not in provider_done]
+                continue
+            except Exception as exc:
+                # The search-side twin of the extractor's net: a response shape the
+                # parser never anticipated (a bare array, a null task list) raises
+                # an untyped AttributeError/TypeError/ValidationError that would
+                # otherwise unwind run_pipeline and kill the collector window from
+                # one bad pair. See docs/wiki 2026-07-llm-bare-array-run-abort.
+                # Treated as transient: not cached, provider blocked if it repeats.
+                log.exception("search_unexpected_error", provider=type(primary).__name__,
+                              error=str(exc))
+                self._record_unavailable(i, primary, f"{type(exc).__name__}: {exc}")
+                hit_transient = True
+                last_error = f"{type(exc).__name__}: {exc}"
                 remaining = [q for q in remaining if q not in provider_done]
                 continue
             if combined:

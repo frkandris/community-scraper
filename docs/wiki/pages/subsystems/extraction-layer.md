@@ -25,7 +25,9 @@ Runtime config (settings.yaml) overrides class defaults — the YAML wins, a lat
 
 ## Four prompt+schema families
 
-`SYSTEM_PROMPT`+`EXTRACTION_SCHEMA` (community), `VENUE_SYSTEM_PROMPT`+`VENUE_SCHEMA`, `PERSON_SYSTEM_PROMPT`+`PERSON_SCHEMA`, `ENRICH_SYSTEM_PROMPT`+`ENRICH_SCHEMA`. **The schema dicts are documentation only** — the API request uses `response_format: {"type": "json_object"}` plus a hand-written JSON-shape suffix string (`_API_EXTRACT_SUFFIX`), not JSON-schema grammar. The `SYSTEM_PROMPT` repeatedly instructs "output field values in the **original language of the page**" (see [[llm-prompt-language-bias]]).
+`SYSTEM_PROMPT`+`EXTRACTION_SCHEMA` (community), `VENUE_SYSTEM_PROMPT`+`VENUE_SCHEMA`, `PERSON_SYSTEM_PROMPT`+`PERSON_SCHEMA`, `ENRICH_SYSTEM_PROMPT`+`ENRICH_SCHEMA`. **The schema dicts are documentation only** — the API request uses `response_format: {"type": "json_object"}` plus a hand-written JSON-shape suffix string (`_API_EXTRACT_SUFFIX`), not JSON-schema grammar — `json_object` buys valid JSON, **not** an object, so all three
+parsers route through `_json_items()`, which rejects a non-dict top level as an
+unavailable extraction ([[2026-07-llm-bare-array-run-abort]]). The `SYSTEM_PROMPT` repeatedly instructs "output field values in the **original language of the page**" (see [[llm-prompt-language-bias]]).
 
 ## Live-editable prompts
 

@@ -227,7 +227,34 @@ def _new_pair_log(city_name: str, topic_name: str, queries: list[str]) -> dict:
         "search_error": None,
         "extract_failed": 0,
         "extract_error": None,
+        # True only on the marker entry a provider-death abort leaves behind.
+        # An ordinary per-pair failure sets search_failed/extract_failed and the
+        # loop continues — see classify_run_outcome().
+        "aborted": False,
     }
+
+
+#: Run outcomes, coarsest last. Persisted in `runs.outcome`.
+RUN_OK = "ok"            # everything the run attempted succeeded
+RUN_WARNING = "warning"  # finished, but some pairs/pages failed and will be retried
+RUN_ABORTED = "aborted"  # stopped early: dead provider, or a top-level exception
+
+
+def classify_run_outcome(pair_logs: list[dict], run_error: str | None = None) -> str:
+    """Three-state run outcome from the pair logs plus any top-level error.
+
+    A single transient DataForSEO timeout out of 1414 pairs used to make a run
+    ❌, indistinguishable from a provider outage that killed the window
+    (2026-07-30 daily report). Item-level failures are `warning`: nothing was
+    cached, the pair is retried next run. Only an abort is `aborted`.
+    """
+    if run_error:
+        return RUN_ABORTED
+    if any(p.get("aborted") for p in pair_logs):
+        return RUN_ABORTED
+    if any(p.get("search_failed") or p.get("extract_failed") for p in pair_logs):
+        return RUN_WARNING
+    return RUN_OK
 
 
 def _tier_allows(city: "CityConfig", topic_name: str, core_topics: list[str]) -> bool:
@@ -529,7 +556,8 @@ async def _run_full(
                     # unsearched pair is retried next run.
                     reason = getattr(searxng, "failure_reason", None)
                     pair_logs.append({**_new_pair_log(city.name, topic.name, queries),
-                                      "search_failed": True, "search_error": reason})
+                                      "search_failed": True, "search_error": reason,
+                                      "aborted": True})
                     log.warning("search_provider_down_run_aborted", city=city.name,
                                 topic=topic.name, reason=reason)
                     aborted = True
@@ -644,6 +672,7 @@ async def _run_full(
                         # visibly failed with the reason attached.
                         pair_log["extract_failed"] += 1
                         pair_log["extract_error"] = getattr(extractor, "failure_reason", None)
+                        pair_log["aborted"] = True
                         extract_dead = True
                         break
                     if extractor.exhausted:
@@ -894,6 +923,7 @@ async def _run_ai_only(
                         # rather than logging one failure per page for hours.
                         pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
                         pair_log["extract_error"] = getattr(extractor, "failure_reason", None)
+                        pair_log["aborted"] = True
                         extract_dead = True
                         break
                     if extractor.exhausted:

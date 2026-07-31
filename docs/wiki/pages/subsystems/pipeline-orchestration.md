@@ -36,7 +36,11 @@ Both scheduled and startup paths partition cities into Hungary (339), Sweden (29
 
 ## Startup state machine
 
-`_startup_run` inspects the last run: if it was interrupted/failed, it retries the **same** mode (a historical `revalidate` row falls back to `ai_only`); if it succeeded, it escalates `ai_only → full → full` (full is the steady state). This resumes interrupted work after a redeploy and climbs to more expensive passes once stable.
+`_startup_run` inspects the last run: if it was interrupted or `aborted`, it retries the **same** mode (a historical `revalidate` row falls back to `ai_only`); otherwise it escalates `ai_only → full → full` (full is the steady state). This resumes interrupted work after a redeploy and climbs to more expensive passes once stable.
+
+## Run outcome
+
+All three run writers (scheduled, startup, manual admin) classify the finished run with `classify_run_outcome(pair_logs, run_error)` → `ok` / `warning` / `aborted`, persisted in `runs.outcome`. The two early-stop branches — the search-provider-down marker entry and the `providers_down` extract branch — set `aborted: True` on their pair log, which is what distinguishes an abort from ordinary per-pair failures that also record a `search_error`. See [[run-outcome-three-states]].
 
 ## Callbacks and cancellation
 

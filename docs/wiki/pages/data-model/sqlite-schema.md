@@ -17,7 +17,7 @@ See [[persistence-layer]] for the connection/migration model.
 
 | Table | Purpose | Key columns |
 |---|---|---|
-| `runs` | One row per scrape run | `run_mode` (default `full`), `success`, `search_log`, `new_records`, `error`; `start_run` inserts `success=0`, `finish_run` updates |
+| `runs` | One row per scrape run | `run_mode` (default `full`), `success`, `outcome` (`ok`/`warning`/`aborted`, added 2026-07-31 — see [[run-outcome-three-states]]; NULL on older rows, readers COALESCE from `success`), `search_log`, `new_records`, `error`; `start_run` inserts `success=0`, `finish_run` updates |
 | `communities` | **Core** — one row per unique (name, city, topic) | `record_key UNIQUE`, `community_id`, `city`, `topic`, `data` (full JSON), `hidden` (plus a legacy `revalidate_fingerprint` column on older DBs); idx on (city,topic) and community_id |
 | `cache_pages` | One row per scraped URL | PK `url_hash`; `url`, `city`, `topic`, `domain`, `scraped_at`, `extracted_at`, `extract_fingerprint`, `venue_fingerprint`, `person_fingerprint`, `data` (blob) |
 | `search_cache` | URL lists per (city, topic) | composite PK `(city, topic)`; `urls`/`queries` JSON, `cached_at`, `collected_at`; TTL enforced at read time |

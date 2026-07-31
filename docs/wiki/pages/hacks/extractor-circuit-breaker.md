@@ -46,6 +46,13 @@ response the parser can no longer read all surface here instead of page by page.
 counter, so scattered transient errors never trip it. At `_FAILURE_THRESHOLD` (20) every
 provider is marked exhausted and `failure_reason` records the last error plus the count.
 
+Since 2026-07-31 `_call` also catches bare `Exception` — an untyped bug inside a
+provider method (a parser `AttributeError`, an unanticipated response shape) counts as a
+transient failure instead of unwinding the whole run. `CancelledError` is a
+`BaseException`, so stop/cancel is unaffected ([[asyncio-task-cancellation]]). Before
+that net existed, one bad page aborted an entire off-peak window:
+[[2026-07-llm-bare-array-run-abort]].
+
 ## exhausted vs providers_down
 
 `exhausted` is also true when **no** provider is configured, which is a legitimate

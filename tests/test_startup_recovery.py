@@ -53,6 +53,22 @@ def test_saver_clean_boot_does_nothing():
     assert _startup_plan(_row("ai_only", success=True), SAVER, NOW) == (None, None)
 
 
+def test_saver_does_not_recover_a_warning_run():
+    # 'warning' = the run finished, some pairs failed and were never cached. The
+    # next scheduled run retries them; re-running here would just duplicate the
+    # window's work (2026-07-31, see run-outcome-three-states).
+    warned = {**_row("ai_only", success=True), "outcome": "warning"}
+    assert _startup_plan(warned, SAVER, NOW) == (None, None)
+
+
+def test_saver_recovers_an_aborted_run():
+    night = datetime(2026, 7, 25, 20, 0, tzinfo=timezone.utc)
+    aborted = {**_row("ai_only", success=False), "outcome": "aborted"}
+    mode, stop_at = _startup_plan(aborted, SAVER, night)
+    assert mode == "ai_only"
+    assert stop_at == datetime(2026, 7, 26, 0, 20, tzinfo=timezone.utc)
+
+
 def test_saver_ignores_interrupted_non_bounded_mode():
     # A stray interrupted `full`/legacy row must not trigger a full run under saver.
     assert _startup_plan(_row("full", finished_at=None), SAVER, NOW) == (None, None)

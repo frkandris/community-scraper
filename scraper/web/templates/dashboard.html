@@ -179,8 +179,9 @@
       {% if r.new_records %}
       <span class="font-semibold text-gray-700">+{{ r.new_records }}</span>
       {% endif %}
-      <span class="ml-auto {% if r.success %}text-green-500{% else %}text-red-400{% endif %}">
-        {% if r.success %}✓{% else %}✗{% endif %}
+      <span class="ml-auto {% if r.outcome == 'ok' %}text-green-500{% elif r.outcome == 'warning' %}text-amber-500{% else %}text-red-400{% endif %}"
+            title="{% if r.outcome == 'warning' %}finished — some pairs failed and will be retried{% else %}{{ r.outcome }}{% endif %}">
+        {% if r.outcome == 'ok' %}✓{% elif r.outcome == 'warning' %}⚠{% else %}✗{% endif %}
       </span>
     </a>
     {% endfor %}

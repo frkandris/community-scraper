@@ -156,6 +156,34 @@ def test_malformed_llm_json_raises_instead_of_empty(tmp_path):
                               "hu", "https://a.test") == []
 
 
+def test_bare_array_response_raises_instead_of_attribute_error():
+    """2026-07-30 ai_only crash: the model answered with a top-level JSON array,
+    so `.get()` hit a list. Must be a typed, retryable extractor error."""
+    from scraper.extract import _parse_persons, _parse_venues
+    for raw in ('[{"name": "Futó Kör"}]', '"just a string"', "42", "null"):
+        with pytest.raises(ExtractorUnavailableError):
+            _parse_communities(raw, "Budapest", "running", "hu", "https://a.test")
+        with pytest.raises(ExtractorUnavailableError):
+            _parse_venues(raw, "Budapest", "hu", "https://a.test")
+        with pytest.raises(ExtractorUnavailableError):
+            _parse_persons(raw, "Budapest", "running", "hu", "https://a.test")
+
+
+def test_renamed_wrapper_key_is_not_a_silent_empty_extraction():
+    """{"data": [...]} used to read as 0 communities and get cached as such —
+    permanent loss under the current fingerprint. An empty {} stays legitimate."""
+    with pytest.raises(ExtractorUnavailableError):
+        _parse_communities('{"data": [{"name": "Futó Kör"}]}', "Budapest", "running",
+                           "hu", "https://a.test")
+    assert _parse_communities("{}", "Budapest", "running", "hu", "https://a.test") == []
+
+
+def test_enrich_survives_a_bare_array_payload():
+    from scraper.extract import _apply_enrich
+    rec = _rec("Futó Kör", "running")
+    assert _apply_enrich(rec, [{"website": "https://x.test"}]) is rec
+
+
 def test_scrape_submitted_url_filters_non_joinable(tmp_path):
     from scraper.db import get_communities
     from scraper.pipeline import PipelineConfig, scrape_submitted_url

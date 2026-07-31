@@ -11,8 +11,13 @@
     {% else %}bg-blue-100 text-blue-700{% endif %}">
     {{ run.run_mode }}
   </span>
-  <span class="px-2 py-0.5 rounded text-xs {% if run.success %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-600{% endif %}">
-    {% if run.success %}success{% else %}failed{% endif %}
+  <span class="px-2 py-0.5 rounded text-xs
+    {% if run.outcome == 'ok' %}bg-green-100 text-green-700
+    {% elif run.outcome == 'warning' %}bg-amber-100 text-amber-700
+    {% else %}bg-red-100 text-red-600{% endif %}">
+    {% if run.outcome == 'ok' %}success
+    {% elif run.outcome == 'warning' %}completed with retries
+    {% else %}aborted{% endif %}
   </span>
 </div>
 

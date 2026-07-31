@@ -36,6 +36,12 @@ decision to the pure `_startup_plan(last_row, schedule_cfg, now)`:
   (historical `revalidate` → `ai_only`); succeeded escalates `ai_only → full → full`,
   unbounded.
 
+"Interrupted" means `finished_at IS NULL` **or** `outcome='aborted'`. Since
+2026-07-31 a `warning` run — it finished, some pairs failed and were not cached —
+counts as a clean boot and is not recovered; the next scheduled run picks those
+pairs up anyway ([[run-outcome-three-states]]). `_startup_plan` falls back to the
+legacy `success` boolean for rows written before the column existed.
+
 This exists because deploys during the 15 h collector window (01:00→16:20 UTC) were
 silently truncating the day's collection — see [[2026-07-deploy-truncates-collector]].
 Recovery still reserves the shared coordinator slot, so it is skipped if a scheduled
