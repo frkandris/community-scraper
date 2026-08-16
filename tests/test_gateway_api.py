@@ -328,3 +328,44 @@ def test_logs_endpoint_requires_auth_and_returns_recent_lines(client):
 
     only_warn = client.get("/v1/logs?level=warning", headers=AUTH).json()
     assert all(r.get("level") == "warning" for r in only_warn["data"])
+
+
+def test_score_endpoint_measures_the_fleet(client, tmp_path):
+    """POST /v1/score runs the golden-set measurement remotely.
+
+    Exists because the CLI needs the production database and the production API
+    keys — it can only run where both are, and there is no shell access there.
+    """
+    from scraper.db import update_cache_page
+
+    db = app_state.db_path
+    update_cache_page(db, "g1", {
+        "url": "https://x/g1", "city": "Szentendre", "topic": "running",
+        "extracted_at": "2026-08-01T00:00:00+00:00",
+        "raw_text": "A Szentendrei Futóklub keddenként edz a Duna-parton.",
+        "records": [{"name": "Szentendrei Futóklub"}],
+    }, create={"url": "https://x/g1"})
+
+    assert client.post("/v1/score").status_code == 401
+
+    def _reply(*a, **k):
+        return {"choices": [{"message": {"content":
+                 '{"communities":[{"name":"Szentendrei Futóklub",'
+                 '"confidence":0.9,"joinable":true}]}'}}]}
+
+    with patch("scraper.extract._ApiExtractor._post", side_effect=_reply):
+        body = client.post("/v1/score?pages=1", headers=AUTH).json()
+
+    assert body["pages"] == 1
+    assert body["results"], body
+    top = body["results"][0]
+    assert top["score"] == 100          # exact match on the only expected name
+    assert top["answered"] == 1
+    # The scores are agreement with the incumbent, not truth — say so in-band.
+    assert "not ground truth" in body["note"]
+
+
+def test_score_endpoint_reports_an_empty_golden_set_clearly(client):
+    resp = client.post("/v1/score?pages=2", headers=AUTH)
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "no_golden_pages"

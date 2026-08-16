@@ -104,6 +104,26 @@ Models that can serve a request *right now* — a spent provider disappears from
 the list, so this reflects capacity, not just configuration. `auto` is listed
 first. Non-standard `quality` field carries the routing score.
 
+### `POST /v1/score`
+
+Non-standard. Measures every routed model against a golden set drawn from our
+own cached pages and returns the scores. `?pages=N` (default 8, max 40),
+`?provider=groq` to narrow it.
+
+**Read-only** — it never writes `config/providers.yaml`. Applying a result is a
+deliberate edit; a bad golden set silently rewriting the routing order is the
+failure worth keeping manual.
+
+Costs one LLM call per model per page — ~96 calls for a 12-model fleet at the
+default, out of the same daily budget the crawler uses. Check `GET /v1/quota`
+first.
+
+Note what the numbers mean: **agreement with the incumbent extraction, not
+ground truth.** The expected names come from whichever model processed each page
+before, so a model that finds a real club the incumbent missed is scored down
+for it. The right question it answers is "can this free model replace the one
+that produced our corpus".
+
 ### `GET /v1/logs`
 
 Non-standard. Recent application log lines from the in-memory ring the admin log

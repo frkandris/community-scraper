@@ -11,6 +11,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml .
 COPY scraper/ ./scraper/
 COPY config/   ./config/
+# Maintenance scripts (provider scoring, city import) must be runnable in the
+# container: that is where the database and the API keys live.
+COPY scripts/  ./scripts/
 COPY tailwind.config.js .
 
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \

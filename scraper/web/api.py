@@ -212,6 +212,51 @@ async def logs(
     return {"object": "list", "count": len(rows), "data": rows}
 
 
+@router.post("/score")
+async def score(
+    authorization: str | None = Header(default=None),
+    pages: int = 8,
+    provider: str = "",
+):
+    """Measure the routed fleet on our own extraction task.
+
+    Read-only: it reports scores and never writes `config/providers.yaml`. The
+    catalogue is a mounted volume, so applying a result is a deliberate edit,
+    not a side effect of measuring — a bad golden set silently rewriting the
+    routing order is exactly the failure worth keeping manual.
+
+    Costs one LLM call per model per page: at the default 8 pages and a
+    12-model fleet that is ~96 calls, which comes out of the same daily budget
+    the crawler uses. Check `GET /v1/quota` first.
+    """
+    if not _authorized(authorization):
+        return _error(401, "Invalid or missing API key.", "invalid_request_error",
+                      "invalid_api_key")
+    mr = _build_router()
+    if mr is None or not mr.enabled:
+        return _error(503, "Model router is not configured.", "server_error",
+                      "router_disabled")
+    if not app_state.db_path:
+        return _error(503, "No database configured.", "server_error", "no_database")
+
+    fleet = mr.all_extractors()
+    if provider:
+        fleet = [e for e in fleet if e.provider == provider]
+    if not fleet:
+        return _error(404, f"No models for provider '{provider}'.",
+                      "invalid_request_error", "model_not_found")
+
+    from ..scoring import score_fleet
+    try:
+        out = await score_fleet(app_state.db_path, fleet,
+                                pages=max(1, min(pages, 40)))
+    except FileNotFoundError as exc:
+        return _error(503, str(exc), "server_error", "no_database")
+    if out.get("error"):
+        return _error(422, out["error"], "invalid_request_error", "no_golden_pages")
+    return out
+
+
 @router.post("/chat/completions")
 async def chat_completions(
     request: Request,

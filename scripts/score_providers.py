@@ -40,7 +40,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import re
 import sys
 from pathlib import Path
@@ -48,87 +47,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from scraper.db import _connect  # noqa: E402
-from scraper.identity import normalized_match_key  # noqa: E402
 from scraper.providers import (PROVIDERS_FILE, build_extractors,  # noqa: E402
                                load_catalogue)
+from scraper.scoring import score_fleet  # noqa: E402
 
 DB = ROOT / "data" / "scraper.db"
 PROVIDERS_YAML = ROOT / "config" / PROVIDERS_FILE
-
-
-def golden_set(db_path: Path, limit: int) -> list[dict]:
-    """Cached pages plus the community names we believe they contain.
-
-    Only pages that yielded at least one surviving community are used: a page
-    with zero expected results cannot distinguish a careful model from one that
-    always answers "nothing here".
-    """
-    if not db_path.exists():
-        raise SystemExit(f"no database at {db_path} — run this where the data lives")
-    out: list[dict] = []
-    with _connect(db_path) as conn:
-        rows = conn.execute(
-            """
-            SELECT url, city, topic, data
-              FROM cache_pages
-             WHERE extracted_at IS NOT NULL
-             ORDER BY extracted_at DESC
-             LIMIT ?
-            """,
-            (limit * 8,),
-        ).fetchall()
-    for url, city, topic, blob in rows:
-        try:
-            entry = json.loads(blob)
-        except (TypeError, ValueError):
-            continue
-        text = entry.get("raw_text")
-        expected = {normalized_match_key(r.get("name", ""))
-                    for r in entry.get("records") or [] if r.get("name")}
-        if not text or not expected:
-            continue
-        out.append({"url": url, "city": city or "", "topic": topic or "",
-                    "text": text, "expected": expected})
-        if len(out) >= limit:
-            break
-    return out
-
-
-def score_page(expected: set[str], got: set[str]) -> float:
-    """20 for answering at all, 50 × recall, 30 × precision.
-
-    Answering is worth little on its own: a model that reliably returns `{}` is
-    parseable and worthless, and weighting mere responsiveness highly would rank
-    it near a model that actually reads the page.
-    """
-    if not expected:
-        return 0.0
-    recall = len(expected & got) / len(expected)
-    precision = (len(expected & got) / len(got)) if got else 0.0
-    return 20.0 + 50.0 * recall + 30.0 * precision
-
-
-async def score_model(extractor, pages: list[dict]) -> tuple[int, int, int]:
-    """(score 0-100, pages answered, pages failed)."""
-    total, answered, failed = 0.0, 0, 0
-    for page in pages:
-        try:
-            records = await extractor.extract(
-                text=page["text"], city=page["city"], topic=page["topic"],
-                locale="hu", source_url=page["url"],
-            )
-        except Exception as exc:
-            failed += 1
-            print(f"      ! {type(exc).__name__}: {str(exc)[:90]}")
-            continue
-        got = {normalized_match_key(r.name) for r in records if r.name}
-        total += score_page(page["expected"], got)
-        answered += 1
-    if not answered:
-        return 0, 0, failed
-    # Unanswered pages score zero: an unreliable model is a worse model.
-    return round(total / len(pages)), answered, failed
 
 
 def rewrite_yaml(scores: dict[tuple[str, str], int]) -> int:
@@ -169,17 +93,11 @@ async def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--pages", type=int, default=12,
-                    help="golden-set size (default 12; each model runs all of them)")
+                    help="golden-set size (default 12; every model runs all of them)")
     ap.add_argument("--only", help="score just this provider")
     ap.add_argument("--apply", action="store_true", help="write scores back to the YAML")
     ap.add_argument("--db", type=Path, default=DB)
     args = ap.parse_args()
-
-    pages = golden_set(args.db, args.pages)
-    if not pages:
-        raise SystemExit("no usable golden pages — need cached pages with records")
-    print(f"golden set: {len(pages)} pages, "
-          f"{sum(len(p['expected']) for p in pages)} expected communities\n")
 
     catalogue = load_catalogue()
     fleet = build_extractors(catalogue, fingerprint_model="scoring", allow_paid=True)
@@ -188,20 +106,23 @@ async def main() -> int:
     if not fleet:
         raise SystemExit("no model has an API key set — nothing to score")
 
-    scores: dict[tuple[str, str], int] = {}
-    for extractor in fleet:
-        print(f"  {extractor.provider}:{extractor.model} (prior {extractor.quality})")
-        score, answered, failed = await score_model(extractor, pages)
-        scores[(extractor.provider, extractor.model)] = score
-        print(f"      → {score}/100  ({answered} answered, {failed} failed)\n")
+    out = await score_fleet(args.db, fleet, pages=args.pages)
+    if out.get("error"):
+        raise SystemExit(out["error"])
 
-    print("measured scores:")
-    for (provider, model), score in sorted(scores.items(), key=lambda kv: -kv[1]):
-        print(f"  {score:3d}  {provider}:{model}")
+    print(f"golden set: {out['pages']} pages, "
+          f"{out['expected_communities']} expected communities\n")
+    print(f"{'score':>5}  {'prior':>5}  {'ans':>4} {'fail':>4}  model")
+    for r in out["results"]:
+        print(f"{r['score']:5}  {r['prior']:5}  {r['answered']:4} {r['failed']:4}  "
+              f"{r['provider']}:{r['model']}")
+        for e in r["errors"]:
+            print(f"{'':>24}! {e}")
+    print(f"\n{out['note']}")
 
     if args.apply:
-        changed = rewrite_yaml(scores)
-        print(f"\nupdated {changed} quality values in {PROVIDERS_YAML}")
+        scores = {(r["provider"], r["model"]): r["score"] for r in out["results"]}
+        print(f"\nupdated {rewrite_yaml(scores)} quality values in {PROVIDERS_YAML}")
     else:
         print("\n(dry run — pass --apply to write these into providers.yaml)")
     return 0
