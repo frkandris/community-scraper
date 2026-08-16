@@ -17,10 +17,31 @@ _UNICODE_RECORD_KEYS_MIGRATION = "unicode_record_keys_v2"
 log = structlog.get_logger()
 
 
+#: WAL is enabled once per process, not per connection — the mode is a property
+#: of the database file and the PRAGMA is a write, so doing it on every connect
+#: adds a lock acquisition to every query.
+_wal_enabled: set[str] = set()
+
+
 def _connect(db_path: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path, timeout=30)
     conn.execute("PRAGMA busy_timeout = 5000")
     conn.execute("PRAGMA foreign_keys = ON")
+    key = str(db_path)
+    if key not in _wal_enabled:
+        # Write-Ahead Logging lets readers proceed while a writer holds the
+        # database. Without it the pipeline's writes block every HTTP request:
+        # 2026-08-16 produced "database is locked" and 30-second page loads once
+        # the Hungarian import pushed the write volume up. Readers and one
+        # writer can now run concurrently.
+        try:
+            conn.execute("PRAGMA journal_mode=WAL")
+            # NORMAL is the standard companion to WAL: durable across process
+            # crashes, only at risk in an OS-level crash, and far fewer fsyncs.
+            conn.execute("PRAGMA synchronous=NORMAL")
+        except sqlite3.Error as exc:  # e.g. a read-only mount
+            log.warning("wal_enable_failed", error=str(exc))
+        _wal_enabled.add(key)
     return conn
 
 
@@ -98,9 +119,28 @@ def _migrate_unicode_record_keys(conn: sqlite3.Connection) -> None:
     )
 
 
-def init_db(db_path: Path) -> None:
+#: Databases already initialised in this process. init_db is documented as safe
+#: to call on every request, and a dozen routes do — but it issues CREATE TABLE
+#: and ALTER TABLE, i.e. it takes a *write* lock. Under a writing pipeline that
+#: turned every admin page load into a lock wait. The schema cannot change
+#: mid-process, so once is enough.
+_initialised: set[str] = set()
+
+
+def init_db(db_path: Path, force: bool = False) -> None:
+    """Create/migrate every table. Idempotent, and now also *cheap to call*.
+
+    Routes are documented as free to call this per request, and a dozen do —
+    but the body is CREATE TABLE / ALTER TABLE, which takes a write lock. With
+    the pipeline writing concurrently that produced "database is locked" and
+    multi-second page loads (2026-08-16). The schema cannot change within a
+    process, so the work runs once per path; pass force=True in tests that
+    rebuild a database at the same location.
+    """
+    key = str(db_path)
+    if not force and key in _initialised:
+        return
     with _connect(db_path) as conn:
-        conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS runs (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -506,6 +546,7 @@ def init_db(db_path: Path) -> None:
 
         _migrate_unicode_record_keys(conn)
         conn.commit()
+    _initialised.add(key)
 
 
 # ── Runs ──────────────────────────────────────────────────────────────────────

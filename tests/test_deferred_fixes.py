@@ -329,3 +329,44 @@ def test_stale_cleanup_spares_manual_candidates(tmp_path):
     cleanup_stale_community_candidates(db)
     cands = [c for c in get_duplicate_candidates(db) if c["signal"] == "manual"]
     assert len(cands) == 1 and cands[0]["resolution"] is None
+
+
+def test_init_db_runs_once_per_path(tmp_path):
+    """init_db takes a write lock; a dozen routes call it per request.
+
+    With the pipeline writing concurrently that produced
+    "sqlite3.OperationalError: database is locked" and multi-second page loads
+    on 2026-08-16. The schema cannot change within a process, so the body runs
+    once and later calls are free.
+    """
+    import time
+
+    from scraper.db import init_db
+
+    db = tmp_path / "s.db"
+    t0 = time.monotonic()
+    init_db(db)
+    first = time.monotonic() - t0
+
+    t0 = time.monotonic()
+    for _ in range(50):
+        init_db(db)
+    repeats = time.monotonic() - t0
+
+    # 50 guarded calls must cost far less than the one real one.
+    assert repeats < first, f"50 repeats took {repeats:.4f}s vs first {first:.4f}s"
+    # force= still re-runs it, which the migration test relies on.
+    init_db(db, force=True)
+
+
+def test_connection_uses_wal(tmp_path):
+    """Readers must not block behind the pipeline's writes."""
+    import sqlite3
+
+    from scraper.db import init_db
+
+    db = tmp_path / "s.db"
+    init_db(db)
+    with sqlite3.connect(db) as conn:
+        mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+    assert mode.lower() == "wal"

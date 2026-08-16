@@ -103,7 +103,9 @@ def test_init_db_migrates_legacy_keys_and_references(tmp_path: Path):
         )
         conn.commit()
 
-    init_db(db)
+    # force=True: init_db is guarded to run once per path (it takes a write
+    # lock), and this test deliberately re-runs the migration.
+    init_db(db, force=True)
 
     assert get_community_by_record_key(db, legacy_key) is None
     assert get_community_by_record_key(db, new_key)["name"] == record.name
