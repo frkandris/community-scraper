@@ -120,7 +120,7 @@ async def main() -> int:
         for e in r["errors"]:
             print(f"{'':>24}! {e}")
     if out.get("unmeasured"):
-        print(f"\nUNMEASURED (rate limited or erroring — not scored, not written):")
+        print("\nUNMEASURED (rate limited or erroring — not scored, not written):")
         for m in out["unmeasured"]:
             print(f"  {m}")
         print("Re-run these when the fleet is idle; a rate limit is not a quality signal.")
