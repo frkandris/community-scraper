@@ -62,9 +62,29 @@ Conflating the two is what caused the incident.
    the v1 API.
 4. Verify with the smoke test before declaring it fixed.
 
-## What is still missing
+## It runs automatically
 
-Nothing runs the smoke test automatically. Today it was invoked by hand after
-each deploy, which works only as long as someone remembers. The obvious next
-step is a scheduled external check that alerts — the daily report email is too
-slow a channel for a site being down.
+`.github/workflows/smoke.yml` runs the smoke test on every push to `main` and
+**every 15 minutes** on a schedule. GitHub emails on failure.
+
+Both triggers are needed, because the site failed in two different ways:
+
+- after a push, a deploy left it unreachable;
+- with **no deploy at all**, a database lock failed the healthcheck and Traefik
+  pulled the container for minutes at a time.
+
+A deploy-only check would have caught half the incidents. Fifteen minutes is
+chosen against the observed outage length — the episodes lasted minutes, so an
+hourly check would mostly have reported "fine" after the fact.
+
+Running it in GitHub Actions rather than on the server is the point: the checker
+must not share fate with the thing it checks. It uses only the Python standard
+library, so the job cannot fail for reasons unrelated to the site.
+
+### Limits worth knowing
+
+- GitHub's scheduled runs are best-effort and can be delayed under load; treat
+  15 minutes as an upper bound on detection, not a guarantee.
+- GitHub disables schedules on a repository with no activity for 60 days.
+- The workflow checks reachability, not correctness. It cannot tell you the
+  extraction stopped producing records — that is what the daily report is for.

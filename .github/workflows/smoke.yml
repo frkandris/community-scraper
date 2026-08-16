@@ -1,0 +1,50 @@
+name: production smoke test
+
+# Two triggers, because the site failed in two different ways on 2026-08-16:
+#  * after a push, a deploy left it unreachable;
+#  * with no deploy at all, a database lock failed the healthcheck and Traefik
+#    pulled the container from rotation for minutes at a time.
+# A deploy-only check would have missed half the incidents.
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Every 15 minutes. The outages lasted minutes, so an hourly check would
+    # mostly have reported "fine" after the fact.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+# A slow deploy should not have several runs racing each other into alerts.
+concurrency:
+  group: smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # No pip install: the smoke test deliberately uses only the standard
+      # library, so this job cannot fail for reasons unrelated to the site.
+      - name: Wait for deploy and check the site from outside
+        run: |
+          # Give Coolify time to build and swap the container on a push; on a
+          # schedule run the site should already be up, so do not wait around.
+          if [ "${{ github.event_name }}" = "push" ]; then WAIT=600; else WAIT=120; fi
+          python scripts/smoke_test.py --wait "$WAIT"
+
+      - name: Explain a failure
+        if: failure()
+        run: |
+          echo "::error::The public site failed its smoke test."
+          echo "Most likely causes, in the order they actually happened:"
+          echo "  1. Traefik did not re-register the route after a deploy."
+          echo "     Fix: POST /api/v1/deploy?uuid=<app>&force=true  (not restart)"
+          echo "  2. A database lock failed the container healthcheck and it was"
+          echo "     pulled from rotation. Check /healthz for db:\"busy\"."
+          echo "See docs/wiki/pages/operations/production-monitoring.md"
