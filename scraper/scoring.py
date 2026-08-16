@@ -57,111 +57,163 @@ def _tokens(name: str) -> set[str]:
         c for c in unicodedata.normalize("NFD", name.lower())
         if unicodedata.category(c) != "Mn"
     )
-    return {t for t in re.split(r"[^a-z0-9]+", folded)
-            if len(t) > 2 and t not in _STOPWORDS}
+    # Tokens of one or two characters are club-type markers, not names — SV, IF,
+    # FC, SE. Dropping them here means "SV Musterstadt" and "Sportverein
+    # Musterstadt" both reduce to the town, which is the point.
+    # Genericness filtering is the caller's job: it depends on the corpus.
+    return {t for t in re.split(r"[^a-z0-9]+", folded) if len(t) > 2}
 
 
-#: Words that appear in a large fraction of club names and identify nothing on
-#: their own. Multilingual because the corpus is: Hungarian, German and Swedish
-#: names all reach the scorer, and a Hungarian-only list leaves "Sportverein"
-#: and "Idrottsförening" counting as distinctive.
-_STOPWORDS = frozenset({
-    # Hungarian
-    "egyesulet", "klub", "kor", "csoport", "sport", "sportegyesulet",
-    "kozhasznu", "alapitvany", "tarsasag", "szakosztaly", "se", "sc", "es", "az",
-    # German
-    "verein", "sportverein", "turnverein", "abteilung", "gemeinschaft",
-    "gruppe", "der", "die", "das", "und", "ev",
-    # Swedish
-    "forening", "klubb", "idrottsforening", "sallskap", "och",
-    # English
-    "club", "society", "association", "group", "the", "and",
+#: A token is "generic" when it appears in at least this share of the corpus's
+#: names. Measured, not listed: a hand-written stopword list cannot keep up with
+#: three languages, and length is not a proxy for genericness — Hungarian
+#: generics are short ("klub", "SE") while German ones are long compounds
+#: ("Schachverein", "Idrottssällskap"). Both must be caught by the same rule.
+_GENERIC_DF = 0.10
+
+#: Endings that make a word a club-type rather than a name. Compound languages
+#: build these productively — Schachverein, Schwimmverein, Turnverein,
+#: Simklubb, Idrottsförening — so no finite list of whole words keeps up, but
+#: the suffix does. "Futóklub" also matches, which is correct: it is the club
+#: type, and "Szentendrei" is what identifies the club.
+_GENERIC_SUFFIXES = (
+    "verein", "vereinigung", "gemeinschaft",
+    "klubb", "forening", "sallskap", "idrottsforening",
+    "egyesulet", "klub", "club",
+)
+
+#: Fallback for the tiny-corpus case, where document frequency is meaningless.
+_SEED_GENERIC = frozenset({
+    "egyesulet", "klub", "kor", "csoport", "sport", "sportegyesulet", "se", "sc",
+    "verein", "sportverein", "gruppe", "ev", "forening", "klubb", "club",
+    "society", "association", "group",
 })
 
-#: Shortest identity key that may be used for a containment match. Below this a
-#: key is almost always a generic word ("klub", "se", "sport") that is a
-#: substring of half the corpus.
-_MIN_CONTAINMENT_LEN = 8
+
+def _generic_tokens(names: list[str], threshold: float = _GENERIC_DF) -> frozenset[str]:
+    """Tokens too widespread in this corpus to identify a club.
+
+    Derived from the names themselves, so it adapts to whichever market the
+    sample is drawn from without anyone maintaining a list per language.
+    """
+    from collections import Counter
+
+    if len(names) < 20:
+        return frozenset(_SEED_GENERIC)
+    df: Counter = Counter()
+    for n in names:
+        df.update(_tokens(n))
+    cutoff = max(2, int(len(names) * threshold))
+    return frozenset(_SEED_GENERIC | {t for t, c in df.items() if c >= cutoff})
 
 
-def _matches(want: str, got: list[str]) -> bool:
+def _matches(want: str, got: list[str], generic: frozenset[str] = frozenset()) -> bool:
     """Did the model return this name, under any reasonable reading?
 
-    Exact matching alone under-counts badly: MINEA (arXiv:2404.04068) scored the
-    same extractions at 59.4% on exact name match and 88.4% once containment was
-    allowed. A model returning "Szentendrei Futóklub Egyesület" where we
-    recorded "Szentendrei Futóklub" is right.
+    Lenient about *phrasing*, strict about *identity* — the two are easy to
+    conflate and each mistake is costly in its own direction. MINEA
+    (arXiv:2404.04068) measured the same extractions at 59.4% with exact name
+    matching and 88.4% once containment was allowed, so being too strict
+    understates every model; being too loose lets a single generic word sweep a
+    page and promote a degenerate model to the head of the routing order.
 
-    The hard part is being lenient about *phrasing* without becoming lenient
-    about *identity*. Two rules do that work:
+    The rule is about *distinctive* tokens — the ones left after removing words
+    that are widespread in this corpus:
 
-    * containment requires a substantial key on both sides, so "Klub" no longer
-      matches "Szentendrei Futóklub" merely by being a substring of it;
-    * token overlap requires one name's distinctive tokens to be a **subset** of
-      the other's, plus at least two shared tokens. Without the subset rule,
-      "SV Grün-Weiß Musterstadt" matches "SV Grün-Weiß Beispielstadt" — same
-      club name, different town, which is the commonest shape in the German
-      corpus. Without the two-token floor, the bare topic word "Sakk" matches
-      every chess club and scores 100.
+    * identical distinctive sets match, whatever their size. "SV Musterstadt"
+      and "Sportverein Musterstadt" both reduce to {musterstadt}: same club,
+      spelled out. This is the dominant German shape, so a size floor here
+      wrecks measurement on the largest market.
+    * a subset matches only if the smaller side still carries a distinctive
+      token, which is what stops bare "Schachverein" or "Klub".
+    * two names that each carry a distinctive token the other lacks are
+      different clubs — "SV Grün-Weiß Musterstadt" vs "… Beispielstadt".
     """
+    generic = generic or _SEED_GENERIC
+
+    def distinctive(name: str) -> set[str]:
+        return {t for t in _tokens(name)
+                if t not in generic and not t.endswith(_GENERIC_SUFFIXES)}
+
     wk = _key(want)
-    keys = [_key(g) for g in got]
-    if wk in keys:
+    if wk in [_key(g) for g in got]:
         return True
 
-    wt = _tokens(want)
-    for g, k in zip(got, keys):
-        if not wk or not k:
-            continue
-        # Containment, guarded by length and by carrying real content.
-        if (wk in k or k in wk) and min(len(wk), len(k)) >= _MIN_CONTAINMENT_LEN:
-            shorter_tokens = wt if len(wk) <= len(k) else _tokens(g)
-            if shorter_tokens:
-                return True
-        gt = _tokens(g)
+    wt = distinctive(want)
+    for g in got:
+        gt = distinctive(g)
         if not wt or not gt:
-            continue
-        shared = wt & gt
-        # Subset either way: one name may be more specific, but neither may
-        # carry a distinctive token the other contradicts.
-        if len(shared) >= 2 and (wt <= gt or gt <= wt):
+            continue  # nothing distinctive on one side — cannot confirm identity
+        if wt == gt:
+            return True
+        if wt <= gt or gt <= wt:
             return True
     return False
 
 
-def _pair_up(left: list[str], right: list[str]) -> int:
-    """Greedy one-to-one matching; returns how many pairs were made.
+def _pair_up(left: list[str], right: list[str],
+             generic: frozenset[str] = frozenset()) -> int:
+    """Maximum one-to-one matching between two name lists.
 
-    Counting matches independently lets one name satisfy several: three
-    phrasings of the same club all counted as precise, and a single generic
-    answer counted as recall for every expected club. Each side may be used
-    once.
+    Greedy pairing consumes a candidate a later item needed, so the same answer
+    set scored differently depending on the order the model happened to list
+    clubs in — which reintroduces exactly the run-to-run variance the
+    deterministic golden set removed. Augmenting paths (Kuhn's algorithm) give
+    the true maximum; n is a handful of names per page.
     """
-    used: set[int] = set()
-    pairs = 0
-    for item in left:
-        for i, candidate in enumerate(right):
-            if i in used:
+    adj = [[j for j, cand in enumerate(right) if _matches(item, [cand], generic)]
+           for item in left]
+    match_r: dict[int, int] = {}
+
+    def _try(i: int, seen: set[int]) -> bool:
+        for j in adj[i]:
+            if j in seen:
                 continue
-            if _matches(item, [candidate]):
-                used.add(i)
-                pairs += 1
-                break
-    return pairs
+            seen.add(j)
+            if j not in match_r or _try(match_r[j], seen):
+                match_r[j] = i
+                return True
+        return False
+
+    return sum(1 for i in range(len(left)) if _try(i, set()))
 
 
-def score_page(expected, got) -> float:
+def score_page(expected, got, generic: frozenset[str] = frozenset()) -> float:
     """Score one page. Both arguments are raw names, not identity keys —
-    matching needs the words, and the key form has no spaces."""
-    expected, got = list(expected), list(got)
+    matching needs the words, and the key form has no spaces.
+
+    `expected` is deduplicated: a cached extraction can hold the same club
+    twice, and with one-to-one pairing that would cap recall below 1.0 for a
+    model returning the correct *distinct* set — scoring it below one that
+    repeats itself.
+    """
+    seen: dict[str, str] = {}
+    for n in expected:
+        seen.setdefault(_key(n), n)
+    expected = list(seen.values())
+    got = list(dict.fromkeys(got))
     if not expected:
         return 0.0
-    # One-to-one on both sides: a model cannot earn recall for two clubs with a
-    # single answer, nor precision for repeating one club three ways.
-    recall = _pair_up(expected, got) / len(expected)
-    precision = (_pair_up(got, expected) / len(got)) if got else 0.0
+    recall = _pair_up(expected, got, generic) / len(expected)
+    precision = (_pair_up(got, expected, generic) / len(got)) if got else 0.0
     return (_ANSWER_POINTS + _RECALL_POINTS * recall
             + _PRECISION_POINTS * min(1.0, precision))
+
+
+def corpus_names(db_path: Path, limit: int = 40_000) -> list[str]:
+    """Every visible community name, for measuring which tokens are generic.
+
+    Deliberately the full corpus rather than the golden set: genericness is a
+    property of the domain ("sakk" appears in every chess club's name), and a
+    dozen sample pages cannot show that.
+    """
+    if not Path(db_path).exists():
+        return []
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT json_extract(data, '$.name') FROM communities"
+            " WHERE hidden=0 LIMIT ?", (limit,)).fetchall()
+    return [r[0] for r in rows if r[0]]
 
 
 def golden_set(db_path: Path, limit: int = 12) -> list[dict]:
@@ -212,7 +264,8 @@ def golden_set(db_path: Path, limit: int = 12) -> list[dict]:
     return out
 
 
-async def score_model(extractor, pages: list[dict]) -> dict:
+async def score_model(extractor, pages: list[dict],
+                      generic: frozenset[str] = frozenset()) -> dict:
     """Run one model over the golden set.
 
     The score is the mean over pages the model *answered*, with `coverage`
@@ -233,7 +286,7 @@ async def score_model(extractor, pages: list[dict]) -> dict:
                 errors.append(f"{type(exc).__name__}: {str(exc)[:120]}")
             continue
         got = [r.name for r in records if r.name]
-        total += score_page(page["expected"], got)
+        total += score_page(page["expected"], got, generic)
         answered += 1
     # A model that never answered is UNMEASURED, not bad. Reporting 0 conflates
     # "rate limited for 20 minutes" with "produced garbage", and writing that 0
@@ -260,10 +313,17 @@ async def score_fleet(db_path: Path, extractors: list, pages: int = 8) -> dict:
     if not gs:
         return {"error": "no usable golden pages (need cached pages with records)",
                 "pages": 0, "results": []}
-    log.info("scoring_start", pages=len(gs), models=len(extractors))
+    # Genericness is measured from the WHOLE corpus, not the sample. A golden
+    # set is a dozen pages and a few dozen names — far too small for document
+    # frequency to mean anything, and the topic word ("sakk", "futás") would
+    # never look common enough to discount. The communities table has tens of
+    # thousands of names and answers the question properly.
+    generic = _generic_tokens(corpus_names(db_path))
+    log.info("scoring_start", pages=len(gs), models=len(extractors),
+             generic_tokens=len(generic))
     results = []
     for ex in extractors:
-        r = await score_model(ex, gs)
+        r = await score_model(ex, gs, generic)
         log.info("scoring_model_done", **{k: r[k] for k in
                                           ("provider", "model", "score", "answered", "failed")})
         results.append(r)
