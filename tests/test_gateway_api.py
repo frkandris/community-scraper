@@ -369,3 +369,25 @@ def test_score_endpoint_reports_an_empty_golden_set_clearly(client):
     resp = client.post("/v1/score?pages=2", headers=AUTH)
     assert resp.status_code == 422
     assert resp.json()["error"]["code"] == "no_golden_pages"
+
+
+def test_models_lists_by_daily_budget_not_momentary_pacing(client):
+    """A two-second rpm cooldown must not remove a model from /v1/models.
+
+    Seen live on 2026-08-16: the endpoint showed 4 of 12 models because the
+    rest were mid-cooldown, while `auto` simultaneously advertised a quality
+    only a hidden model had. Same order()/with_budget() distinction the
+    completions route already makes.
+    """
+    from scraper.router import QuotaLedger
+
+    QuotaLedger(app_state.db_path).note_call("alpha")  # alpha now paced
+
+    body = client.get("/v1/models", headers=AUTH).json()
+    ids = [m["id"] for m in body["data"]]
+    assert "alpha:alpha-big" in ids, ids       # still listed…
+    entry = next(m for m in body["data"] if m["id"] == "alpha:alpha-big")
+    assert entry["paced"] is True              # …flagged, not hidden
+    # `auto` must not advertise a quality no listed model has.
+    auto = next(m for m in body["data"] if m["id"] == "auto")
+    assert auto["quality"] <= max(m["quality"] for m in body["data"] if m["id"] != "auto")

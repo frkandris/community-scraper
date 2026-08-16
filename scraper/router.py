@@ -60,6 +60,18 @@ class QuotaLedger:
     #: counters are atomic, so re-reading is all that is needed.
     _RELOAD_EVERY = 25
 
+    #: Per-provider monotonic timestamp of the last attempt, for rpm pacing.
+    #: **Class-level, so every ledger in the process shares it.** The gateway
+    #: builds a fresh router per request; with per-instance state each HTTP call
+    #: would start with an empty clock and rpm pacing would not exist on that
+    #: path at all, while the long-lived pipeline router honoured it. The
+    #: provider sees one client per container, so the container is the right
+    #: granularity.
+    #:
+    #: In memory rather than in the DB on purpose: a per-minute limit is
+    #: meaningless across a restart, unlike the daily counters.
+    _last_call: dict[str, float] = {}
+
     def __init__(self, db_path: Path | None, day: str | None = None):
         self.db_path = db_path
         #: None → follow the wall clock, so a run crossing midnight UTC rolls
@@ -67,10 +79,6 @@ class QuotaLedger:
         self._fixed_day = day
         self.day = day or utc_day()
         self._usage: dict[str, dict] = {}
-        #: Per-provider monotonic timestamp of the last attempt, for rpm pacing.
-        #: In-memory on purpose: a per-minute limit is meaningless across a
-        #: restart, and the daily counters that do matter are in the DB.
-        self._last_call: dict[str, float] = {}
         self._since_reload = 0
         self.reload()
 

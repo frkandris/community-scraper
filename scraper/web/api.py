@@ -128,11 +128,17 @@ def _select(fleet: list, requested: str) -> list:
 
 @router.get("/models")
 async def list_models(authorization: str | None = Header(default=None)):
-    """OpenAI `/v1/models`: what this gateway can route to right now.
+    """OpenAI `/v1/models`: what this gateway can route to today.
 
-    Only models with quota left are listed, so a client polling this endpoint
-    sees capacity, not just configuration. `owned_by` carries the provider and
-    the non-standard `quality`/`remaining` fields expose the routing inputs.
+    Lists models with **daily budget** left, not models callable this
+    millisecond. `order()` also excludes anything inside its rpm cooldown, which
+    at rpm 30 is a two-second window — a client polling this endpoint would see
+    most of the fleet blink in and out for no reason it could act on. Same
+    distinction the completions route makes.
+
+    `owned_by` carries the provider; the non-standard `quality` field exposes
+    the routing score. `paced` flags a model that is momentarily on cooldown but
+    otherwise available.
     """
     if not _authorized(authorization):
         return _error(401, "Invalid or missing API key.", "invalid_request_error",
@@ -142,13 +148,15 @@ async def list_models(authorization: str | None = Header(default=None)):
         return _error(503, "Model router is not configured.", "server_error",
                       "router_disabled")
     now = int(time.time())
+    callable_now = {id(e) for e in mr.order()}
     data = [{
         "id": f"{e.provider}:{e.model}",
         "object": "model",
         "created": now,
         "owned_by": e.provider,
         "quality": e.quality,
-    } for e in mr.order()]
+        "paced": id(e) not in callable_now,
+    } for e in mr.with_budget()]
     # "auto" is the model most callers should ask for, so advertise it first.
     data.insert(0, {"id": "auto", "object": "model", "created": now,
                     "owned_by": "router",
