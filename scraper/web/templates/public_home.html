@@ -114,7 +114,7 @@
 
     <!-- Right: search form (order-1 on mobile so it appears before cities) -->
     <section class="bg-white rounded-xl border border-[#EAE5DB] p-5 sm:p-6 shadow-sm order-1 lg:order-2">
-      <form action="/felfedezes" method="GET" id="main-form">
+      <form action="{{ explore_url }}" method="GET" id="main-form">
 
         <!-- City input -->
         <div class="mb-6">
@@ -122,11 +122,12 @@
             {{ t('home_city_label') }}
           </label>
           <div class="relative">
+            {# No `list=`/<datalist>: iOS Safari ignores it entirely. The
+               suggestion panel is built by MpAutocomplete from city_options. #}
             <input
               type="text"
               name="city"
               id="city-input"
-              list="cities-list"
               value="{{ selected_city }}"
               placeholder="{{ t('home_city_placeholder') }}"
               autocomplete="off"
@@ -134,15 +135,10 @@
                 focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 transition-colors
                 bg-white placeholder-[#B5ADA0] text-[#1C1917]"
             >
-            <button type="button" id="geo-btn" title="Helyzet meghatározása" aria-label="Helyzet meghatározása"
+            <button type="button" id="geo-btn" title="{{ t('home_detect_location') }}" aria-label="{{ t('home_detect_location') }}"
               class="absolute right-2.5 inset-y-0 my-auto flex items-center justify-center w-6 h-6 text-[#B5ADA0] hover:text-[#C2613A] transition-colors focus:outline-none focus:ring-2 focus:ring-[#C2613A]/40 focus:rounded">
               <i id="geo-icon" class="ph ph-crosshair text-xl"></i>
             </button>
-            <datalist id="cities-list">
-              {% for city in cities %}
-              <option value="{{ city.name }}">{{ city.name }}</option>
-              {% endfor %}
-            </datalist>
           </div>
           <p id="city-hint" class="mt-2 text-xs text-[#8C8478] min-h-[1rem]">
             <span id="city-count-text"></span>
@@ -194,6 +190,8 @@
 </div>
 
 <script>
+// Deferred /static/js/listing.js has already run by DOMContentLoaded.
+document.addEventListener('DOMContentLoaded', function () {
 const cityInput = document.getElementById('city-input');
 const hint = document.getElementById('city-hint');
 const cityCountText = document.getElementById('city-count-text');
@@ -261,10 +259,24 @@ if (cityInput.value.trim()) fetchCounts(cityInput.value.trim());
 
 const geoBtn = document.getElementById('geo-btn');
 const geoIcon = document.getElementById('geo-icon');
-const cityOptions = [...document.querySelectorAll('#cities-list option')].map(o => o.value);
+// One compact list serves both the search box and the "cities near you" panel.
+// Short keys (n/s/c) because at 1300+ cities the key names alone were tens of
+// kilobytes; expanded once here rather than shipped verbose.
+const _CITY_DATA = {{ cities_json | safe }};
+const cityOptions = _CITY_DATA.map(c => ({name: c.n, slug: c.s, count: c.c}));
 
-// Cities near you
-const _ALL_CITIES = {{ cities_coords_json | safe }};
+// Accent-insensitive suggestion panel. Replaces the native datalist element,
+// which iOS Safari does not implement — on iPhone the field offered nothing.
+const cityAc = MpAutocomplete.attach({
+  input: cityInput,
+  items: cityOptions,
+  onPick: it => fetchCounts(it.name),
+});
+
+// Cities near you — only entries that carry coordinates.
+const _ALL_CITIES = _CITY_DATA
+  .filter(c => c.lat != null && c.lng != null)
+  .map(c => ({name: c.n, slug: c.s, count: c.c, lat: c.lat, lng: c.lng}));
 const _EXPLORE_URL = {{ explore_url | tojson }};
 
 function _haversine(lat1, lng1, lat2, lng2) {
@@ -276,7 +288,6 @@ function _haversine(lat1, lng1, lat2, lng2) {
 
 function _renderNearbyCities(lat, lng) {
   const nearest = _ALL_CITIES
-    .filter(c => c.lat != null && c.lng != null)
     .map(c => ({...c, dist: _haversine(lat, lng, c.lat, c.lng)}))
     .sort((a, b) => a.dist - b.dist)
     .slice(0, 6);
@@ -318,12 +329,16 @@ document.getElementById('detect-location-btn')?.addEventListener('click', functi
 
 document.getElementById('main-form').addEventListener('submit', function(e) {
   const val = cityInput.value.trim();
-  if (val && !cityOptions.some(c => c.toLowerCase() === val.toLowerCase())) {
-    e.preventDefault();
-    cityCountText.textContent = '';
-    hint.innerHTML = '<span style="color:#C2613A">Ezt a várost még nem ismerjük — válassz egyet a listából.</span>';
-    cityInput.focus();
-  }
+  if (!val) return;
+  // Accept anything that resolves to exactly one known city — accents, casing
+  // and a partial name all count. Only a genuine no-match blocks the submit.
+  const hit = cityAc && cityAc.resolve(val);
+  if (hit) { cityInput.value = hit.name; return; }
+  e.preventDefault();
+  cityCountText.textContent = '';
+  hint.innerHTML = '<span style="color:#C2613A">{{ t("home_city_unknown") }}</span>';
+  cityAc && cityAc.close();
+  cityInput.focus();
 });
 
 geoBtn.addEventListener('click', function() {
@@ -340,7 +355,10 @@ geoBtn.addEventListener('click', function() {
       const data = await res.json();
       const addr = data.address || {};
       const detected = addr.city || addr.town || addr.village || addr.county || '';
-      const match = cityOptions.find(c => c.toLowerCase() === detected.toLowerCase()) || detected;
+      // resolve() folds accents, so OSM's "Szentendre"/"Győr" hit our list even
+      // when the reverse geocoder spells them differently.
+      const hit = cityAc && cityAc.resolve(detected);
+      const match = hit ? hit.name : detected;
       if (match) {
         cityInput.value = match;
         fetchCounts(match);
@@ -352,6 +370,7 @@ geoBtn.addEventListener('click', function() {
     geoIcon.className = 'ph ph-crosshair text-xl leading-none';
     geoBtn.disabled = false;
   });
+});
 });
 </script>
 

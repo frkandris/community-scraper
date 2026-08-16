@@ -1,0 +1,41 @@
+{# Shared listing header: free-text filter + A-Z jump bar.
+
+   Used by every public listing page so they behave identically. Import it and
+   call the macro *above* the list it controls:
+
+     {% import "_listing_filter.html" as lf %}
+     {{ lf.filter_bar(t, target='#city-grid') }}
+     <div id="city-grid"> … items carrying data-name="…" … </div>
+
+   No page-level JS: /static/js/listing.js auto-attaches to every
+   [data-mp-filter] block on DOMContentLoaded. Jinja2 does not hoist macros, so
+   the import must precede the call. #}
+
+{% macro filter_bar(t, target, item='[data-name]', group='', placeholder='', autofocus=false) %}
+<div class="mb-5 flex flex-col gap-2.5"
+     data-mp-filter
+     data-target="{{ target }}"
+     data-item="{{ item }}"
+     {% if group %}data-group="{{ group }}"{% endif %}>
+  <div class="flex items-center gap-2">
+    <div class="relative flex-1 min-w-0 max-w-md">
+      <i class="ph ph-magnifying-glass absolute left-3 inset-y-0 my-auto h-4 text-[#B5ADA0] pointer-events-none"></i>
+      <input type="search"
+        data-mp-filter-input
+        {% if autofocus %}autofocus{% endif %}
+        placeholder="{{ placeholder or t('list_filter_placeholder') }}"
+        aria-label="{{ t('list_filter_label') }}"
+        class="w-full pl-9 pr-3 py-2.5 text-base sm:text-sm border border-[#D8D1C4] rounded-lg
+               focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20
+               bg-white placeholder-[#B5ADA0] text-[#1C1917] transition-colors">
+    </div>
+    <span class="text-xs text-[#8C8478] whitespace-nowrap shrink-0">
+      <span data-mp-filter-count>0</span>
+    </span>
+  </div>
+  <div class="mp-az-bar" data-mp-filter-az data-all-label="{{ t('list_filter_all') }}"></div>
+  <p data-mp-filter-empty hidden class="text-sm text-[#8C8478] py-6 text-center">
+    {{ t('list_no_match') }}
+  </p>
+</div>
+{% endmacro %}

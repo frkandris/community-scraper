@@ -201,6 +201,18 @@ def init_db(db_path: Path) -> None:
             conn.execute("ALTER TABLE cache_pages ADD COLUMN person_fingerprint TEXT")
         except sqlite3.OperationalError:
             pass
+        try:
+            # Quality score (0-100) of the model that produced the cached
+            # extraction. NULL = pre-router row, treated as the lowest tier so
+            # an upgrade sweep can reconsider it. Read by the router's
+            # re-extraction policy; never part of any cache key.
+            conn.execute("ALTER TABLE cache_pages ADD COLUMN extract_quality INTEGER")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE cache_pages ADD COLUMN extract_model TEXT")
+        except sqlite3.OperationalError:
+            pass
         # Backfill fingerprint columns from JSON blob (runs once, skips already-set rows)
         conn.execute("""
             UPDATE cache_pages
@@ -468,6 +480,27 @@ def init_db(db_path: Path) -> None:
                 site         TEXT NOT NULL,
                 visitor_hash TEXT NOT NULL,
                 PRIMARY KEY (day, site, visitor_hash)
+            )
+        """)
+
+        # Per-provider, per-UTC-day quota ledger for the free-tier model router.
+        # Persisted rather than in-memory because free daily allowances are
+        # calendar-day budgets: a container restart must not hand a provider a
+        # fresh 14,400 requests it does not actually have.
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS provider_usage (
+                day             TEXT NOT NULL,
+                provider        TEXT NOT NULL,
+                calls           INTEGER NOT NULL DEFAULT 0,
+                failures        INTEGER NOT NULL DEFAULT 0,
+                rate_limits     INTEGER NOT NULL DEFAULT 0,
+                -- Requests served on the day we first hit a 429. The published
+                -- limits are stale or unpublished for most providers, so the
+                -- observed ceiling is what actually governs routing.
+                observed_limit  INTEGER,
+                blocked_until   REAL NOT NULL DEFAULT 0,
+                last_error      TEXT,
+                PRIMARY KEY (day, provider)
             )
         """)
 
@@ -1474,11 +1507,16 @@ def delete_all_communities(db_path: Path) -> int:
 # ── Cache pages ───────────────────────────────────────────────────────────────
 
 def _write_cache_page(conn: sqlite3.Connection, entry: dict) -> None:
+    # extract_quality/extract_model mirror the blob into real columns so the
+    # router's upgrade sweep can filter and order in SQL rather than by decoding
+    # every cached page. Neither is part of any cache key.
+    quality = entry.get("extract_quality")
     conn.execute("""
         INSERT INTO cache_pages
             (url_hash, url, city, topic, domain, scraped_at, extracted_at,
-             extract_fingerprint, venue_fingerprint, person_fingerprint, data)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             extract_fingerprint, venue_fingerprint, person_fingerprint,
+             extract_quality, extract_model, data)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(url_hash) DO UPDATE SET
             city=excluded.city,
             topic=excluded.topic,
@@ -1488,6 +1526,8 @@ def _write_cache_page(conn: sqlite3.Connection, entry: dict) -> None:
             extract_fingerprint=excluded.extract_fingerprint,
             venue_fingerprint=excluded.venue_fingerprint,
             person_fingerprint=excluded.person_fingerprint,
+            extract_quality=excluded.extract_quality,
+            extract_model=excluded.extract_model,
             data=excluded.data
     """, (
         entry["url_hash"],
@@ -1500,6 +1540,8 @@ def _write_cache_page(conn: sqlite3.Connection, entry: dict) -> None:
         entry.get("extract_fingerprint"),
         entry.get("venue_fingerprint"),
         entry.get("person_fingerprint"),
+        int(quality) if isinstance(quality, (int, float)) else None,
+        entry.get("extract_model"),
         json.dumps(entry, ensure_ascii=False),
     ))
 
@@ -3284,3 +3326,145 @@ def get_daily_summary(db_path: Path, start_iso: str, end_iso: str,
                 " GROUP BY city").fetchall():
             result["stock"][scope(city or "")]["pages_extracted"] += cnt
     return result
+
+
+# ── Provider quota ledger (free-tier model router) ────────────────────────────
+
+def get_provider_usage(db_path: Path, day: str) -> dict[str, dict]:
+    """{provider: {calls, failures, rate_limits, observed_limit, blocked_until,
+    last_error}} for one UTC day. Missing providers simply have no row."""
+    with _connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT * FROM provider_usage WHERE day=?", (day,)).fetchall()
+    return {r["provider"]: dict(r) for r in rows}
+
+
+def record_provider_call(
+    db_path: Path,
+    day: str,
+    provider: str,
+    *,
+    ok: bool = True,
+    rate_limited: bool = False,
+    blocked_until: float | None = None,
+    error: str | None = None,
+    observed_limit: int | None = None,
+) -> None:
+    """Count one provider call against its daily budget.
+
+    Every attempt increments `calls`, including failures: a 429 or a 400 still
+    consumed a request slot at most providers, and undercounting is what makes a
+    router walk straight into a hard block.
+
+    `observed_limit` is only ever lowered, never raised — once a provider has
+    proven it stops at N requests, a later run must not optimistically restore a
+    higher published number.
+    """
+    with _connect(db_path) as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO provider_usage (day, provider) VALUES (?, ?)",
+            (day, provider),
+        )
+        conn.execute(
+            """
+            UPDATE provider_usage
+               SET calls          = calls + 1,
+                   failures       = failures + ?,
+                   rate_limits    = rate_limits + ?,
+                   blocked_until  = MAX(blocked_until, COALESCE(?, 0)),
+                   last_error     = COALESCE(?, last_error),
+                   observed_limit = CASE
+                       WHEN ? IS NULL THEN observed_limit
+                       WHEN observed_limit IS NULL THEN ?
+                       ELSE MIN(observed_limit, ?)
+                   END
+             WHERE day=? AND provider=?
+            """,
+            (0 if ok else 1, 1 if rate_limited else 0, blocked_until, error,
+             observed_limit, observed_limit, observed_limit, day, provider),
+        )
+        conn.commit()
+
+
+def get_upgradable_pages(
+    db_path: Path, min_quality: int, limit: int, fingerprint: str,
+    cities: list[str] | None = None,
+) -> list[dict]:
+    """Cached pages whose extraction came from a model scoring below
+    `min_quality` — candidates for re-extraction with a better free model.
+
+    **NULL `extract_quality` is excluded, not treated as zero.** Every page
+    extracted before the router existed (~74K of them) carries NULL, and those
+    came from the paid incumbent, which scores *above* every free model.
+    Ranking them worst-first would have the sweep overwrite good DeepSeek output
+    with weaker free-model output — a downgrade wearing an upgrade's name. A row
+    only becomes a candidate once a router run has recorded what produced it.
+
+    Ordered worst-first so a bounded sweep spends its budget where the gain is
+    largest. Restricted to the current fingerprint: a page at a stale
+    fingerprint is already scheduled for ordinary re-extraction.
+
+    `cities` restricts the query to the caller's city set. It must be applied
+    **in SQL**, before LIMIT: the caller runs one country group at a time, so
+    filtering afterwards can return an empty result while thousands of eligible
+    pages sit further down a globally-ordered list.
+    """
+    where = ["extracted_at IS NOT NULL", "extract_fingerprint = ?",
+             "extract_quality IS NOT NULL", "extract_quality < ?"]
+    params: list = [fingerprint, min_quality]
+    if cities is not None:
+        if not cities:
+            return []
+        where.append(f"city IN ({','.join('?' * len(cities))})")
+        params.extend(cities)
+    params.append(limit)
+    with _connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            f"""
+            SELECT url, url_hash, city, topic, extract_quality AS q
+              FROM cache_pages
+             WHERE {' AND '.join(where)}
+             ORDER BY q ASC, extracted_at ASC
+             LIMIT ?
+            """,
+            params,
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def set_page_extract_quality(
+    db_path: Path, url_hash: str, quality: int, model: str,
+) -> None:
+    """Stamp which model produced a page's cached extraction, and how good it
+    is. Kept out of every cache key on purpose — the fingerprint must stay
+    stable across providers or the done-pair check falls apart."""
+    with _connect(db_path) as conn:
+        conn.execute(
+            "UPDATE cache_pages SET extract_quality=?, extract_model=? WHERE url_hash=?",
+            (quality, model, url_hash),
+        )
+        conn.commit()
+
+
+def get_extraction_quality_mix(db_path: Path, limit: int = 15) -> list[dict]:
+    """Cached pages grouped by the model that extracted them, largest first.
+
+    The honest answer to "how good is the corpus actually" — and the input the
+    router's upgrade sweep works from. A NULL model/quality means the page was
+    extracted before the router existed.
+    """
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            """
+            SELECT extract_model, extract_quality, COUNT(*) AS pages
+              FROM cache_pages
+             WHERE extracted_at IS NOT NULL
+             GROUP BY extract_model, extract_quality
+             ORDER BY pages DESC
+             LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [{"model": m, "quality": q, "pages": n} for m, q, n in rows]

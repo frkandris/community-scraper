@@ -99,6 +99,22 @@ def _settings_schedule() -> dict:
         return {}
 
 
+def _settings_country_priority() -> list[str] | None:
+    """pipeline.country_priority from settings.yaml, or None to use the default.
+
+    Lets an operator re-order expansion markets by editing config (which is a
+    mounted volume in production) instead of shipping a code change.
+    """
+    try:
+        settings = yaml.safe_load((CONFIG_DIR / "settings.yaml").read_text(encoding="utf-8")) or {}
+        order = (settings.get("pipeline") or {}).get("country_priority")
+        if isinstance(order, list) and all(isinstance(c, str) for c in order) and order:
+            return order
+    except Exception:
+        pass
+    return None
+
+
 def _next_window_end(start: "datetime", hhmm: str) -> "datetime | None":
     """First occurrence of HH:MM (UTC) strictly after `start` — handles windows
     that cross midnight (e.g. extract 16:35 → 00:20 next day)."""
@@ -229,16 +245,31 @@ def _startup_plan(
     return mode, None
 
 
-def _saver_city_groups(cities: list) -> tuple[list, list, list, list]:
-    """Expansion-first order for the bounded collector/extractor windows: the
-    active expansion market (Germany) leads, then Sweden (fully indexed — the
-    done-pair pre-filter fast-skips it), then the rest of the world, then
-    Hungary (also fully indexed)."""
-    de = [city for city in cities if city.country == "Germany"]
-    se = [city for city in cities if city.country == "Sweden"]
-    intl = [city for city in cities if city.country not in {"Hungary", "Sweden", "Germany"}]
-    hu = [city for city in cities if city.country == "Hungary"]
-    return de, se, intl, hu
+# Order the bounded collector/extractor windows walk countries in. The window
+# is a hard time box, so a country listed after one with a large unfinished
+# backlog may not be reached at all — this list *is* the expansion priority.
+# Overridable from settings.yaml as `pipeline.country_priority`.
+#
+# 2026-08-16: Hungary moved to the front. It used to sit last because it was
+# fully indexed and the done-pair pre-filter fast-skipped it; the 1000+ inhabitant
+# import added 973 unprocessed settlements, making it the largest available
+# content gain on the primary (kozossegek.com) market. Germany follows as the
+# active international expansion, then Indonesia (opened 2026-08-16).
+DEFAULT_COUNTRY_PRIORITY = ["Hungary", "Germany", "Indonesia", "Sweden"]
+
+
+def _saver_city_groups(cities: list, priority: list[str] | None = None) -> list[list]:
+    """Group cities into the order the saver windows should process them.
+
+    Returns one group per named country, then a final group with everything
+    else. Countries named but absent from the city list yield empty groups,
+    which the caller skips.
+    """
+    order = priority or DEFAULT_COUNTRY_PRIORITY
+    groups = [[city for city in cities if city.country == country] for country in order]
+    named = set(order)
+    groups.append([city for city in cities if city.country not in named])
+    return groups
 
 
 async def main() -> None:
@@ -296,13 +327,12 @@ async def main() -> None:
         run_id = start_run(db_path, started, run_mode)
         run_error: str | None = None
         pair_logs: list = []
-        groups = _saver_city_groups(app_state.cities or [])
+        groups = _saver_city_groups(app_state.cities or [], _settings_country_priority())
         try:
             # Current expansion work gets the bounded saver window first. Hungary
             # remains available as a tail pass for genuinely unfinished work.
-            for group in groups:
-                if not group:
-                    continue
+            active = [g for g in groups if g]
+            for idx, group in enumerate(active):
                 if stop_at and datetime.now(timezone.utc) >= stop_at:
                     log.info("scheduled_run_window_closed", mode=run_mode)
                     break
@@ -315,6 +345,10 @@ async def main() -> None:
                     on_progress=_on_progress,
                     on_pair_start=_on_pair_start,
                     stop_at=stop_at,
+                    # Only the final group may spend leftover quota on
+                    # re-extraction: reaching it means every earlier group ran,
+                    # so no uncollected pages are waiting behind the sweep.
+                    allow_upgrade=(idx == len(active) - 1),
                 )
                 pair_logs += group_logs
             app_state.last_run_at = datetime.now(timezone.utc)
@@ -496,7 +530,7 @@ async def main() -> None:
         run_id = start_run(db_path, started, startup_mode)
         run_error: str | None = None
         pair_logs: list = []
-        groups = _saver_city_groups(app_state.cities or [])
+        groups = _saver_city_groups(app_state.cities or [], _settings_country_priority())
         try:
             for group in groups:
                 if not group:

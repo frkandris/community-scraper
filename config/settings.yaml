@@ -37,6 +37,16 @@ fetch:
   playwright_domains: []
 
 pipeline:
+  # Order the bounded saver windows walk countries in. The window is a hard time
+  # box, so a country behind a large unfinished backlog may not be reached at
+  # all — this list is the expansion priority. Countries not named here run last,
+  # in config order. Hungary leads since the 2026-08-16 import of every 1000+
+  # inhabitant settlement (973 new, unprocessed) on the primary market.
+  country_priority:
+    - Hungary
+    - Germany
+    - Indonesia
+    - Sweden
   commit_after_run: false
   push_after_commit: false
   test_mode: false

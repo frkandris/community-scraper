@@ -218,6 +218,9 @@
           <a href="/admin/prompts" class="flex items-center gap-2 px-3 py-2 text-sm {% if _p == '/admin/prompts' %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
             <i class="ph ph-chat-text" style="font-size:14px"></i> Prompts
           </a>
+          <a href="/admin/providers" class="flex items-center gap-2 px-3 py-2 text-sm {% if _p == '/admin/providers' %}text-gray-900 font-semibold bg-gray-50{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+            <i class="ph ph-circuitry" style="font-size:14px"></i> AI providers
+          </a>
         </div>
       </div>
       {{ navlink('/admin/stats/adatminoseg', 'Stats',      _p.startswith('/admin/stats')) }}
@@ -275,6 +278,7 @@
       {{ navlink('/admin/logs',          'Logs',          _p == '/admin/logs') }}
       {{ navlink('/admin/config',        'Config',        _p.startswith('/admin/config')) }}
       {{ navlink('/admin/prompts',       'Prompts',       _p == '/admin/prompts') }}
+      {{ navlink('/admin/providers',     'AI providers',  _p == '/admin/providers') }}
       <p class="px-2.5 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Other</p>
       {{ navlink('/admin/stats/adatminoseg', 'Stats',       _p.startswith('/admin/stats')) }}
       {{ navlink('/admin/coverage',      'Coverage',       _p == '/admin/coverage') }}

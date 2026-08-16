@@ -23,10 +23,11 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[search-layer]] — DataForSEO is the sole search client (live or standard mode) behind the FallbackSearchClient wrapper with per-run exhaustion state.
 - [[fetch-layer]] — An SSRF-safe httpx/Playwright fetcher validates public DNS and redirects before trafilatura/html2text turns HTML into clean text.
 - [[extraction-layer]] — DeepSeek LLM extraction of communities, venues, and persons from page text, with four prompt families, live-editable prompts, and fingerprint-keyed caching.
-- [[pipeline-orchestration]] — run_pipeline() sequences mode-specific passes with a done-pair pre-filter; bounded saver jobs prioritize Sweden while startup recovery remains Hungary-first.
+- [[pipeline-orchestration]] — run_pipeline() sequences mode-specific passes with a done-pair pre-filter; bounded saver jobs walk countries in the configured pipeline.country_priority order.
 - [[duplicate-detection]] — detect_all() finds same-city duplicate communities/venues/persons via URL match and fuzzy name similarity, with a stable canonical key so re-scans are idempotent.
 - [[wrong-city-detection]] — scan() flags communities whose text fields mention another known city — a strong signal the record landed under the wrong city; admin review at /admin/wrong-city with a one-click move that merges on identity conflict.
 - [[web-app]] — One FastAPI app with a public router and an /admin router gated by pure-ASGI Basic auth; Hungarian paths are canonical and English paths redirect.
+- [[public-listing-widgets]] — One dependency-free script gives every public listing page the same accent-insensitive autocomplete, A-Z jump bar, and free-text filter.
 - [[i18n-and-site-detection]] — _detect_site reads the Host header; lang_context injects an i18n + nav bundle into every template. English is the translation base; missing keys render as themselves.
 - [[daily-report]] — report.py builds one email per UTC day — GA4 visitors, per-site diffs, run outcomes, and current stock totals — sent via Resend at 04:30 UTC or on demand.
 
@@ -35,6 +36,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[dataforseo]] — The sole paid search provider — live mode ($2/1K, seconds) vs standard task queue ($0.6/1K, minutes); quota and transient failures raise typed errors that are never cached.
 - [[deepseek]] — The sole LLM extractor — OpenAI-compatible chat API; the 2026-07 peak-valley pricing (2× at UTC 01–04 and 06–10) and the v4 model rename shape the extract schedule and the fingerprint_model cache pin.
 - [[resend-email]] — All outbound email (feedback routes + daily report) goes through Resend from info@kozossegek.com; the free plan allows one verified domain, so meetapedia.com has no sender identity.
+- [[router-gateway-api]] — OpenAI-compatible HTTP endpoint that routes any chat completion across the free-tier provider fleet — usable from any project with an existing OpenAI client.
 - [[ga4-reporting]] — The daily email reads visitor/session/pageview numbers from the GA4 Data API via a service account; property 536914034 covers both domains, split by hostName.
 
 ## Data model
@@ -50,7 +52,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 
 - [[community-identity]] — Two keys: community_id (stable URL slug) vs record_key (topic-aware DB uniqueness).
 - [[search-provider-fallback-chain]] — DataForSEO is the sole search provider (2026-07 cleanup); FallbackSearchClient remains as a single-provider wrapper with per-run exhaustion.
-- [[extraction-provider-fallback-chain]] — DeepSeek is the sole extractor (2026-07 cleanup); FallbackExtractor remains as a single-provider wrapper.
+- [[extraction-provider-fallback-chain]] — FallbackExtractor is the one failure path for every provider; since 2026-08 it carries a routed free-tier fleet instead of a single DeepSeek.
 - [[joinable-quality-gate]] — The primary quality filter — only records the LLM marks joinable=True survive; a 3-condition AND rule defines it.
 - [[false-positive-injection]] — Admin negatives feed both extraction paths and explicitly invalidate only the affected community-extraction cache.
 - [[done-pair-url-hash-not-city-topic]] — Done-pair detection resolves capped search URLs to hashes and checks every extraction family enabled for the current run mode.
@@ -62,9 +64,10 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 ## Decisions
 
 - [[search-ttl-3650-days]] — TTL set to ~10 years: index the world first, worry about freshness later.
-- [[sweden-pipeline-priority]] — Bounded saver jobs prioritize Sweden before world and Hungary so the active expansion market cannot be starved by legacy work.
+- [[sweden-pipeline-priority]] — Country order in the bounded saver windows lives in config, not code, so whichever market has the largest unprocessed backlog can lead.
 - [[hungary-sweden-intl-three-passes]] — main.py partitions Hungary, Sweden, and world into independent passes; bounded saver jobs are expansion-first while startup recovery is Hungary-first.
 - [[scheduler-disabled-no-cron]] — APScheduler registers the enabled twin cost-saver jobs and daily report; the legacy combined cron remains opt-in.
+- [[free-tier-model-router]] — Extraction routes across six free LLM providers by measured quality under a persisted daily quota ledger, with paid DeepSeek parked behind a flag.
 - [[cost-optimization-2026-07]] — Cost controls reduce paid search and LLM work through caching, query short-circuiting, venue gates, off-peak extraction, standard search, and topic tiers.
 - [[admin-simplification-2026-07]] — Removed the revalidate, recategorize, description-maintenance and Full Rebuild admin flows; the admin now centers on low-cost world indexing plus a user-interaction Inbox with pending badges.
 - [[description-enrichment-plan]] — Enriching thin community descriptions (~80→250 words) from cached raw_text is the biggest re-indexing lever, but must be run staged and supervised — not autonomously — because it costs LLM money at scale and risks re-triggering the 2026-06 corpus-churn devaluation.
@@ -111,6 +114,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[2026-07-deepseek-model-retired]] — DeepSeek dropped the deepseek-chat model name and the whole 2026-07-24 ai_only window failed with 1368 uncached pages; the fix swaps to deepseek-v4-flash while fingerprint_model pins the cache identity so 74K cached extractions survive.
 - [[2026-07-deploy-truncates-collector]] — A deploy landing inside the 15 h search_only window kills the in-flight collector; with auto_run_on_startup off it never resumed and lost the rest of the day's page collection — invisible because the evening extractor lived off the cached-page backlog.
 - [[2026-07-llm-bare-array-run-abort]] — DeepSeek answered one page with a top-level JSON array, `.get()` hit a list, and the untyped AttributeError escaped the extractor chain and killed the 2026-07-30 ai_only window with 0 pairs processed.
+- [[2026-08-mobile-city-search-datalist]] — The home search combined an iOS-invisible <datalist> with an exact-match submit guard, so phone users got no suggestions and no results.
 
 ## Operations
 
@@ -119,4 +123,6 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[adding-city-topic]] — The config files plus the app.py dicts and i18n labels you must update in lockstep.
 - [[local-search-worker]] — REMOVED 2026-07-09 — browser-driven search never beat engine bot detection; kept as post-mortem. Code in git history.
 - [[cost-saver-schedule]] — Two independent daily crons — DataForSEO collects cheaply all day (search_only, standard mode), DeepSeek extracts only in its off-peak discount window (ai_only, stop_at-boxed).
+- [[importing-city-lists]] — scripts/import_cities.py adds a country's settlements above a population threshold without ever rewriting existing entries.
+- [[ai-provider-quota-runbook]] — How to bring a free LLM provider online, read the quota page, and react when one dies or changes its model names.
 - [[coolify-disk-cleanup]] — High-disk-usage alerts after deploy-heavy days are old Docker images and build cache; prune them from the server terminal — volumes and running containers are untouched.

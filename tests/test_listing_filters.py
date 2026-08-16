@@ -90,7 +90,11 @@ def test_people_page_search_structure(tmp_path):
         app_state.db_path = db
         app_state.cities = _cities()
         resp = TestClient(web_app.app).get("/emberek?city=Budapest")
-        assert "people-search" in resp.text
+        # The bespoke input was replaced by the shared A-Z + free-text bar
+        # (templates/_listing_filter.html), auto-wired by /static/js/listing.js.
+        assert "data-mp-filter" in resp.text
+        assert 'data-target="#people-list"' in resp.text
+        assert "data-mp-filter-az" in resp.text
         assert "data-name=" in resp.text
         assert "data-city-section" in resp.text
     finally:
@@ -163,7 +167,9 @@ def test_venues_page_has_name_search_structure(tmp_path):
         app_state.cities = [CityConfig(name="Budapest", country="Hungary", locale="hu", search_variants=[])]
         resp = TestClient(web_app.app).get("/helyszinek")
         assert resp.status_code == 200
-        assert "venue-search" in resp.text
+        assert "data-mp-filter" in resp.text
+        assert 'data-target="#venue-list"' in resp.text
+        assert "data-mp-filter-az" in resp.text
         assert "data-name=" in resp.text
         assert "data-city-section" in resp.text
     finally:
@@ -193,3 +199,76 @@ def test_hub_pages_have_unique_intro_copy(tmp_path):
         assert "Fedezd fel" in c.get("/budapest").text
     finally:
         app_state.db_path, app_state.cities, app_state.topics = old_db, old_cities, old_topics
+
+
+def test_cities_page_splits_linked_and_pending(tmp_path):
+    """Cities with content are server-rendered as links; empty ones ship as JSON.
+
+    The page carries thousands of cities and the Tailwind CDN JIT scans the whole
+    initial DOM before first paint, so server-rendering every empty city cost
+    ~1.3 MB of markup. Empty cities are non-links either way (see the SEO
+    thin-page rules), so nothing crawlable is lost.
+    """
+    import json
+    import re
+
+    from scraper.models import CommunityRecord
+    from scraper.store import save_results
+
+    db = _db(tmp_path)
+    save_results("Budapest", "running", [CommunityRecord(
+        name="Futóklub", topic="running", city="Budapest", locale="hu",
+        source_url="https://a.test", extracted_at="2026-01-01T00:00:00+00:00",
+        description="Heti futás a Duna-parton.",
+    )], db)
+    old_db, old_cities = app_state.db_path, app_state.cities
+    try:
+        app_state.db_path = db
+        app_state.cities = [
+            CityConfig(name="Budapest", country="Hungary", locale="hu", search_variants=[]),
+            CityConfig(name="Leányfalu", country="Hungary", locale="hu", search_variants=[]),
+            CityConfig(name="Szentendre", country="Hungary", locale="hu", search_variants=[]),
+        ]
+        resp = TestClient(web_app.app).get("/varosok")
+        assert resp.status_code == 200
+
+        # Budapest has a community → a real <a> in the server HTML.
+        assert 'data-name="Budapest"' in resp.text
+        assert '<a href="/budapest" data-name="Budapest"' in resp.text
+
+        # The empty ones travel as JSON, not markup.
+        payload = json.loads(
+            re.search(r'id="pending-cities">(.*?)</script>', resp.text, re.S).group(1))
+        assert {c["n"] for c in payload} == {"Leányfalu", "Szentendre"}
+        assert 'data-name="Leányfalu"' not in resp.text
+        # Non-ASCII survives the compact JSON encoding.
+        assert "Leányfalu" in resp.text
+
+        # The client-side pass must tell the filter to re-read the DOM.
+        assert "MpListFilter.rescan()" in resp.text
+    finally:
+        app_state.db_path = old_db
+        app_state.cities = old_cities
+
+
+def test_cities_page_omits_pending_block_when_everything_has_content(tmp_path):
+    from scraper.models import CommunityRecord
+    from scraper.store import save_results
+
+    db = _db(tmp_path)
+    save_results("Budapest", "running", [CommunityRecord(
+        name="Futóklub", topic="running", city="Budapest", locale="hu",
+        source_url="https://a.test", extracted_at="2026-01-01T00:00:00+00:00",
+        description="Heti futás a Duna-parton.",
+    )], db)
+    old_db, old_cities = app_state.db_path, app_state.cities
+    try:
+        app_state.db_path = db
+        app_state.cities = [
+            CityConfig(name="Budapest", country="Hungary", locale="hu", search_variants=[]),
+        ]
+        resp = TestClient(web_app.app).get("/varosok")
+        assert "pending-cities" not in resp.text
+    finally:
+        app_state.db_path = old_db
+        app_state.cities = old_cities

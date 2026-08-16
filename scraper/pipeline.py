@@ -16,7 +16,8 @@ from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
 from .search import (DataForSEOClient, FallbackSearchClient, SearchQuotaError,
                      SearchUnavailableError, build_queries)
-from .db import get_search_cache, save_search_cache, mark_search_collection_complete, get_collected_pairs, get_covered_pairs, upsert_venues, upsert_persons, delete_leader_persons_for_community, load_cache_page, find_community_by_id, get_fully_processed_pairs
+from .db import get_search_cache, save_search_cache, mark_search_collection_complete, get_collected_pairs, get_covered_pairs, upsert_venues, upsert_persons, delete_leader_persons_for_community, load_cache_page, find_community_by_id, get_fully_processed_pairs, get_upgradable_pages
+from .router import build_router
 from .store import save_results
 
 if TYPE_CHECKING:
@@ -311,6 +312,71 @@ class PipelineConfig:
     core_topics: list[str] = field(default_factory=list)
 
 
+def _served_by(extractor) -> tuple[str, int | None]:
+    """(model, quality) of the model that actually served the last call.
+
+    `extractor.model` only names the head of the chain and lies whenever
+    failover or routing picked something else. Read defensively: callers pass
+    anything extractor-shaped, including test doubles that carry neither field.
+    """
+    model = getattr(extractor, "last_model", "") or getattr(extractor, "model", "")
+    quality = getattr(extractor, "last_quality", None)
+    return model, (int(quality) if quality else None)
+
+
+def build_extractor(config: "PipelineConfig") -> FallbackExtractor:
+    """The one place an extractor chain is assembled.
+
+    With `router.enabled` in config/providers.yaml the chain is the free-tier
+    fleet, ordered best-quality-first and vetoed per provider by the persisted
+    quota ledger. Otherwise it is the original single DeepSeek provider,
+    unchanged.
+
+    **Every extractor in the fleet is pinned to the same `fingerprint_model`.**
+    The fingerprint is the extraction cache key; letting it vary per model would
+    invalidate the whole cache the moment routing picked a different one and
+    re-pay for ~74K extractions already done. Which model actually ran is
+    recorded in `cache_pages.extract_model`, deliberately outside every key.
+    """
+    fingerprint_model = config.deepseek_fingerprint_model or config.deepseek_model
+
+    router = build_router(
+        config.db_path,
+        temperature=config.deepseek_temperature,
+        timeout_seconds=config.deepseek_timeout,
+        max_text_chars=config.deepseek_max_text_chars,
+        rate_limit_seconds=config.deepseek_rate_limit_seconds,
+        fingerprint_model=fingerprint_model,
+    )
+    if router.enabled:
+        # The FULL fleet, not `order()`: that filters on live quota, and the
+        # chain is built once for a run that can span 8 hours and cross midnight
+        # UTC. A provider whose budget was spent at 16:35 would otherwise be
+        # absent for the whole window, so the ledger's day-rollover could never
+        # readmit it. Per-call availability is enforced by `_available()`, which
+        # asks the ledger every time.
+        fleet = router.all_extractors()
+        if fleet:
+            log.info("extractor_routed",
+                     fleet=[f"{e.provider}:{e.model}" for e in fleet[:8]],
+                     total=len(fleet))
+            return FallbackExtractor(primaries=fleet, router=router)
+        log.warning("model_router_no_capacity_falling_back")
+
+    primaries = []
+    if config.deepseek_api_key:
+        primaries.append(DeepSeekExtractor(
+            api_key=config.deepseek_api_key,
+            model=config.deepseek_model,
+            temperature=config.deepseek_temperature,
+            timeout_seconds=config.deepseek_timeout,
+            max_text_chars=config.deepseek_max_text_chars,
+            rate_limit_seconds=config.deepseek_rate_limit_seconds,
+            fingerprint_model=config.deepseek_fingerprint_model or None,
+        ))
+    return FallbackExtractor(primaries=primaries)
+
+
 async def run_pipeline(
     cities: list[CityConfig],
     topics: list[TopicConfig],
@@ -325,9 +391,17 @@ async def run_pipeline(
     on_progress: Callable[[str | None, str | None], None] | None = None,
     on_pair_start: "Callable[[str, str], None] | None" = None,
     stop_at: "Any | None" = None,
+    allow_upgrade: bool = False,
 ) -> tuple[list[dict], int]:
     """stop_at: optional aware datetime (UTC) — pair loops stop gracefully once
-    reached, so a run can be boxed into a time window (e.g. DeepSeek off-peak)."""
+    reached, so a run can be boxed into a time window (e.g. DeepSeek off-peak).
+
+    allow_upgrade: permit the quality-upgrade sweep when this pass finds nothing
+    left to collect. Off by default because `_cron_run` calls run_pipeline once
+    per country group: an already-finished leading group would otherwise start
+    re-extracting and could eat the whole remaining window before the groups
+    behind it — with genuinely uncollected pages — are ever reached. Only the
+    caller knows whether every group is done, so only the caller may enable it."""
     # run_mode="search_only": search + fetch + cache raw text, zero LLM calls.
     # Pairs collect cheaply (DataForSEO standard mode); a later ai_only run
     # extracts the cached pages when DeepSeek is in its off-peak window.
@@ -336,19 +410,7 @@ async def run_pipeline(
     _skip_scraped = skip_scraped if skip_scraped is not None else config.cache_skip_scraped
     _skip_extracted = skip_extracted if skip_extracted is not None else config.cache_skip_extracted
 
-    primaries = []
-    if config.deepseek_api_key:
-        primaries.append(DeepSeekExtractor(
-            api_key=config.deepseek_api_key,
-            model=config.deepseek_model,
-            temperature=config.deepseek_temperature,
-            timeout_seconds=config.deepseek_timeout,
-            max_text_chars=config.deepseek_max_text_chars,
-            rate_limit_seconds=config.deepseek_rate_limit_seconds,
-            fingerprint_model=config.deepseek_fingerprint_model or None,
-        ))
-    extractor: FallbackExtractor = FallbackExtractor(primaries=primaries)
-    log.info("extractor", primaries=[p.model for p in primaries])
+    extractor: FallbackExtractor = build_extractor(config)
 
     run_stats: dict[str, dict[str, int]] = {}
     total_new = 0
@@ -359,8 +421,12 @@ async def run_pipeline(
     # which also keeps the catch-up pass from re-searching tiered-out pairs.
     all_pairs = {(c.name, t.name) for c in cities for t in topics
                  if _tier_allows(c, t.name, config.core_topics)}
-    model = (primaries[0].fingerprint_model if primaries
-             else (config.deepseek_fingerprint_model or config.deepseek_model))
+    # The cache-identity model, NOT whichever model the router happens to pick.
+    # build_extractor() pins every provider in the fleet to this same name for
+    # exactly this reason: fingerprints key the extraction cache, so letting one
+    # vary per model would invalidate ~74K cached extractions the first time
+    # routing chose a different provider.
+    model = config.deepseek_fingerprint_model or config.deepseek_model
     current_fp = get_extract_fingerprint(model)
     venue_fp = get_venue_fingerprint(model)
     person_fp = get_person_fingerprint(model)
@@ -386,6 +452,25 @@ async def run_pipeline(
 
     if not pairs_to_run:
         log.info("pipeline_all_pairs_done", run_mode=run_mode)
+        # Nothing new to collect — the one condition under which spending free
+        # quota on re-extraction is worth it. This is the *only* reachable call
+        # site: every path below this point has new work pending by definition.
+        if allow_upgrade and run_mode == "ai_only" and cache is not None:
+            # The normal preflight sits below this early return, so the sweep
+            # would otherwise get none of it — and it is exactly the pass that
+            # needs it, walking up to upgrade_max_per_run pages that would each
+            # burn a wasted request on a retired model name.
+            try:
+                await extractor.preflight()
+            except Exception as exc:
+                log.warning("quality_upgrade_preflight_failed", error=str(exc))
+                return pair_logs, total_new
+            upgrade_new, upgrade_logs = await _run_quality_upgrade(
+                cities, topics, config, extractor, cache, current_fp,
+                stop_at=stop_at, on_progress=on_progress,
+            )
+            total_new += upgrade_new
+            pair_logs += upgrade_logs
         return pair_logs, total_new
 
     # Preflight: one live extraction before the pair loops start. A provider-side
@@ -664,6 +749,16 @@ async def _run_full(
                         community_cache_hit = True
 
                 if not community_cache_hit and run_communities:
+                    if getattr(extractor, "quota_exhausted", False):
+                        # The free-tier fleet spent its daily allowance. That is
+                        # the designed end of a window, not an outage: stop
+                        # cleanly with no `aborted` flag, so the run detail and
+                        # the daily email do not report a provider failure.
+                        # Nothing is cached, so the pages retry tomorrow.
+                        log.info("extract_stopped_quota_spent", city=city.name,
+                                 topic=topic.name)
+                        extract_dead = True
+                        break
                     if extractor.providers_down:
                         # Every configured LLM provider died this run (quota gone
                         # or the circuit breaker opened). Abort instead of walking
@@ -692,6 +787,12 @@ async def _run_full(
                                 all_fps, city=city.name, topic=topic.name
                             ),
                         )
+                        # Read the provenance HERE, not after enrichment:
+                        # _enrich_record goes through the same chain and
+                        # overwrites last_model/last_quality, so the page would
+                        # be stamped with the enricher's provider — the score
+                        # that then drives or blocks the upgrade sweep.
+                        _model, _quality = _served_by(extractor)
                     except ExtractorUnavailableError as exc:
                         pair_log["extract_failed"] += 1
                         log.warning("extract_unavailable_page_skipped", url=url, reason=str(exc))
@@ -730,7 +831,7 @@ async def _run_full(
                     if cache:
                         cache.save_extracted(url, final_records, duration_s=extract_dur,
                                              fingerprint=extractor.canonical_fingerprint,
-                                             model=extractor.model)
+                                             model=_model, quality=_quality)
                         if enrich_timing["needed"]:
                             cache.mark_enrich_scraped(url, enrich_timing["scrape"])
                             cache.mark_enrich_extracted(url, enrich_timing["count"],
@@ -835,6 +936,179 @@ async def _run_full(
     return total_new, pair_logs
 
 
+async def _run_quality_upgrade(
+    cities: list[CityConfig],
+    topics: list[TopicConfig],
+    config: PipelineConfig,
+    extractor: FallbackExtractor,
+    cache: "CacheManager",
+    fingerprint: str,
+    *,
+    stop_at: "Any | None" = None,
+    on_progress: Callable[[str | None, str | None], None] | None = None,
+) -> tuple[int, list[dict]]:
+    """Re-extract pages whose cached result came from a weaker model.
+
+    The operator's policy, and the one the research supports: **new work always
+    outranks re-work**. Free daily allowances do not roll over, so a request not
+    spent by midnight UTC is simply lost — but a request spent re-doing a page
+    while unprocessed pages exist is worse than lost, because it delays new
+    coverage. Hence the three gates:
+
+      1. Only when the normal pass had nothing left to collect — this function
+         is called from that branch alone.
+      2. Only when an available model beats the cached one by at least
+         `upgrade_min_gain` points — below that the expected gain does not
+         justify the request (the marginal-quality-per-cost condition in
+         arXiv:2605.06350).
+      3. Bounded by `upgrade_max_per_run` and by the run window, so a sweep can
+         never eat into the next day's collection.
+
+    Two exclusions the candidate query cannot express:
+
+    * **Pages with unknown quality are left alone.** ~74K rows predate the
+      router and carry NULL, meaning "extracted by the paid incumbent", which
+      scores *above* every free model. Treating NULL as 0 would have the sweep
+      overwrite good DeepSeek output with weaker free-model output — a
+      downgrade dressed as an upgrade.
+    * **Tier-frozen pairs stay frozen.** `topic_tier: core` cities run only
+      `core_topics`; re-extracting a tiered-out pair spends quota on work the
+      pipeline deliberately does not do.
+
+    A failed re-extraction leaves the existing cached result untouched: the old
+    answer is strictly better than no answer.
+
+    **Known limitation — the sweep can only add, never remove.** `save_results`
+    merges by `record_key` and rewrites the union, so a false positive the
+    better model correctly rejects survives in the database. Dropping bad
+    records is a real reason to re-extract, and this does not deliver it;
+    removals still go through the admin not-community flow. Fixing it means a
+    per-source-URL reconciliation in `store.py`, which is a larger change than
+    this sweep should carry.
+    """
+    router = getattr(extractor, "router", None)
+    if router is None or not getattr(router, "enabled", False):
+        return 0, []
+
+    settings = router.catalogue.router
+    best = router.best_available_quality()
+    if best <= 0:
+        log.info("quality_upgrade_skipped", reason="no free capacity left today")
+        return 0, []
+    threshold = router.upgrade_threshold()
+
+    by_city = {c.name: c for c in cities}
+    candidates = get_upgradable_pages(
+        config.db_path, threshold, max(0, settings.upgrade_max_per_run), fingerprint,
+        cities=list(by_city))
+    if not candidates:
+        log.info("quality_upgrade_nothing_to_do", threshold=threshold, best=best)
+        return 0, []
+
+    # Tier gate, mirroring run_pipeline and _run_full. Pages whose topic is
+    # unknown to this run's config are skipped too: we cannot tell whether they
+    # are frozen. (The city restriction is already applied in SQL.)
+    topic_names = {t.name for t in topics}
+
+    def _allowed(page: dict) -> bool:
+        city = by_city.get(page.get("city") or "")
+        topic = page.get("topic") or ""
+        if city is None or topic not in topic_names:
+            return False
+        return _tier_allows(city, topic, config.core_topics)
+
+    eligible = [p for p in candidates if _allowed(p)]
+    if len(eligible) != len(candidates):
+        log.info("quality_upgrade_tier_filtered",
+                 kept=len(eligible), dropped=len(candidates) - len(eligible))
+    candidates = eligible
+    if not candidates:
+        return 0, []
+
+    log.info("quality_upgrade_start", pages=len(candidates),
+             best_available=best, below_quality=threshold)
+    all_fps = load_false_positives(config.db_path)
+    upgraded = failed = 0
+    total_new = 0
+    pending: dict[tuple[str, str], list] = {}
+
+    for page in candidates:
+        if _window_closed(stop_at):
+            log.info("quality_upgrade_window_closed", upgraded=upgraded)
+            break
+        # Re-checked every page: the fleet's budget drains as we spend it, and
+        # once the best remaining model no longer clears the bar the sweep must
+        # stop rather than downgrade a page it already extracted well.
+        if router.best_available_quality() - settings.upgrade_min_gain < page["q"]:
+            log.info("quality_upgrade_budget_spent", upgraded=upgraded)
+            break
+        await asyncio.sleep(0)
+        entry = load_cache_page(config.db_path, page["url_hash"])
+        text = (entry or {}).get("raw_text")
+        if not text:
+            continue
+        city, topic = page.get("city") or "", page.get("topic") or ""
+        # cache_pages rows carry no locale, so the old `entry.get("locale")`
+        # always fell through to "hu" — which _parse_communities stamps onto
+        # every record, relabelling German and Indonesian communities as
+        # Hungarian. The city config is the authority, as in _run_full.
+        locale = by_city[city].locale or "en"
+        if on_progress:
+            on_progress("extract", page["url"])
+        try:
+            records = await extractor.extract(
+                text=text, city=city, topic=topic,
+                locale=locale, source_url=page["url"],
+                false_positive_examples=build_prompt_section(all_fps, city=city, topic=topic),
+            )
+        except ExtractorUnavailableError as exc:
+            # Keep the older, weaker result — it beats losing the page entirely.
+            failed += 1
+            log.warning("quality_upgrade_failed", url=page["url"], reason=str(exc))
+            continue
+        finally:
+            if on_progress:
+                on_progress(None, None)
+
+        model, quality = _served_by(extractor)
+        if (quality or 0) <= page["q"]:
+            # Failover handed the call to a model no better than the cached one.
+            # Overwriting would be churn without gain.
+            continue
+        joinable = [r for r in records if r.joinable]
+        cache.save_extracted(page["url"], joinable, fingerprint=fingerprint,
+                             model=model, quality=quality)
+        if joinable:
+            # Batched, never per page: save_results ends in a full topic
+            # DELETE+reinsert, an O(n^2) dedup and a city-wide duplicate scan.
+            # _run_full carries the same warning — doing it per URL is what made
+            # an earlier version unusable at scale.
+            pending.setdefault((city, topic), []).extend(joinable)
+        upgraded += 1
+
+    log.info("quality_upgrade_complete", upgraded=upgraded, failed=failed,
+             new_records=total_new)
+    for (city, topic), recs in pending.items():
+        # save_results returns the pair's total stock, not the number added, so
+        # the count comes from what we handed in — as at every other call site.
+        save_results(city, topic, recs, config.db_path)
+        total_new += len(recs)
+
+    if not (upgraded or failed):
+        return total_new, []
+    # Built from _new_pair_log, never hand-rolled: run_detail.html iterates
+    # these keys under strict Jinja Undefined, and a missing one (it compared
+    # `p.records_extracted > 0`) hard-fails the whole admin page.
+    entry = _new_pair_log("—", "quality_upgrade", [])
+    entry.update({
+        "urls_found": len(candidates),
+        "records_extracted": total_new,
+        "extract_failed": failed,
+        "cache_hits_extract": upgraded,
+    })
+    return total_new, [entry]
+
+
 async def _run_ai_only(
     cities: list[CityConfig],
     topics: list[TopicConfig],
@@ -918,6 +1192,16 @@ async def _run_ai_only(
                     community_cache_hit = True
 
                 if not community_cache_hit and run_communities:
+                    if getattr(extractor, "quota_exhausted", False):
+                        # The free-tier fleet spent its daily allowance. That is
+                        # the designed end of a window, not an outage: stop
+                        # cleanly with no `aborted` flag, so the run detail and
+                        # the daily email do not report a provider failure.
+                        # Nothing is cached, so the pages retry tomorrow.
+                        log.info("extract_stopped_quota_spent", city=city.name,
+                                 topic=topic.name)
+                        extract_dead = True
+                        break
                     if extractor.providers_down:
                         # See _run_full: a dead provider chain aborts the run
                         # rather than logging one failure per page for hours.
@@ -950,8 +1234,10 @@ async def _run_ai_only(
                         log.info("joinability_filtered", url=url,
                                  kept=len(joinable), removed=len(extracted) - len(joinable))
 
-                    cache.save_extracted(url, joinable, fingerprint=extractor.canonical_fingerprint,
-                                         model=extractor.model)
+                    _model, _quality = _served_by(extractor)
+                    cache.save_extracted(url, joinable,
+                                         fingerprint=extractor.canonical_fingerprint,
+                                         model=_model, quality=_quality)
 
                     records.extend(joinable)
                     total_new += len(joinable)
@@ -1045,18 +1331,7 @@ async def scrape_submitted_url(
     topic: str,
     url: str,
 ) -> bool:
-    primaries = []
-    if config.deepseek_api_key:
-        primaries.append(DeepSeekExtractor(
-            api_key=config.deepseek_api_key,
-            model=config.deepseek_model,
-            temperature=config.deepseek_temperature,
-            timeout_seconds=config.deepseek_timeout,
-            max_text_chars=config.deepseek_max_text_chars,
-            rate_limit_seconds=config.deepseek_rate_limit_seconds,
-            fingerprint_model=config.deepseek_fingerprint_model or None,
-        ))
-    extractor: FallbackExtractor = FallbackExtractor(primaries=primaries)
+    extractor: FallbackExtractor = build_extractor(config)
 
     text = await fetch_and_clean(url, blocked_domains=[], timeout_seconds=15)
     if not text:
@@ -1111,18 +1386,7 @@ async def reextract_community(
         log.warning("reextract_community_no_text", community_id=community_id, url=source_url)
         return False
 
-    primaries = []
-    if config.deepseek_api_key:
-        primaries.append(DeepSeekExtractor(
-            api_key=config.deepseek_api_key,
-            model=config.deepseek_model,
-            temperature=config.deepseek_temperature,
-            timeout_seconds=config.deepseek_timeout,
-            max_text_chars=config.deepseek_max_text_chars,
-            rate_limit_seconds=config.deepseek_rate_limit_seconds,
-            fingerprint_model=config.deepseek_fingerprint_model or None,
-        ))
-    extractor: FallbackExtractor = FallbackExtractor(primaries=primaries)
+    extractor: FallbackExtractor = build_extractor(config)
 
     all_fps = load_false_positives(db_path)
     try:

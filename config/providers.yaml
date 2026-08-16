@@ -1,0 +1,162 @@
+# Free-tier LLM provider catalogue for the model router (scraper/router.py).
+#
+# WHY THIS IS CONFIG, NOT CODE
+# Free providers rename and retire models constantly — Groq deprecated
+# llama-3.1-8b-instant and llama-3.3-70b-versatile in June 2026, DeepSeek
+# retired "deepseek-chat" in July 2026 and cost us a whole extraction window
+# (docs/wiki/pages/post-mortems/2026-07-deepseek-model-retired.md). Editing a
+# model name here needs no deploy: config/ is a mounted volume in production.
+#
+# HOW THE ROUTER USES THIS
+# Routing happens BEFORE generation, not as a cascade: the router picks the
+# highest-quality model that still has quota and calls it once. Cascades pay the
+# cheap model's generation before every escalation decision, and a pre-generation
+# router beat the best cascade policy on 4 of 5 datasets in arXiv:2605.06350.
+# See docs/wiki/sources/2026-08-16-llm-routing-arxiv-research.md.
+#
+# FIELDS
+#   enabled       false parks a provider without deleting its config.
+#   api_key_env   Missing/empty env var → the provider is skipped silently.
+#                 That is the normal state for one we have not signed up for.
+#   base_url      Must speak the OpenAI /chat/completions contract.
+#   paid          true = costs money. The router only reaches these when
+#                 `router.allow_paid` is on; DeepSeek is parked by default.
+#   quality       0-100 prior for this model on OUR task, seeded from public
+#                 benchmarks. Treat as a weak prior, not truth: LLMStructBench
+#                 (arXiv:2602.14743) found prompting strategy matters more than
+#                 model size for JSON extraction, so a leaderboard rank is a
+#                 poor proxy. `scripts/score_providers.py` overwrites these with
+#                 measured scores from our own golden set — do that before
+#                 trusting the ordering.
+#   rpm / rpd     Published free-tier limits (2026-08). Several providers
+#                 stopped publishing numbers, so these are conservative
+#                 starting points; the ledger LEARNS the real limit from 429s
+#                 and persists it, which is what actually governs routing.
+#   json_mode     false = the provider rejects response_format=json_object;
+#                 the router falls back to prompt-only JSON instructions.
+
+router:
+  # Master switch. Off → the old single-provider DeepSeek path, unchanged.
+  enabled: true
+  # Paid providers are parked: free capacity is used first and, for now, only.
+  # Flip to true to let the router fall through to DeepSeek when every free
+  # provider is spent.
+  allow_paid: false
+  # Re-extracting an already-processed page is only ever a filler for quota that
+  # would otherwise expire unused. New pages always come first; a page is
+  # re-extracted only when an available model scores at least this many points
+  # above the one that produced the cached result.
+  upgrade_min_gain: 8
+  # Hard ceiling on re-extraction calls per run, so an upgrade sweep can never
+  # crowd out the next day's new work.
+  upgrade_max_per_run: 500
+
+providers:
+
+  # ── Groq ──────────────────────────────────────────────────────────────────
+  # Fastest free inference; the most generous daily request budget of the set.
+  - name: groq
+    enabled: true
+    api_key_env: GROQ_API_KEY
+    base_url: https://api.groq.com/openai/v1
+    rpm: 30
+    rpd: 14400
+    models:
+      - model: openai/gpt-oss-120b
+        quality: 62
+      - model: qwen3-32b
+        quality: 55
+      - model: meta-llama/llama-4-scout-17b-16e-instruct
+        quality: 50
+      - model: openai/gpt-oss-20b
+        quality: 45
+
+  # ── Cerebras ──────────────────────────────────────────────────────────────
+  # Very fast, large daily token budget, smaller catalogue than Groq.
+  - name: cerebras
+    enabled: true
+    api_key_env: CEREBRAS_API_KEY
+    base_url: https://api.cerebras.ai/v1
+    rpm: 30
+    rpd: 1000
+    models:
+      - model: qwen-3-235b-a22b-instruct
+        quality: 60
+      - model: llama-3.3-70b
+        quality: 48
+      - model: qwen-3-32b
+        quality: 52
+
+  # ── Google Gemini (AI Studio) ─────────────────────────────────────────────
+  # Reached through Google's OpenAI-compatibility endpoint so it needs no
+  # separate client. Highest published daily request allowance.
+  - name: gemini
+    enabled: true
+    api_key_env: GEMINI_API_KEY
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai
+    rpm: 15
+    rpd: 1500
+    models:
+      - model: gemini-2.5-flash
+        quality: 64
+      - model: gemini-2.0-flash
+        quality: 54
+
+  # ── Mistral ───────────────────────────────────────────────────────────────
+  - name: mistral
+    enabled: true
+    api_key_env: MISTRAL_API_KEY
+    base_url: https://api.mistral.ai/v1
+    rpm: 20
+    rpd: 500
+    models:
+      - model: mistral-small-latest
+        quality: 51
+      - model: open-mistral-nemo
+        quality: 40
+
+  # ── OpenRouter (`:free` models) ───────────────────────────────────────────
+  # One key, many models — but the tightest free request budget of the set, so
+  # it sits low in the effective order despite decent model quality.
+  - name: openrouter
+    enabled: true
+    api_key_env: OPENROUTER_API_KEY
+    base_url: https://openrouter.ai/api/v1
+    rpm: 20
+    rpd: 50
+    models:
+      - model: deepseek/deepseek-chat-v3.1:free
+        quality: 58
+      - model: qwen/qwen3-235b-a22b:free
+        quality: 56
+      - model: meta-llama/llama-3.3-70b-instruct:free
+        quality: 47
+
+  # ── GitHub Models ─────────────────────────────────────────────────────────
+  # Authenticates with a GitHub PAT (models:read scope). Low daily allowance.
+  - name: github
+    enabled: true
+    api_key_env: GITHUB_MODELS_TOKEN
+    base_url: https://models.github.ai/inference
+    rpm: 10
+    rpd: 150
+    models:
+      - model: openai/gpt-4.1-mini
+        quality: 57
+      - model: meta/Llama-3.3-70B-Instruct
+        quality: 47
+
+  # ── DeepSeek (paid — parked) ──────────────────────────────────────────────
+  # The incumbent. Kept last and gated behind router.allow_paid so free capacity
+  # is always spent first. Its model/fingerprint pinning still lives in
+  # settings.yaml under `deepseek:`.
+  - name: deepseek
+    enabled: true
+    paid: true
+    api_key_env: DEEPSEEK_API_KEY
+    base_url: https://api.deepseek.com/v1
+    rpm: 60
+    rpd: 100000
+    models:
+      - model: deepseek-v4-flash
+        quality: 66

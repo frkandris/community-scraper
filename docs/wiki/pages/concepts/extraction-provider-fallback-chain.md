@@ -1,9 +1,9 @@
 ---
 type: Concept
 title: Extraction Provider Fallback Chain
-description: DeepSeek is the sole extractor (2026-07 cleanup); FallbackExtractor remains as a single-provider wrapper.
+description: FallbackExtractor is the one failure path for every provider; since 2026-08 it carries a routed free-tier fleet instead of a single DeepSeek.
 tags: [llm, extraction, fallback, providers]
-timestamp: 2026-07-10
+timestamp: 2026-08-16
 resource: scraper/extract.py
 ---
 

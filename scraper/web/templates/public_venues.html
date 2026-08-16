@@ -1,10 +1,13 @@
 {% extends "public_base.html" %}
+{% import "_listing_filter.html" as lf %}
 {% block title %}Helyszínek – {{ site_name }}{% endblock %}
 {% block og_desc %}{{ t('venues_og_desc') }}{% endblock %}
 {% block content %}
 
+{# data-name carries the raw name: MpText.norm() does the folding, and the A-Z
+   bar needs the original first letter. #}
 {% macro _venue_card(v) %}
-<div data-name="{{ v.name | lower }}" class="bg-white rounded-xl border border-[#EAE5DB] p-5 flex flex-col gap-3 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/20 transition-colors">
+<div data-name="{{ v.name }}" class="bg-white rounded-xl border border-[#EAE5DB] p-5 flex flex-col gap-3 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/20 transition-colors">
 
   <div class="flex items-start justify-between gap-2">
     <h2 class="font-semibold text-[#1C1917] text-base leading-snug">
@@ -106,16 +109,14 @@
     {% endif %}
 
   </form>
-  <div class="flex flex-col gap-1">
-    <label class="text-[11px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">Keresés</label>
-    <input id="venue-search" type="search" placeholder="Névre szűrés…"
-      class="text-sm border border-[#D8D1C4] rounded-lg px-3 py-2 bg-white text-[#1C1917]
-             focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 w-48">
-  </div>
   </div>
 
   {% if venues %}
 
+  {# Shared A-Z + free-text header, identical to the cities/people pages. #}
+  {{ lf.filter_bar(t, target='#venue-list', group='[data-city-section]') }}
+
+  <div id="venue-list">
   {# Group by city when no specific filter, else flat list #}
   {% if not selected_city %}
 
@@ -142,6 +143,7 @@
     </div>
 
   {% endif %}
+  </div>
 
   {% else %}
   <div class="text-center py-20 text-[#B5ADA0]">
@@ -155,20 +157,7 @@
 
 </div>
 
-<script>
-const vs = document.getElementById('venue-search');
-if (vs) {
-  vs.addEventListener('input', () => {
-    const q = vs.value.toLowerCase();
-    document.querySelectorAll('[data-name]').forEach(card => {
-      card.classList.toggle('hidden', !card.dataset.name.includes(q));
-    });
-    document.querySelectorAll('[data-city-section]').forEach(section => {
-      const allHidden = [...section.querySelectorAll('[data-name]')].every(c => c.classList.contains('hidden'));
-      section.classList.toggle('hidden', allHidden);
-    });
-  });
-}
-</script>
+{# Filtering is handled by the shared widget in /static/js/listing.js, which
+   auto-attaches to the [data-mp-filter] block above. #}
 
 {% endblock %}

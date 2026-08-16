@@ -1,16 +1,26 @@
 ---
 type: Decision
-title: Sweden First in Bounded Saver Runs
-description: Bounded saver jobs prioritize Sweden before world and Hungary so the active expansion market cannot be starved by legacy work.
+title: Country Priority in Bounded Saver Runs
+description: Country order in the bounded saver windows lives in config, not code, so whichever market has the largest unprocessed backlog can lead.
 tags: [decision, pipeline, priority, sweden]
-timestamp: 2026-07-14
+timestamp: 2026-08-16
 resource: scraper/main.py
 ---
 
-# Sweden First in Bounded Saver Runs
+# Country Priority in Bounded Saver Runs
 
 *Added in May 2026 when 290 Swedish municipalities were added to the config.*
 
+> **Update 2026-08-16 — the order is now configuration.** `_saver_city_groups`
+> takes a list and returns one group per named country plus a trailing
+> "everything else" group; the list comes from `pipeline.country_priority` in
+> `settings.yaml`, defaulting to **Hungary → Germany → Indonesia → Sweden →
+> rest**. Hungary moved to the front because the 1000+ inhabitant import
+> ([[importing-city-lists]]) left it with 973 unprocessed settlements on the
+> primary market — it had been last precisely *because* it was finished.
+> Indonesia (83 kota) joined as the next expansion market. Re-ordering markets
+> no longer needs a code change.
+>
 > **Update 2026-07-27 — superseded by Germany-first.** Sweden is now fully indexed
 > (4200/4200 pairs). `_saver_city_groups` leads with **Germany** (the ~2,057 Städte
 > added 2026-07-26), then Sweden, then rest of world, then Hungary — startup recovery

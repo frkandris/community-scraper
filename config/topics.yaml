@@ -3,6 +3,7 @@ topics:
     search_terms:
       hu: [futás, futóklub, futócsoport, "futóverseny"]
       en: [running, "running club", "running group", "fun run"]
+      id: [lari, "komunitas lari", "klub lari"]
       de: [Laufen, Laufgruppe, Lauftreff]
       fr: [course, "club de course", "running club"]
       es: ["club de running", "grupo de corredores", running]
@@ -24,6 +25,7 @@ topics:
     search_terms:
       hu: [társasjáték, "társasjáték kör", "társasjáték klub", "játéktársaság"]
       en: ["board games", "board game club", tabletop, "game night"]
+      id: ["permainan papan", "komunitas board game", "board game"]
       de: [Brettspiele, Brettspielgruppe, Spieleabend, Brettspielverein]
       fr: ["jeux de société", "club de jeux", "soirée jeux"]
       es: ["juegos de mesa", "club de juegos", "noche de juegos"]
@@ -44,6 +46,7 @@ topics:
     search_terms:
       hu: [kórus, énekkör, daloskor, kamarakórus]
       en: [choir, chorus, "choral society", "singing group", "a cappella"]
+      id: ["paduan suara", "kelompok paduan suara", "komunitas vokal"]
       de: [Chor, Chorverein, Singkreis, Chorgemeinschaft]
       fr: [chorale, chœur, "groupe de chant", "chant choral"]
       es: [coro, coral, "grupo coral", "canto coral"]
@@ -64,6 +67,7 @@ topics:
     search_terms:
       hu: [tánc, táncklub, tánccsoport, tánctanfolyam, tánckör]
       en: [dance, "dance club", "dance group", dancing, "dance class"]
+      id: [tari, "sanggar tari", "komunitas menari"]
       de: [Tanzen, Tanzgruppe, Tanzverein, Tanzkurs]
       fr: [danse, "cours de danse", "club de danse", "groupe de danse"]
       es: [baile, "club de baile", "grupo de danza", "clases de baile"]
@@ -84,6 +88,7 @@ topics:
     search_terms:
       hu: [kerékpározás, kerékpárklub, "bringás közösség", "kerékpáros csoport"]
       en: [cycling, "cycling club", "bike club", "bicycle group", "cycle group"]
+      id: [bersepeda, "komunitas sepeda", "klub sepeda"]
       de: [Radfahren, Radverein, Radclub, Fahrradgruppe, Radsportverein]
       fr: [cyclisme, "club cycliste", "groupe cycliste", vélo]
       es: [ciclismo, "club ciclista", "grupo ciclista", "club de bici"]
@@ -104,6 +109,7 @@ topics:
     search_terms:
       hu: [túrázás, túraklub, kirándulás, "gyalogtúra csoport", természetjárás]
       en: [hiking, "hiking club", "hiking group", trekking, "nature walks"]
+      id: ["pendakian gunung", "komunitas pendaki", "klub hiking"]
       de: [Wandern, Wanderverein, Wandergruppe, Wanderclub]
       fr: [randonnée, "club de randonnée", "groupe de randonnée", trekking]
       es: [senderismo, "club de senderismo", "grupo de senderismo", montañismo]
@@ -124,6 +130,7 @@ topics:
     search_terms:
       hu: [jóga, "jóga stúdió", "jóga csoport", "jóga kör"]
       en: [yoga, "yoga class", "yoga group", "yoga studio", "yoga community"]
+      id: [yoga, "kelas yoga", "komunitas yoga"]
       de: [Yoga, Yogagruppe, Yogastudio, Yogakurs]
       fr: [yoga, "cours de yoga", "groupe de yoga", "studio de yoga"]
       es: [yoga, "clase de yoga", "grupo de yoga", "estudio de yoga"]
@@ -144,6 +151,7 @@ topics:
     search_terms:
       hu: [fotózás, fotoklub, "fényképészet kör", "fotós közösség"]
       en: [photography, "photography club", "photo club", "photo walk", "camera club"]
+      id: [fotografi, "komunitas fotografi", "klub foto"]
       de: [Fotografie, Fotoclub, Fotogruppe, Fotografenverein]
       fr: [photographie, "club photo", "groupe photo", "club de photographie"]
       es: [fotografía, "club de fotografía", "grupo fotográfico"]
@@ -164,6 +172,7 @@ topics:
     search_terms:
       hu: [könyvklub, olvasókör, "könyves közösség", irodalomkör]
       en: ["book club", "reading group", "book group", "literary circle"]
+      id: ["klub buku", "komunitas baca", "kelompok membaca"]
       de: [Buchclub, Lesekreis, Leserunde, Buchgruppe]
       fr: ["club de lecture", "cercle littéraire", "groupe de lecture"]
       es: ["club de lectura", "club literario", "grupo de lectura"]
@@ -184,6 +193,7 @@ topics:
     search_terms:
       hu: [sakk, sakkklub, sakkkör, "sakk csoport"]
       en: [chess, "chess club", "chess group", "chess society"]
+      id: [catur, "klub catur", "komunitas catur"]
       de: [Schach, Schachclub, Schachverein, Schachgruppe]
       fr: [échecs, "club d'échecs", "société d'échecs"]
       es: [ajedrez, "club de ajedrez", "grupo de ajedrez"]
@@ -204,6 +214,7 @@ topics:
     search_terms:
       hu: [főzés, "főzőkör", "gasztro közösség", "főzőklub", "kulináris kör"]
       en: [cooking, "cooking club", "food group", "culinary club", "cooking class community"]
+      id: [memasak, "kelas memasak", "komunitas kuliner"]
       de: [Kochen, Kochclub, Kochkurs, Kochgruppe, Kochverein]
       fr: [cuisine, "club culinaire", "cours de cuisine", "atelier cuisine"]
       es: [cocina, "club de cocina", "taller de cocina", "grupo gastronómico"]
@@ -224,6 +235,7 @@ topics:
     search_terms:
       hu: [színjátszás, "amatőr színház", "színjátszó kör", "drámaklub"]
       en: [theater, theatre, "amateur theatre", "drama group", "drama club", "acting club"]
+      id: [teater, "komunitas teater", "sanggar teater"]
       de: [Theater, Theatergruppe, Laientheater, Theaterverein]
       fr: [théâtre, "troupe de théâtre", "club de théâtre", "théâtre amateur"]
       es: [teatro, "grupo de teatro", "compañía amateur", "club de teatro"]
@@ -244,6 +256,7 @@ topics:
     search_terms:
       hu: [zenekar, "zenei közösség", "jazz band", "zeneklub", amatőrzenekar]
       en: ["music group", "band", "jam session", "music club", "community orchestra", "amateur band"]
+      id: [musik, "komunitas musik", "grup musik"]
       de: [Musikgruppe, Musikverein, Orchester, Laienorchester, Jazzband]
       fr: ["groupe de musique", "orchestre amateur", "club musical", "session jazz"]
       es: ["grupo musical", "orquesta amateur", "club musical", "banda de música"]
@@ -264,6 +277,7 @@ topics:
     search_terms:
       hu: [harcművészet, karate, judo, "kung fu", "harcművészeti klub"]
       en: ["martial arts", karate, judo, "kung fu", taekwondo, "martial arts club"]
+      id: ["bela diri", "perguruan silat", "klub bela diri"]
       de: [Kampfsport, Karate, Judo, "Kung Fu", Taekwondo, Kampfsportverein]
       fr: ["arts martiaux", karaté, judo, "kung fu", "club d'arts martiaux"]
       es: ["artes marciales", karate, judo, "kung fu", "club de artes marciales"]
@@ -284,6 +298,7 @@ topics:
     search_terms:
       hu: ["videójáték közösség", "játék csoport", "gamers közösség", LAN-party]
       en: ["gaming", "gaming club", "video game club", "gamer meetup", "LAN party"]
+      id: [gaming, "komunitas game", "klub esports"]
       de: [Gaming, Spielergruppe, "Video Game Club", LAN-Party, Gamer-Treffen]
       fr: [jeux vidéo, "club gaming", "communauté gamer", "LAN party"]
       es: ["videojuegos", "club gamer", "comunidad gaming", "LAN party"]
@@ -304,6 +319,7 @@ topics:
     search_terms:
       hu: [önkéntesség, önkéntes, "önkéntes szervezet", "közösségi munka"]
       en: [volunteering, "volunteer group", "volunteer organization", "community service"]
+      id: [relawan, "komunitas relawan", "kegiatan sosial"]
       de: [Ehrenamt, Freiwilligenarbeit, Freiwilligengruppe, Gemeinschaftsdienst]
       fr: [bénévolat, "groupe de bénévoles", "association bénévole", "service communautaire"]
       es: [voluntariado, "grupo de voluntarios", "organización voluntaria"]
@@ -324,6 +340,7 @@ topics:
     search_terms:
       hu: [nyelvcsere, "nyelvi csere", "nyelvtanulás", tandempartner]
       en: ["language exchange", "language meetup", "conversation exchange", tandem]
+      id: ["tukar bahasa", "komunitas bahasa", "english club"]
       de: [Sprachtausch, Tandem, Sprachaustausch, Konversationsgruppe]
       fr: ["échange linguistique", tandem, "club de conversation", "échange de langues"]
       es: ["intercambio de idiomas", tandem, "grupo de conversación"]
@@ -344,6 +361,7 @@ topics:
     search_terms:
       hu: [képzőművészet, "rajzolás", "festészet", "művészeti kör", alkotókör]
       en: ["art club", "art group", "drawing group", "painting club", "creative group", "art society"]
+      id: [seni, "komunitas seni", "sanggar seni"]
       de: [Kunstgruppe, Malkreis, Kunstverein, Zeichengruppe, Kreativgruppe]
       fr: ["atelier d'art", "club d'art", "groupe de dessin", "groupe artistique"]
       es: ["taller de arte", "club de arte", "grupo artístico", "club de pintura"]
@@ -364,6 +382,7 @@ topics:
     search_terms:
       hu: [meditáció, "meditációs csoport", mindfulness, "meditációs kör"]
       en: [meditation, "meditation group", mindfulness, "meditation circle", "mindfulness group"]
+      id: [meditasi, "kelompok meditasi", "komunitas mindfulness"]
       de: [Meditation, Meditationsgruppe, Achtsamkeit, Meditationskreis]
       fr: [méditation, "groupe de méditation", pleine conscience, mindfulness]
       es: [meditación, "grupo de meditación", mindfulness, "círculo de meditación"]
@@ -384,6 +403,7 @@ topics:
     search_terms:
       hu: [úszás, úszóklub, "úszó csoport", "masters úszás"]
       en: [swimming, "swimming club", "swim team", "masters swimming", "open water swimming"]
+      id: [renang, "klub renang", "komunitas renang"]
       de: [Schwimmen, Schwimmverein, Schwimmclub, Schwimmgruppe]
       fr: [natation, "club de natation", "groupe de natation"]
       es: [natación, "club de natación", "grupo de natación"]
@@ -404,6 +424,7 @@ topics:
     search_terms:
       hu: ["hagyományőrző", "néptánc", "népdal", "folkklub", "hagyomány csoport", "hagyományőrzés", "népi együttes", "népzenekör"]
       en: ["folk traditions", "folk dance club", "heritage society", "folk music group", "cultural heritage group", "traditional arts"]
+      id: ["budaya tradisional", "komunitas adat", "sanggar budaya"]
       de: [Folkloregruppe, Trachtenverein, Volksmusikgruppe, Kulturerbe, Heimatverein]
       fr: ["groupe folklorique", "traditions populaires", "association culturelle", "patrimoine local"]
       es: ["grupo folclórico", "tradiciones locales", "asociación cultural", "patrimonio cultural"]
@@ -414,6 +435,7 @@ topics:
     search_terms:
       hu: [kertészet, kertklub, "közösségi kert", "kertész kör", kertészeti]
       en: [gardening, "garden club", "community garden", "allotment group", "horticultural society"]
+      id: [berkebun, "komunitas berkebun", "kebun kota"]
       de: [Gartenverein, Gartenbau, Kleingarten, Gartengruppe, Gartengemeinschaft]
       fr: [jardinage, "club de jardinage", "jardin communautaire", "association jardiniers"]
       es: [jardinería, "club de jardinería", "huerto comunitario", "jardín compartido"]
@@ -434,6 +456,7 @@ topics:
     search_terms:
       hu: [filmklub, "mozi kör", "film közösség", "filmvetítés"]
       en: ["film club", "movie club", "cinema club", "film society", "movie night"]
+      id: ["klub film", "komunitas film", "nonton bareng"]
       de: [Filmclub, Kinoclub, Filmgesellschaft, Filmabend, Filmkreis]
       fr: ["ciné-club", "club de cinéma", "soirée cinéma", "société de cinéma"]
       es: ["cinéclub", "club de cine", "cine-fórum", "noche de cine"]
@@ -454,6 +477,7 @@ topics:
     search_terms:
       hu: [kvíz, "pub kvíz", "kvízes este", "tudásbajnokság"]
       en: ["trivia night", "pub quiz", "quiz night", "trivia club", "quiz club"]
+      id: [kuis, "kuis malam", "komunitas trivia"]
       de: [Quizabend, Pubquiz, Rätselrunde, Quizgruppe]
       fr: ["soirée quiz", "quiz bar", "pub quiz", "jeu de quiz"]
       es: ["noche de trivia", "pub quiz", "concurso de preguntas", "trivial"]
@@ -474,6 +498,7 @@ topics:
     search_terms:
       hu: [fenntarthatóság, "zöld közösség", "öko csoport", "környezetvédelem"]
       en: [sustainability, "eco group", "green living", "environmental group", "climate action"]
+      id: [keberlanjutan, "komunitas lingkungan", "peduli lingkungan"]
       de: [Nachhaltigkeit, Umweltgruppe, Ökogemeinschaft, Klimagruppe, "grüne Initiative"]
       fr: [durabilité, "groupe écologique", "vie verte", "association environnement"]
       es: [sostenibilidad, "grupo ecológico", "vida verde", "asociación medioambiental"]
@@ -494,6 +519,7 @@ topics:
     search_terms:
       hu: [kézimunka, kötés, horgolás, "kézműves kör", varrás, "alkotó műhely"]
       en: ["craft club", knitting, crocheting, sewing, "craft group", "maker space", "DIY group"]
+      id: [kerajinan, "komunitas kerajinan", "kelas prakarya"]
       de: [Handarbeit, Stricken, Häkeln, Nähkreis, Bastelgruppe, Kreativwerkstatt]
       fr: [tricot, crochet, couture, "atelier créatif", "club de couture", artisanat]
       es: [manualidades, tejido, ganchillo, costura, "club manualidades", "taller creativo"]
@@ -514,6 +540,7 @@ topics:
     search_terms:
       hu: [fitnesz, edzés, "fitnesz csoport", "sport közösség", "edzőterem csoport"]
       en: ["fitness group", "workout group", "fitness class", "fitness community", "bootcamp", CrossFit]
+      id: [kebugaran, "komunitas fitness", "kelas olahraga"]
       de: [Fitness, Fitnessgruppe, Sportgruppe, Training, Fitnesskurs]
       fr: [fitness, "groupe fitness", "cours de fitness", "communauté sportive"]
       es: [fitness, "grupo de fitness", "clase de fitness", "comunidad deportiva"]
@@ -534,6 +561,7 @@ topics:
     search_terms:
       hu: ["hitközösség", "vallási közösség", "egyházközség", "gyülekezet", "vallási csoport"]
       en: ["faith community", "religious group", "church group", "parish community", "worship group", congregation]
+      id: [keagamaan, "kelompok pengajian", "komunitas rohani"]
       de: [Glaubensgemeinschaft, Kirchengemeinde, religiöse Gruppe, Pfarrgemeinde, Gottesdienst]
       fr: ["communauté de foi", "groupe religieux", "paroisse", "communauté chrétienne", "groupe de prière"]
       es: ["comunidad de fe", "grupo religioso", "parroquia", "comunidad cristiana", "grupo de oración"]
@@ -556,6 +584,7 @@ topics:
     search_terms:
       hu: ["babacsoport", "babaklub", "mama-baba", "kismamakör", "szülőcsoport", "babagimnasztika", "babaúszás", "babamasszázs", "anyaklub", "szülői közösség"]
       en: ["baby group", "parent group", "mommy group", "toddler group", "parent-baby class", "new parents group", "baby class", "mum group"]
+      id: ["kelompok ibu", "komunitas orang tua", "kelas ibu dan bayi"]
       de: [Babygruppe, Elterngruppe, Krabbelgruppe, "Mutter-Kind-Gruppe", Elternkreis, Babytreff]
       fr: ["groupe bébé", "groupe parents", "atelier parents-bébés", "groupe mamans", "cercle parental"]
       es: ["grupo de bebés", "grupo de padres", "grupo de mamás", "clase de bebés", "comunidad de padres"]
@@ -576,6 +605,7 @@ topics:
     search_terms:
       hu: ["tech meetup", "programozó közösség", "fejlesztői meetup", "IT közösség", "szoftverfejlesztő csoport", "kódolás klub", "technológiai közösség", "hackathon", "programozó klub"]
       en: ["tech meetup", "programming club", "developer community", "coding group", "software meetup", "hackathon", "developer meetup", "tech community", "coding bootcamp community"]
+      id: [teknologi, "komunitas teknologi", "meetup developer"]
       de: [Tech-Meetup, Programmierclub, Entwicklergruppe, "Coding-Gruppe", Hackathon, Technologie-Treff, Softwareentwickler-Gruppe]
       fr: ["meetup tech", "club de programmation", "communauté développeurs", "groupe de codage", "hackathon", "meetup développeurs"]
       es: ["meetup tecnológico", "club de programación", "comunidad de desarrolladores", "grupo de coding", "hackathon"]
@@ -596,6 +626,7 @@ topics:
     search_terms:
       hu: ["közösségi csoport", "helyi közösség", "egyéb közösség", "szabadidős csoport", "hobby csoport"]
       en: ["community group", "local group", "interest group", "social club", "hobby group", "meetup group"]
+      id: [komunitas, "perkumpulan warga", "klub hobi"]
       de: [Gemeinschaftsgruppe, "lokale Gruppe", Interessengruppe, Hobbygruppe, Verein, Stammtisch]
       fr: ["groupe communautaire", "groupe local", "groupe d'intérêt", "club social", "groupe de loisirs"]
       es: ["grupo comunitario", "grupo local", "grupo de interés", "club social", "grupo de ocio"]
@@ -618,6 +649,7 @@ topics:
     search_terms:
       hu: ["nyugdíjas klub", "idősek klubja", "nyugdíjas csoport", "senior közösség", "idősek köre", "nyugdíjas kör"]
       en: ["seniors club", "senior group", "retired community", "older adults group", "over 60s club", "retirees group"]
+      id: [lansia, "komunitas lansia", "kegiatan lansia"]
       de: [Seniorenclub, Seniorengruppe, Rentnerstammtisch, Senioren-Treff, Altengruppe]
       fr: ["club seniors", "groupe de retraités", "association des aînés", "club du troisième âge"]
       es: ["club de mayores", "grupo de jubilados", "asociación de mayores", "club de la tercera edad"]
@@ -631,21 +663,25 @@ topics:
     search_terms:
       hu: ["kutyasétáltató csoport", "kutyás közösség", "kisállatbarát klub", "kutyabarát találkozó", "kisállat csoport", "kutya meetup", "kutyás séta"]
       en: ["dog walking group", "pet owners community", "dog meetup", "pet club", "dog walkers group", "animal lovers club"]
+      id: ["hewan peliharaan", "komunitas pecinta hewan", "klub anjing"]
       de: [Hundegruppe, Gassigruppe, Hundetreffen, Tierfreunde, Hundehaltergruppe]
       fr: ["groupe de promeneurs de chiens", "communauté d'animaux", "club animalier", "promenade canine"]
   - name: vallalkozas
     search_terms:
       hu: ["vállalkozói közösség", "startup meetup", "vállalkozók klubja", "üzleti networking", "startup csoport", "vállalkozói kör", "kisvállalkozók találkozó", "üzleti közösség"]
       en: ["entrepreneur community", "startup meetup", "business networking group", "founders club", "startup community", "entrepreneur club"]
+      id: [wirausaha, "komunitas bisnis", "jaringan pengusaha"]
   - name: nok
     search_terms:
       hu: ["nők közössége", "nők klubja", "csak nőknek", "nők találkozó", "nők csoportja", "women's group budapest", "nők hálózat", "feminista csoport"]
       en: ["women's group", "women's community", "women only group", "ladies club", "women's social group", "women's network", "girls meetup"]
+      id: [perempuan, "komunitas perempuan", "kelompok wanita"]
       de: [Frauengruppe, Frauenclub, Frauennetzwerk, "nur für Frauen", Frauenstammtisch]
       fr: ["groupe de femmes", "club féminin", "cercle de femmes", "réseau féminin", "association de femmes"]
   - name: fogyatekossag
     search_terms:
       hu: ["fogyatékkal élők közössége", "autista csoport", "autizmus közösség", "fogyatékos személyek klubja", "mozgáskorlátozott csoport", "látássérültek köre", "hallássérültek klubja", "speciális igényű csoport", "inkluzív közösség", "down szindróma csoport"]
       en: ["disability group", "disabled community", "autism group", "special needs community", "living with disabilities", "inclusive community", "accessibility group", "neurodiversity group"]
+      id: [disabilitas, "komunitas disabilitas", "kelompok difabel"]
       de: [Behindertengruppe, Autismusgruppe, "Menschen mit Behinderung", Inklusionsgruppe, Selbsthilfegruppe]
       fr: ["groupe handicap", "communauté handicapée", "groupe autisme", "association handicap", "groupe besoins spéciaux"]

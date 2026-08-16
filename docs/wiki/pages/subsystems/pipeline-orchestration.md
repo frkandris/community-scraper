@@ -1,9 +1,9 @@
 ---
 type: Subsystem
 title: Pipeline Orchestration
-description: run_pipeline() sequences mode-specific passes with a done-pair pre-filter; bounded saver jobs prioritize Sweden while startup recovery remains Hungary-first.
+description: run_pipeline() sequences mode-specific passes with a done-pair pre-filter; bounded saver jobs walk countries in the configured pipeline.country_priority order.
 tags: [pipeline, orchestration, run-modes, done-pairs, scheduler]
-timestamp: 2026-07-24
+timestamp: 2026-08-16
 resource: scraper/pipeline.py
 ---
 

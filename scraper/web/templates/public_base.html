@@ -12,6 +12,49 @@
   <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
   <style>
     .brand-gradient { background: linear-gradient(135deg, #8A4226 0%, #A8512F 30%, #C2613A 65%, #E88E6B 100%); }
+
+    /* The filter hides items with the `hidden` attribute, but the UA rule for
+       it is an element-level rule that any Tailwind display utility on the same
+       node (flex/grid/block) overrides — the cards would stay visible. */
+    [hidden] { display: none !important; }
+
+    /* Widgets in /static/js/listing.js. Plain CSS, not Tailwind: these classes
+       only ever appear in JS-created nodes, which the Tailwind CDN JIT never
+       scans, and app.css is a build artifact that may be absent locally. */
+    .mp-ac-panel {
+      position: absolute; left: 0; right: 0; top: calc(100% + 4px);
+      z-index: 40; margin: 0; padding: 4px; list-style: none;
+      max-height: 17rem; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      background: #fff; border: 1px solid #EAE5DB; border-radius: 8px;
+      box-shadow: 0 10px 15px -3px rgb(28 25 23 / 0.08), 0 4px 6px -4px rgb(28 25 23 / 0.04);
+    }
+    .mp-ac-panel[hidden] { display: none; }
+    .mp-ac-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      min-height: 44px; padding: 8px 10px; border-radius: 6px; cursor: pointer;
+      font-size: 15px; font-weight: 600; color: #2E2B29;
+    }
+    .mp-ac-item:hover, .mp-ac-item.is-active { background: #FDF0EA; color: #8A4226; }
+    .mp-ac-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mp-ac-count {
+      flex: none; font-size: 11px; font-weight: 700; color: #C2613A;
+      background: #FDF0EA; border: 1px solid #FAD9C7; border-radius: 9999px; padding: 1px 8px;
+    }
+
+    .mp-az-bar {
+      display: flex; flex-wrap: nowrap; gap: 4px; overflow-x: auto;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 2px;
+    }
+    .mp-az-bar::-webkit-scrollbar { display: none; }
+    .mp-az-btn {
+      flex: none; min-width: 32px; min-height: 32px; padding: 0 8px;
+      border: 1px solid #EAE5DB; border-radius: 6px; background: #fff;
+      font-size: 12px; font-weight: 700; color: #6A6259; cursor: pointer;
+      transition: background-color 120ms, border-color 120ms, color 120ms;
+    }
+    .mp-az-btn:hover { border-color: #FAD9C7; background: #FDF0EA; color: #1C1917; }
+    .mp-az-btn.is-active { background: #FDF0EA; border-color: #C2613A; color: #8A4226; }
+    @media (min-width: 640px) { .mp-az-bar { flex-wrap: wrap; overflow-x: visible; } }
   </style>
   <link rel="canonical" href="{{ canonical_base or site_url }}{% block canonical_path %}{{ request.url.path }}{% endblock %}">
   {% for a in hreflang_alternates %}<link rel="alternate" hreflang="{{ a.lang }}" href="{{ a.href }}">
@@ -33,6 +76,9 @@
   <meta name="twitter:description" content="{{ self.og_desc() }}">
   <meta name="twitter:image" content="{{ site_url }}{{ self.og_image_url() }}">
   {% endblock %}
+  {# Deferred: runs after parsing but before DOMContentLoaded, so page scripts
+     may use MpAutocomplete / MpListFilter from a DOMContentLoaded handler. #}
+  <script src="/static/js/listing.js" defer></script>
   {% block head %}{% endblock %}
   {% if breadcrumbs %}<script type="application/ld+json">{{ breadcrumbs | breadcrumb_jsonld | safe }}</script>{% endif %}
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-XD0Z4FE8LX"></script>
