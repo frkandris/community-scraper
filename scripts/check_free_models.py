@@ -13,9 +13,14 @@ So do not read docs — ask the APIs. Each provider exposes an OpenAI-style
 `GET /models`; this compares that live list against `config/providers.yaml` and
 reports three things:
 
-  GONE     configured here, absent upstream  -> will 404 on first use
-  NEW      upstream, not configured          -> candidate to add
-  OK       configured and present
+  UNLISTED  configured here, absent from the provider's /models list
+  NEW       listed upstream, not configured  -> candidate to add
+  OK        configured and listed
+
+UNLISTED is a *hint*, not a verdict. On 2026-08-16 `open-mistral-nemo` was
+absent from Mistral's list and answered requests perfectly — providers keep
+serving aliases and legacy names they no longer advertise. Only a real call
+settles it, which is what the router's preflight already does.
 
 Usage
 -----
@@ -164,7 +169,7 @@ def main() -> int:
                 continue
             print(f"   upstream models: {r['upstream_count']}")
             for m in r["gone"]:
-                print(f"   GONE  {m}   <- configured here, absent upstream")
+                print(f"   UNLISTED  {m}   <- not in the provider's list; verify with a call")
             if r["new"]:
                 shown = r["new"][:12]
                 for m in shown:
@@ -174,14 +179,22 @@ def main() -> int:
             if not r["gone"] and not r["new"]:
                 print("   all configured models present")
 
-    broken = {n: r["gone"] for n, r in report.items()
-              if r["enabled"] and r["gone"]}
-    if broken:
-        print("\nConfigured models missing upstream (these will 404):")
-        for n, ms in broken.items():
+    unlisted = {n: r["gone"] for n, r in report.items()
+                if r["enabled"] and r["gone"]}
+    if unlisted:
+        print("\nConfigured but not listed upstream:")
+        for n, ms in unlisted.items():
             print(f"  {n}: {', '.join(ms)}")
-        print("\nFix config/providers.yaml — it is a mounted volume in "
-              "production, so no deploy is needed.")
+        print("\nThis is a hint, not proof. Providers serve unlisted aliases —"
+              "\nverify before editing anything:")
+        first = next(iter(unlisted.items()))
+        print(f'  curl -X POST -H "Authorization: Bearer $ROUTER_API_KEY" \\\n'
+              f'    -H "Content-Type: application/json" \\\n'
+              f'    -d \'{{"model":"{first[0]}:{first[1][0]}",'
+              f'"messages":[{{"role":"user","content":"hi"}}],"max_tokens":5}}\' \\\n'
+              f'    https://kozossegek.com/v1/chat/completions')
+        print("\nIf the call fails too, fix config/providers.yaml — a mounted "
+              "volume in production, so no deploy is needed.")
         return 1
     return 0
 
