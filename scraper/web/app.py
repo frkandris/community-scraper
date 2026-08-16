@@ -4450,19 +4450,45 @@ async def public_home(request: Request, city: str = ""):
     })
 
 
+#: Cached (value, monotonic_ts) for the health endpoint's record count.
+_HEALTH_COUNT_CACHE: tuple[int, float] = (0, 0.0)
+_HEALTH_COUNT_TTL = 60.0
+
+
 @_fastapi.get("/healthz")
 async def healthz():
-    db_ok = True
-    total_records = 0
-    try:
-        total_records = get_total_community_count(_db())
-    except Exception:
-        db_ok = False
+    """Liveness, not readiness — deliberately.
+
+    The Docker healthcheck calls this, and Traefik pulls the container out of
+    rotation when it fails. It used to run a COUNT over `communities` on every
+    call, so while the pipeline held a write lock the check timed out, the
+    container was marked unhealthy, and **every public request 404'd** until the
+    lock cleared. That produced four separate "the site is down" reports on
+    2026-08-16 with a perfectly healthy process behind them.
+
+    The count is now cached and computed off the event loop, and a database that
+    is slow or locked reports `db: "busy"` **without** failing the check: the app
+    is up and serving, which is the only question a liveness probe should ask.
+    """
+    import time as _t
+
+    global _HEALTH_COUNT_CACHE
+    count, ts = _HEALTH_COUNT_CACHE
+    db_state = "ok"
+    if (_t.monotonic() - ts) > _HEALTH_COUNT_TTL:
+        try:
+            count = await asyncio.wait_for(
+                asyncio.to_thread(get_total_community_count, _db()), timeout=3.0)
+            _HEALTH_COUNT_CACHE = (count, _t.monotonic())
+        except (asyncio.TimeoutError, Exception):
+            # Stale count, and say so — but stay green. A locked database is a
+            # slow database, not a dead application.
+            db_state = "busy"
     return {
-        "ok": db_ok,
+        "ok": True,
         "version": app_state.version,
-        "db": "ok" if db_ok else "error",
-        "total_records": total_records,
+        "db": db_state,
+        "total_records": count,
     }
 
 

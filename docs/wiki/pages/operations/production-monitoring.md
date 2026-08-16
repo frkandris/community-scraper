@@ -1,0 +1,70 @@
+---
+type: Runbook
+title: Production Monitoring
+description: What each health signal actually measures, why every one of them missed a full outage, and the external smoke test that did not.
+tags: [operations, monitoring, healthcheck, smoke-test, coolify]
+timestamp: 2026-08-16
+resource: scripts/smoke_test.py
+---
+
+# Production Monitoring
+
+*Four "the site is down" reports in one evening, none of them caught by monitoring, all of them with a perfectly healthy process.*
+
+## The signals, and what each one is blind to
+
+| Signal | Answers | Blind to |
+|---|---|---|
+| Docker `HEALTHCHECK` | is the process serving `localhost:8000`? | anything between the container and the user |
+| Coolify `status` | is the container running and passing its check? | reachability; it reports the container, not the site |
+| Application logs | what did the code do? | outages the code is not involved in |
+| **`scripts/smoke_test.py`** | can a visitor load the site? | *(this is the one that catches the rest)* |
+
+The first three all answer "is the process alive". On 2026-08-16 the process was
+alive through every episode, and the site was still unreachable
+([[2026-08-healthz-db-query-outage]]).
+
+## After every deploy
+
+```bash
+PYTHONPATH=. .venv/bin/python scripts/smoke_test.py --wait 420
+```
+
+Goes through the public hostnames over the CDN, checks both sites, the city
+list, the sitemap and a static asset, and asserts that `/admin` and `/v1` still
+**refuse** unauthenticated requests. Exit code 1 on any failure, so it can gate a
+deploy.
+
+It also warns on responses slower than 5s. That is not cosmetic: its first run
+surfaced a 30-second sitemap that had been degrading every request for hours,
+and which nothing else was measuring.
+
+## /healthz is a liveness probe
+
+It returns 200 whenever the app is serving, and reports `db: "busy"` rather than
+failing when the database is slow. **Do not add a query to it.** The endpoint
+previously ran a `COUNT(*)`, and a write lock in the pipeline was enough to fail
+the healthcheck, mark the container unhealthy and have Traefik remove it from
+rotation — turning a slow database into a total outage.
+
+If you need a readiness signal (is the data usable), add a separate endpoint.
+Conflating the two is what caused the incident.
+
+## When the site is unreachable but Coolify says healthy
+
+1. Confirm from outside: `curl -o /dev/null -w '%{http_code}' https://kozossegek.com/healthz`
+2. Check the container's own view: `GET /api/v1/applications/{uuid}/logs` — a
+   clean log with no traffic means the route, not the app.
+3. Restore routing: `POST /api/v1/deploy?uuid=…&force=true` (Coolify API, Bearer
+   token). Prefer it over `restart`, which does not reliably re-register the
+   route. Container logs come from
+   `GET /api/v1/applications/{uuid}/logs?lines=N`; there is no exec endpoint in
+   the v1 API.
+4. Verify with the smoke test before declaring it fixed.
+
+## What is still missing
+
+Nothing runs the smoke test automatically. Today it was invoked by hand after
+each deploy, which works only as long as someone remembers. The obvious next
+step is a scheduled external check that alerts — the daily report email is too
+slow a channel for a site being down.

@@ -114,6 +114,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[2026-07-deepseek-model-retired]] — DeepSeek dropped the deepseek-chat model name and the whole 2026-07-24 ai_only window failed with 1368 uncached pages; the fix swaps to deepseek-v4-flash while fingerprint_model pins the cache identity so 74K cached extractions survive.
 - [[2026-07-deploy-truncates-collector]] — A deploy landing inside the 15 h search_only window kills the in-flight collector; with auto_run_on_startup off it never resumed and lost the rest of the day's page collection — invisible because the evening extractor lived off the cached-page backlog.
 - [[2026-07-llm-bare-array-run-abort]] — DeepSeek answered one page with a top-level JSON array, `.get()` hit a list, and the untyped AttributeError escaped the extractor chain and killed the 2026-07-30 ai_only window with 0 pairs processed.
+- [[2026-08-healthz-db-query-outage]] — /healthz queried the database, so a write lock failed the healthcheck and Traefik pulled the container from rotation — four apparent outages with a healthy process.
 - [[2026-08-mobile-city-search-datalist]] — The home search combined an iOS-invisible <datalist> with an exact-match submit guard, so phone users got no suggestions and no results.
 
 ## Operations
@@ -124,5 +125,6 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[local-search-worker]] — REMOVED 2026-07-09 — browser-driven search never beat engine bot detection; kept as post-mortem. Code in git history.
 - [[cost-saver-schedule]] — Two daily jobs — the free-tier extractor runs 00:30-10:00 UTC right after the quota reset, the DataForSEO collector 10:30-23:50.
 - [[importing-city-lists]] — scripts/import_cities.py adds a country's settlements above a population threshold without ever rewriting existing entries.
+- [[production-monitoring]] — What each health signal actually measures, why every one of them missed a full outage, and the external smoke test that did not.
 - [[ai-provider-quota-runbook]] — How to bring a free LLM provider online, read the quota page, and react when one dies or changes its model names.
 - [[coolify-disk-cleanup]] — High-disk-usage alerts after deploy-heavy days are old Docker images and build cache; prune them from the server terminal — volumes and running containers are untouched.

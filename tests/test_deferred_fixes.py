@@ -370,3 +370,38 @@ def test_connection_uses_wal(tmp_path):
     with sqlite3.connect(db) as conn:
         mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
     assert mode.lower() == "wal"
+
+
+def test_healthz_stays_green_when_the_database_is_slow(tmp_path, monkeypatch):
+    """A locked database must not fail the liveness probe.
+
+    /healthz used to COUNT(*) over communities. The Docker healthcheck calls it
+    with a 10s timeout, so a pipeline write lock failed the check, marked the
+    container unhealthy, and Traefik removed it from rotation — every public
+    request 404'd until the lock cleared (2026-08-16, four episodes).
+    """
+    from fastapi.testclient import TestClient
+
+    from scraper.db import init_db
+    from scraper.web import app as web_app
+    from scraper.web.state import app_state
+
+    db = tmp_path / "s.db"
+    init_db(db)
+    old = app_state.db_path
+    app_state.db_path = db
+    web_app._HEALTH_COUNT_CACHE = (0, 0.0)  # force a fresh lookup
+    try:
+        def _hangs(*a, **k):
+            import time
+            time.sleep(30)  # longer than the endpoint's own ceiling
+
+        monkeypatch.setattr(web_app, "get_total_community_count", _hangs)
+        resp = TestClient(web_app.app).get("/healthz")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["ok"] is True          # the app is up; that is the question
+        assert body["db"] == "busy"        # …and the slowness is still reported
+    finally:
+        app_state.db_path = old
+        web_app._HEALTH_COUNT_CACHE = (0, 0.0)

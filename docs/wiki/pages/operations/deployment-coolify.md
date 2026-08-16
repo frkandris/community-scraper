@@ -48,3 +48,6 @@ Persist only the runtime dirs, never the whole `/app` tree (that would hide upda
 .venv/bin/python scripts/lint_wiki.py
 ```
 The repo requires Python ≥ 3.12.
+
+After deploying, verify from outside — the container's own health signals
+missed four consecutive outages on 2026-08-16. See [[production-monitoring]].
