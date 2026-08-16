@@ -617,3 +617,50 @@ def test_upgrade_pair_log_renders_in_run_detail(tmp_path):
     for key in ("records_extracted", "queries", "cache_hits_scrape",
                 "fetched_urls", "search_failed", "aborted"):
         assert key in entry
+
+
+@pytest.mark.asyncio
+async def test_retired_model_is_dropped_for_the_run_not_retried(monkeypatch, tmp_path):
+    """HTTP 404/410 means the model is gone — retrying costs one request a page.
+
+    Live rollout on 2026-08-16: Groq's qwen3-32b, Gemini 2.5-flash, three
+    OpenRouter ":free" slugs and all of GitHub Models (410 retirement brownout)
+    404'd on *every* enrichment record, because the generic >=400 branch raised
+    the transient error type.
+    """
+    from scraper.extract import (ExtractorModelError, FallbackExtractor)
+
+    monkeypatch.setenv("A_KEY", "k")
+    # rpm 600 -> a 0.1s cooldown: both models sit on one provider clock, so the
+    # chain must be able to wait it out rather than give up.
+    spec = ProviderSpec(name="a", base_url="u", api_key_env="A_KEY",
+                        models=(ModelSpec(model="a-m0", quality=60),
+                                ModelSpec(model="a-m1", quality=40)),
+                        rpm=600, rpd=1000)
+    router, _ = _router(tmp_path, spec)
+    calls = []
+
+    class _Dead:
+        provider, model, quality = "a", "a-m0", 60
+
+        async def extract(self, *a, **kw):
+            calls.append("dead")
+            raise ExtractorModelError("a:a-m0 HTTP 404")
+
+    class _Live:
+        provider, model, quality = "a", "a-m1", 40
+
+        async def extract(self, *a, **kw):
+            calls.append("live")
+            return []
+
+    chain = FallbackExtractor(primaries=[_Dead(), _Live()], router=router)
+    for i in range(3):
+        await chain.extract(text="t", city="c", topic="running", locale="hu",
+                            source_url=f"https://x/{i}")
+    # Probed once, then never again; the live model served the rest.
+    assert calls.count("dead") == 1
+    assert calls.count("live") == 3
+    # A stale catalogue entry is a config problem, not a provider outage.
+    assert chain._consecutive_failures == 0
+    assert chain.providers_down is False

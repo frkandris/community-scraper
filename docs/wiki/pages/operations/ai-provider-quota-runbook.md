@@ -39,10 +39,25 @@ key is skipped silently, which is the normal state, not an error.
 The **quality mix** panel shows cached pages grouped by the model that extracted
 them. Rows below the current best score are what an upgrade sweep would revisit.
 
+## Reading the logs
+
+`GET /v1/logs?grep=model_retired` (Bearer `ROUTER_API_KEY`) returns the recent
+in-memory log lines without a platform login — see [[router-gateway-api]]. It
+needs a running app; a container that will not start is a Coolify deployment-log
+job.
+
 ## When a provider starts failing
 
-The run log names it (`extractor_preflight_retired`, `extractor_rate_limited`)
-and the row's `last_error` shows the message.
+The run log names it (`extractor_model_retired`, `extractor_preflight_retired`,
+`extractor_rate_limited`) and the row's `last_error` shows the message.
+
+**Model names go stale fast — this is the normal failure, not an exception.** On
+2026-08-16, within an hour of enabling six providers: Groq had deprecated
+`qwen3-32b` and `llama-4-scout`, Gemini closed `gemini-2.5-flash` to new
+projects, all three OpenRouter `:free` slugs had left the free tier, and GitHub
+Models answered `410 github_models_retirement_brownout` — the service itself is
+being retired. A 404/410 now retires that model for the run
+(`ExtractorModelError`) instead of costing one wasted request per page.
 
 - **Wrong model name** (`HTTP 400`) — the usual cause. Fix the `model:` line in
   `config/providers.yaml`; it is a mounted volume, so no deploy is needed. The

@@ -27,6 +27,18 @@ class ExtractorRateLimitError(Exception):
         super().__init__(f"Rate limited for {wait_seconds:.0f}s")
 
 
+class ExtractorModelError(Exception):
+    """The model itself is gone — a retired name, a revoked entitlement, a
+    retired service (HTTP 404 / 410).
+
+    Permanent for the run, and permanent for *this model only*: the provider may
+    still serve its other models. Distinct from ExtractorUnavailableError, which
+    is transient and gets retried — treating a retired model as transient makes
+    every page re-pay for the same 404, which is exactly what the 2026-08-16
+    rollout did until the logs showed it.
+    """
+
+
 class ExtractorUnavailableError(Exception):
     """Raised when extraction could not run at all — transient API/network error,
     or every provider exhausted. Callers MUST treat this as "no result" and skip
@@ -584,6 +596,16 @@ class _ApiExtractor:
             except (TypeError, ValueError):
                 retry_after = float(_API_RETRY_DEFAULT_WAIT)
             raise ExtractorRateLimitError(retry_after)
+        if resp.status_code in (404, 410):
+            # 404 = no such model / no entitlement; 410 = the service itself is
+            # gone (GitHub Models' retirement brownout). Neither heals by
+            # retrying, so the model is retired for the run instead of costing
+            # one wasted request per page.
+            log.warning("api_model_gone", provider=getattr(self, "provider", "?"),
+                        model=self.model, label=label,
+                        status=resp.status_code, body=resp.text[:200])
+            raise ExtractorModelError(
+                f"{getattr(self, 'provider', '?')}:{self.model} HTTP {resp.status_code}")
         if resp.status_code >= 400:
             log.warning("api_request_failed", provider=self.__class__.__name__, label=label,
                         status=resp.status_code, body=resp.text[:200])
@@ -1000,6 +1022,16 @@ class FallbackExtractor:
                                       retry_after=exc.wait_seconds, error=last_error)
                     log.warning("extractor_rate_limited", provider=primary.__class__.__name__,
                                 label=label, wait_s=exc.wait_seconds)
+                except ExtractorModelError as exc:
+                    # One dead model, not a dead provider: retire it for the run
+                    # and move on. Deliberately not counted toward the circuit
+                    # breaker — a stale catalogue entry is a config problem, and
+                    # 20 of them must not abort the run.
+                    self._exhausted[i] = True
+                    last_error = str(exc)
+                    self._note_router(primary, ok=False, error=f"model gone: {exc}")
+                    log.warning("extractor_model_retired", model=str(exc))
+                    continue
                 except ExtractorQuotaError as exc:
                     self._exhausted[i] = True
                     last_error = str(exc)
@@ -1031,6 +1063,13 @@ class FallbackExtractor:
                 waits = [self._blocked_until[i] - time.monotonic()
                          for i in range(len(self.primaries)) if not self._exhausted[i]]
                 wait = min(waits) if waits else -1.0
+                # Pacing can also start *during* the loop: a provider serving
+                # two models pays one rpm clock, so trying its first model puts
+                # the second on cooldown. _await_pacing only runs before the
+                # loop, so without this the chain gives up on a wait it could
+                # simply sit out.
+                if wait <= 0 and self.router is not None:
+                    wait = self.router.shortest_pace_wait()
                 if 0 < wait <= self._RATE_LIMIT_MAX_WAIT:
                     log.info("extractor_awaiting_rate_limit", wait_s=round(wait, 1), label=label)
                     await asyncio.sleep(wait + 0.1)
@@ -1197,6 +1236,10 @@ class FallbackExtractor:
                 self._note_router(primary, ok=False, rate_limited=True,
                                   retry_after=exc.wait_seconds, error="preflight 429")
                 live.append(label + " (rate limited)")
+            except ExtractorModelError as exc:
+                self._exhausted[i] = True
+                self._note_router(primary, ok=False, error=f"preflight: {exc}")
+                dead.append(f"{label} (model gone)")
             except ExtractorUnavailableError as exc:
                 # Transient by definition — a dropped connection, a one-off 5xx,
                 # a timeout. Retiring the highest-quality model for an 8-hour

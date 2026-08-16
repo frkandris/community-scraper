@@ -298,3 +298,33 @@ def test_x_router_names_the_serving_provider_not_a_model_id_match(client):
         }).json()
     assert body["x_router"]["provider"] == "beta"
     assert body["x_router"]["model"] == "beta-small"
+
+
+# ── log access ───────────────────────────────────────────────────────────────
+
+def test_logs_endpoint_requires_auth_and_returns_recent_lines(client):
+    """Production log access without a Coolify login.
+
+    Added after the 2026-08-16 rollout, where diagnosing a bad model name meant
+    going through the platform API. Note the limit this cannot lift: it needs a
+    running app, so a container that fails to start is still a Coolify-log job.
+    """
+    from scraper.web.log_stream import broadcaster
+
+    assert client.get("/v1/logs").status_code == 401
+
+    broadcaster.add_line({"event": "extractor_model_retired", "level": "warning",
+                          "model": "groq:qwen3-32b"})
+    broadcaster.add_line({"event": "pipeline_complete", "level": "info"})
+
+    body = client.get("/v1/logs", headers=AUTH).json()
+    assert body["count"] >= 2
+    assert any("extractor_model_retired" in str(r) for r in body["data"])
+
+    # Substring filter, deliberately not a regex.
+    filtered = client.get("/v1/logs?grep=model_retired", headers=AUTH).json()
+    assert filtered["count"] >= 1
+    assert all("model_retired" in str(r).lower() for r in filtered["data"])
+
+    only_warn = client.get("/v1/logs?level=warning", headers=AUTH).json()
+    assert all(r.get("level") == "warning" for r in only_warn["data"])

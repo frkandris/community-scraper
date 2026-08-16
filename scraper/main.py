@@ -404,6 +404,15 @@ async def main() -> None:
         if extractor.exhausted:
             log.info("enrich_skipped", reason="no_extractor")
             return
+        # Probe the fleet before the batch, as run_pipeline does. Without it a
+        # stale model name costs one wasted request *per record* for the whole
+        # window — on 2026-08-16 every enrich call fanned out across four dead
+        # models before giving up.
+        try:
+            await extractor.preflight()
+        except Exception as exc:
+            log.warning("enrich_skipped", reason="preflight_failed", error=str(exc))
+            return
         scope = {c.name for c in (app_state.cities or [])}
         if not scope:
             return

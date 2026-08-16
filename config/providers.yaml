@@ -64,10 +64,8 @@ providers:
     models:
       - model: openai/gpt-oss-120b
         quality: 62
-      - model: qwen3-32b
+      - model: qwen/qwen3.6-27b
         quality: 55
-      - model: meta-llama/llama-4-scout-17b-16e-instruct
-        quality: 50
       - model: openai/gpt-oss-20b
         quality: 45
 
@@ -80,12 +78,12 @@ providers:
     rpm: 30
     rpd: 1000
     models:
-      - model: qwen-3-235b-a22b-instruct
+      - model: gpt-oss-120b
         quality: 60
-      - model: llama-3.3-70b
-        quality: 48
-      - model: qwen-3-32b
+      - model: gemma-4-31b
         quality: 52
+      - model: llama-4-scout-17b-16e-instruct
+        quality: 48
 
   # ── Google Gemini (AI Studio) ─────────────────────────────────────────────
   # Reached through Google's OpenAI-compatibility endpoint so it needs no
@@ -97,9 +95,9 @@ providers:
     rpm: 15
     rpd: 1500
     models:
-      - model: gemini-2.5-flash
+      - model: gemini-3.6-flash
         quality: 64
-      - model: gemini-2.0-flash
+      - model: gemini-3.5-flash-lite
         quality: 54
 
   # ── Mistral ───────────────────────────────────────────────────────────────
@@ -125,17 +123,19 @@ providers:
     rpm: 20
     rpd: 50
     models:
-      - model: deepseek/deepseek-chat-v3.1:free
+      - model: nvidia/nemotron-3-super-120b-a12b:free
         quality: 58
-      - model: qwen/qwen3-235b-a22b:free
-        quality: 56
-      - model: meta-llama/llama-3.3-70b-instruct:free
-        quality: 47
+      - model: google/gemma-4-31b-it:free
+        quality: 52
+      - model: openai/gpt-oss-20b:free
+        quality: 45
 
   # ── GitHub Models ─────────────────────────────────────────────────────────
-  # Authenticates with a GitHub PAT (models:read scope). Low daily allowance.
+  # DISABLED 2026-08-16: the API answers 410 with
+  # {"code":"github_models_retirement_brownout"} — the service is being retired,
+  # not rate limited. Kept here rather than deleted so the decision is visible.
   - name: github
-    enabled: true
+    enabled: false
     api_key_env: GITHUB_MODELS_TOKEN
     base_url: https://models.github.ai/inference
     rpm: 10

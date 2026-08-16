@@ -104,6 +104,17 @@ Models that can serve a request *right now* — a spent provider disappears from
 the list, so this reflects capacity, not just configuration. `auto` is listed
 first. Non-standard `quality` field carries the routing score.
 
+### `GET /v1/logs`
+
+Non-standard. Recent application log lines from the in-memory ring the admin log
+page streams. `?lines=N` (max 1000), `?level=warning`, `?grep=substring` (a plain
+substring, not a regex — an operator-supplied regex is an easy accidental
+catastrophic backtrack).
+
+Exists so production can be debugged the way `/healthz` is read, without a
+platform login. **It needs a running app**, so it cannot explain a container that
+fails to start — for that the Coolify deployment log remains the only source.
+
 ### `GET /v1/quota`
 
 Non-standard. Today's per-provider budget: `budget`, `used`, `remaining`,

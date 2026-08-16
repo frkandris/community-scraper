@@ -22,6 +22,7 @@ Full contract: docs/wiki/pages/integrations/router-gateway-api.md.
 from __future__ import annotations
 
 import hmac
+import json
 import os
 import time
 from typing import Any
@@ -174,6 +175,41 @@ async def quota(authorization: str | None = Header(default=None)):
                    "remaining", "blocked", "paid")}
                  for p in mr.ledger.snapshot(mr.catalogue)],
     }
+
+
+@router.get("/logs")
+async def logs(
+    authorization: str | None = Header(default=None),
+    lines: int = 200,
+    grep: str = "",
+    level: str = "",
+):
+    """Recent application log lines — the same in-memory ring the admin log page
+    streams, exposed under the gateway's Bearer auth.
+
+    Exists so a debugging session can read production logs the way it reads
+    /healthz, without a Coolify login. It is a *complement* to the platform's
+    logs, not a replacement: this endpoint needs a running app, so it cannot
+    explain a container that fails to start — for that the Coolify deployment
+    log is still the only source.
+
+    `grep` is a plain substring match (not a regex: an operator-supplied regex
+    is an easy accidental catastrophic backtrack). `level` filters exactly.
+    """
+    if not _authorized(authorization):
+        return _error(401, "Invalid or missing API key.", "invalid_request_error",
+                      "invalid_api_key")
+    from .log_stream import broadcaster
+
+    rows = broadcaster.get_all()
+    if level:
+        want = level.lower()
+        rows = [r for r in rows if str(r.get("level", "")).lower() == want]
+    if grep:
+        needle = grep.lower()
+        rows = [r for r in rows if needle in json.dumps(r, ensure_ascii=False).lower()]
+    rows = rows[-max(1, min(lines, 1000)):]
+    return {"object": "list", "count": len(rows), "data": rows}
 
 
 @router.post("/chat/completions")
