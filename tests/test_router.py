@@ -766,3 +766,33 @@ def test_score_page_is_symmetric_in_tolerance():
     assert score_page(expected, ["Alfa Klub"]) == 75          # half the recall
     assert score_page(expected, expected + ["Zaj Kft"]) == 90  # invented one
     assert score_page(expected, []) == 20                      # answered, found none
+
+
+def test_golden_set_is_stable_across_runs(tmp_path):
+    """A moving sample makes scores incomparable, and silently so.
+
+    The set was ordered by extracted_at, which the pipeline rewrites
+    continuously — so two measurements an hour apart ran on different pages and
+    the difference read as a change in model quality (2026-08-16:
+    mistral-small appeared to drop 80 -> 55 for this reason alone).
+    """
+    from scraper.db import init_db, update_cache_page
+    from scraper.scoring import golden_set
+
+    db = tmp_path / "s.db"
+    init_db(db)
+    for i in range(6):
+        update_cache_page(db, f"h{i}", {
+            "url": f"https://x/{i}", "city": "Budapest", "topic": "running",
+            "extracted_at": f"2026-08-0{i + 1}T00:00:00+00:00",
+            "raw_text": "A helyi futóklub keddenként edz.",
+            "records": [{"name": f"Klub {i}"}],
+        }, create={"url": f"https://x/{i}"})
+
+    first = [p["url"] for p in golden_set(db, limit=3)]
+
+    # Simulate the pipeline re-extracting a page: extracted_at moves, the
+    # corpus does not.
+    update_cache_page(db, "h0", {"extracted_at": "2026-12-31T23:59:59+00:00"})
+
+    assert [p["url"] for p in golden_set(db, limit=3)] == first

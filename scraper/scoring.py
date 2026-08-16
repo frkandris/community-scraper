@@ -121,17 +121,28 @@ def golden_set(db_path: Path, limit: int = 12) -> list[dict]:
     Only pages that yielded at least one community are used: a page with zero
     expected results cannot separate a careful model from one that always
     answers "nothing here".
+
+    The sample is **deterministic** (ordered by url_hash). A sample that moves
+    between runs makes scores incomparable, and silently so — the numbers still
+    look like numbers.
     """
     if not Path(db_path).exists():
         raise FileNotFoundError(f"no database at {db_path}")
     out: list[dict] = []
     with _connect(db_path) as conn:
+        # ORDER BY url_hash, NOT extracted_at: the pipeline rewrites
+        # extracted_at continuously, so a "most recently extracted" sample is a
+        # different set of pages on every run. Two measurements an hour apart
+        # then differ for reasons that have nothing to do with the models —
+        # which is exactly what happened on 2026-08-16, where mistral-small
+        # appeared to fall 80 -> 55 between runs. url_hash is stable, so the
+        # sample only drifts as the corpus itself grows.
         rows = conn.execute(
             """
             SELECT url, city, topic, data
               FROM cache_pages
              WHERE extracted_at IS NOT NULL
-             ORDER BY extracted_at DESC
+             ORDER BY url_hash
              LIMIT ?
             """,
             (limit * 8,),
@@ -211,8 +222,14 @@ async def score_fleet(db_path: Path, extractors: list, pages: int = 8) -> dict:
     # because they are unknown, not because they are bad.
     results.sort(key=lambda r: (0 if r["measured"] else 1, -(r["score"] or 0)))
     unmeasured = [f"{r['provider']}:{r['model']}" for r in results if not r["measured"]]
+    import hashlib
+    # Identifies the sample. Two runs with different fingerprints measured
+    # different pages and their scores are not comparable.
+    sample_fp = hashlib.sha256(
+        "|".join(sorted(p["url"] for p in gs)).encode()).hexdigest()[:12]
     return {
         "pages": len(gs),
+        "sample": sample_fp,
         "expected_communities": sum(len(p["expected"]) for p in gs),
         "results": results,
         "unmeasured": unmeasured,
