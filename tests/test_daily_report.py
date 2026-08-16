@@ -334,3 +334,61 @@ def test_report_html_ga4_mode():
     # without GA4: falls back to the server counter
     subject2, html2 = build_report_html("2026-07-09", summary, traffic, None)
     assert "2 látogató" in subject2 and "(GA4)" not in html2
+
+
+def test_report_shows_free_ai_usage_per_provider(tmp_path):
+    """The daily email carries a free-tier AI block.
+
+    The router's whole premise is that extraction stays inside allowances
+    nobody pays for. A provider quietly hitting its ceiling every day costs
+    coverage without costing money — the failure mode that hides unless it is
+    on the daily report.
+    """
+    from scraper.db import init_db, record_provider_call
+    from scraper.report import build_report_html
+
+    db = tmp_path / "scraper.db"
+    init_db(db)
+    record_provider_call(db, "2026-08-16", "groq")
+
+    summary = {
+        "hu": {k: 0 for k in ("new_communities", "changed_communities", "change_rows",
+                              "new_venues", "new_persons", "pages_scraped",
+                              "pages_extracted", "searches")},
+        "intl": {k: 0 for k in ("new_communities", "changed_communities", "change_rows",
+                                "new_venues", "new_persons", "pages_scraped",
+                                "pages_extracted", "searches")},
+        "totals": {"hu": 0, "intl": 0, "covered_pairs_hu": 0, "covered_pairs_intl": 0},
+        "runs": [],
+        "providers": [
+            {"name": "groq", "used": 120, "budget": 13680, "observed_limit": None,
+             "rate_limits": 0, "failures": 0},
+            {"name": "openrouter", "used": 47, "budget": 47, "observed_limit": 50,
+             "rate_limits": 3, "failures": 1},
+        ],
+    }
+    _, html = build_report_html("2026-08-16", summary, {}, None)
+
+    assert "Ingyenes AI-keret" in html
+    assert "groq" in html and "openrouter" in html
+    assert "13680" in html and "120" in html
+    # A spent provider must read as spent, not as a quiet row.
+    assert "100%" in html
+    assert "észlelt plafon 50" in html and "3× 429" in html
+
+
+def test_report_omits_the_ai_block_when_nothing_was_called(tmp_path):
+    from scraper.report import build_report_html
+
+    summary = {
+        "hu": {k: 0 for k in ("new_communities", "changed_communities", "change_rows",
+                              "new_venues", "new_persons", "pages_scraped",
+                              "pages_extracted", "searches")},
+        "intl": {k: 0 for k in ("new_communities", "changed_communities", "change_rows",
+                                "new_venues", "new_persons", "pages_scraped",
+                                "pages_extracted", "searches")},
+        "totals": {"hu": 0, "intl": 0, "covered_pairs_hu": 0, "covered_pairs_intl": 0},
+        "runs": [], "providers": [],
+    }
+    _, html = build_report_html("2026-08-16", summary, {}, None)
+    assert "Ingyenes AI-keret" not in html

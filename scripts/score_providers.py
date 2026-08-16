@@ -114,15 +114,26 @@ async def main() -> int:
           f"{out['expected_communities']} expected communities\n")
     print(f"{'score':>5}  {'prior':>5}  {'ans':>4} {'fail':>4}  model")
     for r in out["results"]:
-        print(f"{r['score']:5}  {r['prior']:5}  {r['answered']:4} {r['failed']:4}  "
+        shown = "  n/a" if r["score"] is None else f"{r['score']:5}"
+        print(f"{shown}  {r['prior']:5}  {r['answered']:4} {r['failed']:4}  "
               f"{r['provider']}:{r['model']}")
         for e in r["errors"]:
             print(f"{'':>24}! {e}")
+    if out.get("unmeasured"):
+        print(f"\nUNMEASURED (rate limited or erroring — not scored, not written):")
+        for m in out["unmeasured"]:
+            print(f"  {m}")
+        print("Re-run these when the fleet is idle; a rate limit is not a quality signal.")
     print(f"\n{out['note']}")
 
     if args.apply:
-        scores = {(r["provider"], r["model"]): r["score"] for r in out["results"]}
-        print(f"\nupdated {rewrite_yaml(scores)} quality values in {PROVIDERS_YAML}")
+        # Only measured models are written. A null would otherwise land in the
+        # catalogue as a 0 and bury a good model at the bottom of the order.
+        scores = {(r["provider"], r["model"]): r["score"]
+                  for r in out["results"] if r["measured"]}
+        skipped = len(out["results"]) - len(scores)
+        print(f"\nupdated {rewrite_yaml(scores)} quality values in {PROVIDERS_YAML}"
+              + (f" ({skipped} unmeasured left untouched)" if skipped else ""))
     else:
         print("\n(dry run — pass --apply to write these into providers.yaml)")
     return 0

@@ -664,3 +664,62 @@ async def test_retired_model_is_dropped_for_the_run_not_retried(monkeypatch, tmp
     # A stale catalogue entry is a config problem, not a provider outage.
     assert chain._consecutive_failures == 0
     assert chain.providers_down is False
+
+
+# ── scoring safety ───────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_unmeasured_model_scores_null_not_zero():
+    """A rate limit is not a quality signal.
+
+    The first live run had two of three Groq models return 0 — one was rate
+    limited for 1197s, the other 400'd. Written into providers.yaml those zeros
+    would have buried working models at the bottom of the routing order.
+    """
+    from scraper.extract import ExtractorRateLimitError
+    from scraper.scoring import score_model
+
+    pages = [{"url": "u", "city": "c", "topic": "running",
+              "text": "t", "expected": {"x"}}]
+
+    class _Limited:
+        provider, model, quality = "groq", "m", 62
+
+        async def extract(self, **kw):
+            raise ExtractorRateLimitError(1197)
+
+    r = await score_model(_Limited(), pages)
+    assert r["score"] is None
+    assert r["measured"] is False
+    assert r["failed"] == 1
+
+
+@pytest.mark.asyncio
+async def test_score_is_averaged_over_answered_pages_only():
+    # Otherwise reliability folds into quality, and at free-tier rate limits
+    # that mostly measures how recently the fleet ran.
+    from scraper.extract import ExtractorUnavailableError
+    from scraper.models import CommunityRecord
+    from scraper.scoring import score_model
+    from scraper.identity import normalized_match_key
+
+    name = "Szentendrei Futóklub"
+    pages = [{"url": f"u{i}", "city": "c", "topic": "running", "text": "t",
+              "expected": {normalized_match_key(name)}} for i in range(3)]
+    calls = {"n": 0}
+
+    class _Flaky:
+        provider, model, quality = "groq", "m", 50
+
+        async def extract(self, **kw):
+            calls["n"] += 1
+            if calls["n"] > 1:
+                raise ExtractorUnavailableError("HTTP 400")
+            return [CommunityRecord(name=name, topic="running", city="c",
+                                    locale="hu", source_url="https://a.test",
+                                    extracted_at="2026-01-01T00:00:00+00:00")]
+
+    r = await score_model(_Flaky(), pages)
+    assert r["score"] == 100          # perfect on the one page it answered
+    assert r["answered"] == 1 and r["failed"] == 2
+    assert r["coverage"] == 0.33      # …but coverage says how thin that is

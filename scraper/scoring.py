@@ -85,8 +85,13 @@ def golden_set(db_path: Path, limit: int = 12) -> list[dict]:
 
 
 async def score_model(extractor, pages: list[dict]) -> dict:
-    """Run one model over the golden set. Unanswered pages score zero — an
-    unreliable model is a worse model, not an unmeasured one."""
+    """Run one model over the golden set.
+
+    The score is the mean over pages the model *answered*, with `coverage`
+    reporting how many that was. Averaging over all pages instead would fold
+    reliability into quality, and at free-tier rate limits that mostly measures
+    how recently the fleet ran, not how well the model reads a page.
+    """
     total, answered, failed, errors = 0.0, 0, 0, []
     for page in pages:
         try:
@@ -102,13 +107,21 @@ async def score_model(extractor, pages: list[dict]) -> dict:
         got = {normalized_match_key(r.name) for r in records if r.name}
         total += score_page(page["expected"], got)
         answered += 1
+    # A model that never answered is UNMEASURED, not bad. Reporting 0 conflates
+    # "rate limited for 20 minutes" with "produced garbage", and writing that 0
+    # into providers.yaml would drop a good model to the bottom of the routing
+    # order — seen on the very first live run, where two of three Groq models
+    # scored 0 purely because of a rate limit and an HTTP 400.
+    measured = answered > 0
     return {
         "provider": getattr(extractor, "provider", "?"),
         "model": getattr(extractor, "model", "?"),
         "prior": getattr(extractor, "quality", 0),
-        "score": round(total / len(pages)) if pages else 0,
+        "score": round(total / answered) if measured else None,
+        "coverage": round(answered / len(pages), 2) if pages else 0.0,
         "answered": answered,
         "failed": failed,
+        "measured": measured,
         "errors": errors,
     }
 
@@ -126,12 +139,18 @@ async def score_fleet(db_path: Path, extractors: list, pages: int = 8) -> dict:
         log.info("scoring_model_done", **{k: r[k] for k in
                                           ("provider", "model", "score", "answered", "failed")})
         results.append(r)
-    results.sort(key=lambda r: -r["score"])
+    # Measured first (best score first), then the unmeasured — which are last
+    # because they are unknown, not because they are bad.
+    results.sort(key=lambda r: (0 if r["measured"] else 1, -(r["score"] or 0)))
+    unmeasured = [f"{r['provider']}:{r['model']}" for r in results if not r["measured"]]
     return {
         "pages": len(gs),
         "expected_communities": sum(len(p["expected"]) for p in gs),
         "results": results,
+        "unmeasured": unmeasured,
         "note": ("Scores measure agreement with the incumbent extraction, not "
                  "ground truth: expected names come from whichever model "
-                 "processed each page before."),
+                 "processed each page before. score=null means the model could "
+                 "not be measured (rate limit, error) — NOT that it scored "
+                 "zero; never write a null into providers.yaml."),
     }

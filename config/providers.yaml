@@ -21,8 +21,9 @@
 #   base_url      Must speak the OpenAI /chat/completions contract.
 #   paid          true = costs money. The router only reaches these when
 #                 `router.allow_paid` is on; DeepSeek is parked by default.
-#   quality       0-100 prior for this model on OUR task, seeded from public
-#                 benchmarks. Treat as a weak prior, not truth: LLMStructBench
+#   quality       0-100 score for this model on OUR task. Most are now MEASURED
+#                 by scripts/score_providers.py against a golden set of our own
+#                 cached pages (2026-08-16), not read off a leaderboard. Treat as a weak prior, not truth: LLMStructBench
 #                 (arXiv:2602.14743) found prompting strategy matters more than
 #                 model size for JSON extraction, so a leaderboard rank is a
 #                 poor proxy. `scripts/score_providers.py` overwrites these with
@@ -67,7 +68,7 @@ providers:
       - model: qwen/qwen3.6-27b
         quality: 55
       - model: openai/gpt-oss-20b
-        quality: 45
+        quality: 67
 
   # ── Cerebras ──────────────────────────────────────────────────────────────
   # Very fast, large daily token budget, smaller catalogue than Groq.
@@ -79,9 +80,9 @@ providers:
     rpd: 1000
     models:
       - model: gpt-oss-120b
-        quality: 60
+        quality: 44
       - model: gemma-4-31b
-        quality: 52
+        quality: 80
       # llama-4-scout-17b-16e-instruct removed 2026-08-16: 404 model_not_found
       # in preflight. The other two Cerebras models serve fine — this is a name
       # that does not exist here, not an account problem.
@@ -99,7 +100,7 @@ providers:
       - model: gemini-3.6-flash
         quality: 64
       - model: gemini-3.5-flash-lite
-        quality: 54
+        quality: 63
 
   # ── Mistral ───────────────────────────────────────────────────────────────
   - name: mistral
@@ -110,9 +111,9 @@ providers:
     rpd: 500
     models:
       - model: mistral-small-latest
-        quality: 51
+        quality: 80
       - model: open-mistral-nemo
-        quality: 40
+        quality: 76
 
   # ── OpenRouter (`:free` models) ───────────────────────────────────────────
   # One key, many models — but the tightest free request budget of the set, so

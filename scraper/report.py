@@ -134,6 +134,46 @@ def build_report_html(day: str, summary: dict, traffic: dict,
                     total=s_site("hu", k) + s_site("intl", k))
         for k, label in _STOCK_METRICS)
 
+    # Free-tier AI usage for the day. Its own block because the whole point of
+    # the router is that this number stays inside allowances nobody pays for —
+    # a provider quietly hitting its ceiling every day is the failure that costs
+    # coverage without costing money, so it has to be visible daily.
+    ai_html = ""
+    providers = summary.get("providers") or []
+    if providers:
+        rows = []
+        for p in providers:
+            used, budget = p.get("used", 0), p.get("budget", 0)
+            pct = (used * 100 // budget) if budget else 0
+            # Amber past 60%, red past 90% — the point is to notice a ceiling
+            # before it starts silently truncating a window.
+            colour = "#DC2626" if pct >= 90 else ("#D97706" if pct >= 60 else "#16A34A")
+            note = []
+            if p.get("observed_limit"):
+                note.append(f"észlelt plafon {p['observed_limit']}")
+            if p.get("rate_limits"):
+                note.append(f"{p['rate_limits']}× 429")
+            if p.get("failures"):
+                note.append(f"{p['failures']} hiba")
+            rows.append(
+                f"<tr><td style='padding:4px 12px 4px 0'>{p['name']}</td>"
+                f"<td align='right' style='padding:4px 8px;color:{colour};font-weight:600'>"
+                f"{used}</td>"
+                f"<td align='right' style='padding:4px 8px;color:#8C8478'>{budget}</td>"
+                f"<td align='right' style='padding:4px 8px'>{pct}%</td>"
+                f"<td style='padding:4px 0 4px 8px;color:#8C8478;font-size:12px'>"
+                f"{', '.join(note)}</td></tr>")
+        ai_html = (
+            "<h3 style='margin:18px 0 6px'>Ingyenes AI-keret (aznapi hívások)</h3>"
+            "<table style='border-collapse:collapse;font-size:14px'>"
+            "<tr style='color:#8C8478;font-size:12px'>"
+            "<td style='padding:4px 12px 4px 0'>Szolgáltató</td>"
+            "<td align='right' style='padding:4px 8px'>Hívás</td>"
+            "<td align='right' style='padding:4px 8px'>Keret</td>"
+            "<td align='right' style='padding:4px 8px'>%</td>"
+            "<td style='padding:4px 0 4px 8px'></td></tr>"
+            + "".join(rows) + "</table>")
+
     runs_html = ""
     if summary["runs"]:
         items = []
@@ -201,6 +241,8 @@ def build_report_html(day: str, summary: dict, traffic: dict,
 
   {runs_html}
 
+  {ai_html}
+
   <h3 style="margin:18px 0 6px">Állomány (aktuális összesen)</h3>
   <table style="border-collapse:collapse;font-size:14px">
     <tr style="color:#8C8478;font-size:12px">
@@ -233,6 +275,18 @@ async def send_daily_report(db_path: Path, hu_cities: set, day: str | None = Non
     end_iso = f"{end_day}T00:00:00"
 
     summary = get_daily_summary(db_path, start_iso, end_iso, hu_cities)
+    # Free-tier AI spend for the reported day. Best-effort: a report must still
+    # go out if the router config is unreadable.
+    try:
+        from .providers import load_catalogue
+        from .router import QuotaLedger
+        cat = load_catalogue()
+        ledger = QuotaLedger(db_path, day=day)
+        summary["providers"] = [p for p in ledger.snapshot(cat)
+                                if p["configured"] and p["used"]]
+    except Exception as exc:
+        log.warning("report_provider_usage_failed", error=str(exc))
+        summary["providers"] = []
     traffic = get_traffic_for_day(db_path, day)
     ga4 = fetch_ga4_traffic(day)
     subject, html = build_report_html(day, summary, traffic, ga4)

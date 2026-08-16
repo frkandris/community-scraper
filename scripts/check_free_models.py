@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+"""Ask every configured provider which models it actually serves today.
+
+Why this exists
+---------------
+On 2026-08-16 the router went live with a catalogue written from vendor docs and
+round-up articles. Within hours, every single model name was wrong: Groq had
+deprecated two, Gemini had closed 2.5-flash to new projects, all three
+OpenRouter ":free" slugs had left the free tier, and GitHub Models answered 410
+because the service is being retired. Free-tier line-ups move weekly.
+
+So do not read docs — ask the APIs. Each provider exposes an OpenAI-style
+`GET /models`; this compares that live list against `config/providers.yaml` and
+reports three things:
+
+  GONE     configured here, absent upstream  -> will 404 on first use
+  NEW      upstream, not configured          -> candidate to add
+  OK       configured and present
+
+Usage
+-----
+    python scripts/check_free_models.py                 # local keys
+    python scripts/check_free_models.py --remote        # via the deployed gateway
+    python scripts/check_free_models.py --json          # machine-readable
+
+`--remote` reads `ROUTER_BASE_URL` (default https://kozossegek.com) and
+`ROUTER_API_KEY`, and asks the running app — the only place the provider keys
+actually live. Without it, the script needs the provider keys in the local env.
+
+Exit code is 1 when anything configured is missing upstream, so this can gate a
+scheduled check.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from scraper.providers import load_catalogue  # noqa: E402
+
+#: Providers whose model list endpoint follows the OpenAI convention. Gemini's
+#: OpenAI-compat surface does not implement /models, so it is queried on its
+#: native endpoint instead.
+_LIST_PATH = {"gemini": None}
+
+TIMEOUT = 25
+
+#: Cloudflare fronts the deployed app and 403s urllib's default agent.
+_UA = "meetapedia-model-check/1.0"
+
+
+def _get_json(url: str, headers: dict) -> dict:
+    req = urllib.request.Request(url, headers={"User-Agent": _UA, **headers})
+    with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+        return json.load(resp)
+
+
+def live_models(spec) -> tuple[list[str], str | None]:
+    """(model ids, error). An error is reported, never raised: one dead provider
+    must not hide the others' answers."""
+    key = spec.api_key
+    if not key:
+        return [], "no API key in env"
+    try:
+        if spec.name == "gemini":
+            # The OpenAI-compat layer has no /models; the native API does.
+            data = _get_json(
+                f"https://generativelanguage.googleapis.com/v1beta/models?key={key}",
+                {},
+            )
+            return sorted(m["name"].removeprefix("models/")
+                          for m in data.get("models", [])), None
+        data = _get_json(f"{spec.base_url.rstrip('/')}/models",
+                         {"Authorization": f"Bearer {key}"})
+        return sorted(m["id"] for m in data.get("data", [])), None
+    except urllib.error.HTTPError as exc:
+        body = ""
+        try:
+            body = exc.read().decode()[:120]
+        except Exception:
+            pass
+        return [], f"HTTP {exc.code} {body}"
+    except Exception as exc:
+        return [], f"{type(exc).__name__}: {exc}"
+
+
+def remote_models(base: str, token: str) -> dict:
+    """Model ids the deployed gateway currently routes to, grouped by provider."""
+    data = _get_json(f"{base.rstrip('/')}/v1/models",
+                     {"Authorization": f"Bearer {token}"})
+    out: dict[str, list[str]] = {}
+    for m in data.get("data", []):
+        if m["id"] == "auto":
+            continue
+        provider, _, model = m["id"].partition(":")
+        out.setdefault(provider, []).append(model)
+    return out
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--remote", action="store_true",
+                    help="ask the deployed gateway instead of using local keys")
+    ap.add_argument("--json", action="store_true", dest="as_json")
+    ap.add_argument("--free-only", action="store_true",
+                    help="only report upstream models whose id ends in :free")
+    args = ap.parse_args()
+
+    catalogue = load_catalogue()
+    report: dict[str, dict] = {}
+
+    remote = {}
+    if args.remote:
+        base = os.environ.get("ROUTER_BASE_URL", "https://kozossegek.com")
+        token = os.environ.get("ROUTER_API_KEY", "")
+        if not token:
+            raise SystemExit("--remote needs ROUTER_API_KEY in the environment")
+        try:
+            remote = remote_models(base, token)
+        except Exception as exc:
+            raise SystemExit(f"gateway unreachable: {exc}") from exc
+
+    for spec in catalogue.providers:
+        configured = [m.model for m in spec.models]
+        if args.remote:
+            # The gateway only reports what it routes to, so it can confirm a
+            # configured model works but never surface a NEW one.
+            upstream, err = remote.get(spec.name, []), None
+            gone = [m for m in configured if m not in upstream] if spec.enabled else []
+            new: list[str] = []
+        else:
+            upstream, err = live_models(spec)
+            if args.free_only:
+                upstream = [m for m in upstream if m.endswith(":free")]
+            gone = [m for m in configured if m not in upstream] if upstream else []
+            new = [m for m in upstream if m not in configured]
+        report[spec.name] = {
+            "enabled": spec.enabled,
+            "error": err,
+            "configured": configured,
+            "gone": gone,
+            "new": new,
+            "upstream_count": len(upstream),
+        }
+
+    if args.as_json:
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+    else:
+        for name, r in report.items():
+            flag = "" if r["enabled"] else "  (disabled in config)"
+            print(f"\n== {name}{flag} ==")
+            if r["error"]:
+                print(f"   ! {r['error']}")
+                continue
+            print(f"   upstream models: {r['upstream_count']}")
+            for m in r["gone"]:
+                print(f"   GONE  {m}   <- configured here, absent upstream")
+            if r["new"]:
+                shown = r["new"][:12]
+                for m in shown:
+                    print(f"   NEW   {m}")
+                if len(r["new"]) > len(shown):
+                    print(f"   ...   +{len(r['new']) - len(shown)} more")
+            if not r["gone"] and not r["new"]:
+                print("   all configured models present")
+
+    broken = {n: r["gone"] for n, r in report.items()
+              if r["enabled"] and r["gone"]}
+    if broken:
+        print("\nConfigured models missing upstream (these will 404):")
+        for n, ms in broken.items():
+            print(f"  {n}: {', '.join(ms)}")
+        print("\nFix config/providers.yaml — it is a mounted volume in "
+              "production, so no deploy is needed.")
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
