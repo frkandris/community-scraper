@@ -117,7 +117,8 @@ def _settings_country_priority() -> list[str] | None:
 
 def _next_window_end(start: "datetime", hhmm: str) -> "datetime | None":
     """First occurrence of HH:MM (UTC) strictly after `start` — handles windows
-    that cross midnight (e.g. extract 16:35 → 00:20 next day)."""
+    that cross midnight (the search window now runs 10:30 → 23:50, but the
+    helper stays midnight-safe: window bounds are configuration)."""
     try:
         hour, minute = (int(p) for p in hhmm.strip().split(":"))
         candidate = start.replace(hour=hour, minute=minute, second=0, microsecond=0)
@@ -132,9 +133,8 @@ def _next_window_end(start: "datetime", hhmm: str) -> "datetime | None":
 
 def _settings_cron_enabled() -> bool:
     """schedule.cron_enabled — off by default. When on, the cron in settings.yaml
-    actually schedules runs. Pair it with an off-peak time: DeepSeek discounts
-    ~50-75% between UTC 16:30 and 00:30, so a nightly run in that window halves
-    the LLM bill."""
+    actually schedules runs. The saver twin jobs below are the supported path;
+    this legacy single run predates them."""
     try:
         settings = yaml.safe_load((CONFIG_DIR / "settings.yaml").read_text(encoding="utf-8")) or {}
         schedule = settings.get("schedule", {})
@@ -169,10 +169,10 @@ def _startup_window(startup_mode: str, schedule_cfg: dict) -> tuple[str | None, 
     """(start_hhmm, end_hhmm) for a bounded saver mode, else (None, None). Start is
     derived from the mode's cron minute/hour; end from its `*_until`."""
     if startup_mode == "search_only":
-        cron = str(schedule_cfg.get("search_cron") or "0 1 * * *")
+        cron = str(schedule_cfg.get("search_cron") or "30 10 * * *")
         end = schedule_cfg.get("search_until")
     elif startup_mode == "ai_only":
-        cron = str(schedule_cfg.get("extract_cron") or "35 16 * * *")
+        cron = str(schedule_cfg.get("extract_cron") or "30 0 * * *")
         end = schedule_cfg.get("extract_until")
     else:
         return None, None
@@ -186,7 +186,7 @@ def _startup_window(startup_mode: str, schedule_cfg: dict) -> tuple[str | None, 
 
 def _within_window(now: "datetime", start_hhmm: str | None, end_hhmm: str | None) -> bool:
     """Is `now` (UTC) inside the [start, end) daily window? Handles windows that
-    cross midnight (extract 16:35 → 00:20). Permissive (True) if a bound is
+    cross midnight. Permissive (True) if a bound is
     unparseable — recovery must not be silently skipped on a config typo."""
     try:
         sh, sm = (int(p) for p in start_hhmm.strip().split(":"))
@@ -475,7 +475,7 @@ async def main() -> None:
         # guard would otherwise skip one).
         for job_fn, cron_key, default_cron in (
             (_search_collector_run, "search_cron", "0 1 * * *"),
-            (_offpeak_extract_run, "extract_cron", "35 16 * * *"),
+            (_offpeak_extract_run, "extract_cron", "30 0 * * *"),
         ):
             m, h, d, mo, dow = _cron_fields(str(schedule_cfg.get(cron_key) or default_cron))
             scheduler.add_job(

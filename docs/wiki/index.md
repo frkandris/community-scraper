@@ -122,7 +122,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[deployment-coolify]] — Docker on Coolify; persist only /app/data and /app/config; required and optional env vars.
 - [[adding-city-topic]] — The config files plus the app.py dicts and i18n labels you must update in lockstep.
 - [[local-search-worker]] — REMOVED 2026-07-09 — browser-driven search never beat engine bot detection; kept as post-mortem. Code in git history.
-- [[cost-saver-schedule]] — Two independent daily crons — DataForSEO collects cheaply all day (search_only, standard mode), DeepSeek extracts only in its off-peak discount window (ai_only, stop_at-boxed).
+- [[cost-saver-schedule]] — Two daily jobs — the free-tier extractor runs 00:30-10:00 UTC right after the quota reset, the DataForSEO collector 10:30-23:50.
 - [[importing-city-lists]] — scripts/import_cities.py adds a country's settlements above a population threshold without ever rewriting existing entries.
 - [[ai-provider-quota-runbook]] — How to bring a free LLM provider online, read the quota page, and react when one dies or changes its model names.
 - [[coolify-disk-cleanup]] — High-disk-usage alerts after deploy-heavy days are old Docker images and build cache; prune them from the server terminal — volumes and running containers are untouched.

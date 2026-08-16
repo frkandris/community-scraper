@@ -93,26 +93,38 @@ schedule:
   # resumes the interrupted search_only/ai_only run boxed to its window. Clean
   # boots do nothing (the crons drive the day) — see _startup_plan in main.py.
   auto_run_on_startup: true
-  # ── Cost-saver twin schedule (time-rich, money-tight) ──────────────────────
-  # Two independent daily jobs that never overlap:
-  #  * search collector: search_only mode — DataForSEO (standard, $0.6/1K)
-  #    gyűjtöget + fetches pages, ZERO LLM calls. Runs 01:00 → 16:20 UTC.
-  #  * off-peak extractor: ai_only mode — DeepSeek runs ONLY on the already
-  #    collected pages, inside its discount window (UTC 16:30-00:30, ~50-75%
-  #    cheaper). Runs 16:35 → 00:20 UTC, stops gracefully at the window end.
+  # ── Twin schedule: extract on a fresh quota day, then collect ──────────────
+  # Two independent daily jobs that never overlap.
+  #
+  # REORDERED 2026-08-16. The old order (collect 01:00→16:20, extract
+  # 16:35→00:20) existed for DeepSeek's off-peak discount window. Extraction now
+  # runs on the free-tier fleet, whose allowances reset at 00:00 UTC — so the
+  # extractor started spending 16 hours after the budget refilled, and anything
+  # it could not reach by 00:20 was simply lost. Now it goes first.
+  #
+  #  * extractor (ai_only): 00:30 → 10:00 UTC, right after the quota reset.
+  #    The whole free fleet is ~16.5K calls/day and the chain is serial at
+  #    ~2s/call, so spending all of it takes ~9.2h — that is where 9.5h comes
+  #    from, not a round number.
+  #  * search collector (search_only): 10:30 → 23:50 UTC. DataForSEO only, zero
+  #    LLM calls, so it does not compete for the same budget. Its constraint is
+  #    money per query, not wall-clock, which is why it takes the longer but
+  #    later slot.
   saver_enabled: true
-  search_cron: "0 1 * * *"
-  search_until: "16:20"
-  extract_cron: "35 16 * * *"
-  extract_until: "00:20"
+  extract_cron: "30 0 * * *"
+  extract_until: "10:00"
+  search_cron: "30 10 * * *"
+  search_until: "23:50"
   # ── Managed off-peak description enrichment ────────────────────────────────
   # SEO short/long descriptions generated in DeepSeek's discount window only.
   # Fires at enrich_cron and resumes on startup if a restart lands mid-window;
   # bounded, idempotent/resumable (long_description marker). Coexists with the
-  # ai_only extractor. Turn off by setting enrich_enabled: false.
+  # ai_only extractor and shares its provider budget — the quota ledger reloads
+  # periodically so neither job spends the other's allowance blind. Moved with
+  # the extractor to the post-reset window. Turn off with enrich_enabled: false.
   enrich_enabled: true
-  enrich_cron: "30 16 * * *"
-  enrich_until: "00:30"
+  enrich_cron: "35 0 * * *"
+  enrich_until: "10:00"
   enrich_batch_limit: 200
   # Daily summary email (traffic + changes per site + runs). Recipient =
   # REPORT_EMAIL or FEEDBACK_EMAIL env; sent via Resend. 04:30 UTC = 06:30 CEST.

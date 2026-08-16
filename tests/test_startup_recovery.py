@@ -4,7 +4,10 @@ A mid-window deploy/restart kills the in-flight saver run (observed 2026-07-24/2
 the 01:00 search_only collector was cancelled hours in). The startup recovery must
 resume the interrupted *bounded* run and box it to the same window its cron twin
 would use — but must NOT launch a `full` run on a clean saver boot (that would run
-DeepSeek outside the off-peak split). Legacy (saver-disabled) escalation is unchanged.
+outside the twin-window split). Legacy (saver-disabled) escalation is unchanged.
+
+Windows here mirror settings.yaml as reordered 2026-08-16: extract 00:30-10:00
+(right after the free-tier quota reset), collect 10:30-23:50.
 """
 from datetime import datetime, timezone
 
@@ -12,11 +15,13 @@ from scraper.main import _startup_plan, _startup_until, _within_window
 
 SAVER = {
     "saver_enabled": True,
-    "search_until": "16:20",
-    "extract_until": "00:20",
+    "extract_cron": "30 0 * * *",
+    "extract_until": "10:00",
+    "search_cron": "30 10 * * *",
+    "search_until": "23:50",
 }
 LEGACY = {"saver_enabled": False}
-NOW = datetime(2026, 7, 25, 6, 0, tzinfo=timezone.utc)  # mid search window
+NOW = datetime(2026, 7, 25, 14, 0, tzinfo=timezone.utc)  # mid collector window
 
 
 def _row(run_mode, finished_at="x", success=True):
@@ -25,8 +30,8 @@ def _row(run_mode, finished_at="x", success=True):
 
 # ── _startup_until ─────────────────────────────────────────────────────────
 def test_startup_until_maps_mode_to_saver_window():
-    assert _startup_until("search_only", SAVER) == "16:20"
-    assert _startup_until("ai_only", SAVER) == "00:20"
+    assert _startup_until("search_only", SAVER) == "23:50"
+    assert _startup_until("ai_only", SAVER) == "10:00"
     assert _startup_until("full", SAVER) is None
 
 
@@ -34,16 +39,15 @@ def test_startup_until_maps_mode_to_saver_window():
 def test_saver_resumes_interrupted_search_only_boxed_to_window():
     mode, stop_at = _startup_plan(_row("search_only", finished_at=None), SAVER, NOW)
     assert mode == "search_only"
-    assert stop_at == datetime(2026, 7, 25, 16, 20, tzinfo=timezone.utc)
+    assert stop_at == datetime(2026, 7, 25, 23, 50, tzinfo=timezone.utc)
 
 
 def test_saver_resumes_failed_ai_only_boxed_to_extract_window():
     # last run failed (success=False) but finished — still recover it.
-    night = datetime(2026, 7, 25, 20, 0, tzinfo=timezone.utc)
-    mode, stop_at = _startup_plan(_row("ai_only", success=False), SAVER, night)
+    early = datetime(2026, 7, 25, 2, 0, tzinfo=timezone.utc)
+    mode, stop_at = _startup_plan(_row("ai_only", success=False), SAVER, early)
     assert mode == "ai_only"
-    # extract window end 00:20 is the NEXT day relative to 20:00
-    assert stop_at == datetime(2026, 7, 26, 0, 20, tzinfo=timezone.utc)
+    assert stop_at == datetime(2026, 7, 25, 10, 0, tzinfo=timezone.utc)
 
 
 def test_saver_clean_boot_does_nothing():
@@ -62,11 +66,11 @@ def test_saver_does_not_recover_a_warning_run():
 
 
 def test_saver_recovers_an_aborted_run():
-    night = datetime(2026, 7, 25, 20, 0, tzinfo=timezone.utc)
+    early = datetime(2026, 7, 25, 2, 0, tzinfo=timezone.utc)  # inside extract window
     aborted = {**_row("ai_only", success=False), "outcome": "aborted"}
-    mode, stop_at = _startup_plan(aborted, SAVER, night)
+    mode, stop_at = _startup_plan(aborted, SAVER, early)
     assert mode == "ai_only"
-    assert stop_at == datetime(2026, 7, 26, 0, 20, tzinfo=timezone.utc)
+    assert stop_at == datetime(2026, 7, 25, 10, 0, tzinfo=timezone.utc)
 
 
 def test_saver_ignores_interrupted_non_bounded_mode():
@@ -79,15 +83,15 @@ def test_saver_no_history_does_nothing():
 
 
 def test_saver_skips_recovery_outside_the_interrupted_modes_window():
-    # ai_only interrupted, but restart at 01:00 UTC is inside the COLLECTOR window,
-    # not the extract window — resuming would run DeepSeek ~23 h and block the
-    # 01:00 collector via the shared coordinator. Must skip.
-    at_0100 = datetime(2026, 7, 25, 1, 0, tzinfo=timezone.utc)
-    assert _startup_plan(_row("ai_only", finished_at=None), SAVER, at_0100) == (None, None)
-    # search_only interrupted, but restart at 17:00 is inside the extract window —
-    # must skip so it doesn't starve the nightly extractor.
-    at_1700 = datetime(2026, 7, 25, 17, 0, tzinfo=timezone.utc)
-    assert _startup_plan(_row("search_only", finished_at=None), SAVER, at_1700) == (None, None)
+    # ai_only interrupted, but restart at 14:00 UTC is inside the COLLECTOR
+    # window — resuming would run the extractor for ~10 h and block the
+    # collector via the shared coordinator. Must skip.
+    at_1400 = datetime(2026, 7, 25, 14, 0, tzinfo=timezone.utc)
+    assert _startup_plan(_row("ai_only", finished_at=None), SAVER, at_1400) == (None, None)
+    # search_only interrupted, but restart at 02:00 is inside the extract window —
+    # must skip so it doesn't starve the extractor on its fresh quota.
+    at_0200 = datetime(2026, 7, 25, 2, 0, tzinfo=timezone.utc)
+    assert _startup_plan(_row("search_only", finished_at=None), SAVER, at_0200) == (None, None)
 
 
 # ── _within_window ─────────────────────────────────────────────────────────

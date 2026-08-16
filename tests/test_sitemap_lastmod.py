@@ -59,3 +59,45 @@ def test_sitemap_emits_lastmod_for_community(tmp_path: Path):
         assert "/budapest/zenei-kor</loc><lastmod>" in xml
     finally:
         app_state.db_path, app_state.cities = old_db, old_cities
+
+
+def test_sitemap_is_cached_and_built_off_the_event_loop(tmp_path):
+    """The sitemap must not be rebuilt per request on the event loop.
+
+    It used to call get_communities() once per city×topic pair. At 3.8K cities
+    that measured >30s through the CDN and stalled every other request behind
+    it — the site "worked" but crawled. Now: one query, a worker thread, and an
+    hour of caching.
+    """
+    import scraper.web.app as web_app
+
+    src = (Path(web_app.__file__).read_text(encoding="utf-8"))
+    assert "asyncio.to_thread(_build_sitemap" in src
+    assert "_SITEMAP_CACHE" in src
+    # The per-pair query must be gone from the builder.
+    builder = src[src.index("def _build_sitemap"):src.index("</urlset>")]
+    assert "get_communities(" not in builder
+    assert "get_sitemap_communities(" in builder
+
+
+def test_sitemap_thin_pages_stay_out(tmp_path):
+    """Thin pages are noindexed, so listing them would contradict the policy."""
+    from scraper.db import get_sitemap_communities, init_db
+    from scraper.models import CommunityRecord
+    from scraper.store import save_results
+
+    db = tmp_path / "s.db"
+    init_db(db)
+    save_results("Budapest", "running", [
+        CommunityRecord(name="Leírt Klub", topic="running", city="Budapest",
+                        locale="hu", source_url="https://a.test",
+                        extracted_at="2026-01-01T00:00:00+00:00",
+                        description="Heti futás a Duna-parton."),
+        CommunityRecord(name="Néma Klub", topic="running", city="Budapest",
+                        locale="hu", source_url="https://b.test",
+                        extracted_at="2026-01-01T00:00:00+00:00"),
+    ], db)
+    rows = get_sitemap_communities(db)[("Budapest", "running")]
+    by_name = {r["name"]: r["thin"] for r in rows}
+    assert by_name["Leírt Klub"] is False
+    assert by_name["Néma Klub"] is True

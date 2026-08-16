@@ -24,6 +24,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from ..config import load_config, load_config_from_docs
 from ..db import (
     delete_all_communities,
+    get_sitemap_communities,
     find_community_by_id,
     get_extraction_quality_mix,
     get_community_history,
@@ -5285,14 +5286,39 @@ async def robots_txt(request: Request):
     )
 
 
+#: Rendered sitemaps per site, with the time they were built. The document is
+#: pure SQL + string assembly over the whole corpus; Google refetches on its own
+#: schedule and does not need it fresher than this.
+_SITEMAP_CACHE: dict[str, tuple[float, str]] = {}
+_SITEMAP_TTL = 3600.0
+
+
 @_fastapi.get("/sitemap.xml")
 async def sitemap(request: Request):
+    # Local import: other functions in this module already bind `_time`
+    # locally, and a module-level name would be shadowed inside them.
+    import time as _time
+
     from fastapi.responses import Response as _Response
     ctx = lang_context(request)
-    base = ctx["site_url"]
-    site_city_names = {c.name for c in _site_cities(request)}
+    cache_key = ctx.get("site") or "kozossegek"
+    cached = _SITEMAP_CACHE.get(cache_key)
+    if cached and (_time.monotonic() - cached[0]) < _SITEMAP_TTL:
+        return _Response(cached[1], media_type="application/xml")
+    # Built in a worker thread: every query below is blocking sqlite, and on the
+    # event loop it stalls unrelated requests for as long as it runs.
+    xml = await asyncio.to_thread(_build_sitemap, ctx)
+    _SITEMAP_CACHE[cache_key] = (_time.monotonic(), xml)
+    return _Response(xml, media_type="application/xml")
 
+
+def _build_sitemap(ctx: dict) -> str:
+    base = ctx["site_url"]
     is_meetapedia = ctx.get("site") == "meetapedia"
+    site_city_names = {
+        c.name for c in (app_state.cities or [])
+        if is_meetapedia or (c.country == "Hungary")
+    }
     if is_meetapedia:
         # HU-city pages canonicalize to kozossegek.com — a sitemap must only
         # list canonical URLs, so they are omitted here.
@@ -5324,6 +5350,10 @@ async def sitemap(request: Request):
             locs.extend(f"{base}/cities/{_slugify(cn)}" for cn in countries)
 
         counts = get_city_topic_counts(_db())
+        # One query for every community, instead of one per city×topic pair.
+        # At 3.8K cities the old loop issued thousands of queries on the event
+        # loop and took >30s, blocking every other request behind it.
+        by_pair = get_sitemap_communities(_db())
         for city_name, topics in counts.items():
             if city_name not in site_city_names:
                 continue
@@ -5333,11 +5363,10 @@ async def sitemap(request: Request):
             for topic_name in topics:
                 topic_sl = _topic_url_slug(topic_name, city_locale)
                 locs.append(f"{base}/{city_sl}/{topic_sl}")
-                for record in get_communities(_db(), city_name, topic_name):
-                    if not ((record.get("description") or "").strip()
-                            or (record.get("long_description") or "").strip()):
-                        continue  # thin page, noindexed — keep out of the sitemap
-                    name_sl = _slugify(record.get("name", ""))
+                for record in by_pair.get((city_name, topic_name), ()):
+                    if record["thin"]:
+                        continue  # noindexed — keep out of the sitemap
+                    name_sl = _slugify(record["name"])
                     if name_sl:
                         loc = f"{base}/{city_sl}/{name_sl}"
                         locs.append(loc)
@@ -5374,7 +5403,7 @@ async def sitemap(request: Request):
             f"  <url><loc>{loc}</loc>{lastmod}<changefreq>weekly</changefreq></url>"
         )
     lines.append("</urlset>")
-    return _Response("\n".join(lines), media_type="application/xml")
+    return "\n".join(lines)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

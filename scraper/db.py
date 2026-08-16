@@ -3468,3 +3468,38 @@ def get_extraction_quality_mix(db_path: Path, limit: int = 15) -> list[dict]:
             (limit,),
         ).fetchall()
     return [{"model": m, "quality": q, "pages": n} for m, q, n in rows]
+
+
+def get_sitemap_communities(db_path: Path) -> dict[tuple[str, str], list[dict]]:
+    """{(city, topic): [{name, thin}]} for every visible community, in one query.
+
+    The sitemap used to call `get_communities(city, topic)` inside a loop over
+    every city×topic pair. With 3.8K cities that is thousands of separate
+    connections and JSON decodes on the event loop — measured at >30s on
+    2026-08-16, which blocked every other request behind it.
+
+    Only the two fields the sitemap needs are decoded: the name (for the slug)
+    and whether the page is thin (no description of either kind), which decides
+    whether it belongs in the sitemap at all.
+    """
+    out: dict[tuple[str, str], list[dict]] = {}
+    if not db_path.exists():
+        return out
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            """
+            SELECT city, topic,
+                   json_extract(data, '$.name'),
+                   COALESCE(NULLIF(TRIM(COALESCE(json_extract(data, '$.description'), '')), ''),
+                            NULLIF(TRIM(COALESCE(json_extract(data, '$.long_description'), '')), ''))
+              FROM communities
+             WHERE hidden=0
+             ORDER BY city, topic, id
+            """
+        ).fetchall()
+    for city, topic, name, described in rows:
+        if not name:
+            continue
+        out.setdefault((city or "", topic or ""), []).append(
+            {"name": name, "thin": not described})
+    return out
