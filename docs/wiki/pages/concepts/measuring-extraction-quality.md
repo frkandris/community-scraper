@@ -61,6 +61,30 @@ threshold is right for one and wrong for the other.
 
 ### What works instead
 
+Compare **full** token sets and look at what the *difference* contains:
+
+    equal sets                                    -> same club
+    one is a subset, everything the larger adds
+      is generic, and the smaller still stands
+      for a club on its own                       -> same club, spelled out
+    each side has something the other lacks       -> different clubs
+
+Removing generic tokens *before* comparing was the third mistake, and the worst:
+it collapsed "Szentendrei Futóklub" and "Szentendrei Kajak Klub" both to
+`{szentendrei}`, so **every club in a town matched every other**. Golden pages
+are single city×topic pages, where every expected name shares a town — so a
+model emitting any plausible `"<Town> <word>"` strings scored near 100. The club
+type is precisely what distinguishes them; it is ignorable only when it is the
+*sole* difference, which is what inspecting the difference expresses and
+deleting it up front destroys.
+
+"Stands for a club on its own" needs one more signal, because two structurally
+identical cases must part ways: `{musterstadt}` from "SV Musterstadt" is a club,
+`{szentendrei}` from a bare "Szentendrei" is not. The marker that separates them
+("SV") is too short to survive tokenisation, so it is looked for in the raw
+string — and only counts when something else stands beside it, or bare
+"Futóklub" would qualify.
+
 A token is generic if either holds:
 
 1. **It ends in a club-type suffix** — `-verein`, `-klubb`, `-förening`,

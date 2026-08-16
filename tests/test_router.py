@@ -799,80 +799,83 @@ def test_golden_set_is_stable_across_runs(tmp_path):
     assert [p["url"] for p in golden_set(db, limit=3)] == first
 
 
-def test_matcher_is_lenient_about_phrasing_not_about_identity():
-    """Both directions of this are costly, and each fix caused the other.
+def _scoring_context():
+    """Corpus-derived generic tokens and place stems, as production builds them."""
+    from scraper.scoring import _generic_tokens
 
-    Too strict and every model is undercounted (MINEA: 59.4% vs 88.4%); too
-    loose and one generic word sweeps a page, promoting a degenerate model to
-    the head of the routing order via --apply.
-    """
-    from scraper.scoring import _generic_tokens, _matches, score_page
+    towns = ["Szentendrei", "Pécsi", "Győri", "Szegedi", "Debreceni",
+             "Miskolci", "Egri", "Váci", "Bajai", "Tatai"]
+    types = ["Futóklub", "Sakk Kör", "Kajak Klub", "Kórus", "Tánccsoport"]
+    corpus = [f"{t} {c}" for t in towns for c in types] + ["MTK Budapest", "Vasas SC"] * 4
+    places = frozenset({"szentendre", "pecs", "gyor", "szeged", "debrecen",
+                        "miskolc", "eger", "vac", "baja", "tata", "budapest",
+                        "musterstadt", "norrkoping", "beispielstadt"})
+    return _generic_tokens(corpus), places
 
-    g = _generic_tokens([])  # seed set; the corpus-derived path is tested below
 
-    # Same club, phrased differently → match.
-    assert _matches("Szentendrei Futóklub", ["Szentendrei Futóklub Egyesület"], g)
-    assert _matches("Futóklub Szentendre", ["Szentendre Futóklub"], g)
-    assert _matches("Szentendrei Futoklub", ["Szentendrei Futóklub"], g)
-    # Abbreviation spelled out — the dominant German and Swedish shape. A
-    # two-token floor rejected these, scoring a perfect extraction as a miss.
-    assert _matches("SV Musterstadt", ["Sportverein Musterstadt"], g)
-    assert _matches("IF Norrköping", ["Idrottsförening Norrköping"], g)
-    # Acronym clubs — a length-based guard killed these.
-    assert _matches("MTK", ["MTK Budapest"], g)
-    assert _matches("Vasas", ["Vasas SC"], g)
+def test_matcher_accepts_phrasing_differences():
+    """Strict matching understates every model — MINEA: 59.4% vs 88.4%."""
+    from scraper.scoring import _matches
 
-    # A club type identifies nothing, in any of the corpus languages. The
-    # suffix rule catches compounds no word list can enumerate.
-    assert not _matches("Szentendrei Futóklub", ["Klub"], g)
-    assert not _matches("Szentendrei Futóklub", ["Futóklub"], g)
-    assert not _matches("Schachverein Musterstadt", ["Schachverein"], g)
-    assert not _matches("Simklubb Norrköping", ["Simklubb"], g)
+    g, p = _scoring_context()
+    assert _matches("Szentendrei Futóklub", ["Szentendrei Futóklub Egyesület"], g, p)
+    assert _matches("Futóklub Szentendre", ["Szentendre Futóklub"], g, p)
+    assert _matches("Szentendrei Futoklub", ["Szentendrei Futóklub"], g, p)
+    # Abbreviation spelled out — the dominant German and Swedish shape.
+    assert _matches("SV Musterstadt", ["Sportverein Musterstadt"], g, p)
+    assert _matches("IF Norrköping", ["Idrottsförening Norrköping"], g, p)
+    assert _matches("MTK", ["MTK Budapest"], g, p)
 
+
+def test_matcher_refuses_different_clubs():
+    """Every case here scored as a match at some point, and each one lets a
+    fabricated answer earn points that --apply writes into the routing order."""
+    from scraper.scoring import _matches
+
+    g, p = _scoring_context()
+    # Two clubs in one town. Golden pages are single city×topic pages, so
+    # every expected name shares a town — collapsing names to their town made
+    # any plausible "<Town> <word>" answer score near 100.
+    assert not _matches("Szentendrei Futóklub", ["Szentendrei Kajak Klub"], g, p)
+    assert not _matches("Pécsi Sakk Kör", ["Pécsi Tánccsoport"], g, p)
+    # A bare town, or a bare club type, identifies nothing.
+    assert not _matches("Szentendrei Futóklub", ["Szentendrei"], g, p)
+    assert not _matches("Szentendrei Futóklub", ["Futóklub"], g, p)
+    assert not _matches("Schachverein Musterstadt", ["Schachverein"], g, p)
     # Same name, different town — the commonest German shape.
-    assert not _matches("SV Grün-Weiß Musterstadt", ["SV Grün-Weiß Beispielstadt"], g)
-    assert not _matches("Pécsi Sakk Kör", ["Győri Sakk Kör"], g)
-
-    assert score_page(["Schachverein Musterstadt", "Schachverein Beispielstadt"],
-                      ["Schachverein"], g) == 20
+    assert not _matches("SV Grün-Weiß Musterstadt", ["SV Grün-Weiß Beispielstadt"], g, p)
+    assert not _matches("Pécsi Sakk Kör", ["Győri Sakk Kör"], g, p)
 
 
-def test_generic_tokens_are_learned_from_the_corpus():
-    """The topic word must not identify a club, and no word list can know that.
+def test_degenerate_answers_score_the_floor():
+    """20 is the "answered at all" score: no credit for a plausible guess."""
+    from scraper.scoring import score_page
 
-    "sakk" is not a club type — it is the subject — so a suffix rule cannot
-    catch it. Document frequency over the real corpus can: measured across the
-    communities table, where every chess club carries it.
-    """
-    from scraper.scoring import _generic_tokens, score_page
-
-    corpus = ([f"{c} Sakk Kör" for c in
-               ["Pécsi", "Győri", "Szegedi", "Debreceni", "Miskolci", "Egri",
-                "Váci", "Bajai", "Gyulai", "Tatai", "Ózdi", "Pápai"]]
-              + [f"{c} Futóklub" for c in
-                 ["Szentendrei", "Budai", "Pesti", "Érdi", "Gödöllői",
-                  "Dunakeszi", "Fóti", "Solymári", "Piliscsabai", "Váci"]])
-    g = _generic_tokens(corpus)
-
-    assert "sakk" in g and "futoklub" in g
-    assert "pecsi" not in g          # a town still identifies
-    assert score_page(["Pécsi Sakk Kör", "Budapesti Sakk Klub"], ["Sakk"], g) == 20
-    # …without breaking a genuine match.
-    assert score_page(["Pécsi Sakk Kör"], ["Pécsi Sakk Kör Egyesület"], g) == 100
+    g, p = _scoring_context()
+    assert score_page(["Szentendrei Futóklub"], ["Szentendrei Kajak Klub"], g, p) == 20
+    assert score_page(["Szentendrei Futóklub", "Szentendrei Kórus"],
+                      ["Szentendrei"], g, p) == 20
+    assert score_page(["Szentendrei Futóklub", "Pécsi Futóklub"],
+                      ["Futóklub"], g, p) == 20
+    assert score_page(["Szentendrei Futóklub", "Pécsi Sakk Kör"],
+                      ["Szentendrei Futóklub", "Pécsi Sakk Kör"], g, p) == 100
 
 
 def test_scoring_is_one_to_one_and_order_independent():
     """Greedy pairing consumed a candidate a later item needed, so the same
-    answer set scored 60 or 90 depending on the order the model listed clubs —
-    reintroducing the run-to-run variance the deterministic sample removed."""
-    from scraper.scoring import _generic_tokens, score_page
+    answer set scored differently depending on the order the model listed
+    clubs — reintroducing the variance the deterministic sample removed."""
+    from scraper.scoring import score_page
 
-    g = _generic_tokens([])
+    g, p = _scoring_context()
     expected = ["Alfa Béta Klub", "Alfa Béta Gamma Klub"]
     got = ["Alfa Béta Gamma Klub", "Alfa Béta Delta Klub"]
-    assert score_page(expected, got, g) == score_page(expected, list(reversed(got)), g)
+    assert score_page(expected, got, g, p) == score_page(expected, list(reversed(got)), g, p)
 
-    # Duplicates in `expected` must not cap recall: a model returning the
-    # correct distinct set scored below one that repeated itself.
+    # Duplicates must not cap recall on either side: a correct distinct answer
+    # scored below a model that repeated itself, and two spellings of one club
+    # inflated the model's own precision denominator.
     dupes = ["Szentendrei Futóklub", "Szentendrei Futóklub", "Pécsi Sakk Kör"]
-    assert score_page(dupes, ["Szentendrei Futóklub", "Pécsi Sakk Kör"], g) == 100
+    assert score_page(dupes, ["Szentendrei Futóklub", "Pécsi Sakk Kör"], g, p) == 100
+    assert score_page(["Szentendrei Futóklub"],
+                      ["Szentendrei Futóklub", "Szentendrei Futoklub"], g, p) == 100
