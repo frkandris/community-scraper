@@ -170,9 +170,10 @@ pending by definition.
 
 Shipped `quality:` values are seeded from public benchmarks and are explicitly a
 **weak prior**: LLMStructBench found prompting strategy outweighs model size for
-JSON extraction. `scripts/score_providers.py` replaces them with measured scores
-on a golden set drawn from our own cached pages (20 points for answering, 50 ×
-recall, 30 × precision). Run it before trusting the ordering.
+JSON extraction. `scripts/score_providers.py` and `POST /v1/score` replace them with measured
+scores on a fixed golden set drawn from our own cached pages. How the matching
+works, and the three ways it was wrong first, is in
+[[measuring-extraction-quality]] — read it before trusting any number here.
 
 ## Status and rollback
 

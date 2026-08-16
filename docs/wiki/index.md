@@ -53,6 +53,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[community-identity]] — Two keys: community_id (stable URL slug) vs record_key (topic-aware DB uniqueness).
 - [[search-provider-fallback-chain]] — DataForSEO is the sole search provider (2026-07 cleanup); FallbackSearchClient remains as a single-provider wrapper with per-run exhaustion.
 - [[extraction-provider-fallback-chain]] — FallbackExtractor is the one failure path for every provider; since 2026-08 it carries a routed free-tier fleet instead of a single DeepSeek.
+- [[measuring-extraction-quality]] — How model scores are computed, what they actually mean, and the three ways the measurement was wrong before it was right.
 - [[joinable-quality-gate]] — The primary quality filter — only records the LLM marks joinable=True survive; a 3-condition AND rule defines it.
 - [[false-positive-injection]] — Admin negatives feed both extraction paths and explicitly invalidate only the affected community-extraction cache.
 - [[done-pair-url-hash-not-city-topic]] — Done-pair detection resolves capped search URLs to hashes and checks every extraction family enabled for the current run mode.
