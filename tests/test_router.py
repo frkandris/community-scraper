@@ -680,7 +680,7 @@ async def test_unmeasured_model_scores_null_not_zero():
     from scraper.scoring import score_model
 
     pages = [{"url": "u", "city": "c", "topic": "running",
-              "text": "t", "expected": {"x"}}]
+              "text": "t", "expected": ["Szentendrei Futóklub"]}]
 
     class _Limited:
         provider, model, quality = "groq", "m", 62
@@ -701,11 +701,12 @@ async def test_score_is_averaged_over_answered_pages_only():
     from scraper.extract import ExtractorUnavailableError
     from scraper.models import CommunityRecord
     from scraper.scoring import score_model
-    from scraper.identity import normalized_match_key
 
+    # Raw names, not identity keys — score_page's contract since the MINEA
+    # matcher landed; the key form has no spaces and cannot be tokenised.
     name = "Szentendrei Futóklub"
     pages = [{"url": f"u{i}", "city": "c", "topic": "running", "text": "t",
-              "expected": {normalized_match_key(name)}} for i in range(3)]
+              "expected": [name]} for i in range(3)]
     calls = {"n": 0}
 
     class _Flaky:
@@ -796,3 +797,45 @@ def test_golden_set_is_stable_across_runs(tmp_path):
     update_cache_page(db, "h0", {"extracted_at": "2026-12-31T23:59:59+00:00"})
 
     assert [p["url"] for p in golden_set(db, limit=3)] == first
+
+
+def test_matcher_is_lenient_about_phrasing_not_about_identity():
+    """The failure mode a loose matcher creates is worse than the one it fixes.
+
+    Each case below scored wrongly at some point today: a bare topic word
+    earned a perfect 100, and two clubs sharing a name but not a town matched.
+    Since --apply writes these scores into providers.yaml, a degenerate model
+    would have been promoted to the head of the routing order.
+    """
+    from scraper.scoring import _matches, score_page
+
+    # Same club, phrased differently → match.
+    assert _matches("Szentendrei Futóklub", ["Szentendrei Futóklub Egyesület"])
+    assert _matches("Futóklub Szentendre", ["Szentendre Futóklub"])
+    assert _matches("Szentendrei Futoklub", ["Szentendrei Futóklub"])
+
+    # Generic fragments identify nothing, in any of the corpus languages.
+    assert not _matches("Szentendrei Futóklub", ["Klub"])
+    assert not _matches("Szentendrei SE", ["SE"])
+    assert not _matches("Sportegyesület Pécs", ["Sport"])
+    assert not _matches("Sportverein Musterstadt", ["Sportverein"])
+    assert not _matches("Idrottsförening Norrköping", ["Idrottsförening"])
+
+    # Same name, different town — the commonest shape in the German corpus.
+    assert not _matches("SV Grün-Weiß Musterstadt", ["SV Grün-Weiß Beispielstadt"])
+    assert not _matches("Pécsi Sakk Kör", ["Győri Sakk Kör"])
+
+    # The bare topic word must not sweep the page.
+    assert score_page(["Pécsi Sakk Kör", "Budapesti Sakk Klub"], ["Sakk"]) == 20
+
+
+def test_scoring_is_one_to_one_on_both_sides():
+    """One answer must not satisfy two clubs, nor three answers one club."""
+    from scraper.scoring import score_page
+
+    # Three phrasings of one club, the second club missed entirely: half the
+    # recall, and the duplicates must not read as precision.
+    score = score_page(["Alfa Klub", "Béta Kör"],
+                       ["Alfa Klub", "Alfa Klub Egyesület", "Alfa Sport Klub"])
+    assert score == 55, score
+    assert score_page(["Alfa Klub", "Béta Kör"], ["Alfa Klub", "Béta Kör"]) == 100

@@ -61,44 +61,93 @@ def _tokens(name: str) -> set[str]:
             if len(t) > 2 and t not in _STOPWORDS}
 
 
-#: Words too common in Hungarian club names to identify anything on their own.
+#: Words that appear in a large fraction of club names and identify nothing on
+#: their own. Multilingual because the corpus is: Hungarian, German and Swedish
+#: names all reach the scorer, and a Hungarian-only list leaves "Sportverein"
+#: and "Idrottsförening" counting as distinctive.
 _STOPWORDS = frozenset({
+    # Hungarian
     "egyesulet", "klub", "kor", "csoport", "sport", "sportegyesulet",
-    "kozhasznu", "alapitvany", "tarsasag", "szakosztaly", "es", "az",
+    "kozhasznu", "alapitvany", "tarsasag", "szakosztaly", "se", "sc", "es", "az",
+    # German
+    "verein", "sportverein", "turnverein", "abteilung", "gemeinschaft",
+    "gruppe", "der", "die", "das", "und", "ev",
+    # Swedish
+    "forening", "klubb", "idrottsforening", "sallskap", "och",
+    # English
+    "club", "society", "association", "group", "the", "and",
 })
+
+#: Shortest identity key that may be used for a containment match. Below this a
+#: key is almost always a generic word ("klub", "se", "sport") that is a
+#: substring of half the corpus.
+_MIN_CONTAINMENT_LEN = 8
 
 
 def _matches(want: str, got: list[str]) -> bool:
     """Did the model return this name, under any reasonable reading?
 
     Exact matching alone under-counts badly: MINEA (arXiv:2404.04068) scored the
-    same extractions at 59.4% on exact name match and 88.4% once a containment
-    match was allowed. A model returning "Szentendrei Futóklub Egyesület" where
-    we recorded "Szentendrei Futóklub" is right, and scoring it as a miss
-    measures phrasing rather than extraction.
+    same extractions at 59.4% on exact name match and 88.4% once containment was
+    allowed. A model returning "Szentendrei Futóklub Egyesület" where we
+    recorded "Szentendrei Futóklub" is right.
 
-    Three strategies, most conservative first — MINEA's escalation minus the LLM
-    judge, which would cost more calls than the measurement itself.
+    The hard part is being lenient about *phrasing* without becoming lenient
+    about *identity*. Two rules do that work:
+
+    * containment requires a substantial key on both sides, so "Klub" no longer
+      matches "Szentendrei Futóklub" merely by being a substring of it;
+    * token overlap requires one name's distinctive tokens to be a **subset** of
+      the other's, plus at least two shared tokens. Without the subset rule,
+      "SV Grün-Weiß Musterstadt" matches "SV Grün-Weiß Beispielstadt" — same
+      club name, different town, which is the commonest shape in the German
+      corpus. Without the two-token floor, the bare topic word "Sakk" matches
+      every chess club and scores 100.
     """
     wk = _key(want)
     keys = [_key(g) for g in got]
     if wk in keys:
         return True
-    if any(wk and k and (wk in k or k in wk) for k in keys):
-        return True
+
     wt = _tokens(want)
-    if not wt:
-        return False
-    for g in got:
-        gt = _tokens(g)
-        if not gt:
+    for g, k in zip(got, keys):
+        if not wk or not k:
             continue
-        shared = len(wt & gt)
-        # Two-thirds of the shorter name's distinctive tokens, rounded up.
-        need = (2 * min(len(wt), len(gt)) + 2) // 3
-        if shared >= max(1, need):
+        # Containment, guarded by length and by carrying real content.
+        if (wk in k or k in wk) and min(len(wk), len(k)) >= _MIN_CONTAINMENT_LEN:
+            shorter_tokens = wt if len(wk) <= len(k) else _tokens(g)
+            if shorter_tokens:
+                return True
+        gt = _tokens(g)
+        if not wt or not gt:
+            continue
+        shared = wt & gt
+        # Subset either way: one name may be more specific, but neither may
+        # carry a distinctive token the other contradicts.
+        if len(shared) >= 2 and (wt <= gt or gt <= wt):
             return True
     return False
+
+
+def _pair_up(left: list[str], right: list[str]) -> int:
+    """Greedy one-to-one matching; returns how many pairs were made.
+
+    Counting matches independently lets one name satisfy several: three
+    phrasings of the same club all counted as precise, and a single generic
+    answer counted as recall for every expected club. Each side may be used
+    once.
+    """
+    used: set[int] = set()
+    pairs = 0
+    for item in left:
+        for i, candidate in enumerate(right):
+            if i in used:
+                continue
+            if _matches(item, [candidate]):
+                used.add(i)
+                pairs += 1
+                break
+    return pairs
 
 
 def score_page(expected, got) -> float:
@@ -107,10 +156,10 @@ def score_page(expected, got) -> float:
     expected, got = list(expected), list(got)
     if not expected:
         return 0.0
-    recall = sum(1 for w in expected if _matches(w, got)) / len(expected)
-    # Precision is judged with the same tolerance as recall, so a model is not
-    # punished for phrasing differences that recall forgives.
-    precision = (sum(1 for g in got if _matches(g, expected)) / len(got)) if got else 0.0
+    # One-to-one on both sides: a model cannot earn recall for two clubs with a
+    # single answer, nor precision for repeating one club three ways.
+    recall = _pair_up(expected, got) / len(expected)
+    precision = (_pair_up(got, expected) / len(got)) if got else 0.0
     return (_ANSWER_POINTS + _RECALL_POINTS * recall
             + _PRECISION_POINTS * min(1.0, precision))
 
@@ -230,7 +279,9 @@ async def score_fleet(db_path: Path, extractors: list, pages: int = 8) -> dict:
     return {
         "pages": len(gs),
         "sample": sample_fp,
-        "expected_communities": sum(len(p["expected"]) for p in gs),
+        # Deduplicated: a cached extraction can hold the same name twice, and
+        # counting it twice overstates how much the sample actually covers.
+        "expected_communities": sum(len({_key(n) for n in p["expected"]}) for p in gs),
         "results": results,
         "unmeasured": unmeasured,
         "note": ("Scores measure agreement with the incumbent extraction, not "
