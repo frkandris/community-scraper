@@ -9,7 +9,7 @@ resource: scraper/scoring.py
 
 # Measuring Extraction Quality
 
-*The scores that decide routing order are only as good as the matcher underneath them, and that matcher was wrong three times in one evening.*
+*The scores that decide routing order are only as good as the matcher underneath them, and that matcher was wrong three times before it was right.*
 
 ## What the score is
 
@@ -53,11 +53,14 @@ Both mistakes were made, in that order:
 |---|---|
 | Token overlap thresholded on the *shorter* name | bare `"Sakk"` scored **100** on a page of chess clubs |
 | Two-token floor + 8-character containment guard | `SV Musterstadt` ≠ `Sportverein Musterstadt`, a perfect extraction scored **20** |
+| Strip generic tokens, then compare | every club in a town matched every other, so any `"<Town> <word>"` scored ~100 |
 
-The error common to both: using a token's **shape** to guess whether it is
+The first two shared an error: using a token's **shape** to guess whether it is
 generic. That cannot work across the corpus's languages — Hungarian generics are
-short (`klub`, `SE`), German ones are long compounds (`Schachverein`). Any
-threshold is right for one and wrong for the other.
+short (`klub`, `SE`), German ones are long compounds (`Schachverein`), so any
+threshold is right for one and wrong for the other. The third was subtler and
+worse: genericness was measured correctly by then, but *applying* it too early
+threw away the very token that separates two clubs in one town.
 
 ### What works instead
 
@@ -97,11 +100,6 @@ A token is generic if either holds:
 
 Frequency must be measured on the full corpus, not the sample. A dozen pages
 would never make `sakk` look common.
-
-Two names then match when their *distinctive* token sets are equal, or one is a
-subset of the other and the smaller side still carries something distinctive.
-Names that each carry a distinctive token the other lacks are different clubs —
-`SV Grün-Weiß Musterstadt` vs `… Beispielstadt`.
 
 ## Pairing is one-to-one and maximum
 
