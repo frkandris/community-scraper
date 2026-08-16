@@ -1,4 +1,5 @@
 {% extends "public_base.html" %}
+{% import "_listing_filter.html" as lf %}
 {% block title %}{{ t('nav_people') }} – {{ site_name }}{% endblock %}
 {% block og_desc %}{{ t('people_og_desc') }}{% endblock %}
 {% block content %}
@@ -27,14 +28,6 @@
         {% endfor %}
       </select>
     </div>
-    {% if selected_city and city_groups %}
-    <div class="flex flex-col gap-1">
-      <label class="text-[11px] font-semibold text-[#8C8478] uppercase tracking-[0.08em]">{{ t('people_filter_label') }}</label>
-      <input id="people-search" type="search" placeholder="{{ t('people_search_placeholder') }}"
-        class="text-sm border border-[#D8D1C4] rounded-lg px-3 py-2 bg-white text-[#1C1917]
-               focus:outline-none focus:border-[#C2613A] focus:ring-2 focus:ring-[#C2613A]/20 w-48">
-    </div>
-    {% endif %}
   </form>
 
   {% if not selected_city %}
@@ -43,6 +36,10 @@
     <p class="text-base">{{ t('people_pick_prompt') }}</p>
   </div>
   {% elif city_groups %}
+  {# Shared A-Z + free-text header, identical to the cities/venues pages. #}
+  {{ lf.filter_bar(t, target='#people-list', group='[data-city-section]',
+                   placeholder=t('people_search_placeholder')) }}
+  <div id="people-list">
   {% for group in city_groups %}
   <section data-city-section class="mb-8">
     <h2 class="text-xs font-bold uppercase tracking-[0.1em] text-[#8C8478] mb-4 flex items-center gap-2">
@@ -52,7 +49,7 @@
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
       {% for p in group.persons %}
       <a href="/{{ p.city | slugify }}/ember/{{ p.name | slugify }}"
-         data-name="{{ p.name | lower }}"
+         data-name="{{ p.name }}"
          class="bg-white rounded-xl border border-[#EAE5DB] p-4 flex flex-col gap-1.5 hover:border-[#E88E6B] hover:bg-[#FDF0EA]/20 transition-colors">
         <div class="flex items-center gap-2">
           <i class="ph ph-user-circle text-[#C2613A]" style="font-size:20px"></i>
@@ -66,6 +63,7 @@
     </div>
   </section>
   {% endfor %}
+  </div>
   {% else %}
   <div class="text-center py-20 text-[#B5ADA0]">
     <i class="ph ph-users text-5xl mb-4 block"></i>
@@ -76,22 +74,7 @@
 
 </div>
 
-<script>
-const ps = document.getElementById('people-search');
-if (ps) {
-  ps.addEventListener('input', () => {
-    const q = ps.value.toLowerCase();
-    document.querySelectorAll('[data-city-section]').forEach(section => {
-      let visible = 0;
-      section.querySelectorAll('[data-name]').forEach(card => {
-        const show = card.dataset.name.includes(q);
-        card.classList.toggle('hidden', !show);
-        if (show) visible++;
-      });
-      section.classList.toggle('hidden', visible === 0);
-    });
-  });
-}
-</script>
+{# Filtering is handled by the shared widget in /static/js/listing.js, which
+   auto-attaches to the [data-mp-filter] block above. #}
 
 {% endblock %}

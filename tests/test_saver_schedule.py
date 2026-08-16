@@ -181,17 +181,37 @@ def test_next_window_end_same_day_and_midnight_cross():
     assert _next_window_end(start2, "garbage") is None
 
 
-def test_saver_city_groups_prioritize_germany_then_sweden_then_world_then_hungary():
-    cities = [
+def _priority_cities():
+    return [
         CityConfig(name="Budapest", country="Hungary", locale="hu", search_variants=[]),
         CityConfig(name="Berlin", country="Germany", locale="de", search_variants=[]),
         CityConfig(name="Stockholm", country="Sweden", locale="sv", search_variants=[]),
+        CityConfig(name="Bandung", country="Indonesia", locale="id", search_variants=[]),
         CityConfig(name="Oslo", country="Norway", locale="no", search_variants=[]),
     ]
-    groups = _saver_city_groups(cities)
+
+
+def test_saver_city_groups_follow_default_country_priority():
+    # Hungary leads since the 1000+ import (2026-08-16) left it with the largest
+    # unprocessed backlog on the primary market; unnamed countries come last.
+    groups = _saver_city_groups(_priority_cities())
     assert [[city.country for city in group] for group in groups] == [
-        ["Germany"], ["Sweden"], ["Norway"], ["Hungary"],
+        ["Hungary"], ["Germany"], ["Indonesia"], ["Sweden"], ["Norway"],
     ]
+
+
+def test_saver_city_groups_honour_settings_override():
+    groups = _saver_city_groups(_priority_cities(), ["Indonesia", "Hungary"])
+    assert [[city.country for city in group] for group in groups] == [
+        ["Indonesia"], ["Hungary"], ["Germany", "Sweden", "Norway"],
+    ]
+
+
+def test_saver_city_groups_tolerate_unknown_country_in_priority():
+    # A country configured but not present yields an empty group the caller skips.
+    groups = _saver_city_groups(_priority_cities(), ["Atlantis", "Hungary"])
+    assert groups[0] == []
+    assert [city.country for city in groups[1]] == ["Hungary"]
 
 
 def test_transient_search_failure_not_cached(tmp_path):

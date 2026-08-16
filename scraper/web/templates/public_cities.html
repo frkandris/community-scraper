@@ -1,4 +1,5 @@
 {% extends "public_base.html" %}
+{% import "_listing_filter.html" as lf %}
 {% block title %}{% if country_filter %}{{ t('cities_in_country', country=country_filter) }}{% else %}{{ t('cities_title') }}{% endif %} – {{ site_name }}{% endblock %}
 {% block og_desc %}{{ t('cities_og_desc') }}{% endblock %}
 {% block content %}
@@ -40,23 +41,72 @@
   <h2 class="text-sm font-semibold text-[#1C1917] mb-3">{{ t('home_all_cities') }}</h2>
   {% endif %}
 
-  <!-- City grid -->
-  <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+  <!-- City list: alphabetical, with an A-Z jump bar and a free-text filter.
+       The filter targets the wrapper so it spans both sections; each section is
+       a group that hides itself once all of its cities are filtered out. -->
+  {{ lf.filter_bar(t, target='#city-list', group='[data-city-group]') }}
+
+  <div id="city-list">
+  <div data-city-group>
+  <div id="city-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
     {% for city in cities_list %}
-    {% if city.count > 0 %}
-    <a href="/{{ city.slug }}"
+    <a href="/{{ city.slug }}" data-name="{{ city.name }}"
        class="flex items-center justify-between bg-white rounded-lg border border-[#EAE5DB] px-3 py-2.5
               hover:border-[#E88E6B] hover:bg-[#FDF0EA] transition-colors group">
       <span class="text-sm font-semibold text-[#2E2B29] group-hover:text-[#8A4226] truncate min-w-0">{{ city.name }}</span>
       <span class="text-xs font-bold text-[#C2613A] bg-[#FDF0EA] border border-[#FAD9C7] rounded-full px-2 py-0.5 shrink-0 ml-2">{{ city.count }}</span>
     </a>
-    {% else %}
-    <div class="flex items-center justify-between bg-white rounded-lg border border-[#EAE5DB] px-3 py-2.5 opacity-60">
-      <span class="text-sm font-medium text-[#8C8478] truncate min-w-0">{{ city.name }}</span>
-      <span class="text-[11px] text-[#B5ADA0] shrink-0 ml-2">{{ t('cities_soon') }}</span>
-    </div>
-    {% endif %}
     {% endfor %}
+  </div>
+  </div>
+
+  {# Cities with no content yet, in their own labelled section.
+
+     Two sections rather than one merged list: the empty ones are built
+     client-side (see below), so interleaving them would leave the default view
+     alphabetical twice over — scanning to "L" would land in the wrong half with
+     no indication why. A heading makes the split honest, and each section is
+     A-Z on its own. #}
+  {% if pending_count %}
+  <div id="pending-wrap" data-city-group class="mt-8 pt-6 border-t border-[#EAE5DB]" hidden>
+    <h2 class="text-sm font-semibold text-[#1C1917] mb-1">{{ t('cities_pending_heading') }}</h2>
+    <p class="text-xs text-[#8C8478] mb-3">{{ t('cities_pending_desc') }}</p>
+    <div id="pending-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2"></div>
+  </div>
+  <script type="application/json" id="pending-cities">{{ pending_json | safe }}</script>
+  <script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var raw = document.getElementById('pending-cities');
+    var grid = document.getElementById('pending-grid');
+    var wrap = document.getElementById('pending-wrap');
+    if (!raw || !grid) return;
+    var cities;
+    try { cities = JSON.parse(raw.textContent); } catch (e) { return; }
+    var soon = {{ t('cities_soon') | tojson }};
+    var frag = document.createDocumentFragment();
+    cities.forEach(function (c) {
+      var el = document.createElement('div');
+      // Full literal class strings — the CDN JIT cannot generate a computed one.
+      el.className = 'flex items-center justify-between bg-white rounded-lg ' +
+                     'border border-[#EAE5DB] px-3 py-2.5 opacity-60';
+      el.setAttribute('data-name', c.n);
+      var name = document.createElement('span');
+      name.className = 'text-sm font-medium text-[#8C8478] truncate min-w-0';
+      name.textContent = c.n;
+      var tag = document.createElement('span');
+      tag.className = 'text-[11px] text-[#B5ADA0] shrink-0 ml-2';
+      tag.textContent = soon;
+      el.appendChild(name);
+      el.appendChild(tag);
+      frag.appendChild(el);
+    });
+    grid.appendChild(frag);
+    if (wrap) wrap.hidden = false;
+    // The filter captured its items before these existed.
+    if (window.MpListFilter) MpListFilter.rescan();
+  });
+  </script>
+  {% endif %}
   </div>
 
   <!-- Request city -->

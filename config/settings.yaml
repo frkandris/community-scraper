@@ -37,6 +37,16 @@ fetch:
   playwright_domains: []
 
 pipeline:
+  # Order the bounded saver windows walk countries in. The window is a hard time
+  # box, so a country behind a large unfinished backlog may not be reached at
+  # all — this list is the expansion priority. Countries not named here run last,
+  # in config order. Hungary leads since the 2026-08-16 import of every 1000+
+  # inhabitant settlement (973 new, unprocessed) on the primary market.
+  country_priority:
+    - Hungary
+    - Germany
+    - Indonesia
+    - Sweden
   commit_after_run: false
   push_after_commit: false
   test_mode: false
@@ -45,22 +55,29 @@ pipeline:
     - Budapest
     - London
   enrich_communities: true
-  # Topics searched for cities marked `topic_tier: core` in cities.yaml (small towns
-  # where niche topics can't yield results). Tiered-out pairs are fully frozen:
-  # no search, no re-extraction. Empty list = tiering disabled.
+  # Topics searched for cities marked `topic_tier: core` in cities.yaml (small
+  # towns where niche topics can't yield results). Tiered-out pairs are fully
+  # frozen: no search, no re-extraction. Empty list = tiering disabled.
+  #
+  # Cut 12 -> 6 on 2026-08-16, from measurement rather than intuition: sampling
+  # /api/city-topics across 20 small Hungarian and 20 small German towns gave the
+  # SAME top five on both markets (senior, volunteering, choir, religion, dance),
+  # with fitness sixth on combined town coverage. The five dropped topics —
+  # running, music, hiking, cycling, board_games — each found something in at
+  # most a quarter of the sampled towns, and hiking/cycling in almost none.
+  # Halving the list roughly halves the DataForSEO bill for the 973 Hungarian
+  # settlements added the same day.
+  #
+  # `hagyomanyorzes` outperformed several of these in Hungary (29 records / 10
+  # towns) but scored zero in the German sample, so it stays out of a list that
+  # is global. Re-measure before adding a market-specific topic here.
   core_topics:
-    - running
-    - music
-    - choir
-    - dance
-    - hiking
-    - cycling
-    - fitness
-    - board_games
-    - volunteering
-    - religion
     - senior
-    - baby
+    - volunteering
+    - choir
+    - religion
+    - dance
+    - fitness
 
 cache:
   skip_scraped: true

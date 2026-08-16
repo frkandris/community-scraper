@@ -81,12 +81,20 @@ class CacheManager:
     def save_extracted(self, url: str, records: list[CommunityRecord],
                        duration_s: float | None = None,
                        fingerprint: str | None = None,
-                       model: str | None = None) -> None:
+                       model: str | None = None,
+                       quality: int | None = None) -> None:
+        """`quality` is the router's 0-100 score for the model that produced
+        this result. It records *how good* the cached extraction is so a later
+        run can decide whether a better free model is worth re-spending a
+        request on. Deliberately not part of the fingerprint — the cache key
+        must stay identical across models or routing would invalidate
+        everything."""
         h = _url_hash(url)
         updates = {
             "extracted_at": datetime.now(timezone.utc).isoformat(),
             "extract_fingerprint": fingerprint,
             "extract_model": model,
+            "extract_quality": quality,
             "records": [r.model_dump() for r in records],
             "enrich_scraped_at": None,
             "enrich_scrape_duration_s": None,

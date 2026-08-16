@@ -1357,6 +1357,4866 @@ cities:
     locale: hu
     search_variants: [Pálháza, Palhaza]
 
+  - name: Abasár
+    country: Hungary
+    locale: hu
+    search_variants: ["Abasár", "Abasar", "Abasár Magyarország"]
+    topic_tier: core
+  - name: Abda
+    country: Hungary
+    locale: hu
+    search_variants: ["Abda", "Abda Magyarország"]
+    topic_tier: core
+  - name: Acsa
+    country: Hungary
+    locale: hu
+    search_variants: ["Acsa", "Acsa Magyarország"]
+    topic_tier: core
+  - name: Adács
+    country: Hungary
+    locale: hu
+    search_variants: ["Adács", "Adacs", "Adács Magyarország"]
+    topic_tier: core
+  - name: Akasztó
+    country: Hungary
+    locale: hu
+    search_variants: ["Akasztó", "Akaszto", "Akasztó Magyarország"]
+    topic_tier: core
+  - name: Alap
+    country: Hungary
+    locale: hu
+    search_variants: ["Alap", "Alap Magyarország"]
+    topic_tier: core
+  - name: Alattyán
+    country: Hungary
+    locale: hu
+    search_variants: ["Alattyán", "Alattyan", "Alattyán Magyarország"]
+    topic_tier: core
+  - name: Alcsútdoboz
+    country: Hungary
+    locale: hu
+    search_variants: ["Alcsútdoboz", "Alcsutdoboz", "Alcsútdoboz Magyarország"]
+    topic_tier: core
+  - name: Algyő
+    country: Hungary
+    locale: hu
+    search_variants: ["Algyő", "Algyo", "Algyő Magyarország"]
+    topic_tier: core
+  - name: Almásfüzitő
+    country: Hungary
+    locale: hu
+    search_variants: ["Almásfüzitő", "Almasfuzito", "Almásfüzitő Magyarország"]
+    topic_tier: core
+  - name: Alsónémedi
+    country: Hungary
+    locale: hu
+    search_variants: ["Alsónémedi", "Alsonemedi", "Alsónémedi Magyarország"]
+    topic_tier: core
+  - name: Alsópáhok
+    country: Hungary
+    locale: hu
+    search_variants: ["Alsópáhok", "Alsopahok", "Alsópáhok Magyarország"]
+    topic_tier: core
+  - name: Alsószentmárton
+    country: Hungary
+    locale: hu
+    search_variants: ["Alsószentmárton", "Alsoszentmarton", "Alsószentmárton Magyarország"]
+    topic_tier: core
+  - name: Alsóvadász
+    country: Hungary
+    locale: hu
+    search_variants: ["Alsóvadász", "Alsovadasz", "Alsóvadász Magyarország"]
+    topic_tier: core
+  - name: Alsóörs
+    country: Hungary
+    locale: hu
+    search_variants: ["Alsóörs", "Alsoors", "Alsóörs Magyarország"]
+    topic_tier: core
+  - name: Anarcs
+    country: Hungary
+    locale: hu
+    search_variants: ["Anarcs", "Anarcs Magyarország"]
+    topic_tier: core
+  - name: Andornaktálya
+    country: Hungary
+    locale: hu
+    search_variants: ["Andornaktálya", "Andornaktalya", "Andornaktálya Magyarország"]
+    topic_tier: core
+  - name: Apagy
+    country: Hungary
+    locale: hu
+    search_variants: ["Apagy", "Apagy Magyarország"]
+    topic_tier: core
+  - name: Apaj
+    country: Hungary
+    locale: hu
+    search_variants: ["Apaj", "Apaj Magyarország"]
+    topic_tier: core
+  - name: Apc
+    country: Hungary
+    locale: hu
+    search_variants: ["Apc", "Apc Magyarország"]
+    topic_tier: core
+  - name: Apostag
+    country: Hungary
+    locale: hu
+    search_variants: ["Apostag", "Apostag Magyarország"]
+    topic_tier: core
+  - name: Apátfalva
+    country: Hungary
+    locale: hu
+    search_variants: ["Apátfalva", "Apatfalva", "Apátfalva Magyarország"]
+    topic_tier: core
+  - name: Aranyosapáti
+    country: Hungary
+    locale: hu
+    search_variants: ["Aranyosapáti", "Aranyosapati", "Aranyosapáti Magyarország"]
+    topic_tier: core
+  - name: Arló
+    country: Hungary
+    locale: hu
+    search_variants: ["Arló", "Arlo", "Arló Magyarország"]
+    topic_tier: core
+  - name: Arnót
+    country: Hungary
+    locale: hu
+    search_variants: ["Arnót", "Arnot", "Arnót Magyarország"]
+    topic_tier: core
+  - name: Aszaló
+    country: Hungary
+    locale: hu
+    search_variants: ["Aszaló", "Aszalo", "Aszaló Magyarország"]
+    topic_tier: core
+  - name: Atkár
+    country: Hungary
+    locale: hu
+    search_variants: ["Atkár", "Atkar", "Atkár Magyarország"]
+    topic_tier: core
+  - name: Babócsa
+    country: Hungary
+    locale: hu
+    search_variants: ["Babócsa", "Babocsa", "Babócsa Magyarország"]
+    topic_tier: core
+  - name: Babót
+    country: Hungary
+    locale: hu
+    search_variants: ["Babót", "Babot", "Babót Magyarország"]
+    topic_tier: core
+  - name: Bag
+    country: Hungary
+    locale: hu
+    search_variants: ["Bag", "Bag Magyarország"]
+    topic_tier: core
+  - name: Bagamér
+    country: Hungary
+    locale: hu
+    search_variants: ["Bagamér", "Bagamer", "Bagamér Magyarország"]
+    topic_tier: core
+  - name: Bagod
+    country: Hungary
+    locale: hu
+    search_variants: ["Bagod", "Bagod Magyarország"]
+    topic_tier: core
+  - name: Baj
+    country: Hungary
+    locale: hu
+    search_variants: ["Baj", "Baj Magyarország"]
+    topic_tier: core
+  - name: Bajna
+    country: Hungary
+    locale: hu
+    search_variants: ["Bajna", "Bajna Magyarország"]
+    topic_tier: core
+  - name: Bajót
+    country: Hungary
+    locale: hu
+    search_variants: ["Bajót", "Bajot", "Bajót Magyarország"]
+    topic_tier: core
+  - name: Bak
+    country: Hungary
+    locale: hu
+    search_variants: ["Bak", "Bak Magyarország"]
+    topic_tier: core
+  - name: Bakonszeg
+    country: Hungary
+    locale: hu
+    search_variants: ["Bakonszeg", "Bakonszeg Magyarország"]
+    topic_tier: core
+  - name: Bakonybél
+    country: Hungary
+    locale: hu
+    search_variants: ["Bakonybél", "Bakonybel", "Bakonybél Magyarország"]
+    topic_tier: core
+  - name: Bakonycsernye
+    country: Hungary
+    locale: hu
+    search_variants: ["Bakonycsernye", "Bakonycsernye Magyarország"]
+    topic_tier: core
+  - name: Bakonyszentlászló
+    country: Hungary
+    locale: hu
+    search_variants: ["Bakonyszentlászló", "Bakonyszentlaszlo", "Bakonyszentlászló Magyarország"]
+    topic_tier: core
+  - name: Bakonyszombathely
+    country: Hungary
+    locale: hu
+    search_variants: ["Bakonyszombathely", "Bakonyszombathely Magyarország"]
+    topic_tier: core
+  - name: Baks
+    country: Hungary
+    locale: hu
+    search_variants: ["Baks", "Baks Magyarország"]
+    topic_tier: core
+  - name: Balatonakarattya
+    country: Hungary
+    locale: hu
+    search_variants: ["Balatonakarattya", "Balatonakarattya Magyarország"]
+    topic_tier: core
+  - name: Balatonberény
+    country: Hungary
+    locale: hu
+    search_variants: ["Balatonberény", "Balatonbereny", "Balatonberény Magyarország"]
+    topic_tier: core
+  - name: Balatonederics
+    country: Hungary
+    locale: hu
+    search_variants: ["Balatonederics", "Balatonederics Magyarország"]
+    topic_tier: core
+  - name: Balatonendréd
+    country: Hungary
+    locale: hu
+    search_variants: ["Balatonendréd", "Balatonendred", "Balatonendréd Magyarország"]
+    topic_tier: core
+  - name: Balatonfenyves
+    country: Hungary
+    locale: hu
+    search_variants: ["Balatonfenyves", "Balatonfenyves Magyarország"]
+    topic_tier: core
+  - name: Balatonfőkajár
+    country: Hungary
+    locale: hu
+    search_variants: ["Balatonfőkajár", "Balatonfokajar", "Balatonfőkajár Magyarország"]
+    topic_tier: core
+  - name: Balatongyörök
+    country: Hungary
+    locale: hu
+    search_variants: ["Balatongyörök", "Balatongyorok", "Balatongyörök Magyarország"]
+    topic_tier: core
+  - name: Balatonkeresztúr
+    country: Hungary
+    locale: hu
+    search_variants: ["Balatonkeresztúr", "Balatonkeresztur", "Balatonkeresztúr Magyarország"]
+    topic_tier: core
+  - name: Balatonszabadi
+    country: Hungary
+    locale: hu
+    search_variants: ["Balatonszabadi", "Balatonszabadi Magyarország"]
+    topic_tier: core
+  - name: Balatonszemes
+    country: Hungary
+    locale: hu
+    search_variants: ["Balatonszemes", "Balatonszemes Magyarország"]
+    topic_tier: core
+  - name: Balatonszentgyörgy
+    country: Hungary
+    locale: hu
+    search_variants: ["Balatonszentgyörgy", "Balatonszentgyorgy", "Balatonszentgyörgy Magyarország"]
+    topic_tier: core
+  - name: Balatonszárszó
+    country: Hungary
+    locale: hu
+    search_variants: ["Balatonszárszó", "Balatonszarszo", "Balatonszárszó Magyarország"]
+    topic_tier: core
+  - name: Balatonvilágos
+    country: Hungary
+    locale: hu
+    search_variants: ["Balatonvilágos", "Balatonvilagos", "Balatonvilágos Magyarország"]
+    topic_tier: core
+  - name: Ballószög
+    country: Hungary
+    locale: hu
+    search_variants: ["Ballószög", "Balloszog", "Ballószög Magyarország"]
+    topic_tier: core
+  - name: Balogunyom
+    country: Hungary
+    locale: hu
+    search_variants: ["Balogunyom", "Balogunyom Magyarország"]
+    topic_tier: core
+  - name: Balotaszállás
+    country: Hungary
+    locale: hu
+    search_variants: ["Balotaszállás", "Balotaszallas", "Balotaszállás Magyarország"]
+    topic_tier: core
+  - name: Balástya
+    country: Hungary
+    locale: hu
+    search_variants: ["Balástya", "Balastya", "Balástya Magyarország"]
+    topic_tier: core
+  - name: Bana
+    country: Hungary
+    locale: hu
+    search_variants: ["Bana", "Bana Magyarország"]
+    topic_tier: core
+  - name: Baracs
+    country: Hungary
+    locale: hu
+    search_variants: ["Baracs", "Baracs Magyarország"]
+    topic_tier: core
+  - name: Baracska
+    country: Hungary
+    locale: hu
+    search_variants: ["Baracska", "Baracska Magyarország"]
+    topic_tier: core
+  - name: Becsehely
+    country: Hungary
+    locale: hu
+    search_variants: ["Becsehely", "Becsehely Magyarország"]
+    topic_tier: core
+  - name: Bekecs
+    country: Hungary
+    locale: hu
+    search_variants: ["Bekecs", "Bekecs Magyarország"]
+    topic_tier: core
+  - name: Bercel
+    country: Hungary
+    locale: hu
+    search_variants: ["Bercel", "Bercel Magyarország"]
+    topic_tier: core
+  - name: Berekböszörmény
+    country: Hungary
+    locale: hu
+    search_variants: ["Berekböszörmény", "Berekboszormeny", "Berekböszörmény Magyarország"]
+    topic_tier: core
+  - name: Berekfürdő
+    country: Hungary
+    locale: hu
+    search_variants: ["Berekfürdő", "Berekfurdo", "Berekfürdő Magyarország"]
+    topic_tier: core
+  - name: Beremend
+    country: Hungary
+    locale: hu
+    search_variants: ["Beremend", "Beremend Magyarország"]
+    topic_tier: core
+  - name: Berente
+    country: Hungary
+    locale: hu
+    search_variants: ["Berente", "Berente Magyarország"]
+    topic_tier: core
+  - name: Berzence
+    country: Hungary
+    locale: hu
+    search_variants: ["Berzence", "Berzence Magyarország"]
+    topic_tier: core
+  - name: Berzék
+    country: Hungary
+    locale: hu
+    search_variants: ["Berzék", "Berzek", "Berzék Magyarország"]
+    topic_tier: core
+  - name: Besenyőtelek
+    country: Hungary
+    locale: hu
+    search_variants: ["Besenyőtelek", "Besenyotelek", "Besenyőtelek Magyarország"]
+    topic_tier: core
+  - name: Besnyő
+    country: Hungary
+    locale: hu
+    search_variants: ["Besnyő", "Besnyo", "Besnyő Magyarország"]
+    topic_tier: core
+  - name: Bezenye
+    country: Hungary
+    locale: hu
+    search_variants: ["Bezenye", "Bezenye Magyarország"]
+    topic_tier: core
+  - name: Biharnagybajom
+    country: Hungary
+    locale: hu
+    search_variants: ["Biharnagybajom", "Biharnagybajom Magyarország"]
+    topic_tier: core
+  - name: Biri
+    country: Hungary
+    locale: hu
+    search_variants: ["Biri", "Biri Magyarország"]
+    topic_tier: core
+  - name: Bocfölde
+    country: Hungary
+    locale: hu
+    search_variants: ["Bocfölde", "Bocfolde", "Bocfölde Magyarország"]
+    topic_tier: core
+  - name: Boconád
+    country: Hungary
+    locale: hu
+    search_variants: ["Boconád", "Boconad", "Boconád Magyarország"]
+    topic_tier: core
+  - name: Bocskaikert
+    country: Hungary
+    locale: hu
+    search_variants: ["Bocskaikert", "Bocskaikert Magyarország"]
+    topic_tier: core
+  - name: Bodroghalom
+    country: Hungary
+    locale: hu
+    search_variants: ["Bodroghalom", "Bodroghalom Magyarország"]
+    topic_tier: core
+  - name: Bogyiszló
+    country: Hungary
+    locale: hu
+    search_variants: ["Bogyiszló", "Bogyiszlo", "Bogyiszló Magyarország"]
+    topic_tier: core
+  - name: Bogács
+    country: Hungary
+    locale: hu
+    search_variants: ["Bogács", "Bogacs", "Bogács Magyarország"]
+    topic_tier: core
+  - name: Bogád
+    country: Hungary
+    locale: hu
+    search_variants: ["Bogád", "Bogad", "Bogád Magyarország"]
+    topic_tier: core
+  - name: Bokod
+    country: Hungary
+    locale: hu
+    search_variants: ["Bokod", "Bokod Magyarország"]
+    topic_tier: core
+  - name: Boldog
+    country: Hungary
+    locale: hu
+    search_variants: ["Boldog", "Boldog Magyarország"]
+    topic_tier: core
+  - name: Boldogkőváralja
+    country: Hungary
+    locale: hu
+    search_variants: ["Boldogkőváralja", "Boldogkovaralja", "Boldogkőváralja Magyarország"]
+    topic_tier: core
+  - name: Boldva
+    country: Hungary
+    locale: hu
+    search_variants: ["Boldva", "Boldva Magyarország"]
+    topic_tier: core
+  - name: Bordány
+    country: Hungary
+    locale: hu
+    search_variants: ["Bordány", "Bordany", "Bordány Magyarország"]
+    topic_tier: core
+  - name: Borota
+    country: Hungary
+    locale: hu
+    search_variants: ["Borota", "Borota Magyarország"]
+    topic_tier: core
+  - name: Borsodszirák
+    country: Hungary
+    locale: hu
+    search_variants: ["Borsodszirák", "Borsodszirak", "Borsodszirák Magyarország"]
+    topic_tier: core
+  - name: Bucsa
+    country: Hungary
+    locale: hu
+    search_variants: ["Bucsa", "Bucsa Magyarország"]
+    topic_tier: core
+  - name: Budajenő
+    country: Hungary
+    locale: hu
+    search_variants: ["Budajenő", "Budajeno", "Budajenő Magyarország"]
+    topic_tier: core
+  - name: Bugac
+    country: Hungary
+    locale: hu
+    search_variants: ["Bugac", "Bugac Magyarország"]
+    topic_tier: core
+  - name: Bugyi
+    country: Hungary
+    locale: hu
+    search_variants: ["Bugyi", "Bugyi Magyarország"]
+    topic_tier: core
+  - name: Buj
+    country: Hungary
+    locale: hu
+    search_variants: ["Buj", "Buj Magyarország"]
+    topic_tier: core
+  - name: Buják
+    country: Hungary
+    locale: hu
+    search_variants: ["Buják", "Bujak", "Buják Magyarország"]
+    topic_tier: core
+  - name: Buzsák
+    country: Hungary
+    locale: hu
+    search_variants: ["Buzsák", "Buzsak", "Buzsák Magyarország"]
+    topic_tier: core
+  - name: Bácsbokod
+    country: Hungary
+    locale: hu
+    search_variants: ["Bácsbokod", "Bacsbokod", "Bácsbokod Magyarország"]
+    topic_tier: core
+  - name: Bácsborsód
+    country: Hungary
+    locale: hu
+    search_variants: ["Bácsborsód", "Bacsborsod", "Bácsborsód Magyarország"]
+    topic_tier: core
+  - name: Bágyogszovát
+    country: Hungary
+    locale: hu
+    search_variants: ["Bágyogszovát", "Bagyogszovat", "Bágyogszovát Magyarország"]
+    topic_tier: core
+  - name: Bánhorváti
+    country: Hungary
+    locale: hu
+    search_variants: ["Bánhorváti", "Banhorvati", "Bánhorváti Magyarország"]
+    topic_tier: core
+  - name: Bánréve
+    country: Hungary
+    locale: hu
+    search_variants: ["Bánréve", "Banreve", "Bánréve Magyarország"]
+    topic_tier: core
+  - name: Bárdudvarnok
+    country: Hungary
+    locale: hu
+    search_variants: ["Bárdudvarnok", "Bardudvarnok", "Bárdudvarnok Magyarország"]
+    topic_tier: core
+  - name: Báránd
+    country: Hungary
+    locale: hu
+    search_variants: ["Báránd", "Barand", "Báránd Magyarország"]
+    topic_tier: core
+  - name: Báta
+    country: Hungary
+    locale: hu
+    search_variants: ["Báta", "Bata", "Báta Magyarország"]
+    topic_tier: core
+  - name: Bátmonostor
+    country: Hungary
+    locale: hu
+    search_variants: ["Bátmonostor", "Batmonostor", "Bátmonostor Magyarország"]
+    topic_tier: core
+  - name: Bátya
+    country: Hungary
+    locale: hu
+    search_variants: ["Bátya", "Batya", "Bátya Magyarország"]
+    topic_tier: core
+  - name: Békésszentandrás
+    country: Hungary
+    locale: hu
+    search_variants: ["Békésszentandrás", "Bekesszentandras", "Békésszentandrás Magyarország"]
+    topic_tier: core
+  - name: Békéssámson
+    country: Hungary
+    locale: hu
+    search_variants: ["Békéssámson", "Bekessamson", "Békéssámson Magyarország"]
+    topic_tier: core
+  - name: Bénye
+    country: Hungary
+    locale: hu
+    search_variants: ["Bénye", "Benye", "Bénye Magyarország"]
+    topic_tier: core
+  - name: Bócsa
+    country: Hungary
+    locale: hu
+    search_variants: ["Bócsa", "Bocsa", "Bócsa Magyarország"]
+    topic_tier: core
+  - name: Böhönye
+    country: Hungary
+    locale: hu
+    search_variants: ["Böhönye", "Bohonye", "Böhönye Magyarország"]
+    topic_tier: core
+  - name: Bököny
+    country: Hungary
+    locale: hu
+    search_variants: ["Bököny", "Bokony", "Bököny Magyarország"]
+    topic_tier: core
+  - name: Bölcske
+    country: Hungary
+    locale: hu
+    search_variants: ["Bölcske", "Bolcske", "Bölcske Magyarország"]
+    topic_tier: core
+  - name: Börcs
+    country: Hungary
+    locale: hu
+    search_variants: ["Börcs", "Borcs", "Börcs Magyarország"]
+    topic_tier: core
+  - name: Bükkaranyos
+    country: Hungary
+    locale: hu
+    search_variants: ["Bükkaranyos", "Bukkaranyos", "Bükkaranyos Magyarország"]
+    topic_tier: core
+  - name: Bükkszentkereszt
+    country: Hungary
+    locale: hu
+    search_variants: ["Bükkszentkereszt", "Bukkszentkereszt", "Bükkszentkereszt Magyarország"]
+    topic_tier: core
+  - name: Bükkábrány
+    country: Hungary
+    locale: hu
+    search_variants: ["Bükkábrány", "Bukkabrany", "Bükkábrány Magyarország"]
+    topic_tier: core
+  - name: Bükkösd
+    country: Hungary
+    locale: hu
+    search_variants: ["Bükkösd", "Bukkosd", "Bükkösd Magyarország"]
+    topic_tier: core
+  - name: Bőcs
+    country: Hungary
+    locale: hu
+    search_variants: ["Bőcs", "Bocs", "Bőcs Magyarország"]
+    topic_tier: core
+  - name: Bőny
+    country: Hungary
+    locale: hu
+    search_variants: ["Bőny", "Bony", "Bőny Magyarország"]
+    topic_tier: core
+  - name: Bősárkány
+    country: Hungary
+    locale: hu
+    search_variants: ["Bősárkány", "Bosarkany", "Bősárkány Magyarország"]
+    topic_tier: core
+  - name: Cece
+    country: Hungary
+    locale: hu
+    search_variants: ["Cece", "Cece Magyarország"]
+    topic_tier: core
+  - name: Ceglédbercel
+    country: Hungary
+    locale: hu
+    search_variants: ["Ceglédbercel", "Cegledbercel", "Ceglédbercel Magyarország"]
+    topic_tier: core
+  - name: Cibakháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Cibakháza", "Cibakhaza", "Cibakháza Magyarország"]
+    topic_tier: core
+  - name: Csabacsűd
+    country: Hungary
+    locale: hu
+    search_variants: ["Csabacsűd", "Csabacsud", "Csabacsűd Magyarország"]
+    topic_tier: core
+  - name: Csabdi
+    country: Hungary
+    locale: hu
+    search_variants: ["Csabdi", "Csabdi Magyarország"]
+    topic_tier: core
+  - name: Csabrendek
+    country: Hungary
+    locale: hu
+    search_variants: ["Csabrendek", "Csabrendek Magyarország"]
+    topic_tier: core
+  - name: Csanytelek
+    country: Hungary
+    locale: hu
+    search_variants: ["Csanytelek", "Csanytelek Magyarország"]
+    topic_tier: core
+  - name: Csanádapáca
+    country: Hungary
+    locale: hu
+    search_variants: ["Csanádapáca", "Csanadapaca", "Csanádapáca Magyarország"]
+    topic_tier: core
+  - name: Csemő
+    country: Hungary
+    locale: hu
+    search_variants: ["Csemő", "Csemo", "Csemő Magyarország"]
+    topic_tier: core
+  - name: Csengele
+    country: Hungary
+    locale: hu
+    search_variants: ["Csengele", "Csengele Magyarország"]
+    topic_tier: core
+  - name: Csengőd
+    country: Hungary
+    locale: hu
+    search_variants: ["Csengőd", "Csengod", "Csengőd Magyarország"]
+    topic_tier: core
+  - name: Cserkeszőlő
+    country: Hungary
+    locale: hu
+    search_variants: ["Cserkeszőlő", "Cserkeszolo", "Cserkeszőlő Magyarország"]
+    topic_tier: core
+  - name: Cserszegtomaj
+    country: Hungary
+    locale: hu
+    search_variants: ["Cserszegtomaj", "Cserszegtomaj Magyarország"]
+    topic_tier: core
+  - name: Csetény
+    country: Hungary
+    locale: hu
+    search_variants: ["Csetény", "Cseteny", "Csetény Magyarország"]
+    topic_tier: core
+  - name: Csobánka
+    country: Hungary
+    locale: hu
+    search_variants: ["Csobánka", "Csobanka", "Csobánka Magyarország"]
+    topic_tier: core
+  - name: Csokonyavisonta
+    country: Hungary
+    locale: hu
+    search_variants: ["Csokonyavisonta", "Csokonyavisonta Magyarország"]
+    topic_tier: core
+  - name: Csolnok
+    country: Hungary
+    locale: hu
+    search_variants: ["Csolnok", "Csolnok Magyarország"]
+    topic_tier: core
+  - name: Csomád
+    country: Hungary
+    locale: hu
+    search_variants: ["Csomád", "Csomad", "Csomád Magyarország"]
+    topic_tier: core
+  - name: Csopak
+    country: Hungary
+    locale: hu
+    search_variants: ["Csopak", "Csopak Magyarország"]
+    topic_tier: core
+  - name: Csákberény
+    country: Hungary
+    locale: hu
+    search_variants: ["Csákberény", "Csakbereny", "Csákberény Magyarország"]
+    topic_tier: core
+  - name: Csákánydoroszló
+    country: Hungary
+    locale: hu
+    search_variants: ["Csákánydoroszló", "Csakanydoroszlo", "Csákánydoroszló Magyarország"]
+    topic_tier: core
+  - name: Csány
+    country: Hungary
+    locale: hu
+    search_variants: ["Csány", "Csany", "Csány Magyarország"]
+    topic_tier: core
+  - name: Császár
+    country: Hungary
+    locale: hu
+    search_variants: ["Császár", "Csaszar", "Császár Magyarország"]
+    topic_tier: core
+  - name: Császártöltés
+    country: Hungary
+    locale: hu
+    search_variants: ["Császártöltés", "Csaszartoltes", "Császártöltés Magyarország"]
+    topic_tier: core
+  - name: Csátalja
+    country: Hungary
+    locale: hu
+    search_variants: ["Csátalja", "Csatalja", "Csátalja Magyarország"]
+    topic_tier: core
+  - name: Csávoly
+    country: Hungary
+    locale: hu
+    search_variants: ["Csávoly", "Csavoly", "Csávoly Magyarország"]
+    topic_tier: core
+  - name: Csépa
+    country: Hungary
+    locale: hu
+    search_variants: ["Csépa", "Csepa", "Csépa Magyarország"]
+    topic_tier: core
+  - name: Csévharaszt
+    country: Hungary
+    locale: hu
+    search_variants: ["Csévharaszt", "Csevharaszt", "Csévharaszt Magyarország"]
+    topic_tier: core
+  - name: Csókakő
+    country: Hungary
+    locale: hu
+    search_variants: ["Csókakő", "Csokako", "Csókakő Magyarország"]
+    topic_tier: core
+  - name: Csólyospálos
+    country: Hungary
+    locale: hu
+    search_variants: ["Csólyospálos", "Csolyospalos", "Csólyospálos Magyarország"]
+    topic_tier: core
+  - name: Csór
+    country: Hungary
+    locale: hu
+    search_variants: ["Csór", "Csor", "Csór Magyarország"]
+    topic_tier: core
+  - name: Csökmő
+    country: Hungary
+    locale: hu
+    search_variants: ["Csökmő", "Csokmo", "Csökmő Magyarország"]
+    topic_tier: core
+  - name: Csömör
+    country: Hungary
+    locale: hu
+    search_variants: ["Csömör", "Csomor", "Csömör Magyarország"]
+  - name: Csörög
+    country: Hungary
+    locale: hu
+    search_variants: ["Csörög", "Csorog", "Csörög Magyarország"]
+    topic_tier: core
+  - name: Dalmand
+    country: Hungary
+    locale: hu
+    search_variants: ["Dalmand", "Dalmand Magyarország"]
+    topic_tier: core
+  - name: Darnózseli
+    country: Hungary
+    locale: hu
+    search_variants: ["Darnózseli", "Darnozseli", "Darnózseli Magyarország"]
+    topic_tier: core
+  - name: Daruszentmiklós
+    country: Hungary
+    locale: hu
+    search_variants: ["Daruszentmiklós", "Daruszentmiklos", "Daruszentmiklós Magyarország"]
+    topic_tier: core
+  - name: Decs
+    country: Hungary
+    locale: hu
+    search_variants: ["Decs", "Decs Magyarország"]
+    topic_tier: core
+  - name: Dejtár
+    country: Hungary
+    locale: hu
+    search_variants: ["Dejtár", "Dejtar", "Dejtár Magyarország"]
+    topic_tier: core
+  - name: Derekegyház
+    country: Hungary
+    locale: hu
+    search_variants: ["Derekegyház", "Derekegyhaz", "Derekegyház Magyarország"]
+    topic_tier: core
+  - name: Deszk
+    country: Hungary
+    locale: hu
+    search_variants: ["Deszk", "Deszk Magyarország"]
+    topic_tier: core
+  - name: Detk
+    country: Hungary
+    locale: hu
+    search_variants: ["Detk", "Detk Magyarország"]
+    topic_tier: core
+  - name: Diósd
+    country: Hungary
+    locale: hu
+    search_variants: ["Diósd", "Diosd", "Diósd Magyarország"]
+  - name: Diósjenő
+    country: Hungary
+    locale: hu
+    search_variants: ["Diósjenő", "Diosjeno", "Diósjenő Magyarország"]
+    topic_tier: core
+  - name: Doboz
+    country: Hungary
+    locale: hu
+    search_variants: ["Doboz", "Doboz Magyarország"]
+    topic_tier: core
+  - name: Domaszék
+    country: Hungary
+    locale: hu
+    search_variants: ["Domaszék", "Domaszek", "Domaszék Magyarország"]
+    topic_tier: core
+  - name: Dombegyház
+    country: Hungary
+    locale: hu
+    search_variants: ["Dombegyház", "Dombegyhaz", "Dombegyház Magyarország"]
+    topic_tier: core
+  - name: Domony
+    country: Hungary
+    locale: hu
+    search_variants: ["Domony", "Domony Magyarország"]
+    topic_tier: core
+  - name: Domoszló
+    country: Hungary
+    locale: hu
+    search_variants: ["Domoszló", "Domoszlo", "Domoszló Magyarország"]
+    topic_tier: core
+  - name: Drégelypalánk
+    country: Hungary
+    locale: hu
+    search_variants: ["Drégelypalánk", "Dregelypalank", "Drégelypalánk Magyarország"]
+    topic_tier: core
+  - name: Dudar
+    country: Hungary
+    locale: hu
+    search_variants: ["Dudar", "Dudar Magyarország"]
+    topic_tier: core
+  - name: Dunaalmás
+    country: Hungary
+    locale: hu
+    search_variants: ["Dunaalmás", "Dunaalmas", "Dunaalmás Magyarország"]
+    topic_tier: core
+  - name: Dunabogdány
+    country: Hungary
+    locale: hu
+    search_variants: ["Dunabogdány", "Dunabogdany", "Dunabogdány Magyarország"]
+    topic_tier: core
+  - name: Dunaegyháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Dunaegyháza", "Dunaegyhaza", "Dunaegyháza Magyarország"]
+    topic_tier: core
+  - name: Dunakiliti
+    country: Hungary
+    locale: hu
+    search_variants: ["Dunakiliti", "Dunakiliti Magyarország"]
+    topic_tier: core
+  - name: Dunapataj
+    country: Hungary
+    locale: hu
+    search_variants: ["Dunapataj", "Dunapataj Magyarország"]
+    topic_tier: core
+  - name: Dunaszeg
+    country: Hungary
+    locale: hu
+    search_variants: ["Dunaszeg", "Dunaszeg Magyarország"]
+    topic_tier: core
+  - name: Dunaszekcső
+    country: Hungary
+    locale: hu
+    search_variants: ["Dunaszekcső", "Dunaszekcso", "Dunaszekcső Magyarország"]
+    topic_tier: core
+  - name: Dunaszentgyörgy
+    country: Hungary
+    locale: hu
+    search_variants: ["Dunaszentgyörgy", "Dunaszentgyorgy", "Dunaszentgyörgy Magyarország"]
+    topic_tier: core
+  - name: Dunasziget
+    country: Hungary
+    locale: hu
+    search_variants: ["Dunasziget", "Dunasziget Magyarország"]
+    topic_tier: core
+  - name: Dusnok
+    country: Hungary
+    locale: hu
+    search_variants: ["Dusnok", "Dusnok Magyarország"]
+    topic_tier: core
+  - name: Dánszentmiklós
+    country: Hungary
+    locale: hu
+    search_variants: ["Dánszentmiklós", "Danszentmiklos", "Dánszentmiklós Magyarország"]
+    topic_tier: core
+  - name: Dány
+    country: Hungary
+    locale: hu
+    search_variants: ["Dány", "Dany", "Dány Magyarország"]
+    topic_tier: core
+  - name: Dávod
+    country: Hungary
+    locale: hu
+    search_variants: ["Dávod", "Davod", "Dávod Magyarország"]
+    topic_tier: core
+  - name: Dédestapolcsány
+    country: Hungary
+    locale: hu
+    search_variants: ["Dédestapolcsány", "Dedestapolcsany", "Dédestapolcsány Magyarország"]
+    topic_tier: core
+  - name: Dég
+    country: Hungary
+    locale: hu
+    search_variants: ["Dég", "Deg", "Dég Magyarország"]
+    topic_tier: core
+  - name: Délegyháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Délegyháza", "Delegyhaza", "Délegyháza Magyarország"]
+    topic_tier: core
+  - name: Döbrököz
+    country: Hungary
+    locale: hu
+    search_variants: ["Döbrököz", "Dobrokoz", "Döbrököz Magyarország"]
+    topic_tier: core
+  - name: Döge
+    country: Hungary
+    locale: hu
+    search_variants: ["Döge", "Doge", "Döge Magyarország"]
+    topic_tier: core
+  - name: Dömsöd
+    country: Hungary
+    locale: hu
+    search_variants: ["Dömsöd", "Domsod", "Dömsöd Magyarország"]
+    topic_tier: core
+  - name: Dömös
+    country: Hungary
+    locale: hu
+    search_variants: ["Dömös", "Domos", "Dömös Magyarország"]
+    topic_tier: core
+  - name: Ebes
+    country: Hungary
+    locale: hu
+    search_variants: ["Ebes", "Ebes Magyarország"]
+    topic_tier: core
+  - name: Ecseg
+    country: Hungary
+    locale: hu
+    search_variants: ["Ecseg", "Ecseg Magyarország"]
+    topic_tier: core
+  - name: Ecsegfalva
+    country: Hungary
+    locale: hu
+    search_variants: ["Ecsegfalva", "Ecsegfalva Magyarország"]
+    topic_tier: core
+  - name: Ecser
+    country: Hungary
+    locale: hu
+    search_variants: ["Ecser", "Ecser Magyarország"]
+    topic_tier: core
+  - name: Ecséd
+    country: Hungary
+    locale: hu
+    search_variants: ["Ecséd", "Ecsed", "Ecséd Magyarország"]
+    topic_tier: core
+  - name: Egerbakta
+    country: Hungary
+    locale: hu
+    search_variants: ["Egerbakta", "Egerbakta Magyarország"]
+    topic_tier: core
+  - name: Egercsehi
+    country: Hungary
+    locale: hu
+    search_variants: ["Egercsehi", "Egercsehi Magyarország"]
+    topic_tier: core
+  - name: Egerszalók
+    country: Hungary
+    locale: hu
+    search_variants: ["Egerszalók", "Egerszalok", "Egerszalók Magyarország"]
+    topic_tier: core
+  - name: Egerszólát
+    country: Hungary
+    locale: hu
+    search_variants: ["Egerszólát", "Egerszolat", "Egerszólát Magyarország"]
+    topic_tier: core
+  - name: Egervár
+    country: Hungary
+    locale: hu
+    search_variants: ["Egervár", "Egervar", "Egervár Magyarország"]
+    topic_tier: core
+  - name: Egyek
+    country: Hungary
+    locale: hu
+    search_variants: ["Egyek", "Egyek Magyarország"]
+    topic_tier: core
+  - name: Egyházasrádóc
+    country: Hungary
+    locale: hu
+    search_variants: ["Egyházasrádóc", "Egyhazasradoc", "Egyházasrádóc Magyarország"]
+    topic_tier: core
+  - name: Előszállás
+    country: Hungary
+    locale: hu
+    search_variants: ["Előszállás", "Eloszallas", "Előszállás Magyarország"]
+    topic_tier: core
+  - name: Encsencs
+    country: Hungary
+    locale: hu
+    search_variants: ["Encsencs", "Encsencs Magyarország"]
+    topic_tier: core
+  - name: Endrefalva
+    country: Hungary
+    locale: hu
+    search_variants: ["Endrefalva", "Endrefalva Magyarország"]
+    topic_tier: core
+  - name: Enese
+    country: Hungary
+    locale: hu
+    search_variants: ["Enese", "Enese Magyarország"]
+    topic_tier: core
+  - name: Eperjeske
+    country: Hungary
+    locale: hu
+    search_variants: ["Eperjeske", "Eperjeske Magyarország"]
+    topic_tier: core
+  - name: Erdőkertes
+    country: Hungary
+    locale: hu
+    search_variants: ["Erdőkertes", "Erdokertes", "Erdőkertes Magyarország"]
+  - name: Erdőtelek
+    country: Hungary
+    locale: hu
+    search_variants: ["Erdőtelek", "Erdotelek", "Erdőtelek Magyarország"]
+    topic_tier: core
+  - name: Erk
+    country: Hungary
+    locale: hu
+    search_variants: ["Erk", "Erk Magyarország"]
+    topic_tier: core
+  - name: Esztár
+    country: Hungary
+    locale: hu
+    search_variants: ["Esztár", "Esztar", "Esztár Magyarország"]
+    topic_tier: core
+  - name: Etes
+    country: Hungary
+    locale: hu
+    search_variants: ["Etes", "Etes Magyarország"]
+    topic_tier: core
+  - name: Etyek
+    country: Hungary
+    locale: hu
+    search_variants: ["Etyek", "Etyek Magyarország"]
+    topic_tier: core
+  - name: Fadd
+    country: Hungary
+    locale: hu
+    search_variants: ["Fadd", "Fadd Magyarország"]
+    topic_tier: core
+  - name: Fajsz
+    country: Hungary
+    locale: hu
+    search_variants: ["Fajsz", "Fajsz Magyarország"]
+    topic_tier: core
+  - name: Farkaslyuk
+    country: Hungary
+    locale: hu
+    search_variants: ["Farkaslyuk", "Farkaslyuk Magyarország"]
+    topic_tier: core
+  - name: Farmos
+    country: Hungary
+    locale: hu
+    search_variants: ["Farmos", "Farmos Magyarország"]
+    topic_tier: core
+  - name: Farád
+    country: Hungary
+    locale: hu
+    search_variants: ["Farád", "Farad", "Farád Magyarország"]
+    topic_tier: core
+  - name: Fehérvárcsurgó
+    country: Hungary
+    locale: hu
+    search_variants: ["Fehérvárcsurgó", "Fehervarcsurgo", "Fehérvárcsurgó Magyarország"]
+    topic_tier: core
+  - name: Felcsút
+    country: Hungary
+    locale: hu
+    search_variants: ["Felcsút", "Felcsut", "Felcsút Magyarország"]
+    topic_tier: core
+  - name: Feldebrő
+    country: Hungary
+    locale: hu
+    search_variants: ["Feldebrő", "Feldebro", "Feldebrő Magyarország"]
+    topic_tier: core
+  - name: Felgyő
+    country: Hungary
+    locale: hu
+    search_variants: ["Felgyő", "Felgyo", "Felgyő Magyarország"]
+    topic_tier: core
+  - name: Felsőlajos
+    country: Hungary
+    locale: hu
+    search_variants: ["Felsőlajos", "Felsolajos", "Felsőlajos Magyarország"]
+    topic_tier: core
+  - name: Felsőnyék
+    country: Hungary
+    locale: hu
+    search_variants: ["Felsőnyék", "Felsonyek", "Felsőnyék Magyarország"]
+    topic_tier: core
+  - name: Felsőpakony
+    country: Hungary
+    locale: hu
+    search_variants: ["Felsőpakony", "Felsopakony", "Felsőpakony Magyarország"]
+    topic_tier: core
+  - name: Felsőszentiván
+    country: Hungary
+    locale: hu
+    search_variants: ["Felsőszentiván", "Felsoszentivan", "Felsőszentiván Magyarország"]
+    topic_tier: core
+  - name: Felsőtárkány
+    country: Hungary
+    locale: hu
+    search_variants: ["Felsőtárkány", "Felsotarkany", "Felsőtárkány Magyarország"]
+    topic_tier: core
+  - name: Felsőörs
+    country: Hungary
+    locale: hu
+    search_variants: ["Felsőörs", "Felsoors", "Felsőörs Magyarország"]
+    topic_tier: core
+  - name: Fertőrákos
+    country: Hungary
+    locale: hu
+    search_variants: ["Fertőrákos", "Fertorakos", "Fertőrákos Magyarország"]
+    topic_tier: core
+  - name: Fertőszéplak
+    country: Hungary
+    locale: hu
+    search_variants: ["Fertőszéplak", "Fertoszeplak", "Fertőszéplak Magyarország"]
+    topic_tier: core
+  - name: Foktő
+    country: Hungary
+    locale: hu
+    search_variants: ["Foktő", "Fokto", "Foktő Magyarország"]
+    topic_tier: core
+  - name: Forráskút
+    country: Hungary
+    locale: hu
+    search_variants: ["Forráskút", "Forraskut", "Forráskút Magyarország"]
+    topic_tier: core
+  - name: Forró
+    country: Hungary
+    locale: hu
+    search_variants: ["Forró", "Forro", "Forró Magyarország"]
+    topic_tier: core
+  - name: Furta
+    country: Hungary
+    locale: hu
+    search_variants: ["Furta", "Furta Magyarország"]
+    topic_tier: core
+  - name: Fábiánháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Fábiánháza", "Fabianhaza", "Fábiánháza Magyarország"]
+    topic_tier: core
+  - name: Fábiánsebestyén
+    country: Hungary
+    locale: hu
+    search_variants: ["Fábiánsebestyén", "Fabiansebestyen", "Fábiánsebestyén Magyarország"]
+    topic_tier: core
+  - name: Fényeslitke
+    country: Hungary
+    locale: hu
+    search_variants: ["Fényeslitke", "Fenyeslitke", "Fényeslitke Magyarország"]
+    topic_tier: core
+  - name: Földes
+    country: Hungary
+    locale: hu
+    search_variants: ["Földes", "Foldes", "Földes Magyarország"]
+    topic_tier: core
+  - name: Földeák
+    country: Hungary
+    locale: hu
+    search_variants: ["Földeák", "Foldeak", "Földeák Magyarország"]
+    topic_tier: core
+  - name: Fülöp
+    country: Hungary
+    locale: hu
+    search_variants: ["Fülöp", "Fulop", "Fülöp Magyarország"]
+    topic_tier: core
+  - name: Fülöpjakab
+    country: Hungary
+    locale: hu
+    search_variants: ["Fülöpjakab", "Fulopjakab", "Fülöpjakab Magyarország"]
+    topic_tier: core
+  - name: Fülöpszállás
+    country: Hungary
+    locale: hu
+    search_variants: ["Fülöpszállás", "Fulopszallas", "Fülöpszállás Magyarország"]
+    topic_tier: core
+  - name: Galambok
+    country: Hungary
+    locale: hu
+    search_variants: ["Galambok", "Galambok Magyarország"]
+    topic_tier: core
+  - name: Galgahévíz
+    country: Hungary
+    locale: hu
+    search_variants: ["Galgahévíz", "Galgaheviz", "Galgahévíz Magyarország"]
+    topic_tier: core
+  - name: Galgamácsa
+    country: Hungary
+    locale: hu
+    search_variants: ["Galgamácsa", "Galgamacsa", "Galgamácsa Magyarország"]
+    topic_tier: core
+  - name: Gara
+    country: Hungary
+    locale: hu
+    search_variants: ["Gara", "Gara Magyarország"]
+    topic_tier: core
+  - name: Gellénháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Gellénháza", "Gellenhaza", "Gellénháza Magyarország"]
+    topic_tier: core
+  - name: Gencsapáti
+    country: Hungary
+    locale: hu
+    search_variants: ["Gencsapáti", "Gencsapati", "Gencsapáti Magyarország"]
+    topic_tier: core
+  - name: Gerendás
+    country: Hungary
+    locale: hu
+    search_variants: ["Gerendás", "Gerendas", "Gerendás Magyarország"]
+    topic_tier: core
+  - name: Gerjen
+    country: Hungary
+    locale: hu
+    search_variants: ["Gerjen", "Gerjen Magyarország"]
+    topic_tier: core
+  - name: Gesztely
+    country: Hungary
+    locale: hu
+    search_variants: ["Gesztely", "Gesztely Magyarország"]
+    topic_tier: core
+  - name: Geszteréd
+    country: Hungary
+    locale: hu
+    search_variants: ["Geszteréd", "Gesztered", "Geszteréd Magyarország"]
+    topic_tier: core
+  - name: Gomba
+    country: Hungary
+    locale: hu
+    search_variants: ["Gomba", "Gomba Magyarország"]
+    topic_tier: core
+  - name: Gyarmat
+    country: Hungary
+    locale: hu
+    search_variants: ["Gyarmat", "Gyarmat Magyarország"]
+    topic_tier: core
+  - name: Gyenesdiás
+    country: Hungary
+    locale: hu
+    search_variants: ["Gyenesdiás", "Gyenesdias", "Gyenesdiás Magyarország"]
+    topic_tier: core
+  - name: Gyermely
+    country: Hungary
+    locale: hu
+    search_variants: ["Gyermely", "Gyermely Magyarország"]
+    topic_tier: core
+  - name: Gyulaháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Gyulaháza", "Gyulahaza", "Gyulaháza Magyarország"]
+    topic_tier: core
+  - name: Gyömöre
+    country: Hungary
+    locale: hu
+    search_variants: ["Gyömöre", "Gyomore", "Gyömöre Magyarország"]
+    topic_tier: core
+  - name: Gyöngyösfalu
+    country: Hungary
+    locale: hu
+    search_variants: ["Gyöngyösfalu", "Gyongyosfalu", "Gyöngyösfalu Magyarország"]
+    topic_tier: core
+  - name: Gyöngyöshalász
+    country: Hungary
+    locale: hu
+    search_variants: ["Gyöngyöshalász", "Gyongyoshalasz", "Gyöngyöshalász Magyarország"]
+    topic_tier: core
+  - name: Gyöngyösoroszi
+    country: Hungary
+    locale: hu
+    search_variants: ["Gyöngyösoroszi", "Gyongyosoroszi", "Gyöngyösoroszi Magyarország"]
+    topic_tier: core
+  - name: Gyöngyössolymos
+    country: Hungary
+    locale: hu
+    search_variants: ["Gyöngyössolymos", "Gyongyossolymos", "Gyöngyössolymos Magyarország"]
+    topic_tier: core
+  - name: Gyöngyöstarján
+    country: Hungary
+    locale: hu
+    search_variants: ["Gyöngyöstarján", "Gyongyostarjan", "Gyöngyöstarján Magyarország"]
+    topic_tier: core
+  - name: Gyúró
+    country: Hungary
+    locale: hu
+    search_variants: ["Gyúró", "Gyuro", "Gyúró Magyarország"]
+    topic_tier: core
+  - name: Gyüre
+    country: Hungary
+    locale: hu
+    search_variants: ["Gyüre", "Gyure", "Gyüre Magyarország"]
+    topic_tier: core
+  - name: Győrladamér
+    country: Hungary
+    locale: hu
+    search_variants: ["Győrladamér", "Gyorladamer", "Győrladamér Magyarország"]
+    topic_tier: core
+  - name: Győrszemere
+    country: Hungary
+    locale: hu
+    search_variants: ["Győrszemere", "Gyorszemere", "Győrszemere Magyarország"]
+    topic_tier: core
+  - name: Győrság
+    country: Hungary
+    locale: hu
+    search_variants: ["Győrság", "Gyorsag", "Győrság Magyarország"]
+    topic_tier: core
+  - name: Győrtelek
+    country: Hungary
+    locale: hu
+    search_variants: ["Győrtelek", "Gyortelek", "Győrtelek Magyarország"]
+    topic_tier: core
+  - name: Győrzámoly
+    country: Hungary
+    locale: hu
+    search_variants: ["Győrzámoly", "Gyorzamoly", "Győrzámoly Magyarország"]
+    topic_tier: core
+  - name: Győrújbarát
+    country: Hungary
+    locale: hu
+    search_variants: ["Győrújbarát", "Gyorujbarat", "Győrújbarát Magyarország"]
+    topic_tier: core
+  - name: Győrújfalu
+    country: Hungary
+    locale: hu
+    search_variants: ["Győrújfalu", "Gyorujfalu", "Győrújfalu Magyarország"]
+    topic_tier: core
+  - name: Gádoros
+    country: Hungary
+    locale: hu
+    search_variants: ["Gádoros", "Gadoros", "Gádoros Magyarország"]
+    topic_tier: core
+  - name: Gávavencsellő
+    country: Hungary
+    locale: hu
+    search_variants: ["Gávavencsellő", "Gavavencsello", "Gávavencsellő Magyarország"]
+    topic_tier: core
+  - name: Gégény
+    country: Hungary
+    locale: hu
+    search_variants: ["Gégény", "Gegeny", "Gégény Magyarország"]
+    topic_tier: core
+  - name: Gérce
+    country: Hungary
+    locale: hu
+    search_variants: ["Gérce", "Gerce", "Gérce Magyarország"]
+    topic_tier: core
+  - name: Gönyű
+    country: Hungary
+    locale: hu
+    search_variants: ["Gönyű", "Gonyu", "Gönyű Magyarország"]
+    topic_tier: core
+  - name: Görbeháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Görbeháza", "Gorbehaza", "Görbeháza Magyarország"]
+    topic_tier: core
+  - name: Görcsöny
+    country: Hungary
+    locale: hu
+    search_variants: ["Görcsöny", "Gorcsony", "Görcsöny Magyarország"]
+    topic_tier: core
+  - name: Görgeteg
+    country: Hungary
+    locale: hu
+    search_variants: ["Görgeteg", "Gorgeteg", "Görgeteg Magyarország"]
+    topic_tier: core
+  - name: Hajdúbagos
+    country: Hungary
+    locale: hu
+    search_variants: ["Hajdúbagos", "Hajdubagos", "Hajdúbagos Magyarország"]
+    topic_tier: core
+  - name: Hajdúszovát
+    country: Hungary
+    locale: hu
+    search_variants: ["Hajdúszovát", "Hajduszovat", "Hajdúszovát Magyarország"]
+    topic_tier: core
+  - name: Hajmáskér
+    country: Hungary
+    locale: hu
+    search_variants: ["Hajmáskér", "Hajmasker", "Hajmáskér Magyarország"]
+    topic_tier: core
+  - name: Halimba
+    country: Hungary
+    locale: hu
+    search_variants: ["Halimba", "Halimba Magyarország"]
+    topic_tier: core
+  - name: Halmaj
+    country: Hungary
+    locale: hu
+    search_variants: ["Halmaj", "Halmaj Magyarország"]
+    topic_tier: core
+  - name: Halmajugra
+    country: Hungary
+    locale: hu
+    search_variants: ["Halmajugra", "Halmajugra Magyarország"]
+    topic_tier: core
+  - name: Halászi
+    country: Hungary
+    locale: hu
+    search_variants: ["Halászi", "Halaszi", "Halászi Magyarország"]
+    topic_tier: core
+  - name: Hangony
+    country: Hungary
+    locale: hu
+    search_variants: ["Hangony", "Hangony Magyarország"]
+    topic_tier: core
+  - name: Harka
+    country: Hungary
+    locale: hu
+    search_variants: ["Harka", "Harka Magyarország"]
+    topic_tier: core
+  - name: Harsány
+    country: Hungary
+    locale: hu
+    search_variants: ["Harsány", "Harsany", "Harsány Magyarország"]
+    topic_tier: core
+  - name: Harta
+    country: Hungary
+    locale: hu
+    search_variants: ["Harta", "Harta Magyarország"]
+    topic_tier: core
+  - name: Hegyeshalom
+    country: Hungary
+    locale: hu
+    search_variants: ["Hegyeshalom", "Hegyeshalom Magyarország"]
+    topic_tier: core
+  - name: Hegykő
+    country: Hungary
+    locale: hu
+    search_variants: ["Hegykő", "Hegyko", "Hegykő Magyarország"]
+    topic_tier: core
+  - name: Hejőbába
+    country: Hungary
+    locale: hu
+    search_variants: ["Hejőbába", "Hejobaba", "Hejőbába Magyarország"]
+    topic_tier: core
+  - name: Helvécia
+    country: Hungary
+    locale: hu
+    search_variants: ["Helvécia", "Helvecia", "Helvécia Magyarország"]
+    topic_tier: core
+  - name: Hencida
+    country: Hungary
+    locale: hu
+    search_variants: ["Hencida", "Hencida Magyarország"]
+    topic_tier: core
+  - name: Herceghalom
+    country: Hungary
+    locale: hu
+    search_variants: ["Herceghalom", "Herceghalom Magyarország"]
+    topic_tier: core
+  - name: Hercegszántó
+    country: Hungary
+    locale: hu
+    search_variants: ["Hercegszántó", "Hercegszanto", "Hercegszántó Magyarország"]
+    topic_tier: core
+  - name: Hernád
+    country: Hungary
+    locale: hu
+    search_variants: ["Hernád", "Hernad", "Hernád Magyarország"]
+    topic_tier: core
+  - name: Hernádkak
+    country: Hungary
+    locale: hu
+    search_variants: ["Hernádkak", "Hernadkak", "Hernádkak Magyarország"]
+    topic_tier: core
+  - name: Hernádnémeti
+    country: Hungary
+    locale: hu
+    search_variants: ["Hernádnémeti", "Hernadnemeti", "Hernádnémeti Magyarország"]
+    topic_tier: core
+  - name: Hernádvécse
+    country: Hungary
+    locale: hu
+    search_variants: ["Hernádvécse", "Hernadvecse", "Hernádvécse Magyarország"]
+    topic_tier: core
+  - name: Heréd
+    country: Hungary
+    locale: hu
+    search_variants: ["Heréd", "Hered", "Heréd Magyarország"]
+    topic_tier: core
+  - name: Hetes
+    country: Hungary
+    locale: hu
+    search_variants: ["Hetes", "Hetes Magyarország"]
+    topic_tier: core
+  - name: Hidas
+    country: Hungary
+    locale: hu
+    search_variants: ["Hidas", "Hidas Magyarország"]
+    topic_tier: core
+  - name: Hodász
+    country: Hungary
+    locale: hu
+    search_variants: ["Hodász", "Hodasz", "Hodász Magyarország"]
+    topic_tier: core
+  - name: Homokmégy
+    country: Hungary
+    locale: hu
+    search_variants: ["Homokmégy", "Homokmegy", "Homokmégy Magyarország"]
+    topic_tier: core
+  - name: Hort
+    country: Hungary
+    locale: hu
+    search_variants: ["Hort", "Hort Magyarország"]
+    topic_tier: core
+  - name: Hortobágy
+    country: Hungary
+    locale: hu
+    search_variants: ["Hortobágy", "Hortobagy", "Hortobágy Magyarország"]
+    topic_tier: core
+  - name: Hosszúhetény
+    country: Hungary
+    locale: hu
+    search_variants: ["Hosszúhetény", "Hosszuheteny", "Hosszúhetény Magyarország"]
+    topic_tier: core
+  - name: Hosszúpályi
+    country: Hungary
+    locale: hu
+    search_variants: ["Hosszúpályi", "Hosszupalyi", "Hosszúpályi Magyarország"]
+    topic_tier: core
+  - name: Hédervár
+    country: Hungary
+    locale: hu
+    search_variants: ["Hédervár", "Hedervar", "Hédervár Magyarország"]
+    topic_tier: core
+  - name: Héreg
+    country: Hungary
+    locale: hu
+    search_variants: ["Héreg", "Hereg", "Héreg Magyarország"]
+    topic_tier: core
+  - name: Hévízgyörk
+    country: Hungary
+    locale: hu
+    search_variants: ["Hévízgyörk", "Hevizgyork", "Hévízgyörk Magyarország"]
+    topic_tier: core
+  - name: Hőgyész
+    country: Hungary
+    locale: hu
+    search_variants: ["Hőgyész", "Hogyesz", "Hőgyész Magyarország"]
+    topic_tier: core
+  - name: Igrici
+    country: Hungary
+    locale: hu
+    search_variants: ["Igrici", "Igrici Magyarország"]
+    topic_tier: core
+  - name: Iharosberény
+    country: Hungary
+    locale: hu
+    search_variants: ["Iharosberény", "Iharosbereny", "Iharosberény Magyarország"]
+    topic_tier: core
+  - name: Ikervár
+    country: Hungary
+    locale: hu
+    search_variants: ["Ikervár", "Ikervar", "Ikervár Magyarország"]
+    topic_tier: core
+  - name: Iklad
+    country: Hungary
+    locale: hu
+    search_variants: ["Iklad", "Iklad Magyarország"]
+    topic_tier: core
+  - name: Ikrény
+    country: Hungary
+    locale: hu
+    search_variants: ["Ikrény", "Ikreny", "Ikrény Magyarország"]
+    topic_tier: core
+  - name: Ilk
+    country: Hungary
+    locale: hu
+    search_variants: ["Ilk", "Ilk Magyarország"]
+    topic_tier: core
+  - name: Inke
+    country: Hungary
+    locale: hu
+    search_variants: ["Inke", "Inke Magyarország"]
+    topic_tier: core
+  - name: Ináncs
+    country: Hungary
+    locale: hu
+    search_variants: ["Ináncs", "Inancs", "Ináncs Magyarország"]
+    topic_tier: core
+  - name: Inárcs
+    country: Hungary
+    locale: hu
+    search_variants: ["Inárcs", "Inarcs", "Inárcs Magyarország"]
+    topic_tier: core
+  - name: Iregszemcse
+    country: Hungary
+    locale: hu
+    search_variants: ["Iregszemcse", "Iregszemcse Magyarország"]
+    topic_tier: core
+  - name: Istenmezeje
+    country: Hungary
+    locale: hu
+    search_variants: ["Istenmezeje", "Istenmezeje Magyarország"]
+    topic_tier: core
+  - name: Iszkaszentgyörgy
+    country: Hungary
+    locale: hu
+    search_variants: ["Iszkaszentgyörgy", "Iszkaszentgyorgy", "Iszkaszentgyörgy Magyarország"]
+    topic_tier: core
+  - name: Iván
+    country: Hungary
+    locale: hu
+    search_variants: ["Iván", "Ivan", "Iván Magyarország"]
+    topic_tier: core
+  - name: Iváncsa
+    country: Hungary
+    locale: hu
+    search_variants: ["Iváncsa", "Ivancsa", "Iváncsa Magyarország"]
+    topic_tier: core
+  - name: Izsófalva
+    country: Hungary
+    locale: hu
+    search_variants: ["Izsófalva", "Izsofalva", "Izsófalva Magyarország"]
+    topic_tier: core
+  - name: Jakabszállás
+    country: Hungary
+    locale: hu
+    search_variants: ["Jakabszállás", "Jakabszallas", "Jakabszállás Magyarország"]
+    topic_tier: core
+  - name: Jenő
+    country: Hungary
+    locale: hu
+    search_variants: ["Jenő", "Jeno", "Jenő Magyarország"]
+    topic_tier: core
+  - name: Jobbágyi
+    country: Hungary
+    locale: hu
+    search_variants: ["Jobbágyi", "Jobbagyi", "Jobbágyi Magyarország"]
+    topic_tier: core
+  - name: Juta
+    country: Hungary
+    locale: hu
+    search_variants: ["Juta", "Juta Magyarország"]
+    topic_tier: core
+  - name: Ják
+    country: Hungary
+    locale: hu
+    search_variants: ["Ják", "Jak", "Ják Magyarország"]
+    topic_tier: core
+  - name: Jánkmajtis
+    country: Hungary
+    locale: hu
+    search_variants: ["Jánkmajtis", "Jankmajtis", "Jánkmajtis Magyarország"]
+    topic_tier: core
+  - name: Jánoshida
+    country: Hungary
+    locale: hu
+    search_variants: ["Jánoshida", "Janoshida", "Jánoshida Magyarország"]
+    topic_tier: core
+  - name: Járdánháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Járdánháza", "Jardanhaza", "Járdánháza Magyarország"]
+    topic_tier: core
+  - name: Jármi
+    country: Hungary
+    locale: hu
+    search_variants: ["Jármi", "Jarmi", "Jármi Magyarország"]
+    topic_tier: core
+  - name: Jászalsószentgyörgy
+    country: Hungary
+    locale: hu
+    search_variants: ["Jászalsószentgyörgy", "Jaszalsoszentgyorgy", "Jászalsószentgyörgy Magyarország"]
+    topic_tier: core
+  - name: Jászboldogháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Jászboldogháza", "Jaszboldoghaza", "Jászboldogháza Magyarország"]
+    topic_tier: core
+  - name: Jászdózsa
+    country: Hungary
+    locale: hu
+    search_variants: ["Jászdózsa", "Jaszdozsa", "Jászdózsa Magyarország"]
+    topic_tier: core
+  - name: Jászfelsőszentgyörgy
+    country: Hungary
+    locale: hu
+    search_variants: ["Jászfelsőszentgyörgy", "Jaszfelsoszentgyorgy", "Jászfelsőszentgyörgy Magyarország"]
+    topic_tier: core
+  - name: Jászjákóhalma
+    country: Hungary
+    locale: hu
+    search_variants: ["Jászjákóhalma", "Jaszjakohalma", "Jászjákóhalma Magyarország"]
+    topic_tier: core
+  - name: Jászkarajenő
+    country: Hungary
+    locale: hu
+    search_variants: ["Jászkarajenő", "Jaszkarajeno", "Jászkarajenő Magyarország"]
+    topic_tier: core
+  - name: Jászladány
+    country: Hungary
+    locale: hu
+    search_variants: ["Jászladány", "Jaszladany", "Jászladány Magyarország"]
+    topic_tier: core
+  - name: Jászszentandrás
+    country: Hungary
+    locale: hu
+    search_variants: ["Jászszentandrás", "Jaszszentandras", "Jászszentandrás Magyarország"]
+    topic_tier: core
+  - name: Jászszentlászló
+    country: Hungary
+    locale: hu
+    search_variants: ["Jászszentlászló", "Jaszszentlaszlo", "Jászszentlászló Magyarország"]
+    topic_tier: core
+  - name: Jásztelek
+    country: Hungary
+    locale: hu
+    search_variants: ["Jásztelek", "Jasztelek", "Jásztelek Magyarország"]
+    topic_tier: core
+  - name: Kajdacs
+    country: Hungary
+    locale: hu
+    search_variants: ["Kajdacs", "Kajdacs Magyarország"]
+    topic_tier: core
+  - name: Kajárpéc
+    country: Hungary
+    locale: hu
+    search_variants: ["Kajárpéc", "Kajarpec", "Kajárpéc Magyarország"]
+    topic_tier: core
+  - name: Kajászó
+    country: Hungary
+    locale: hu
+    search_variants: ["Kajászó", "Kajaszo", "Kajászó Magyarország"]
+    topic_tier: core
+  - name: Kakasd
+    country: Hungary
+    locale: hu
+    search_variants: ["Kakasd", "Kakasd Magyarország"]
+    topic_tier: core
+  - name: Kakucs
+    country: Hungary
+    locale: hu
+    search_variants: ["Kakucs", "Kakucs Magyarország"]
+    topic_tier: core
+  - name: Kaposfő
+    country: Hungary
+    locale: hu
+    search_variants: ["Kaposfő", "Kaposfo", "Kaposfő Magyarország"]
+    topic_tier: core
+  - name: Kaposmérő
+    country: Hungary
+    locale: hu
+    search_variants: ["Kaposmérő", "Kaposmero", "Kaposmérő Magyarország"]
+    topic_tier: core
+  - name: Kaposszekcső
+    country: Hungary
+    locale: hu
+    search_variants: ["Kaposszekcső", "Kaposszekcso", "Kaposszekcső Magyarország"]
+    topic_tier: core
+  - name: Karancsalja
+    country: Hungary
+    locale: hu
+    search_variants: ["Karancsalja", "Karancsalja Magyarország"]
+    topic_tier: core
+  - name: Karancskeszi
+    country: Hungary
+    locale: hu
+    search_variants: ["Karancskeszi", "Karancskeszi Magyarország"]
+    topic_tier: core
+  - name: Karancslapujtő
+    country: Hungary
+    locale: hu
+    search_variants: ["Karancslapujtő", "Karancslapujto", "Karancslapujtő Magyarország"]
+    topic_tier: core
+  - name: Karancsság
+    country: Hungary
+    locale: hu
+    search_variants: ["Karancsság", "Karancssag", "Karancsság Magyarország"]
+    topic_tier: core
+  - name: Karcsa
+    country: Hungary
+    locale: hu
+    search_variants: ["Karcsa", "Karcsa Magyarország"]
+    topic_tier: core
+  - name: Kartal
+    country: Hungary
+    locale: hu
+    search_variants: ["Kartal", "Kartal Magyarország"]
+    topic_tier: core
+  - name: Karácsond
+    country: Hungary
+    locale: hu
+    search_variants: ["Karácsond", "Karacsond", "Karácsond Magyarország"]
+    topic_tier: core
+  - name: Karád
+    country: Hungary
+    locale: hu
+    search_variants: ["Karád", "Karad", "Karád Magyarország"]
+    topic_tier: core
+  - name: Kaszaper
+    country: Hungary
+    locale: hu
+    search_variants: ["Kaszaper", "Kaszaper Magyarország"]
+    topic_tier: core
+  - name: Katymár
+    country: Hungary
+    locale: hu
+    search_variants: ["Katymár", "Katymar", "Katymár Magyarország"]
+    topic_tier: core
+  - name: Kazár
+    country: Hungary
+    locale: hu
+    search_variants: ["Kazár", "Kazar", "Kazár Magyarország"]
+    topic_tier: core
+  - name: Kecskéd
+    country: Hungary
+    locale: hu
+    search_variants: ["Kecskéd", "Kecsked", "Kecskéd Magyarország"]
+    topic_tier: core
+  - name: Kehidakustány
+    country: Hungary
+    locale: hu
+    search_variants: ["Kehidakustány", "Kehidakustany", "Kehidakustány Magyarország"]
+    topic_tier: core
+  - name: Kelebia
+    country: Hungary
+    locale: hu
+    search_variants: ["Kelebia", "Kelebia Magyarország"]
+    topic_tier: core
+  - name: Kengyel
+    country: Hungary
+    locale: hu
+    search_variants: ["Kengyel", "Kengyel Magyarország"]
+    topic_tier: core
+  - name: Kerecsend
+    country: Hungary
+    locale: hu
+    search_variants: ["Kerecsend", "Kerecsend Magyarország"]
+    topic_tier: core
+  - name: Kesznyéten
+    country: Hungary
+    locale: hu
+    search_variants: ["Kesznyéten", "Kesznyeten", "Kesznyéten Magyarország"]
+    topic_tier: core
+  - name: Kesztölc
+    country: Hungary
+    locale: hu
+    search_variants: ["Kesztölc", "Kesztolc", "Kesztölc Magyarország"]
+    topic_tier: core
+  - name: Keszü
+    country: Hungary
+    locale: hu
+    search_variants: ["Keszü", "Keszu", "Keszü Magyarország"]
+    topic_tier: core
+  - name: Kevermes
+    country: Hungary
+    locale: hu
+    search_variants: ["Kevermes", "Kevermes Magyarország"]
+    topic_tier: core
+  - name: Kimle
+    country: Hungary
+    locale: hu
+    search_variants: ["Kimle", "Kimle Magyarország"]
+    topic_tier: core
+  - name: Kincsesbánya
+    country: Hungary
+    locale: hu
+    search_variants: ["Kincsesbánya", "Kincsesbanya", "Kincsesbánya Magyarország"]
+    topic_tier: core
+  - name: Kisapostag
+    country: Hungary
+    locale: hu
+    search_variants: ["Kisapostag", "Kisapostag Magyarország"]
+    topic_tier: core
+  - name: Kisgyőr
+    country: Hungary
+    locale: hu
+    search_variants: ["Kisgyőr", "Kisgyor", "Kisgyőr Magyarország"]
+    topic_tier: core
+  - name: Kiskunlacháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Kiskunlacháza", "Kiskunlachaza", "Kiskunlacháza Magyarország"]
+    topic_tier: core
+  - name: Kisláng
+    country: Hungary
+    locale: hu
+    search_variants: ["Kisláng", "Kislang", "Kisláng Magyarország"]
+    topic_tier: core
+  - name: Kisléta
+    country: Hungary
+    locale: hu
+    search_variants: ["Kisléta", "Kisleta", "Kisléta Magyarország"]
+    topic_tier: core
+  - name: Kislőd
+    country: Hungary
+    locale: hu
+    search_variants: ["Kislőd", "Kislod", "Kislőd Magyarország"]
+    topic_tier: core
+  - name: Kismarja
+    country: Hungary
+    locale: hu
+    search_variants: ["Kismarja", "Kismarja Magyarország"]
+    topic_tier: core
+  - name: Kismaros
+    country: Hungary
+    locale: hu
+    search_variants: ["Kismaros", "Kismaros Magyarország"]
+    topic_tier: core
+  - name: Kisszállás
+    country: Hungary
+    locale: hu
+    search_variants: ["Kisszállás", "Kisszallas", "Kisszállás Magyarország"]
+    topic_tier: core
+  - name: Kistokaj
+    country: Hungary
+    locale: hu
+    search_variants: ["Kistokaj", "Kistokaj Magyarország"]
+    topic_tier: core
+  - name: Kiszombor
+    country: Hungary
+    locale: hu
+    search_variants: ["Kiszombor", "Kiszombor Magyarország"]
+    topic_tier: core
+  - name: Kocs
+    country: Hungary
+    locale: hu
+    search_variants: ["Kocs", "Kocs Magyarország"]
+    topic_tier: core
+  - name: Kocsola
+    country: Hungary
+    locale: hu
+    search_variants: ["Kocsola", "Kocsola Magyarország"]
+    topic_tier: core
+  - name: Kocsord
+    country: Hungary
+    locale: hu
+    search_variants: ["Kocsord", "Kocsord Magyarország"]
+    topic_tier: core
+  - name: Kocsér
+    country: Hungary
+    locale: hu
+    search_variants: ["Kocsér", "Kocser", "Kocsér Magyarország"]
+    topic_tier: core
+  - name: Komoró
+    country: Hungary
+    locale: hu
+    search_variants: ["Komoró", "Komoro", "Komoró Magyarország"]
+    topic_tier: core
+  - name: Kompolt
+    country: Hungary
+    locale: hu
+    search_variants: ["Kompolt", "Kompolt Magyarország"]
+    topic_tier: core
+  - name: Kondoros
+    country: Hungary
+    locale: hu
+    search_variants: ["Kondoros", "Kondoros Magyarország"]
+    topic_tier: core
+  - name: Konyár
+    country: Hungary
+    locale: hu
+    search_variants: ["Konyár", "Konyar", "Konyár Magyarország"]
+    topic_tier: core
+  - name: Koroncó
+    country: Hungary
+    locale: hu
+    search_variants: ["Koroncó", "Koronco", "Koroncó Magyarország"]
+    topic_tier: core
+  - name: Kosd
+    country: Hungary
+    locale: hu
+    search_variants: ["Kosd", "Kosd Magyarország"]
+    topic_tier: core
+  - name: Kulcs
+    country: Hungary
+    locale: hu
+    search_variants: ["Kulcs", "Kulcs Magyarország"]
+    topic_tier: core
+  - name: Kunadacs
+    country: Hungary
+    locale: hu
+    search_variants: ["Kunadacs", "Kunadacs Magyarország"]
+    topic_tier: core
+  - name: Kunbaja
+    country: Hungary
+    locale: hu
+    search_variants: ["Kunbaja", "Kunbaja Magyarország"]
+    topic_tier: core
+  - name: Kunfehértó
+    country: Hungary
+    locale: hu
+    search_variants: ["Kunfehértó", "Kunfeherto", "Kunfehértó Magyarország"]
+    topic_tier: core
+  - name: Kunmadaras
+    country: Hungary
+    locale: hu
+    search_variants: ["Kunmadaras", "Kunmadaras Magyarország"]
+    topic_tier: core
+  - name: Kunsziget
+    country: Hungary
+    locale: hu
+    search_variants: ["Kunsziget", "Kunsziget Magyarország"]
+    topic_tier: core
+  - name: Kunszállás
+    country: Hungary
+    locale: hu
+    search_variants: ["Kunszállás", "Kunszallas", "Kunszállás Magyarország"]
+    topic_tier: core
+  - name: Kunágota
+    country: Hungary
+    locale: hu
+    search_variants: ["Kunágota", "Kunagota", "Kunágota Magyarország"]
+    topic_tier: core
+  - name: Kurityán
+    country: Hungary
+    locale: hu
+    search_variants: ["Kurityán", "Kurityan", "Kurityán Magyarország"]
+    topic_tier: core
+  - name: Kutas
+    country: Hungary
+    locale: hu
+    search_variants: ["Kutas", "Kutas Magyarország"]
+    topic_tier: core
+  - name: Kál
+    country: Hungary
+    locale: hu
+    search_variants: ["Kál", "Kal", "Kál Magyarország"]
+    topic_tier: core
+  - name: Kálló
+    country: Hungary
+    locale: hu
+    search_variants: ["Kálló", "Kallo", "Kálló Magyarország"]
+    topic_tier: core
+  - name: Kállósemjén
+    country: Hungary
+    locale: hu
+    search_variants: ["Kállósemjén", "Kallosemjen", "Kállósemjén Magyarország"]
+    topic_tier: core
+  - name: Kálmánháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Kálmánháza", "Kalmanhaza", "Kálmánháza Magyarország"]
+    topic_tier: core
+  - name: Káloz
+    country: Hungary
+    locale: hu
+    search_variants: ["Káloz", "Kaloz", "Káloz Magyarország"]
+    topic_tier: core
+  - name: Kántorjánosi
+    country: Hungary
+    locale: hu
+    search_variants: ["Kántorjánosi", "Kantorjanosi", "Kántorjánosi Magyarország"]
+    topic_tier: core
+  - name: Kápolna
+    country: Hungary
+    locale: hu
+    search_variants: ["Kápolna", "Kapolna", "Kápolna Magyarország"]
+    topic_tier: core
+  - name: Kápolnásnyék
+    country: Hungary
+    locale: hu
+    search_variants: ["Kápolnásnyék", "Kapolnasnyek", "Kápolnásnyék Magyarország"]
+    topic_tier: core
+  - name: Kék
+    country: Hungary
+    locale: hu
+    search_variants: ["Kék", "Kek", "Kék Magyarország"]
+    topic_tier: core
+  - name: Kékcse
+    country: Hungary
+    locale: hu
+    search_variants: ["Kékcse", "Kekcse", "Kékcse Magyarország"]
+    topic_tier: core
+  - name: Kétegyháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Kétegyháza", "Ketegyhaza", "Kétegyháza Magyarország"]
+    topic_tier: core
+  - name: Kéthely
+    country: Hungary
+    locale: hu
+    search_variants: ["Kéthely", "Kethely", "Kéthely Magyarország"]
+    topic_tier: core
+  - name: Kétsoprony
+    country: Hungary
+    locale: hu
+    search_variants: ["Kétsoprony", "Ketsoprony", "Kétsoprony Magyarország"]
+    topic_tier: core
+  - name: Kóka
+    country: Hungary
+    locale: hu
+    search_variants: ["Kóka", "Koka", "Kóka Magyarország"]
+    topic_tier: core
+  - name: Kóny
+    country: Hungary
+    locale: hu
+    search_variants: ["Kóny", "Kony", "Kóny Magyarország"]
+    topic_tier: core
+  - name: Kópháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Kópháza", "Kophaza", "Kópháza Magyarország"]
+    topic_tier: core
+  - name: Kótaj
+    country: Hungary
+    locale: hu
+    search_variants: ["Kótaj", "Kotaj", "Kótaj Magyarország"]
+    topic_tier: core
+  - name: Kölcse
+    country: Hungary
+    locale: hu
+    search_variants: ["Kölcse", "Kolcse", "Kölcse Magyarország"]
+    topic_tier: core
+  - name: Kölesd
+    country: Hungary
+    locale: hu
+    search_variants: ["Kölesd", "Kolesd", "Kölesd Magyarország"]
+    topic_tier: core
+  - name: "Kömlő (Heves)"
+    country: Hungary
+    locale: hu
+    search_variants: ["Kömlő", "Komlo", "Kömlő Magyarország"]
+    topic_tier: core
+  - name: Kömlőd
+    country: Hungary
+    locale: hu
+    search_variants: ["Kömlőd", "Komlod", "Kömlőd Magyarország"]
+    topic_tier: core
+  - name: Környe
+    country: Hungary
+    locale: hu
+    search_variants: ["Környe", "Kornye", "Környe Magyarország"]
+    topic_tier: core
+  - name: Köröm
+    country: Hungary
+    locale: hu
+    search_variants: ["Köröm", "Korom", "Köröm Magyarország"]
+    topic_tier: core
+  - name: Köröstarcsa
+    country: Hungary
+    locale: hu
+    search_variants: ["Köröstarcsa", "Korostarcsa", "Köröstarcsa Magyarország"]
+    topic_tier: core
+  - name: Kötegyán
+    country: Hungary
+    locale: hu
+    search_variants: ["Kötegyán", "Kotegyan", "Kötegyán Magyarország"]
+    topic_tier: core
+  - name: Kübekháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Kübekháza", "Kubekhaza", "Kübekháza Magyarország"]
+    topic_tier: core
+  - name: Kőröshegy
+    country: Hungary
+    locale: hu
+    search_variants: ["Kőröshegy", "Koroshegy", "Kőröshegy Magyarország"]
+    topic_tier: core
+  - name: Kőszárhegy
+    country: Hungary
+    locale: hu
+    search_variants: ["Kőszárhegy", "Koszarhegy", "Kőszárhegy Magyarország"]
+    topic_tier: core
+  - name: Kőtelek
+    country: Hungary
+    locale: hu
+    search_variants: ["Kőtelek", "Kotelek", "Kőtelek Magyarország"]
+    topic_tier: core
+  - name: Kővágószőlős
+    country: Hungary
+    locale: hu
+    search_variants: ["Kővágószőlős", "Kovagoszolos", "Kővágószőlős Magyarország"]
+    topic_tier: core
+  - name: Ladánybene
+    country: Hungary
+    locale: hu
+    search_variants: ["Ladánybene", "Ladanybene", "Ladánybene Magyarország"]
+    topic_tier: core
+  - name: Lajoskomárom
+    country: Hungary
+    locale: hu
+    search_variants: ["Lajoskomárom", "Lajoskomarom", "Lajoskomárom Magyarország"]
+    topic_tier: core
+  - name: Lakitelek
+    country: Hungary
+    locale: hu
+    search_variants: ["Lakitelek", "Lakitelek Magyarország"]
+    topic_tier: core
+  - name: Legyesbénye
+    country: Hungary
+    locale: hu
+    search_variants: ["Legyesbénye", "Legyesbenye", "Legyesbénye Magyarország"]
+    topic_tier: core
+  - name: Lepsény
+    country: Hungary
+    locale: hu
+    search_variants: ["Lepsény", "Lepseny", "Lepsény Magyarország"]
+    topic_tier: core
+  - name: Lesencetomaj
+    country: Hungary
+    locale: hu
+    search_variants: ["Lesencetomaj", "Lesencetomaj Magyarország"]
+    topic_tier: core
+  - name: Letkés
+    country: Hungary
+    locale: hu
+    search_variants: ["Letkés", "Letkes", "Letkés Magyarország"]
+    topic_tier: core
+  - name: Levelek
+    country: Hungary
+    locale: hu
+    search_variants: ["Levelek", "Levelek Magyarország"]
+    topic_tier: core
+  - name: Levél
+    country: Hungary
+    locale: hu
+    search_variants: ["Levél", "Level", "Levél Magyarország"]
+    topic_tier: core
+  - name: Leányfalu
+    country: Hungary
+    locale: hu
+    search_variants: ["Leányfalu", "Leanyfalu", "Leányfalu Magyarország"]
+    topic_tier: core
+  - name: Leányvár
+    country: Hungary
+    locale: hu
+    search_variants: ["Leányvár", "Leanyvar", "Leányvár Magyarország"]
+    topic_tier: core
+  - name: Litér
+    country: Hungary
+    locale: hu
+    search_variants: ["Litér", "Liter", "Litér Magyarország"]
+    topic_tier: core
+  - name: Lovasberény
+    country: Hungary
+    locale: hu
+    search_variants: ["Lovasberény", "Lovasbereny", "Lovasberény Magyarország"]
+    topic_tier: core
+  - name: Lovászi
+    country: Hungary
+    locale: hu
+    search_variants: ["Lovászi", "Lovaszi", "Lovászi Magyarország"]
+    topic_tier: core
+  - name: Lovászpatona
+    country: Hungary
+    locale: hu
+    search_variants: ["Lovászpatona", "Lovaszpatona", "Lovászpatona Magyarország"]
+    topic_tier: core
+  - name: Ludányhalászi
+    country: Hungary
+    locale: hu
+    search_variants: ["Ludányhalászi", "Ludanyhalaszi", "Ludányhalászi Magyarország"]
+    topic_tier: core
+  - name: Lukácsháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Lukácsháza", "Lukacshaza", "Lukácsháza Magyarország"]
+    topic_tier: core
+  - name: Lábod
+    country: Hungary
+    locale: hu
+    search_variants: ["Lábod", "Labod", "Lábod Magyarország"]
+    topic_tier: core
+  - name: Lánycsók
+    country: Hungary
+    locale: hu
+    search_variants: ["Lánycsók", "Lanycsok", "Lánycsók Magyarország"]
+    topic_tier: core
+  - name: Látrány
+    country: Hungary
+    locale: hu
+    search_variants: ["Látrány", "Latrany", "Látrány Magyarország"]
+    topic_tier: core
+  - name: Lövő
+    country: Hungary
+    locale: hu
+    search_variants: ["Lövő", "Lovo", "Lövő Magyarország"]
+    topic_tier: core
+  - name: Lőkösháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Lőkösháza", "Lokoshaza", "Lőkösháza Magyarország"]
+    topic_tier: core
+  - name: Madaras
+    country: Hungary
+    locale: hu
+    search_variants: ["Madaras", "Madaras Magyarország"]
+    topic_tier: core
+  - name: Madocsa
+    country: Hungary
+    locale: hu
+    search_variants: ["Madocsa", "Madocsa Magyarország"]
+    topic_tier: core
+  - name: Magyaralmás
+    country: Hungary
+    locale: hu
+    search_variants: ["Magyaralmás", "Magyaralmas", "Magyaralmás Magyarország"]
+    topic_tier: core
+  - name: Magyarbánhegyes
+    country: Hungary
+    locale: hu
+    search_variants: ["Magyarbánhegyes", "Magyarbanhegyes", "Magyarbánhegyes Magyarország"]
+    topic_tier: core
+  - name: Magyarcsanád
+    country: Hungary
+    locale: hu
+    search_variants: ["Magyarcsanád", "Magyarcsanad", "Magyarcsanád Magyarország"]
+    topic_tier: core
+  - name: Magyarkeszi
+    country: Hungary
+    locale: hu
+    search_variants: ["Magyarkeszi", "Magyarkeszi Magyarország"]
+    topic_tier: core
+  - name: Magyarnándor
+    country: Hungary
+    locale: hu
+    search_variants: ["Magyarnándor", "Magyarnandor", "Magyarnándor Magyarország"]
+    topic_tier: core
+  - name: Magyarpolány
+    country: Hungary
+    locale: hu
+    search_variants: ["Magyarpolány", "Magyarpolany", "Magyarpolány Magyarország"]
+    topic_tier: core
+  - name: Majosháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Majosháza", "Majoshaza", "Majosháza Magyarország"]
+    topic_tier: core
+  - name: Maklár
+    country: Hungary
+    locale: hu
+    search_variants: ["Maklár", "Maklar", "Maklár Magyarország"]
+    topic_tier: core
+  - name: Makád
+    country: Hungary
+    locale: hu
+    search_variants: ["Makád", "Makad", "Makád Magyarország"]
+    topic_tier: core
+  - name: Markaz
+    country: Hungary
+    locale: hu
+    search_variants: ["Markaz", "Markaz Magyarország"]
+    topic_tier: core
+  - name: Maroslele
+    country: Hungary
+    locale: hu
+    search_variants: ["Maroslele", "Maroslele Magyarország"]
+    topic_tier: core
+  - name: Mecseknádasd
+    country: Hungary
+    locale: hu
+    search_variants: ["Mecseknádasd", "Mecseknadasd", "Mecseknádasd Magyarország"]
+    topic_tier: core
+  - name: Megyaszó
+    country: Hungary
+    locale: hu
+    search_variants: ["Megyaszó", "Megyaszo", "Megyaszó Magyarország"]
+    topic_tier: core
+  - name: Mende
+    country: Hungary
+    locale: hu
+    search_variants: ["Mende", "Mende Magyarország"]
+    topic_tier: core
+  - name: Mernye
+    country: Hungary
+    locale: hu
+    search_variants: ["Mernye", "Mernye Magyarország"]
+    topic_tier: core
+  - name: Mesztegnyő
+    country: Hungary
+    locale: hu
+    search_variants: ["Mesztegnyő", "Mesztegnyo", "Mesztegnyő Magyarország"]
+    topic_tier: core
+  - name: Mezőcsokonya
+    country: Hungary
+    locale: hu
+    search_variants: ["Mezőcsokonya", "Mezocsokonya", "Mezőcsokonya Magyarország"]
+    topic_tier: core
+  - name: Mezőfalva
+    country: Hungary
+    locale: hu
+    search_variants: ["Mezőfalva", "Mezofalva", "Mezőfalva Magyarország"]
+    topic_tier: core
+  - name: Mezőnyárád
+    country: Hungary
+    locale: hu
+    search_variants: ["Mezőnyárád", "Mezonyarad", "Mezőnyárád Magyarország"]
+    topic_tier: core
+  - name: Mezőszemere
+    country: Hungary
+    locale: hu
+    search_variants: ["Mezőszemere", "Mezoszemere", "Mezőszemere Magyarország"]
+    topic_tier: core
+  - name: Mezőszentgyörgy
+    country: Hungary
+    locale: hu
+    search_variants: ["Mezőszentgyörgy", "Mezoszentgyorgy", "Mezőszentgyörgy Magyarország"]
+    topic_tier: core
+  - name: Mezőszilas
+    country: Hungary
+    locale: hu
+    search_variants: ["Mezőszilas", "Mezoszilas", "Mezőszilas Magyarország"]
+    topic_tier: core
+  - name: Mezőtárkány
+    country: Hungary
+    locale: hu
+    search_variants: ["Mezőtárkány", "Mezotarkany", "Mezőtárkány Magyarország"]
+    topic_tier: core
+  - name: Mezőzombor
+    country: Hungary
+    locale: hu
+    search_variants: ["Mezőzombor", "Mezozombor", "Mezőzombor Magyarország"]
+    topic_tier: core
+  - name: Mihályi
+    country: Hungary
+    locale: hu
+    search_variants: ["Mihályi", "Mihalyi", "Mihályi Magyarország"]
+    topic_tier: core
+  - name: Mikepércs
+    country: Hungary
+    locale: hu
+    search_variants: ["Mikepércs", "Mikepercs", "Mikepércs Magyarország"]
+    topic_tier: core
+  - name: Miske
+    country: Hungary
+    locale: hu
+    search_variants: ["Miske", "Miske Magyarország"]
+    topic_tier: core
+  - name: Mocsa
+    country: Hungary
+    locale: hu
+    search_variants: ["Mocsa", "Mocsa Magyarország"]
+    topic_tier: core
+  - name: Mogyoród
+    country: Hungary
+    locale: hu
+    search_variants: ["Mogyoród", "Mogyorod", "Mogyoród Magyarország"]
+    topic_tier: core
+  - name: Monok
+    country: Hungary
+    locale: hu
+    search_variants: ["Monok", "Monok Magyarország"]
+    topic_tier: core
+  - name: Monorierdő
+    country: Hungary
+    locale: hu
+    search_variants: ["Monorierdő", "Monorierdo", "Monorierdő Magyarország"]
+    topic_tier: core
+  - name: Monostorapáti
+    country: Hungary
+    locale: hu
+    search_variants: ["Monostorapáti", "Monostorapati", "Monostorapáti Magyarország"]
+    topic_tier: core
+  - name: Monostorpályi
+    country: Hungary
+    locale: hu
+    search_variants: ["Monostorpályi", "Monostorpalyi", "Monostorpályi Magyarország"]
+    topic_tier: core
+  - name: Mosonszentmiklós
+    country: Hungary
+    locale: hu
+    search_variants: ["Mosonszentmiklós", "Mosonszentmiklos", "Mosonszentmiklós Magyarország"]
+    topic_tier: core
+  - name: Mosonszolnok
+    country: Hungary
+    locale: hu
+    search_variants: ["Mosonszolnok", "Mosonszolnok Magyarország"]
+    topic_tier: core
+  - name: Murakeresztúr
+    country: Hungary
+    locale: hu
+    search_variants: ["Murakeresztúr", "Murakeresztur", "Murakeresztúr Magyarország"]
+    topic_tier: core
+  - name: Murony
+    country: Hungary
+    locale: hu
+    search_variants: ["Murony", "Murony Magyarország"]
+    topic_tier: core
+  - name: Mád
+    country: Hungary
+    locale: hu
+    search_variants: ["Mád", "Mad", "Mád Magyarország"]
+    topic_tier: core
+  - name: Mályi
+    country: Hungary
+    locale: hu
+    search_variants: ["Mályi", "Malyi", "Mályi Magyarország"]
+    topic_tier: core
+  - name: Mány
+    country: Hungary
+    locale: hu
+    search_variants: ["Mány", "Many", "Mány Magyarország"]
+    topic_tier: core
+  - name: Máriakálnok
+    country: Hungary
+    locale: hu
+    search_variants: ["Máriakálnok", "Mariakalnok", "Máriakálnok Magyarország"]
+    topic_tier: core
+  - name: Márkó
+    country: Hungary
+    locale: hu
+    search_variants: ["Márkó", "Marko", "Márkó Magyarország"]
+    topic_tier: core
+  - name: Mártély
+    country: Hungary
+    locale: hu
+    search_variants: ["Mártély", "Martely", "Mártély Magyarország"]
+    topic_tier: core
+  - name: Mátraderecske
+    country: Hungary
+    locale: hu
+    search_variants: ["Mátraderecske", "Matraderecske", "Mátraderecske Magyarország"]
+    topic_tier: core
+  - name: Mátranovák
+    country: Hungary
+    locale: hu
+    search_variants: ["Mátranovák", "Matranovak", "Mátranovák Magyarország"]
+    topic_tier: core
+  - name: Mátraszőlős
+    country: Hungary
+    locale: hu
+    search_variants: ["Mátraszőlős", "Matraszolos", "Mátraszőlős Magyarország"]
+    topic_tier: core
+  - name: Mátraterenye
+    country: Hungary
+    locale: hu
+    search_variants: ["Mátraterenye", "Matraterenye", "Mátraterenye Magyarország"]
+    topic_tier: core
+  - name: Mátraverebély
+    country: Hungary
+    locale: hu
+    search_variants: ["Mátraverebély", "Matraverebely", "Mátraverebély Magyarország"]
+    topic_tier: core
+  - name: Máza
+    country: Hungary
+    locale: hu
+    search_variants: ["Máza", "Maza", "Máza Magyarország"]
+    topic_tier: core
+  - name: Méhkerék
+    country: Hungary
+    locale: hu
+    search_variants: ["Méhkerék", "Mehkerek", "Méhkerék Magyarország"]
+    topic_tier: core
+  - name: Méra
+    country: Hungary
+    locale: hu
+    search_variants: ["Méra", "Mera", "Méra Magyarország"]
+    topic_tier: core
+  - name: Mérk
+    country: Hungary
+    locale: hu
+    search_variants: ["Mérk", "Merk", "Mérk Magyarország"]
+    topic_tier: core
+  - name: Múcsony
+    country: Hungary
+    locale: hu
+    search_variants: ["Múcsony", "Mucsony", "Múcsony Magyarország"]
+    topic_tier: core
+  - name: Nagybajcs
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagybajcs", "Nagybajcs Magyarország"]
+    topic_tier: core
+  - name: Nagybaracska
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagybaracska", "Nagybaracska Magyarország"]
+    topic_tier: core
+  - name: Nagyberki
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagyberki", "Nagyberki Magyarország"]
+    topic_tier: core
+  - name: Nagyberény
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagyberény", "Nagybereny", "Nagyberény Magyarország"]
+    topic_tier: core
+  - name: Nagybánhegyes
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagybánhegyes", "Nagybanhegyes", "Nagybánhegyes Magyarország"]
+    topic_tier: core
+  - name: Nagycenk
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagycenk", "Nagycenk Magyarország"]
+    topic_tier: core
+  - name: Nagycserkesz
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagycserkesz", "Nagycserkesz Magyarország"]
+    topic_tier: core
+  - name: Nagydobos
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagydobos", "Nagydobos Magyarország"]
+    topic_tier: core
+  - name: Nagydorog
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagydorog", "Nagydorog Magyarország"]
+    topic_tier: core
+  - name: Nagyesztergár
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagyesztergár", "Nagyesztergar", "Nagyesztergár Magyarország"]
+    topic_tier: core
+  - name: Nagyfüged
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagyfüged", "Nagyfuged", "Nagyfüged Magyarország"]
+    topic_tier: core
+  - name: Nagyharsány
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagyharsány", "Nagyharsany", "Nagyharsány Magyarország"]
+    topic_tier: core
+  - name: Nagyhegyes
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagyhegyes", "Nagyhegyes Magyarország"]
+    topic_tier: core
+  - name: Nagyigmánd
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagyigmánd", "Nagyigmand", "Nagyigmánd Magyarország"]
+    topic_tier: core
+  - name: Nagykamarás
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagykamarás", "Nagykamaras", "Nagykamarás Magyarország"]
+    topic_tier: core
+  - name: Nagykarácsony
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagykarácsony", "Nagykaracsony", "Nagykarácsony Magyarország"]
+    topic_tier: core
+  - name: Nagykereki
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagykereki", "Nagykereki Magyarország"]
+    topic_tier: core
+  - name: Nagykovácsi
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagykovácsi", "Nagykovacsi", "Nagykovácsi Magyarország"]
+    topic_tier: core
+  - name: Nagykozár
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagykozár", "Nagykozar", "Nagykozár Magyarország"]
+    topic_tier: core
+  - name: Nagykörű
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagykörű", "Nagykoru", "Nagykörű Magyarország"]
+    topic_tier: core
+  - name: Nagylóc
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagylóc", "Nagyloc", "Nagylóc Magyarország"]
+    topic_tier: core
+  - name: Nagymágocs
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagymágocs", "Nagymagocs", "Nagymágocs Magyarország"]
+    topic_tier: core
+  - name: Nagyoroszi
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagyoroszi", "Nagyoroszi Magyarország"]
+    topic_tier: core
+  - name: Nagyrábé
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagyrábé", "Nagyrabe", "Nagyrábé Magyarország"]
+    topic_tier: core
+  - name: Nagyrécse
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagyrécse", "Nagyrecse", "Nagyrécse Magyarország"]
+    topic_tier: core
+  - name: Nagyréde
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagyréde", "Nagyrede", "Nagyréde Magyarország"]
+    topic_tier: core
+  - name: Nagyszentjános
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagyszentjános", "Nagyszentjanos", "Nagyszentjános Magyarország"]
+    topic_tier: core
+  - name: Nagyszénás
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagyszénás", "Nagyszenas", "Nagyszénás Magyarország"]
+    topic_tier: core
+  - name: Nagysáp
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagysáp", "Nagysap", "Nagysáp Magyarország"]
+    topic_tier: core
+  - name: Nagytarcsa
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagytarcsa", "Nagytarcsa Magyarország"]
+    topic_tier: core
+  - name: Nagyvarsány
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagyvarsány", "Nagyvarsany", "Nagyvarsány Magyarország"]
+    topic_tier: core
+  - name: Nagyvenyim
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagyvenyim", "Nagyvenyim Magyarország"]
+    topic_tier: core
+  - name: Nagyvázsony
+    country: Hungary
+    locale: hu
+    search_variants: ["Nagyvázsony", "Nagyvazsony", "Nagyvázsony Magyarország"]
+    topic_tier: core
+  - name: Napkor
+    country: Hungary
+    locale: hu
+    search_variants: ["Napkor", "Napkor Magyarország"]
+    topic_tier: core
+  - name: Naszály
+    country: Hungary
+    locale: hu
+    search_variants: ["Naszály", "Naszaly", "Naszály Magyarország"]
+    topic_tier: core
+  - name: Nemesnádudvar
+    country: Hungary
+    locale: hu
+    search_variants: ["Nemesnádudvar", "Nemesnadudvar", "Nemesnádudvar Magyarország"]
+    topic_tier: core
+  - name: Nemesvámos
+    country: Hungary
+    locale: hu
+    search_variants: ["Nemesvámos", "Nemesvamos", "Nemesvámos Magyarország"]
+    topic_tier: core
+  - name: Neszmély
+    country: Hungary
+    locale: hu
+    search_variants: ["Neszmély", "Neszmely", "Neszmély Magyarország"]
+    topic_tier: core
+  - name: Noszvaj
+    country: Hungary
+    locale: hu
+    search_variants: ["Noszvaj", "Noszvaj Magyarország"]
+    topic_tier: core
+  - name: Novaj
+    country: Hungary
+    locale: hu
+    search_variants: ["Novaj", "Novaj Magyarország"]
+    topic_tier: core
+  - name: Novajidrány
+    country: Hungary
+    locale: hu
+    search_variants: ["Novajidrány", "Novajidrany", "Novajidrány Magyarország"]
+    topic_tier: core
+  - name: Nyirád
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyirád", "Nyirad", "Nyirád Magyarország"]
+    topic_tier: core
+  - name: Nyáregyháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyáregyháza", "Nyaregyhaza", "Nyáregyháza Magyarország"]
+    topic_tier: core
+  - name: Nyárlőrinc
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyárlőrinc", "Nyarlorinc", "Nyárlőrinc Magyarország"]
+    topic_tier: core
+  - name: Nyársapát
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyársapát", "Nyarsapat", "Nyársapát Magyarország"]
+    topic_tier: core
+  - name: Nyíracsád
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyíracsád", "Nyiracsad", "Nyíracsád Magyarország"]
+    topic_tier: core
+  - name: Nyírbogdány
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyírbogdány", "Nyirbogdany", "Nyírbogdány Magyarország"]
+    topic_tier: core
+  - name: Nyírbogát
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyírbogát", "Nyirbogat", "Nyírbogát Magyarország"]
+    topic_tier: core
+  - name: Nyírbéltek
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyírbéltek", "Nyirbeltek", "Nyírbéltek Magyarország"]
+    topic_tier: core
+  - name: Nyírcsaholy
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyírcsaholy", "Nyircsaholy", "Nyírcsaholy Magyarország"]
+    topic_tier: core
+  - name: Nyírcsászári
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyírcsászári", "Nyircsaszari", "Nyírcsászári Magyarország"]
+    topic_tier: core
+  - name: Nyírgyulaj
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyírgyulaj", "Nyirgyulaj", "Nyírgyulaj Magyarország"]
+    topic_tier: core
+  - name: Nyíribrony
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyíribrony", "Nyiribrony", "Nyíribrony Magyarország"]
+    topic_tier: core
+  - name: Nyírkarász
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyírkarász", "Nyirkarasz", "Nyírkarász Magyarország"]
+    topic_tier: core
+  - name: Nyírkáta
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyírkáta", "Nyirkata", "Nyírkáta Magyarország"]
+    topic_tier: core
+  - name: Nyírmeggyes
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyírmeggyes", "Nyirmeggyes", "Nyírmeggyes Magyarország"]
+    topic_tier: core
+  - name: Nyírmihálydi
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyírmihálydi", "Nyirmihalydi", "Nyírmihálydi Magyarország"]
+    topic_tier: core
+  - name: Nyírmártonfalva
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyírmártonfalva", "Nyirmartonfalva", "Nyírmártonfalva Magyarország"]
+    topic_tier: core
+  - name: Nyírpazony
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyírpazony", "Nyirpazony", "Nyírpazony Magyarország"]
+    topic_tier: core
+  - name: Nyírtass
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyírtass", "Nyirtass", "Nyírtass Magyarország"]
+    topic_tier: core
+  - name: Nyírtura
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyírtura", "Nyirtura", "Nyírtura Magyarország"]
+    topic_tier: core
+  - name: Nyírvasvári
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyírvasvári", "Nyirvasvari", "Nyírvasvári Magyarország"]
+    topic_tier: core
+  - name: Nyírábrány
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyírábrány", "Nyirabrany", "Nyírábrány Magyarország"]
+    topic_tier: core
+  - name: Nyúl
+    country: Hungary
+    locale: hu
+    search_variants: ["Nyúl", "Nyul", "Nyúl Magyarország"]
+    topic_tier: core
+  - name: Nádasd
+    country: Hungary
+    locale: hu
+    search_variants: ["Nádasd", "Nadasd", "Nádasd Magyarország"]
+    topic_tier: core
+  - name: Nádasdladány
+    country: Hungary
+    locale: hu
+    search_variants: ["Nádasdladány", "Nadasdladany", "Nádasdladány Magyarország"]
+    topic_tier: core
+  - name: Nárai
+    country: Hungary
+    locale: hu
+    search_variants: ["Nárai", "Narai", "Nárai Magyarország"]
+    topic_tier: core
+  - name: Németkér
+    country: Hungary
+    locale: hu
+    search_variants: ["Németkér", "Nemetker", "Németkér Magyarország"]
+    topic_tier: core
+  - name: Nézsa
+    country: Hungary
+    locale: hu
+    search_variants: ["Nézsa", "Nezsa", "Nézsa Magyarország"]
+    topic_tier: core
+  - name: Nógrád
+    country: Hungary
+    locale: hu
+    search_variants: ["Nógrád", "Nograd", "Nógrád Magyarország"]
+    topic_tier: core
+  - name: Nógrádmegyer
+    country: Hungary
+    locale: hu
+    search_variants: ["Nógrádmegyer", "Nogradmegyer", "Nógrádmegyer Magyarország"]
+    topic_tier: core
+  - name: Nőtincs
+    country: Hungary
+    locale: hu
+    search_variants: ["Nőtincs", "Notincs", "Nőtincs Magyarország"]
+    topic_tier: core
+  - name: Okány
+    country: Hungary
+    locale: hu
+    search_variants: ["Okány", "Okany", "Okány Magyarország"]
+    topic_tier: core
+  - name: Olaszfalu
+    country: Hungary
+    locale: hu
+    search_variants: ["Olaszfalu", "Olaszfalu Magyarország"]
+    topic_tier: core
+  - name: Olaszliszka
+    country: Hungary
+    locale: hu
+    search_variants: ["Olaszliszka", "Olaszliszka Magyarország"]
+    topic_tier: core
+  - name: Onga
+    country: Hungary
+    locale: hu
+    search_variants: ["Onga", "Onga Magyarország"]
+    topic_tier: core
+  - name: Orfű
+    country: Hungary
+    locale: hu
+    search_variants: ["Orfű", "Orfu", "Orfű Magyarország"]
+    topic_tier: core
+  - name: Orgovány
+    country: Hungary
+    locale: hu
+    search_variants: ["Orgovány", "Orgovany", "Orgovány Magyarország"]
+    topic_tier: core
+  - name: Ormosbánya
+    country: Hungary
+    locale: hu
+    search_variants: ["Ormosbánya", "Ormosbanya", "Ormosbánya Magyarország"]
+    topic_tier: core
+  - name: Ostoros
+    country: Hungary
+    locale: hu
+    search_variants: ["Ostoros", "Ostoros Magyarország"]
+    topic_tier: core
+  - name: Ozora
+    country: Hungary
+    locale: hu
+    search_variants: ["Ozora", "Ozora Magyarország"]
+    topic_tier: core
+  - name: Palotás
+    country: Hungary
+    locale: hu
+    search_variants: ["Palotás", "Palotas", "Palotás Magyarország"]
+    topic_tier: core
+  - name: Pap
+    country: Hungary
+    locale: hu
+    search_variants: ["Pap", "Pap Magyarország"]
+    topic_tier: core
+  - name: Papkeszi
+    country: Hungary
+    locale: hu
+    search_variants: ["Papkeszi", "Papkeszi Magyarország"]
+    topic_tier: core
+  - name: Parasznya
+    country: Hungary
+    locale: hu
+    search_variants: ["Parasznya", "Parasznya Magyarország"]
+    topic_tier: core
+  - name: Parád
+    country: Hungary
+    locale: hu
+    search_variants: ["Parád", "Parad", "Parád Magyarország"]
+    topic_tier: core
+  - name: Paszab
+    country: Hungary
+    locale: hu
+    search_variants: ["Paszab", "Paszab Magyarország"]
+    topic_tier: core
+  - name: Pellérd
+    country: Hungary
+    locale: hu
+    search_variants: ["Pellérd", "Pellerd", "Pellérd Magyarország"]
+    topic_tier: core
+  - name: Penc
+    country: Hungary
+    locale: hu
+    search_variants: ["Penc", "Penc Magyarország"]
+    topic_tier: core
+  - name: Perbál
+    country: Hungary
+    locale: hu
+    search_variants: ["Perbál", "Perbal", "Perbál Magyarország"]
+    topic_tier: core
+  - name: Pereszteg
+    country: Hungary
+    locale: hu
+    search_variants: ["Pereszteg", "Pereszteg Magyarország"]
+    topic_tier: core
+  - name: Perkáta
+    country: Hungary
+    locale: hu
+    search_variants: ["Perkáta", "Perkata", "Perkáta Magyarország"]
+    topic_tier: core
+  - name: Petneháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Petneháza", "Petnehaza", "Petneháza Magyarország"]
+    topic_tier: core
+  - name: Petőfibánya
+    country: Hungary
+    locale: hu
+    search_variants: ["Petőfibánya", "Petofibanya", "Petőfibánya Magyarország"]
+    topic_tier: core
+  - name: Petőfiszállás
+    country: Hungary
+    locale: hu
+    search_variants: ["Petőfiszállás", "Petofiszallas", "Petőfiszállás Magyarország"]
+    topic_tier: core
+  - name: Petőháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Petőháza", "Petohaza", "Petőháza Magyarország"]
+    topic_tier: core
+  - name: Pilisborosjenő
+    country: Hungary
+    locale: hu
+    search_variants: ["Pilisborosjenő", "Pilisborosjeno", "Pilisborosjenő Magyarország"]
+    topic_tier: core
+  - name: Piliscsaba
+    country: Hungary
+    locale: hu
+    search_variants: ["Piliscsaba", "Piliscsaba Magyarország"]
+    topic_tier: core
+  - name: Piliscsév
+    country: Hungary
+    locale: hu
+    search_variants: ["Piliscsév", "Piliscsev", "Piliscsév Magyarország"]
+    topic_tier: core
+  - name: Pilisjászfalu
+    country: Hungary
+    locale: hu
+    search_variants: ["Pilisjászfalu", "Pilisjaszfalu", "Pilisjászfalu Magyarország"]
+    topic_tier: core
+  - name: Pilismarót
+    country: Hungary
+    locale: hu
+    search_variants: ["Pilismarót", "Pilismarot", "Pilismarót Magyarország"]
+    topic_tier: core
+  - name: Pilisszentiván
+    country: Hungary
+    locale: hu
+    search_variants: ["Pilisszentiván", "Pilisszentivan", "Pilisszentiván Magyarország"]
+    topic_tier: core
+  - name: Pilisszentkereszt
+    country: Hungary
+    locale: hu
+    search_variants: ["Pilisszentkereszt", "Pilisszentkereszt Magyarország"]
+    topic_tier: core
+  - name: Pilisszentlászló
+    country: Hungary
+    locale: hu
+    search_variants: ["Pilisszentlászló", "Pilisszentlaszlo", "Pilisszentlászló Magyarország"]
+    topic_tier: core
+  - name: Pilisszántó
+    country: Hungary
+    locale: hu
+    search_variants: ["Pilisszántó", "Pilisszanto", "Pilisszántó Magyarország"]
+    topic_tier: core
+  - name: Pincehely
+    country: Hungary
+    locale: hu
+    search_variants: ["Pincehely", "Pincehely Magyarország"]
+    topic_tier: core
+  - name: Piricse
+    country: Hungary
+    locale: hu
+    search_variants: ["Piricse", "Piricse Magyarország"]
+    topic_tier: core
+  - name: Pitvaros
+    country: Hungary
+    locale: hu
+    search_variants: ["Pitvaros", "Pitvaros Magyarország"]
+    topic_tier: core
+  - name: Pocsaj
+    country: Hungary
+    locale: hu
+    search_variants: ["Pocsaj", "Pocsaj Magyarország"]
+    topic_tier: core
+  - name: Pogány
+    country: Hungary
+    locale: hu
+    search_variants: ["Pogány", "Pogany", "Pogány Magyarország"]
+    topic_tier: core
+  - name: Porcsalma
+    country: Hungary
+    locale: hu
+    search_variants: ["Porcsalma", "Porcsalma Magyarország"]
+    topic_tier: core
+  - name: Poroszló
+    country: Hungary
+    locale: hu
+    search_variants: ["Poroszló", "Poroszlo", "Poroszló Magyarország"]
+    topic_tier: core
+  - name: Prügy
+    country: Hungary
+    locale: hu
+    search_variants: ["Prügy", "Prugy", "Prügy Magyarország"]
+    topic_tier: core
+  - name: Pusztadobos
+    country: Hungary
+    locale: hu
+    search_variants: ["Pusztadobos", "Pusztadobos Magyarország"]
+    topic_tier: core
+  - name: Pusztaföldvár
+    country: Hungary
+    locale: hu
+    search_variants: ["Pusztaföldvár", "Pusztafoldvar", "Pusztaföldvár Magyarország"]
+    topic_tier: core
+  - name: Pusztamonostor
+    country: Hungary
+    locale: hu
+    search_variants: ["Pusztamonostor", "Pusztamonostor Magyarország"]
+    topic_tier: core
+  - name: Pusztaszer
+    country: Hungary
+    locale: hu
+    search_variants: ["Pusztaszer", "Pusztaszer Magyarország"]
+    topic_tier: core
+  - name: Pusztavacs
+    country: Hungary
+    locale: hu
+    search_variants: ["Pusztavacs", "Pusztavacs Magyarország"]
+    topic_tier: core
+  - name: Pusztavám
+    country: Hungary
+    locale: hu
+    search_variants: ["Pusztavám", "Pusztavam", "Pusztavám Magyarország"]
+    topic_tier: core
+  - name: Pusztazámor
+    country: Hungary
+    locale: hu
+    search_variants: ["Pusztazámor", "Pusztazamor", "Pusztazámor Magyarország"]
+    topic_tier: core
+  - name: Pácin
+    country: Hungary
+    locale: hu
+    search_variants: ["Pácin", "Pacin", "Pácin Magyarország"]
+    topic_tier: core
+  - name: Páhi
+    country: Hungary
+    locale: hu
+    search_variants: ["Páhi", "Pahi", "Páhi Magyarország"]
+    topic_tier: core
+  - name: Pákozd
+    country: Hungary
+    locale: hu
+    search_variants: ["Pákozd", "Pakozd", "Pákozd Magyarország"]
+    topic_tier: core
+  - name: Pálfa
+    country: Hungary
+    locale: hu
+    search_variants: ["Pálfa", "Palfa", "Pálfa Magyarország"]
+    topic_tier: core
+  - name: Pálmonostora
+    country: Hungary
+    locale: hu
+    search_variants: ["Pálmonostora", "Palmonostora", "Pálmonostora Magyarország"]
+    topic_tier: core
+  - name: Pánd
+    country: Hungary
+    locale: hu
+    search_variants: ["Pánd", "Pand", "Pánd Magyarország"]
+    topic_tier: core
+  - name: Pápateszér
+    country: Hungary
+    locale: hu
+    search_variants: ["Pápateszér", "Papateszer", "Pápateszér Magyarország"]
+    topic_tier: core
+  - name: Pátka
+    country: Hungary
+    locale: hu
+    search_variants: ["Pátka", "Patka", "Pátka Magyarország"]
+    topic_tier: core
+  - name: Pátroha
+    country: Hungary
+    locale: hu
+    search_variants: ["Pátroha", "Patroha", "Pátroha Magyarország"]
+    topic_tier: core
+  - name: Páty
+    country: Hungary
+    locale: hu
+    search_variants: ["Páty", "Paty", "Páty Magyarország"]
+    topic_tier: core
+  - name: Pázmánd
+    country: Hungary
+    locale: hu
+    search_variants: ["Pázmánd", "Pazmand", "Pázmánd Magyarország"]
+    topic_tier: core
+  - name: Pázmándfalu
+    country: Hungary
+    locale: hu
+    search_variants: ["Pázmándfalu", "Pazmandfalu", "Pázmándfalu Magyarország"]
+    topic_tier: core
+  - name: Pély
+    country: Hungary
+    locale: hu
+    search_variants: ["Pély", "Pely", "Pély Magyarország"]
+    topic_tier: core
+  - name: Pér
+    country: Hungary
+    locale: hu
+    search_variants: ["Pér", "Per", "Pér Magyarország"]
+    topic_tier: core
+  - name: Péteri
+    country: Hungary
+    locale: hu
+    search_variants: ["Péteri", "Peteri", "Péteri Magyarország"]
+    topic_tier: core
+  - name: Pétfürdő
+    country: Hungary
+    locale: hu
+    search_variants: ["Pétfürdő", "Petfurdo", "Pétfürdő Magyarország"]
+    topic_tier: core
+  - name: Pócsmegyer
+    country: Hungary
+    locale: hu
+    search_variants: ["Pócsmegyer", "Pocsmegyer", "Pócsmegyer Magyarország"]
+    topic_tier: core
+  - name: Pócspetri
+    country: Hungary
+    locale: hu
+    search_variants: ["Pócspetri", "Pocspetri", "Pócspetri Magyarország"]
+    topic_tier: core
+  - name: Püspökhatvan
+    country: Hungary
+    locale: hu
+    search_variants: ["Püspökhatvan", "Puspokhatvan", "Püspökhatvan Magyarország"]
+    topic_tier: core
+  - name: Rajka
+    country: Hungary
+    locale: hu
+    search_variants: ["Rajka", "Rajka Magyarország"]
+    topic_tier: core
+  - name: Ramocsaháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Ramocsaháza", "Ramocsahaza", "Ramocsaháza Magyarország"]
+    topic_tier: core
+  - name: Ravazd
+    country: Hungary
+    locale: hu
+    search_variants: ["Ravazd", "Ravazd Magyarország"]
+    topic_tier: core
+  - name: Recsk
+    country: Hungary
+    locale: hu
+    search_variants: ["Recsk", "Recsk Magyarország"]
+    topic_tier: core
+  - name: Remeteszőlős
+    country: Hungary
+    locale: hu
+    search_variants: ["Remeteszőlős", "Remeteszolos", "Remeteszőlős Magyarország"]
+    topic_tier: core
+  - name: Rezi
+    country: Hungary
+    locale: hu
+    search_variants: ["Rezi", "Rezi Magyarország"]
+    topic_tier: core
+  - name: Ricse
+    country: Hungary
+    locale: hu
+    search_variants: ["Ricse", "Ricse Magyarország"]
+    topic_tier: core
+  - name: Rimóc
+    country: Hungary
+    locale: hu
+    search_variants: ["Rimóc", "Rimoc", "Rimóc Magyarország"]
+    topic_tier: core
+  - name: Rohod
+    country: Hungary
+    locale: hu
+    search_variants: ["Rohod", "Rohod Magyarország"]
+    topic_tier: core
+  - name: Romhány
+    country: Hungary
+    locale: hu
+    search_variants: ["Romhány", "Romhany", "Romhány Magyarország"]
+    topic_tier: core
+  - name: Rum
+    country: Hungary
+    locale: hu
+    search_variants: ["Rum", "Rum Magyarország"]
+    topic_tier: core
+  - name: Ruzsa
+    country: Hungary
+    locale: hu
+    search_variants: ["Ruzsa", "Ruzsa Magyarország"]
+    topic_tier: core
+  - name: Rábapatona
+    country: Hungary
+    locale: hu
+    search_variants: ["Rábapatona", "Rabapatona", "Rábapatona Magyarország"]
+    topic_tier: core
+  - name: Rábapaty
+    country: Hungary
+    locale: hu
+    search_variants: ["Rábapaty", "Rabapaty", "Rábapaty Magyarország"]
+    topic_tier: core
+  - name: Ráckeresztúr
+    country: Hungary
+    locale: hu
+    search_variants: ["Ráckeresztúr", "Rackeresztur", "Ráckeresztúr Magyarország"]
+    topic_tier: core
+  - name: Rád
+    country: Hungary
+    locale: hu
+    search_variants: ["Rád", "Rad", "Rád Magyarország"]
+    topic_tier: core
+  - name: Rákócziújfalu
+    country: Hungary
+    locale: hu
+    search_variants: ["Rákócziújfalu", "Rakocziujfalu", "Rákócziújfalu Magyarország"]
+    topic_tier: core
+  - name: Réde
+    country: Hungary
+    locale: hu
+    search_variants: ["Réde", "Rede", "Réde Magyarország"]
+    topic_tier: core
+  - name: Rém
+    country: Hungary
+    locale: hu
+    search_variants: ["Rém", "Rem", "Rém Magyarország"]
+    topic_tier: core
+  - name: Rétközberencs
+    country: Hungary
+    locale: hu
+    search_variants: ["Rétközberencs", "Retkozberencs", "Rétközberencs Magyarország"]
+    topic_tier: core
+  - name: Révfülöp
+    country: Hungary
+    locale: hu
+    search_variants: ["Révfülöp", "Revfulop", "Révfülöp Magyarország"]
+    topic_tier: core
+  - name: Rózsaszentmárton
+    country: Hungary
+    locale: hu
+    search_variants: ["Rózsaszentmárton", "Rozsaszentmarton", "Rózsaszentmárton Magyarország"]
+    topic_tier: core
+  - name: Röszke
+    country: Hungary
+    locale: hu
+    search_variants: ["Röszke", "Roszke", "Röszke Magyarország"]
+    topic_tier: core
+  - name: Sajóhídvég
+    country: Hungary
+    locale: hu
+    search_variants: ["Sajóhídvég", "Sajohidveg", "Sajóhídvég Magyarország"]
+    topic_tier: core
+  - name: Sajókaza
+    country: Hungary
+    locale: hu
+    search_variants: ["Sajókaza", "Sajokaza", "Sajókaza Magyarország"]
+    topic_tier: core
+  - name: Sajókeresztúr
+    country: Hungary
+    locale: hu
+    search_variants: ["Sajókeresztúr", "Sajokeresztur", "Sajókeresztúr Magyarország"]
+    topic_tier: core
+  - name: Sajólád
+    country: Hungary
+    locale: hu
+    search_variants: ["Sajólád", "Sajolad", "Sajólád Magyarország"]
+    topic_tier: core
+  - name: Sajópetri
+    country: Hungary
+    locale: hu
+    search_variants: ["Sajópetri", "Sajopetri", "Sajópetri Magyarország"]
+    topic_tier: core
+  - name: Sajószöged
+    country: Hungary
+    locale: hu
+    search_variants: ["Sajószöged", "Sajoszoged", "Sajószöged Magyarország"]
+    topic_tier: core
+  - name: Sajóvámos
+    country: Hungary
+    locale: hu
+    search_variants: ["Sajóvámos", "Sajovamos", "Sajóvámos Magyarország"]
+    topic_tier: core
+  - name: Sajóörös
+    country: Hungary
+    locale: hu
+    search_variants: ["Sajóörös", "Sajooros", "Sajóörös Magyarország"]
+    topic_tier: core
+  - name: Sarkadkeresztúr
+    country: Hungary
+    locale: hu
+    search_variants: ["Sarkadkeresztúr", "Sarkadkeresztur", "Sarkadkeresztúr Magyarország"]
+    topic_tier: core
+  - name: Sarród
+    country: Hungary
+    locale: hu
+    search_variants: ["Sarród", "Sarrod", "Sarród Magyarország"]
+    topic_tier: core
+  - name: Segesd
+    country: Hungary
+    locale: hu
+    search_variants: ["Segesd", "Segesd Magyarország"]
+    topic_tier: core
+  - name: Seregélyes
+    country: Hungary
+    locale: hu
+    search_variants: ["Seregélyes", "Seregelyes", "Seregélyes Magyarország"]
+    topic_tier: core
+  - name: Sirok
+    country: Hungary
+    locale: hu
+    search_variants: ["Sirok", "Sirok Magyarország"]
+    topic_tier: core
+  - name: Sióagárd
+    country: Hungary
+    locale: hu
+    search_variants: ["Sióagárd", "Sioagard", "Sióagárd Magyarország"]
+    topic_tier: core
+  - name: Sokorópátka
+    country: Hungary
+    locale: hu
+    search_variants: ["Sokorópátka", "Sokoropatka", "Sokorópátka Magyarország"]
+    topic_tier: core
+  - name: Soltszentimre
+    country: Hungary
+    locale: hu
+    search_variants: ["Soltszentimre", "Soltszentimre Magyarország"]
+    topic_tier: core
+  - name: Solymár
+    country: Hungary
+    locale: hu
+    search_variants: ["Solymár", "Solymar", "Solymár Magyarország"]
+  - name: Somberek
+    country: Hungary
+    locale: hu
+    search_variants: ["Somberek", "Somberek Magyarország"]
+    topic_tier: core
+  - name: Somogyjád
+    country: Hungary
+    locale: hu
+    search_variants: ["Somogyjád", "Somogyjad", "Somogyjád Magyarország"]
+    topic_tier: core
+  - name: Somogyszob
+    country: Hungary
+    locale: hu
+    search_variants: ["Somogyszob", "Somogyszob Magyarország"]
+    topic_tier: core
+  - name: Somogysárd
+    country: Hungary
+    locale: hu
+    search_variants: ["Somogysárd", "Somogysard", "Somogysárd Magyarország"]
+    topic_tier: core
+  - name: Somogyvár
+    country: Hungary
+    locale: hu
+    search_variants: ["Somogyvár", "Somogyvar", "Somogyvár Magyarország"]
+    topic_tier: core
+  - name: Somoskőújfalu
+    country: Hungary
+    locale: hu
+    search_variants: ["Somoskőújfalu", "Somoskoujfalu", "Somoskőújfalu Magyarország"]
+    topic_tier: core
+  - name: Soponya
+    country: Hungary
+    locale: hu
+    search_variants: ["Soponya", "Soponya Magyarország"]
+    topic_tier: core
+  - name: Sopronkövesd
+    country: Hungary
+    locale: hu
+    search_variants: ["Sopronkövesd", "Sopronkovesd", "Sopronkövesd Magyarország"]
+    topic_tier: core
+  - name: Sukoró
+    country: Hungary
+    locale: hu
+    search_variants: ["Sukoró", "Sukoro", "Sukoró Magyarország"]
+    topic_tier: core
+  - name: Szabadbattyán
+    country: Hungary
+    locale: hu
+    search_variants: ["Szabadbattyán", "Szabadbattyan", "Szabadbattyán Magyarország"]
+    topic_tier: core
+  - name: Szabadegyháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Szabadegyháza", "Szabadegyhaza", "Szabadegyháza Magyarország"]
+    topic_tier: core
+  - name: Szabadkígyós
+    country: Hungary
+    locale: hu
+    search_variants: ["Szabadkígyós", "Szabadkigyos", "Szabadkígyós Magyarország"]
+    topic_tier: core
+  - name: Szabolcsbáka
+    country: Hungary
+    locale: hu
+    search_variants: ["Szabolcsbáka", "Szabolcsbaka", "Szabolcsbáka Magyarország"]
+    topic_tier: core
+  - name: Szabolcsveresmart
+    country: Hungary
+    locale: hu
+    search_variants: ["Szabolcsveresmart", "Szabolcsveresmart Magyarország"]
+    topic_tier: core
+  - name: Szada
+    country: Hungary
+    locale: hu
+    search_variants: ["Szada", "Szada Magyarország"]
+    topic_tier: core
+  - name: Szajol
+    country: Hungary
+    locale: hu
+    search_variants: ["Szajol", "Szajol Magyarország"]
+    topic_tier: core
+  - name: Szakmár
+    country: Hungary
+    locale: hu
+    search_variants: ["Szakmár", "Szakmar", "Szakmár Magyarország"]
+    topic_tier: core
+  - name: Szakoly
+    country: Hungary
+    locale: hu
+    search_variants: ["Szakoly", "Szakoly Magyarország"]
+    topic_tier: core
+  - name: Szakály
+    country: Hungary
+    locale: hu
+    search_variants: ["Szakály", "Szakaly", "Szakály Magyarország"]
+    topic_tier: core
+  - name: Szalaszend
+    country: Hungary
+    locale: hu
+    search_variants: ["Szalaszend", "Szalaszend Magyarország"]
+    topic_tier: core
+  - name: Szalkszentmárton
+    country: Hungary
+    locale: hu
+    search_variants: ["Szalkszentmárton", "Szalkszentmarton", "Szalkszentmárton Magyarország"]
+    topic_tier: core
+  - name: Szalánta
+    country: Hungary
+    locale: hu
+    search_variants: ["Szalánta", "Szalanta", "Szalánta Magyarország"]
+    topic_tier: core
+  - name: Szamosszeg
+    country: Hungary
+    locale: hu
+    search_variants: ["Szamosszeg", "Szamosszeg Magyarország"]
+    topic_tier: core
+  - name: Szank
+    country: Hungary
+    locale: hu
+    search_variants: ["Szank", "Szank Magyarország"]
+    topic_tier: core
+  - name: Szany
+    country: Hungary
+    locale: hu
+    search_variants: ["Szany", "Szany Magyarország"]
+    topic_tier: core
+  - name: Szatmárcseke
+    country: Hungary
+    locale: hu
+    search_variants: ["Szatmárcseke", "Szatmarcseke", "Szatmárcseke Magyarország"]
+    topic_tier: core
+  - name: Szatymaz
+    country: Hungary
+    locale: hu
+    search_variants: ["Szatymaz", "Szatymaz Magyarország"]
+    topic_tier: core
+  - name: Szederkény
+    country: Hungary
+    locale: hu
+    search_variants: ["Szederkény", "Szederkeny", "Szederkény Magyarország"]
+    topic_tier: core
+  - name: Szedres
+    country: Hungary
+    locale: hu
+    search_variants: ["Szedres", "Szedres Magyarország"]
+    topic_tier: core
+  - name: Szegvár
+    country: Hungary
+    locale: hu
+    search_variants: ["Szegvár", "Szegvar", "Szegvár Magyarország"]
+    topic_tier: core
+  - name: Szendehely
+    country: Hungary
+    locale: hu
+    search_variants: ["Szendehely", "Szendehely Magyarország"]
+    topic_tier: core
+  - name: Szendrőlád
+    country: Hungary
+    locale: hu
+    search_variants: ["Szendrőlád", "Szendrolad", "Szendrőlád Magyarország"]
+    topic_tier: core
+  - name: Szentgál
+    country: Hungary
+    locale: hu
+    search_variants: ["Szentgál", "Szentgal", "Szentgál Magyarország"]
+    topic_tier: core
+  - name: Szentistván
+    country: Hungary
+    locale: hu
+    search_variants: ["Szentistván", "Szentistvan", "Szentistván Magyarország"]
+    topic_tier: core
+  - name: Szentkirály
+    country: Hungary
+    locale: hu
+    search_variants: ["Szentkirály", "Szentkiraly", "Szentkirály Magyarország"]
+    topic_tier: core
+  - name: Szentkirályszabadja
+    country: Hungary
+    locale: hu
+    search_variants: ["Szentkirályszabadja", "Szentkiralyszabadja", "Szentkirályszabadja Magyarország"]
+    topic_tier: core
+  - name: Szentlőrinckáta
+    country: Hungary
+    locale: hu
+    search_variants: ["Szentlőrinckáta", "Szentlorinckata", "Szentlőrinckáta Magyarország"]
+    topic_tier: core
+  - name: Szentmártonkáta
+    country: Hungary
+    locale: hu
+    search_variants: ["Szentmártonkáta", "Szentmartonkata", "Szentmártonkáta Magyarország"]
+    topic_tier: core
+  - name: Szepetnek
+    country: Hungary
+    locale: hu
+    search_variants: ["Szepetnek", "Szepetnek Magyarország"]
+    topic_tier: core
+  - name: Szeremle
+    country: Hungary
+    locale: hu
+    search_variants: ["Szeremle", "Szeremle Magyarország"]
+    topic_tier: core
+  - name: Szerep
+    country: Hungary
+    locale: hu
+    search_variants: ["Szerep", "Szerep Magyarország"]
+    topic_tier: core
+  - name: Szigetbecse
+    country: Hungary
+    locale: hu
+    search_variants: ["Szigetbecse", "Szigetbecse Magyarország"]
+    topic_tier: core
+  - name: Szigetcsép
+    country: Hungary
+    locale: hu
+    search_variants: ["Szigetcsép", "Szigetcsep", "Szigetcsép Magyarország"]
+    topic_tier: core
+  - name: Szigetmonostor
+    country: Hungary
+    locale: hu
+    search_variants: ["Szigetmonostor", "Szigetmonostor Magyarország"]
+    topic_tier: core
+  - name: Szigetszentmárton
+    country: Hungary
+    locale: hu
+    search_variants: ["Szigetszentmárton", "Szigetszentmarton", "Szigetszentmárton Magyarország"]
+    topic_tier: core
+  - name: Szigetújfalu
+    country: Hungary
+    locale: hu
+    search_variants: ["Szigetújfalu", "Szigetujfalu", "Szigetújfalu Magyarország"]
+    topic_tier: core
+  - name: Szihalom
+    country: Hungary
+    locale: hu
+    search_variants: ["Szihalom", "Szihalom Magyarország"]
+    topic_tier: core
+  - name: Szil
+    country: Hungary
+    locale: hu
+    search_variants: ["Szil", "Szil Magyarország"]
+    topic_tier: core
+  - name: Szilvásvárad
+    country: Hungary
+    locale: hu
+    search_variants: ["Szilvásvárad", "Szilvasvarad", "Szilvásvárad Magyarország"]
+    topic_tier: core
+  - name: Szirmabesenyő
+    country: Hungary
+    locale: hu
+    search_variants: ["Szirmabesenyő", "Szirmabesenyo", "Szirmabesenyő Magyarország"]
+    topic_tier: core
+  - name: Szirák
+    country: Hungary
+    locale: hu
+    search_variants: ["Szirák", "Szirak", "Szirák Magyarország"]
+    topic_tier: core
+  - name: Szokolya
+    country: Hungary
+    locale: hu
+    search_variants: ["Szokolya", "Szokolya Magyarország"]
+    topic_tier: core
+  - name: Szomolya
+    country: Hungary
+    locale: hu
+    search_variants: ["Szomolya", "Szomolya Magyarország"]
+    topic_tier: core
+  - name: Szomor
+    country: Hungary
+    locale: hu
+    search_variants: ["Szomor", "Szomor Magyarország"]
+    topic_tier: core
+  - name: Szomód
+    country: Hungary
+    locale: hu
+    search_variants: ["Szomód", "Szomod", "Szomód Magyarország"]
+    topic_tier: core
+  - name: Szurdokpüspöki
+    country: Hungary
+    locale: hu
+    search_variants: ["Szurdokpüspöki", "Szurdokpuspoki", "Szurdokpüspöki Magyarország"]
+    topic_tier: core
+  - name: Szákszend
+    country: Hungary
+    locale: hu
+    search_variants: ["Szákszend", "Szakszend", "Szákszend Magyarország"]
+    topic_tier: core
+  - name: Szár
+    country: Hungary
+    locale: hu
+    search_variants: ["Szár", "Szar", "Szár Magyarország"]
+    topic_tier: core
+  - name: Szárföld
+    country: Hungary
+    locale: hu
+    search_variants: ["Szárföld", "Szarfold", "Szárföld Magyarország"]
+    topic_tier: core
+  - name: Szárliget
+    country: Hungary
+    locale: hu
+    search_variants: ["Szárliget", "Szarliget", "Szárliget Magyarország"]
+    topic_tier: core
+  - name: Szászvár
+    country: Hungary
+    locale: hu
+    search_variants: ["Szászvár", "Szaszvar", "Szászvár Magyarország"]
+    topic_tier: core
+  - name: Székely
+    country: Hungary
+    locale: hu
+    search_variants: ["Székely", "Szekely", "Székely Magyarország"]
+    topic_tier: core
+  - name: Székkutas
+    country: Hungary
+    locale: hu
+    search_variants: ["Székkutas", "Szekkutas", "Székkutas Magyarország"]
+    topic_tier: core
+  - name: Szügy
+    country: Hungary
+    locale: hu
+    search_variants: ["Szügy", "Szugy", "Szügy Magyarország"]
+    topic_tier: core
+  - name: Sződ
+    country: Hungary
+    locale: hu
+    search_variants: ["Sződ", "Szod", "Sződ Magyarország"]
+    topic_tier: core
+  - name: Sződliget
+    country: Hungary
+    locale: hu
+    search_variants: ["Sződliget", "Szodliget", "Sződliget Magyarország"]
+    topic_tier: core
+  - name: Szőlősgyörök
+    country: Hungary
+    locale: hu
+    search_variants: ["Szőlősgyörök", "Szolosgyorok", "Szőlősgyörök Magyarország"]
+    topic_tier: core
+  - name: Szűcsi
+    country: Hungary
+    locale: hu
+    search_variants: ["Szűcsi", "Szucsi", "Szűcsi Magyarország"]
+    topic_tier: core
+  - name: Ságvár
+    country: Hungary
+    locale: hu
+    search_variants: ["Ságvár", "Sagvar", "Ságvár Magyarország"]
+    topic_tier: core
+  - name: Sály
+    country: Hungary
+    locale: hu
+    search_variants: ["Sály", "Saly", "Sály Magyarország"]
+    topic_tier: core
+  - name: Sárisáp
+    country: Hungary
+    locale: hu
+    search_variants: ["Sárisáp", "Sarisap", "Sárisáp Magyarország"]
+    topic_tier: core
+  - name: Sárkeresztes
+    country: Hungary
+    locale: hu
+    search_variants: ["Sárkeresztes", "Sarkeresztes", "Sárkeresztes Magyarország"]
+    topic_tier: core
+  - name: Sárkeresztúr
+    country: Hungary
+    locale: hu
+    search_variants: ["Sárkeresztúr", "Sarkeresztur", "Sárkeresztúr Magyarország"]
+    topic_tier: core
+  - name: Sármellék
+    country: Hungary
+    locale: hu
+    search_variants: ["Sármellék", "Sarmellek", "Sármellék Magyarország"]
+    topic_tier: core
+  - name: Sárosd
+    country: Hungary
+    locale: hu
+    search_variants: ["Sárosd", "Sarosd", "Sárosd Magyarország"]
+    topic_tier: core
+  - name: Sárrétudvari
+    country: Hungary
+    locale: hu
+    search_variants: ["Sárrétudvari", "Sarretudvari", "Sárrétudvari Magyarország"]
+    topic_tier: core
+  - name: Sárszentmihály
+    country: Hungary
+    locale: hu
+    search_variants: ["Sárszentmihály", "Sarszentmihaly", "Sárszentmihály Magyarország"]
+    topic_tier: core
+  - name: Sárszentágota
+    country: Hungary
+    locale: hu
+    search_variants: ["Sárszentágota", "Sarszentagota", "Sárszentágota Magyarország"]
+    topic_tier: core
+  - name: Sáránd
+    country: Hungary
+    locale: hu
+    search_variants: ["Sáránd", "Sarand", "Sáránd Magyarország"]
+    topic_tier: core
+  - name: Sáta
+    country: Hungary
+    locale: hu
+    search_variants: ["Sáta", "Sata", "Sáta Magyarország"]
+    topic_tier: core
+  - name: Sé
+    country: Hungary
+    locale: hu
+    search_variants: ["Sé", "Se", "Sé Magyarország"]
+    topic_tier: core
+  - name: Sényő
+    country: Hungary
+    locale: hu
+    search_variants: ["Sényő", "Senyo", "Sényő Magyarország"]
+    topic_tier: core
+  - name: Sóskút
+    country: Hungary
+    locale: hu
+    search_variants: ["Sóskút", "Soskut", "Sóskút Magyarország"]
+    topic_tier: core
+  - name: Söjtör
+    country: Hungary
+    locale: hu
+    search_variants: ["Söjtör", "Sojtor", "Söjtör Magyarország"]
+    topic_tier: core
+  - name: Súr
+    country: Hungary
+    locale: hu
+    search_variants: ["Súr", "Sur", "Súr Magyarország"]
+    topic_tier: core
+  - name: Sükösd
+    country: Hungary
+    locale: hu
+    search_variants: ["Sükösd", "Sukosd", "Sükösd Magyarország"]
+    topic_tier: core
+  - name: Sülysáp
+    country: Hungary
+    locale: hu
+    search_variants: ["Sülysáp", "Sulysap", "Sülysáp Magyarország"]
+    topic_tier: core
+  - name: Süttő
+    country: Hungary
+    locale: hu
+    search_variants: ["Süttő", "Sutto", "Süttő Magyarország"]
+    topic_tier: core
+  - name: Tahitótfalu
+    country: Hungary
+    locale: hu
+    search_variants: ["Tahitótfalu", "Tahitotfalu", "Tahitótfalu Magyarország"]
+    topic_tier: core
+  - name: Taksony
+    country: Hungary
+    locale: hu
+    search_variants: ["Taksony", "Taksony Magyarország"]
+    topic_tier: core
+  - name: Taktaharkány
+    country: Hungary
+    locale: hu
+    search_variants: ["Taktaharkány", "Taktaharkany", "Taktaharkány Magyarország"]
+    topic_tier: core
+  - name: Taktakenéz
+    country: Hungary
+    locale: hu
+    search_variants: ["Taktakenéz", "Taktakenez", "Taktakenéz Magyarország"]
+    topic_tier: core
+  - name: Taktaszada
+    country: Hungary
+    locale: hu
+    search_variants: ["Taktaszada", "Taktaszada Magyarország"]
+    topic_tier: core
+  - name: Tar
+    country: Hungary
+    locale: hu
+    search_variants: ["Tar", "Tar Magyarország"]
+    topic_tier: core
+  - name: Tarany
+    country: Hungary
+    locale: hu
+    search_variants: ["Tarany", "Tarany Magyarország"]
+    topic_tier: core
+  - name: Tarcal
+    country: Hungary
+    locale: hu
+    search_variants: ["Tarcal", "Tarcal Magyarország"]
+    topic_tier: core
+  - name: Tard
+    country: Hungary
+    locale: hu
+    search_variants: ["Tard", "Tard Magyarország"]
+    topic_tier: core
+  - name: Tardos
+    country: Hungary
+    locale: hu
+    search_variants: ["Tardos", "Tardos Magyarország"]
+    topic_tier: core
+  - name: Tarján
+    country: Hungary
+    locale: hu
+    search_variants: ["Tarján", "Tarjan", "Tarján Magyarország"]
+    topic_tier: core
+  - name: Tarnalelesz
+    country: Hungary
+    locale: hu
+    search_variants: ["Tarnalelesz", "Tarnalelesz Magyarország"]
+    topic_tier: core
+  - name: Tarnaméra
+    country: Hungary
+    locale: hu
+    search_variants: ["Tarnaméra", "Tarnamera", "Tarnaméra Magyarország"]
+    topic_tier: core
+  - name: Tarnazsadány
+    country: Hungary
+    locale: hu
+    search_variants: ["Tarnazsadány", "Tarnazsadany", "Tarnazsadány Magyarország"]
+    topic_tier: core
+  - name: Tarnaörs
+    country: Hungary
+    locale: hu
+    search_variants: ["Tarnaörs", "Tarnaors", "Tarnaörs Magyarország"]
+    topic_tier: core
+  - name: Tarpa
+    country: Hungary
+    locale: hu
+    search_variants: ["Tarpa", "Tarpa Magyarország"]
+    topic_tier: core
+  - name: Tass
+    country: Hungary
+    locale: hu
+    search_variants: ["Tass", "Tass Magyarország"]
+    topic_tier: core
+  - name: Taszár
+    country: Hungary
+    locale: hu
+    search_variants: ["Taszár", "Taszar", "Taszár Magyarország"]
+    topic_tier: core
+  - name: Tataháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Tataháza", "Tatahaza", "Tataháza Magyarország"]
+    topic_tier: core
+  - name: Tatárszentgyörgy
+    country: Hungary
+    locale: hu
+    search_variants: ["Tatárszentgyörgy", "Tatarszentgyorgy", "Tatárszentgyörgy Magyarország"]
+    topic_tier: core
+  - name: Telekgerendás
+    country: Hungary
+    locale: hu
+    search_variants: ["Telekgerendás", "Telekgerendas", "Telekgerendás Magyarország"]
+    topic_tier: core
+  - name: Telki
+    country: Hungary
+    locale: hu
+    search_variants: ["Telki", "Telki Magyarország"]
+    topic_tier: core
+  - name: Tengelic
+    country: Hungary
+    locale: hu
+    search_variants: ["Tengelic", "Tengelic Magyarország"]
+    topic_tier: core
+  - name: Tenk
+    country: Hungary
+    locale: hu
+    search_variants: ["Tenk", "Tenk Magyarország"]
+    topic_tier: core
+  - name: Teskánd
+    country: Hungary
+    locale: hu
+    search_variants: ["Teskánd", "Teskand", "Teskánd Magyarország"]
+    topic_tier: core
+  - name: Tetétlen
+    country: Hungary
+    locale: hu
+    search_variants: ["Tetétlen", "Tetetlen", "Tetétlen Magyarország"]
+    topic_tier: core
+  - name: Tevel
+    country: Hungary
+    locale: hu
+    search_variants: ["Tevel", "Tevel Magyarország"]
+    topic_tier: core
+  - name: Tibolddaróc
+    country: Hungary
+    locale: hu
+    search_variants: ["Tibolddaróc", "Tibolddaroc", "Tibolddaróc Magyarország"]
+    topic_tier: core
+  - name: Tihany
+    country: Hungary
+    locale: hu
+    search_variants: ["Tihany", "Tihany Magyarország"]
+    topic_tier: core
+  - name: Timár
+    country: Hungary
+    locale: hu
+    search_variants: ["Timár", "Timar", "Timár Magyarország"]
+    topic_tier: core
+  - name: Tinnye
+    country: Hungary
+    locale: hu
+    search_variants: ["Tinnye", "Tinnye Magyarország"]
+    topic_tier: core
+  - name: Tiszaalpár
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszaalpár", "Tiszaalpar", "Tiszaalpár Magyarország"]
+    topic_tier: core
+  - name: Tiszabecs
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszabecs", "Tiszabecs Magyarország"]
+    topic_tier: core
+  - name: Tiszabercel
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszabercel", "Tiszabercel Magyarország"]
+    topic_tier: core
+  - name: Tiszabezdéd
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszabezdéd", "Tiszabezded", "Tiszabezdéd Magyarország"]
+    topic_tier: core
+  - name: Tiszabura
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszabura", "Tiszabura Magyarország"]
+    topic_tier: core
+  - name: Tiszabő
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszabő", "Tiszabo", "Tiszabő Magyarország"]
+    topic_tier: core
+  - name: Tiszadada
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszadada", "Tiszadada Magyarország"]
+    topic_tier: core
+  - name: Tiszadob
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszadob", "Tiszadob Magyarország"]
+    topic_tier: core
+  - name: Tiszaeszlár
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszaeszlár", "Tiszaeszlar", "Tiszaeszlár Magyarország"]
+    topic_tier: core
+  - name: Tiszajenő
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszajenő", "Tiszajeno", "Tiszajenő Magyarország"]
+    topic_tier: core
+  - name: Tiszakanyár
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszakanyár", "Tiszakanyar", "Tiszakanyár Magyarország"]
+    topic_tier: core
+  - name: Tiszakarád
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszakarád", "Tiszakarad", "Tiszakarád Magyarország"]
+    topic_tier: core
+  - name: Tiszakeszi
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszakeszi", "Tiszakeszi Magyarország"]
+    topic_tier: core
+  - name: Tiszakürt
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszakürt", "Tiszakurt", "Tiszakürt Magyarország"]
+    topic_tier: core
+  - name: Tiszalúc
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszalúc", "Tiszaluc", "Tiszalúc Magyarország"]
+    topic_tier: core
+  - name: Tiszanagyfalu
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszanagyfalu", "Tiszanagyfalu Magyarország"]
+    topic_tier: core
+  - name: Tiszanána
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszanána", "Tiszanana", "Tiszanána Magyarország"]
+    topic_tier: core
+  - name: Tiszapalkonya
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszapalkonya", "Tiszapalkonya Magyarország"]
+    topic_tier: core
+  - name: Tiszapüspöki
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszapüspöki", "Tiszapuspoki", "Tiszapüspöki Magyarország"]
+    topic_tier: core
+  - name: Tiszaroff
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszaroff", "Tiszaroff Magyarország"]
+    topic_tier: core
+  - name: Tiszaszentimre
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszaszentimre", "Tiszaszentimre Magyarország"]
+    topic_tier: core
+  - name: Tiszaszentmárton
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszaszentmárton", "Tiszaszentmarton", "Tiszaszentmárton Magyarország"]
+    topic_tier: core
+  - name: Tiszasziget
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszasziget", "Tiszasziget Magyarország"]
+    topic_tier: core
+  - name: Tiszaszőlős
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszaszőlős", "Tiszaszolos", "Tiszaszőlős Magyarország"]
+    topic_tier: core
+  - name: Tiszasüly
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszasüly", "Tiszasuly", "Tiszasüly Magyarország"]
+    topic_tier: core
+  - name: Tiszatarján
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszatarján", "Tiszatarjan", "Tiszatarján Magyarország"]
+    topic_tier: core
+  - name: Tiszatelek
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszatelek", "Tiszatelek Magyarország"]
+    topic_tier: core
+  - name: Tiszatenyő
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszatenyő", "Tiszatenyo", "Tiszatenyő Magyarország"]
+    topic_tier: core
+  - name: Tiszavárkony
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszavárkony", "Tiszavarkony", "Tiszavárkony Magyarország"]
+    topic_tier: core
+  - name: Tiszaörs
+    country: Hungary
+    locale: hu
+    search_variants: ["Tiszaörs", "Tiszaors", "Tiszaörs Magyarország"]
+    topic_tier: core
+  - name: Tokod
+    country: Hungary
+    locale: hu
+    search_variants: ["Tokod", "Tokod Magyarország"]
+    topic_tier: core
+  - name: Tokodaltáró
+    country: Hungary
+    locale: hu
+    search_variants: ["Tokodaltáró", "Tokodaltaro", "Tokodaltáró Magyarország"]
+    topic_tier: core
+  - name: Tolcsva
+    country: Hungary
+    locale: hu
+    search_variants: ["Tolcsva", "Tolcsva Magyarország"]
+    topic_tier: core
+  - name: Tordas
+    country: Hungary
+    locale: hu
+    search_variants: ["Tordas", "Tordas Magyarország"]
+    topic_tier: core
+  - name: Tornyospálca
+    country: Hungary
+    locale: hu
+    search_variants: ["Tornyospálca", "Tornyospalca", "Tornyospálca Magyarország"]
+    topic_tier: core
+  - name: Torony
+    country: Hungary
+    locale: hu
+    search_variants: ["Torony", "Torony Magyarország"]
+    topic_tier: core
+  - name: Tunyogmatolcs
+    country: Hungary
+    locale: hu
+    search_variants: ["Tunyogmatolcs", "Tunyogmatolcs Magyarország"]
+    topic_tier: core
+  - name: Tuzsér
+    country: Hungary
+    locale: hu
+    search_variants: ["Tuzsér", "Tuzser", "Tuzsér Magyarország"]
+    topic_tier: core
+  - name: Tyukod
+    country: Hungary
+    locale: hu
+    search_variants: ["Tyukod", "Tyukod Magyarország"]
+    topic_tier: core
+  - name: Táborfalva
+    country: Hungary
+    locale: hu
+    search_variants: ["Táborfalva", "Taborfalva", "Táborfalva Magyarország"]
+    topic_tier: core
+  - name: Tác
+    country: Hungary
+    locale: hu
+    search_variants: ["Tác", "Tac", "Tác Magyarország"]
+    topic_tier: core
+  - name: Tállya
+    country: Hungary
+    locale: hu
+    search_variants: ["Tállya", "Tallya", "Tállya Magyarország"]
+    topic_tier: core
+  - name: Tápióbicske
+    country: Hungary
+    locale: hu
+    search_variants: ["Tápióbicske", "Tapiobicske", "Tápióbicske Magyarország"]
+    topic_tier: core
+  - name: Tápiógyörgye
+    country: Hungary
+    locale: hu
+    search_variants: ["Tápiógyörgye", "Tapiogyorgye", "Tápiógyörgye Magyarország"]
+    topic_tier: core
+  - name: Tápiószecső
+    country: Hungary
+    locale: hu
+    search_variants: ["Tápiószecső", "Tapioszecso", "Tápiószecső Magyarország"]
+    topic_tier: core
+  - name: Tápiószentmárton
+    country: Hungary
+    locale: hu
+    search_variants: ["Tápiószentmárton", "Tapioszentmarton", "Tápiószentmárton Magyarország"]
+    topic_tier: core
+  - name: Tápiószőlős
+    country: Hungary
+    locale: hu
+    search_variants: ["Tápiószőlős", "Tapioszolos", "Tápiószőlős Magyarország"]
+    topic_tier: core
+  - name: Tápióság
+    country: Hungary
+    locale: hu
+    search_variants: ["Tápióság", "Tapiosag", "Tápióság Magyarország"]
+    topic_tier: core
+  - name: Táplánszentkereszt
+    country: Hungary
+    locale: hu
+    search_variants: ["Táplánszentkereszt", "Taplanszentkereszt", "Táplánszentkereszt Magyarország"]
+    topic_tier: core
+  - name: Tárkány
+    country: Hungary
+    locale: hu
+    search_variants: ["Tárkány", "Tarkany", "Tárkány Magyarország"]
+    topic_tier: core
+  - name: Tárnok
+    country: Hungary
+    locale: hu
+    search_variants: ["Tárnok", "Tarnok", "Tárnok Magyarország"]
+  - name: Tázlár
+    country: Hungary
+    locale: hu
+    search_variants: ["Tázlár", "Tazlar", "Tázlár Magyarország"]
+    topic_tier: core
+  - name: Tényő
+    country: Hungary
+    locale: hu
+    search_variants: ["Tényő", "Tenyo", "Tényő Magyarország"]
+    topic_tier: core
+  - name: Tépe
+    country: Hungary
+    locale: hu
+    search_variants: ["Tépe", "Tepe", "Tépe Magyarország"]
+    topic_tier: core
+  - name: Tóalmás
+    country: Hungary
+    locale: hu
+    search_variants: ["Tóalmás", "Toalmas", "Tóalmás Magyarország"]
+    topic_tier: core
+  - name: Tószeg
+    country: Hungary
+    locale: hu
+    search_variants: ["Tószeg", "Toszeg", "Tószeg Magyarország"]
+    topic_tier: core
+  - name: Tótszerdahely
+    country: Hungary
+    locale: hu
+    search_variants: ["Tótszerdahely", "Totszerdahely", "Tótszerdahely Magyarország"]
+    topic_tier: core
+  - name: Tótvázsony
+    country: Hungary
+    locale: hu
+    search_variants: ["Tótvázsony", "Totvazsony", "Tótvázsony Magyarország"]
+    topic_tier: core
+  - name: Tök
+    country: Hungary
+    locale: hu
+    search_variants: ["Tök", "Tok", "Tök Magyarország"]
+    topic_tier: core
+  - name: Töltéstava
+    country: Hungary
+    locale: hu
+    search_variants: ["Töltéstava", "Toltestava", "Töltéstava Magyarország"]
+    topic_tier: core
+  - name: Tömörkény
+    country: Hungary
+    locale: hu
+    search_variants: ["Tömörkény", "Tomorkeny", "Tömörkény Magyarország"]
+    topic_tier: core
+  - name: Törtel
+    country: Hungary
+    locale: hu
+    search_variants: ["Törtel", "Tortel", "Törtel Magyarország"]
+    topic_tier: core
+  - name: Türje
+    country: Hungary
+    locale: hu
+    search_variants: ["Türje", "Turje", "Türje Magyarország"]
+    topic_tier: core
+  - name: Ugod
+    country: Hungary
+    locale: hu
+    search_variants: ["Ugod", "Ugod Magyarország"]
+    topic_tier: core
+  - name: Vajdácska
+    country: Hungary
+    locale: hu
+    search_variants: ["Vajdácska", "Vajdacska", "Vajdácska Magyarország"]
+    topic_tier: core
+  - name: Vajszló
+    country: Hungary
+    locale: hu
+    search_variants: ["Vajszló", "Vajszlo", "Vajszló Magyarország"]
+    topic_tier: core
+  - name: Valkó
+    country: Hungary
+    locale: hu
+    search_variants: ["Valkó", "Valko", "Valkó Magyarország"]
+    topic_tier: core
+  - name: Vanyarc
+    country: Hungary
+    locale: hu
+    search_variants: ["Vanyarc", "Vanyarc Magyarország"]
+    topic_tier: core
+  - name: Varbó
+    country: Hungary
+    locale: hu
+    search_variants: ["Varbó", "Varbo", "Varbó Magyarország"]
+    topic_tier: core
+  - name: Varsány
+    country: Hungary
+    locale: hu
+    search_variants: ["Varsány", "Varsany", "Varsány Magyarország"]
+    topic_tier: core
+  - name: Vasad
+    country: Hungary
+    locale: hu
+    search_variants: ["Vasad", "Vasad Magyarország"]
+    topic_tier: core
+  - name: Vaskút
+    country: Hungary
+    locale: hu
+    search_variants: ["Vaskút", "Vaskut", "Vaskút Magyarország"]
+    topic_tier: core
+  - name: Vasmegyer
+    country: Hungary
+    locale: hu
+    search_variants: ["Vasmegyer", "Vasmegyer Magyarország"]
+    topic_tier: core
+  - name: Vasszécseny
+    country: Hungary
+    locale: hu
+    search_variants: ["Vasszécseny", "Vasszecseny", "Vasszécseny Magyarország"]
+    topic_tier: core
+  - name: Vaszar
+    country: Hungary
+    locale: hu
+    search_variants: ["Vaszar", "Vaszar Magyarország"]
+    topic_tier: core
+  - name: Verseg
+    country: Hungary
+    locale: hu
+    search_variants: ["Verseg", "Verseg Magyarország"]
+    topic_tier: core
+  - name: Verőce
+    country: Hungary
+    locale: hu
+    search_variants: ["Verőce", "Veroce", "Verőce Magyarország"]
+    topic_tier: core
+  - name: Veszkény
+    country: Hungary
+    locale: hu
+    search_variants: ["Veszkény", "Veszkeny", "Veszkény Magyarország"]
+    topic_tier: core
+  - name: Vilmány
+    country: Hungary
+    locale: hu
+    search_variants: ["Vilmány", "Vilmany", "Vilmány Magyarország"]
+    topic_tier: core
+  - name: Visonta
+    country: Hungary
+    locale: hu
+    search_variants: ["Visonta", "Visonta Magyarország"]
+    topic_tier: core
+  - name: Visznek
+    country: Hungary
+    locale: hu
+    search_variants: ["Visznek", "Visznek Magyarország"]
+    topic_tier: core
+  - name: Vitnyéd
+    country: Hungary
+    locale: hu
+    search_variants: ["Vitnyéd", "Vitnyed", "Vitnyéd Magyarország"]
+    topic_tier: core
+  - name: Vizslás
+    country: Hungary
+    locale: hu
+    search_variants: ["Vizslás", "Vizslas", "Vizslás Magyarország"]
+    topic_tier: core
+  - name: Vonyarcvashegy
+    country: Hungary
+    locale: hu
+    search_variants: ["Vonyarcvashegy", "Vonyarcvashegy Magyarország"]
+    topic_tier: core
+  - name: Vácduka
+    country: Hungary
+    locale: hu
+    search_variants: ["Vácduka", "Vacduka", "Vácduka Magyarország"]
+    topic_tier: core
+  - name: Váchartyán
+    country: Hungary
+    locale: hu
+    search_variants: ["Váchartyán", "Vachartyan", "Váchartyán Magyarország"]
+    topic_tier: core
+  - name: Vácrátót
+    country: Hungary
+    locale: hu
+    search_variants: ["Vácrátót", "Vacratot", "Vácrátót Magyarország"]
+    topic_tier: core
+  - name: Vácszentlászló
+    country: Hungary
+    locale: hu
+    search_variants: ["Vácszentlászló", "Vacszentlaszlo", "Vácszentlászló Magyarország"]
+    topic_tier: core
+  - name: Vál
+    country: Hungary
+    locale: hu
+    search_variants: ["Vál", "Val", "Vál Magyarország"]
+    topic_tier: core
+  - name: Vámosgyörk
+    country: Hungary
+    locale: hu
+    search_variants: ["Vámosgyörk", "Vamosgyork", "Vámosgyörk Magyarország"]
+    topic_tier: core
+  - name: Vámosmikola
+    country: Hungary
+    locale: hu
+    search_variants: ["Vámosmikola", "Vamosmikola", "Vámosmikola Magyarország"]
+    topic_tier: core
+  - name: Vámosszabadi
+    country: Hungary
+    locale: hu
+    search_variants: ["Vámosszabadi", "Vamosszabadi", "Vámosszabadi Magyarország"]
+    topic_tier: core
+  - name: Várdomb
+    country: Hungary
+    locale: hu
+    search_variants: ["Várdomb", "Vardomb", "Várdomb Magyarország"]
+    topic_tier: core
+  - name: Városföld
+    country: Hungary
+    locale: hu
+    search_variants: ["Városföld", "Varosfold", "Városföld Magyarország"]
+    topic_tier: core
+  - name: Városlőd
+    country: Hungary
+    locale: hu
+    search_variants: ["Városlőd", "Varoslod", "Városlőd Magyarország"]
+    topic_tier: core
+  - name: Végegyháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Végegyháza", "Vegegyhaza", "Végegyháza Magyarország"]
+    topic_tier: core
+  - name: Véménd
+    country: Hungary
+    locale: hu
+    search_variants: ["Véménd", "Vemend", "Véménd Magyarország"]
+    topic_tier: core
+  - name: Vértesacsa
+    country: Hungary
+    locale: hu
+    search_variants: ["Vértesacsa", "Vertesacsa", "Vértesacsa Magyarország"]
+    topic_tier: core
+  - name: Vértessomló
+    country: Hungary
+    locale: hu
+    search_variants: ["Vértessomló", "Vertessomlo", "Vértessomló Magyarország"]
+    topic_tier: core
+  - name: Vértesszőlős
+    country: Hungary
+    locale: hu
+    search_variants: ["Vértesszőlős", "Vertesszolos", "Vértesszőlős Magyarország"]
+    topic_tier: core
+  - name: Zagyvarékas
+    country: Hungary
+    locale: hu
+    search_variants: ["Zagyvarékas", "Zagyvarekas", "Zagyvarékas Magyarország"]
+    topic_tier: core
+  - name: Zagyvaszántó
+    country: Hungary
+    locale: hu
+    search_variants: ["Zagyvaszántó", "Zagyvaszanto", "Zagyvaszántó Magyarország"]
+    topic_tier: core
+  - name: Zalaapáti
+    country: Hungary
+    locale: hu
+    search_variants: ["Zalaapáti", "Zalaapati", "Zalaapáti Magyarország"]
+    topic_tier: core
+  - name: Zalacsány
+    country: Hungary
+    locale: hu
+    search_variants: ["Zalacsány", "Zalacsany", "Zalacsány Magyarország"]
+    topic_tier: core
+  - name: Zalahaláp
+    country: Hungary
+    locale: hu
+    search_variants: ["Zalahaláp", "Zalahalap", "Zalahaláp Magyarország"]
+    topic_tier: core
+  - name: Zalakomár
+    country: Hungary
+    locale: hu
+    search_variants: ["Zalakomár", "Zalakomar", "Zalakomár Magyarország"]
+    topic_tier: core
+  - name: Zalaszentiván
+    country: Hungary
+    locale: hu
+    search_variants: ["Zalaszentiván", "Zalaszentivan", "Zalaszentiván Magyarország"]
+    topic_tier: core
+  - name: Zebegény
+    country: Hungary
+    locale: hu
+    search_variants: ["Zebegény", "Zebegeny", "Zebegény Magyarország"]
+    topic_tier: core
+  - name: Zomba
+    country: Hungary
+    locale: hu
+    search_variants: ["Zomba", "Zomba Magyarország"]
+    topic_tier: core
+  - name: Zsadány
+    country: Hungary
+    locale: hu
+    search_variants: ["Zsadány", "Zsadany", "Zsadány Magyarország"]
+    topic_tier: core
+  - name: Zsombó
+    country: Hungary
+    locale: hu
+    search_variants: ["Zsombó", "Zsombo", "Zsombó Magyarország"]
+    topic_tier: core
+  - name: Zsáka
+    country: Hungary
+    locale: hu
+    search_variants: ["Zsáka", "Zsaka", "Zsáka Magyarország"]
+    topic_tier: core
+  - name: Zsámbok
+    country: Hungary
+    locale: hu
+    search_variants: ["Zsámbok", "Zsambok", "Zsámbok Magyarország"]
+    topic_tier: core
+  - name: Zákány
+    country: Hungary
+    locale: hu
+    search_variants: ["Zákány", "Zakany", "Zákány Magyarország"]
+    topic_tier: core
+  - name: Zákányszék
+    country: Hungary
+    locale: hu
+    search_variants: ["Zákányszék", "Zakanyszek", "Zákányszék Magyarország"]
+    topic_tier: core
+  - name: Zámoly
+    country: Hungary
+    locale: hu
+    search_variants: ["Zámoly", "Zamoly", "Zámoly Magyarország"]
+    topic_tier: core
+  - name: Ádánd
+    country: Hungary
+    locale: hu
+    search_variants: ["Ádánd", "Adand", "Ádánd Magyarország"]
+    topic_tier: core
+  - name: Ágasegyháza
+    country: Hungary
+    locale: hu
+    search_variants: ["Ágasegyháza", "Agasegyhaza", "Ágasegyháza Magyarország"]
+    topic_tier: core
+  - name: Ágfalva
+    country: Hungary
+    locale: hu
+    search_variants: ["Ágfalva", "Agfalva", "Ágfalva Magyarország"]
+    topic_tier: core
+  - name: Álmosd
+    country: Hungary
+    locale: hu
+    search_variants: ["Álmosd", "Almosd", "Álmosd Magyarország"]
+    topic_tier: core
+  - name: Áporka
+    country: Hungary
+    locale: hu
+    search_variants: ["Áporka", "Aporka", "Áporka Magyarország"]
+    topic_tier: core
+  - name: Ároktő
+    country: Hungary
+    locale: hu
+    search_variants: ["Ároktő", "Arokto", "Ároktő Magyarország"]
+    topic_tier: core
+  - name: Ásotthalom
+    country: Hungary
+    locale: hu
+    search_variants: ["Ásotthalom", "Asotthalom", "Ásotthalom Magyarország"]
+    topic_tier: core
+  - name: Ásványráró
+    country: Hungary
+    locale: hu
+    search_variants: ["Ásványráró", "Asvanyraro", "Ásványráró Magyarország"]
+    topic_tier: core
+  - name: Ászár
+    country: Hungary
+    locale: hu
+    search_variants: ["Ászár", "Aszar", "Ászár Magyarország"]
+    topic_tier: core
+  - name: Átány
+    country: Hungary
+    locale: hu
+    search_variants: ["Átány", "Atany", "Átány Magyarország"]
+    topic_tier: core
+  - name: Écs
+    country: Hungary
+    locale: hu
+    search_variants: ["Écs", "Ecs", "Écs Magyarország"]
+    topic_tier: core
+  - name: Érpatak
+    country: Hungary
+    locale: hu
+    search_variants: ["Érpatak", "Erpatak", "Érpatak Magyarország"]
+    topic_tier: core
+  - name: Érsekcsanád
+    country: Hungary
+    locale: hu
+    search_variants: ["Érsekcsanád", "Ersekcsanad", "Érsekcsanád Magyarország"]
+    topic_tier: core
+  - name: Érsekvadkert
+    country: Hungary
+    locale: hu
+    search_variants: ["Érsekvadkert", "Ersekvadkert", "Érsekvadkert Magyarország"]
+    topic_tier: core
+  - name: Ófehértó
+    country: Hungary
+    locale: hu
+    search_variants: ["Ófehértó", "Ofeherto", "Ófehértó Magyarország"]
+    topic_tier: core
+  - name: Ónod
+    country: Hungary
+    locale: hu
+    search_variants: ["Ónod", "Onod", "Ónod Magyarország"]
+    topic_tier: core
+  - name: Ópusztaszer
+    country: Hungary
+    locale: hu
+    search_variants: ["Ópusztaszer", "Opusztaszer", "Ópusztaszer Magyarország"]
+    topic_tier: core
+  - name: Ópályi
+    country: Hungary
+    locale: hu
+    search_variants: ["Ópályi", "Opalyi", "Ópályi Magyarország"]
+    topic_tier: core
+  - name: Öcsöd
+    country: Hungary
+    locale: hu
+    search_variants: ["Öcsöd", "Ocsod", "Öcsöd Magyarország"]
+    topic_tier: core
+  - name: Ököritófülpös
+    country: Hungary
+    locale: hu
+    search_variants: ["Ököritófülpös", "Okoritofulpos", "Ököritófülpös Magyarország"]
+    topic_tier: core
+  - name: Öreglak
+    country: Hungary
+    locale: hu
+    search_variants: ["Öreglak", "Oreglak", "Öreglak Magyarország"]
+    topic_tier: core
+  - name: Öskü
+    country: Hungary
+    locale: hu
+    search_variants: ["Öskü", "Osku", "Öskü Magyarország"]
+    topic_tier: core
+  - name: Öttevény
+    country: Hungary
+    locale: hu
+    search_variants: ["Öttevény", "Otteveny", "Öttevény Magyarország"]
+    topic_tier: core
+  - name: Újhartyán
+    country: Hungary
+    locale: hu
+    search_variants: ["Újhartyán", "Ujhartyan", "Újhartyán Magyarország"]
+    topic_tier: core
+  - name: Újlengyel
+    country: Hungary
+    locale: hu
+    search_variants: ["Újlengyel", "Ujlengyel", "Újlengyel Magyarország"]
+    topic_tier: core
+  - name: Újléta
+    country: Hungary
+    locale: hu
+    search_variants: ["Újléta", "Ujleta", "Újléta Magyarország"]
+    topic_tier: core
+  - name: Újszentiván
+    country: Hungary
+    locale: hu
+    search_variants: ["Újszentiván", "Ujszentivan", "Újszentiván Magyarország"]
+    topic_tier: core
+  - name: Újszentmargita
+    country: Hungary
+    locale: hu
+    search_variants: ["Újszentmargita", "Ujszentmargita", "Újszentmargita Magyarország"]
+    topic_tier: core
+  - name: Újszilvás
+    country: Hungary
+    locale: hu
+    search_variants: ["Újszilvás", "Ujszilvas", "Újszilvás Magyarország"]
+    topic_tier: core
+  - name: Úrhida
+    country: Hungary
+    locale: hu
+    search_variants: ["Úrhida", "Urhida", "Úrhida Magyarország"]
+    topic_tier: core
+  - name: Úri
+    country: Hungary
+    locale: hu
+    search_variants: ["Úri", "Uri", "Úri Magyarország"]
+    topic_tier: core
+  - name: Úrkút
+    country: Hungary
+    locale: hu
+    search_variants: ["Úrkút", "Urkut", "Úrkút Magyarország"]
+    topic_tier: core
+  - name: Üllés
+    country: Hungary
+    locale: hu
+    search_variants: ["Üllés", "Ulles", "Üllés Magyarország"]
+    topic_tier: core
+  - name: Üröm
+    country: Hungary
+    locale: hu
+    search_variants: ["Üröm", "Urom", "Üröm Magyarország"]
+    topic_tier: core
+  - name: Őcsény
+    country: Hungary
+    locale: hu
+    search_variants: ["Őcsény", "Ocseny", "Őcsény Magyarország"]
+    topic_tier: core
+  - name: Őr
+    country: Hungary
+    locale: hu
+    search_variants: ["Őr", "Or", "Őr Magyarország"]
+    topic_tier: core
+  - name: Őrbottyán
+    country: Hungary
+    locale: hu
+    search_variants: ["Őrbottyán", "Orbottyan", "Őrbottyán Magyarország"]
+    topic_tier: core
+  - name: Őrhalom
+    country: Hungary
+    locale: hu
+    search_variants: ["Őrhalom", "Orhalom", "Őrhalom Magyarország"]
+    topic_tier: core
+  - name: Ősi
+    country: Hungary
+    locale: hu
+    search_variants: ["Ősi", "Osi", "Ősi Magyarország"]
+    topic_tier: core
   # Sweden
   - name: Stockholm
     country: Sweden
@@ -3346,7 +8206,7 @@ cities:
     search_variants: ["Hong Kong", "Hong Kong SAR"]
   - name: Jakarta
     country: Indonesia
-    locale: en
+    locale: id
     search_variants: [Jakarta, "Jakarta Indonesia"]
   - name: Manila
     country: Philippines
@@ -3361,6 +8221,376 @@ cities:
     locale: en
     search_variants: [Hanoi, "Hanoi Vietnam"]
 
+  - name: Ambon
+    country: Indonesia
+    locale: id
+    search_variants: ["Ambon", "Ambon Indonesia"]
+  - name: Balikpapan
+    country: Indonesia
+    locale: id
+    search_variants: ["Balikpapan", "Balikpapan Indonesia"]
+  - name: Banda Aceh
+    country: Indonesia
+    locale: id
+    search_variants: ["Banda Aceh", "Banda Aceh Indonesia"]
+    topic_tier: core
+  - name: Bandar Lampung
+    country: Indonesia
+    locale: id
+    search_variants: ["Bandar Lampung", "Bandar Lampung Indonesia"]
+  - name: Bandung
+    country: Indonesia
+    locale: id
+    search_variants: ["Bandung", "Bandung Indonesia"]
+  - name: Banjar
+    country: Indonesia
+    locale: id
+    search_variants: ["Banjar", "Banjar Indonesia"]
+    topic_tier: core
+  - name: Banjarbaru
+    country: Indonesia
+    locale: id
+    search_variants: ["Banjarbaru", "Banjarbaru Indonesia"]
+    topic_tier: core
+  - name: Banjarmasin
+    country: Indonesia
+    locale: id
+    search_variants: ["Banjarmasin", "Banjarmasin Indonesia"]
+  - name: Batam
+    country: Indonesia
+    locale: id
+    search_variants: ["Batam", "Batam Indonesia"]
+  - name: Batu
+    country: Indonesia
+    locale: id
+    search_variants: ["Batu", "Batu Indonesia"]
+    topic_tier: core
+  - name: Bau Bau
+    country: Indonesia
+    locale: id
+    search_variants: ["Bau Bau", "Bau Bau Indonesia"]
+    topic_tier: core
+  - name: Bekasi
+    country: Indonesia
+    locale: id
+    search_variants: ["Bekasi", "Bekasi Indonesia"]
+  - name: Bengkulu
+    country: Indonesia
+    locale: id
+    search_variants: ["Bengkulu", "Bengkulu Indonesia"]
+  - name: Bima
+    country: Indonesia
+    locale: id
+    search_variants: ["Bima", "Bima Indonesia"]
+    topic_tier: core
+  - name: Binjai
+    country: Indonesia
+    locale: id
+    search_variants: ["Binjai", "Binjai Indonesia"]
+  - name: Bitung
+    country: Indonesia
+    locale: id
+    search_variants: ["Bitung", "Bitung Indonesia"]
+    topic_tier: core
+  - name: Blitar
+    country: Indonesia
+    locale: id
+    search_variants: ["Blitar", "Blitar Indonesia"]
+    topic_tier: core
+  - name: Bogor
+    country: Indonesia
+    locale: id
+    search_variants: ["Bogor", "Bogor Indonesia"]
+  - name: Bontang
+    country: Indonesia
+    locale: id
+    search_variants: ["Bontang", "Bontang Indonesia"]
+    topic_tier: core
+  - name: Bukittinggi
+    country: Indonesia
+    locale: id
+    search_variants: ["Bukittinggi", "Bukittinggi Indonesia"]
+    topic_tier: core
+  - name: Cilegon
+    country: Indonesia
+    locale: id
+    search_variants: ["Cilegon", "Cilegon Indonesia"]
+  - name: Cimahi
+    country: Indonesia
+    locale: id
+    search_variants: ["Cimahi", "Cimahi Indonesia"]
+  - name: Cirebon
+    country: Indonesia
+    locale: id
+    search_variants: ["Cirebon", "Cirebon Indonesia"]
+  - name: Denpasar
+    country: Indonesia
+    locale: id
+    search_variants: ["Denpasar", "Denpasar Indonesia"]
+  - name: Depok
+    country: Indonesia
+    locale: id
+    search_variants: ["Depok", "Depok Indonesia"]
+  - name: Dumai
+    country: Indonesia
+    locale: id
+    search_variants: ["Dumai", "Dumai Indonesia"]
+  - name: Gorontalo
+    country: Indonesia
+    locale: id
+    search_variants: ["Gorontalo", "Gorontalo Indonesia"]
+    topic_tier: core
+  - name: Gunungsitoli
+    country: Indonesia
+    locale: id
+    search_variants: ["Gunungsitoli", "Gunungsitoli Indonesia"]
+    topic_tier: core
+  - name: Jambi
+    country: Indonesia
+    locale: id
+    search_variants: ["Jambi", "Jambi Indonesia"]
+  - name: Jayapura
+    country: Indonesia
+    locale: id
+    search_variants: ["Jayapura", "Jayapura Indonesia"]
+  - name: Kediri
+    country: Indonesia
+    locale: id
+    search_variants: ["Kediri", "Kediri Indonesia"]
+  - name: Kendari
+    country: Indonesia
+    locale: id
+    search_variants: ["Kendari", "Kendari Indonesia"]
+  - name: Kotamobagu
+    country: Indonesia
+    locale: id
+    search_variants: ["Kotamobagu", "Kotamobagu Indonesia"]
+    topic_tier: core
+  - name: Kupang
+    country: Indonesia
+    locale: id
+    search_variants: ["Kupang", "Kupang Indonesia"]
+  - name: Langsa
+    country: Indonesia
+    locale: id
+    search_variants: ["Langsa", "Langsa Indonesia"]
+    topic_tier: core
+  - name: Lhokseumawe
+    country: Indonesia
+    locale: id
+    search_variants: ["Lhokseumawe", "Lhokseumawe Indonesia"]
+    topic_tier: core
+  - name: Lubuk Linggau
+    country: Indonesia
+    locale: id
+    search_variants: ["Lubuk Linggau", "Lubuk Linggau Indonesia"]
+    topic_tier: core
+  - name: Magelang
+    country: Indonesia
+    locale: id
+    search_variants: ["Magelang", "Magelang Indonesia"]
+    topic_tier: core
+  - name: Makassar
+    country: Indonesia
+    locale: id
+    search_variants: ["Makassar", "Makassar Indonesia"]
+  - name: Malang
+    country: Indonesia
+    locale: id
+    search_variants: ["Malang", "Malang Indonesia"]
+  - name: Manado
+    country: Indonesia
+    locale: id
+    search_variants: ["Manado", "Manado Indonesia"]
+  - name: Mataram
+    country: Indonesia
+    locale: id
+    search_variants: ["Mataram", "Mataram Indonesia"]
+  - name: Medan
+    country: Indonesia
+    locale: id
+    search_variants: ["Medan", "Medan Indonesia"]
+  - name: Metro
+    country: Indonesia
+    locale: id
+    search_variants: ["Metro", "Metro Indonesia"]
+    topic_tier: core
+  - name: Mojokerto
+    country: Indonesia
+    locale: id
+    search_variants: ["Mojokerto", "Mojokerto Indonesia"]
+    topic_tier: core
+  - name: Padang
+    country: Indonesia
+    locale: id
+    search_variants: ["Padang", "Padang Indonesia"]
+  - name: Padangsidimpuan
+    country: Indonesia
+    locale: id
+    search_variants: ["Padangsidimpuan", "Padangsidimpuan Indonesia"]
+    topic_tier: core
+  - name: Pagar Alam
+    country: Indonesia
+    locale: id
+    search_variants: ["Pagar Alam", "Pagar Alam Indonesia"]
+    topic_tier: core
+  - name: Palangka Raya
+    country: Indonesia
+    locale: id
+    search_variants: ["Palangka Raya", "Palangka Raya Indonesia"]
+    topic_tier: core
+  - name: Palembang
+    country: Indonesia
+    locale: id
+    search_variants: ["Palembang", "Palembang Indonesia"]
+  - name: Palopo
+    country: Indonesia
+    locale: id
+    search_variants: ["Palopo", "Palopo Indonesia"]
+    topic_tier: core
+  - name: Palu
+    country: Indonesia
+    locale: id
+    search_variants: ["Palu", "Palu Indonesia"]
+  - name: Pangkal Pinang
+    country: Indonesia
+    locale: id
+    search_variants: ["Pangkal Pinang", "Pangkal Pinang Indonesia"]
+    topic_tier: core
+  - name: Parepare
+    country: Indonesia
+    locale: id
+    search_variants: ["Parepare", "Parepare Indonesia"]
+    topic_tier: core
+  - name: Pasuruan
+    country: Indonesia
+    locale: id
+    search_variants: ["Pasuruan", "Pasuruan Indonesia"]
+    topic_tier: core
+  - name: Payakumbuh
+    country: Indonesia
+    locale: id
+    search_variants: ["Payakumbuh", "Payakumbuh Indonesia"]
+    topic_tier: core
+  - name: Pekalongan
+    country: Indonesia
+    locale: id
+    search_variants: ["Pekalongan", "Pekalongan Indonesia"]
+  - name: Pekanbaru
+    country: Indonesia
+    locale: id
+    search_variants: ["Pekanbaru", "Pekanbaru Indonesia"]
+  - name: Pematangsiantar
+    country: Indonesia
+    locale: id
+    search_variants: ["Pematangsiantar", "Pematangsiantar Indonesia"]
+  - name: Pontianak
+    country: Indonesia
+    locale: id
+    search_variants: ["Pontianak", "Pontianak Indonesia"]
+  - name: Prabumulih
+    country: Indonesia
+    locale: id
+    search_variants: ["Prabumulih", "Prabumulih Indonesia"]
+    topic_tier: core
+  - name: Probolinggo
+    country: Indonesia
+    locale: id
+    search_variants: ["Probolinggo", "Probolinggo Indonesia"]
+    topic_tier: core
+  - name: Salatiga
+    country: Indonesia
+    locale: id
+    search_variants: ["Salatiga", "Salatiga Indonesia"]
+    topic_tier: core
+  - name: Samarinda
+    country: Indonesia
+    locale: id
+    search_variants: ["Samarinda", "Samarinda Indonesia"]
+  - name: Semarang
+    country: Indonesia
+    locale: id
+    search_variants: ["Semarang", "Semarang Indonesia"]
+  - name: Serang
+    country: Indonesia
+    locale: id
+    search_variants: ["Serang", "Serang Indonesia"]
+  - name: Singkawang
+    country: Indonesia
+    locale: id
+    search_variants: ["Singkawang", "Singkawang Indonesia"]
+    topic_tier: core
+  - name: Sorong
+    country: Indonesia
+    locale: id
+    search_variants: ["Sorong", "Sorong Indonesia"]
+  - name: South Tangerang
+    country: Indonesia
+    locale: id
+    search_variants: ["South Tangerang", "South Tangerang Indonesia"]
+  - name: Sukabumi
+    country: Indonesia
+    locale: id
+    search_variants: ["Sukabumi", "Sukabumi Indonesia"]
+  - name: Sungai Penuh
+    country: Indonesia
+    locale: id
+    search_variants: ["Sungai Penuh", "Sungai Penuh Indonesia"]
+    topic_tier: core
+  - name: Surabaya
+    country: Indonesia
+    locale: id
+    search_variants: ["Surabaya", "Surabaya Indonesia"]
+  - name: Surakarta
+    country: Indonesia
+    locale: id
+    search_variants: ["Surakarta", "Surakarta Indonesia"]
+  - name: Tangerang
+    country: Indonesia
+    locale: id
+    search_variants: ["Tangerang", "Tangerang Indonesia"]
+  - name: Tanjungbalai
+    country: Indonesia
+    locale: id
+    search_variants: ["Tanjungbalai", "Tanjungbalai Indonesia"]
+    topic_tier: core
+  - name: Tanjungpinang
+    country: Indonesia
+    locale: id
+    search_variants: ["Tanjungpinang", "Tanjungpinang Indonesia"]
+    topic_tier: core
+  - name: Tarakan
+    country: Indonesia
+    locale: id
+    search_variants: ["Tarakan", "Tarakan Indonesia"]
+    topic_tier: core
+  - name: Tasikmalaya
+    country: Indonesia
+    locale: id
+    search_variants: ["Tasikmalaya", "Tasikmalaya Indonesia"]
+  - name: Tebing Tinggi
+    country: Indonesia
+    locale: id
+    search_variants: ["Tebing Tinggi", "Tebing Tinggi Indonesia"]
+    topic_tier: core
+  - name: Tegal
+    country: Indonesia
+    locale: id
+    search_variants: ["Tegal", "Tegal Indonesia"]
+  - name: Ternate
+    country: Indonesia
+    locale: id
+    search_variants: ["Ternate", "Ternate Indonesia"]
+    topic_tier: core
+  - name: Tidore Islands
+    country: Indonesia
+    locale: id
+    search_variants: ["Tidore Islands", "Tidore Islands Indonesia"]
+    topic_tier: core
+  - name: Yogyakarta
+    country: Indonesia
+    locale: id
+    search_variants: ["Yogyakarta", "Yogyakarta Indonesia"]
   # Australia expanded
   - name: Perth
     country: Australia

@@ -543,6 +543,16 @@ class _ApiExtractor:
     def enrich_fingerprint(self) -> str:
         return _prompt_hash(get_prompt("enrich_system") + self.fingerprint_model)
 
+    #: Whether this provider accepts `response_format: {"type": "json_object"}`.
+    #: Subclasses covering free providers flip this off per model — several of
+    #: them reject the field with a 400, which the chain would count as a
+    #: transient failure and retry forever. The prompts ask for JSON anyway, and
+    #: `_json_items()` already tolerates a non-conforming top level.
+    json_mode: bool = True
+
+    def _json_format(self) -> dict:
+        return {"response_format": {"type": "json_object"}} if self.json_mode else {}
+
     def _headers(self) -> dict:
         return {"Authorization": f"Bearer {self.api_key}"}
 
@@ -601,7 +611,7 @@ class _ApiExtractor:
                 {"role": "user",   "content": user_message},
             ],
             "temperature": self.temperature,
-            "response_format": {"type": "json_object"},
+            **self._json_format(),
         }
         data = await self._post(payload, label=source_url)
         raw = data.get("choices", [{}])[0].get("message", {}).get("content", "")
@@ -627,7 +637,7 @@ class _ApiExtractor:
                 {"role": "user",   "content": user_message},
             ],
             "temperature": 0.0,
-            "response_format": {"type": "json_object"},
+            **self._json_format(),
         }
         try:
             data = await self._post(payload, label=source_url)
@@ -657,7 +667,7 @@ class _ApiExtractor:
                 {"role": "user",   "content": user_message},
             ],
             "temperature": 0.0,
-            "response_format": {"type": "json_object"},
+            **self._json_format(),
         }
         try:
             data = await self._post(payload, label=source_url)
@@ -683,7 +693,7 @@ class _ApiExtractor:
                 {"role": "user",   "content": user_message},
             ],
             "temperature": 0.0,
-            "response_format": {"type": "json_object"},
+            **self._json_format(),
         }
         try:
             data = await self._post(payload, label=record.name)
@@ -706,6 +716,33 @@ class _ApiExtractor:
         data = await self._post(payload, label="chat")
         return data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
 
+    #: Request fields forwarded verbatim by `completion()`. An allowlist, not a
+    #: passthrough: `model` must stay ours (the caller asked us to route), and an
+    #: unknown field is a 400 at several providers, which the chain would then
+    #: retry against every one of them.
+    _PASSTHROUGH_FIELDS = frozenset({
+        "temperature", "top_p", "max_tokens", "max_completion_tokens", "stop",
+        "presence_penalty", "frequency_penalty", "seed", "n", "response_format",
+        "tools", "tool_choice", "user",
+    })
+
+    async def completion(self, messages: list[dict], **params) -> dict:
+        """Raw OpenAI-shaped chat completion — the whole response body.
+
+        Backs the public `/v1/chat/completions` gateway. Unlike `chat()` it
+        preserves the full message list and the provider's response envelope
+        (id, usage, finish_reason), because callers are third-party OpenAI SDKs
+        that expect those fields.
+        """
+        payload = {k: v for k, v in params.items() if k in self._PASSTHROUGH_FIELDS}
+        payload["model"] = self.model
+        payload["messages"] = messages
+        if payload.get("response_format") and not self.json_mode:
+            # This provider rejects the field outright; the prompt still asks
+            # for JSON, so drop it rather than fail the request.
+            payload.pop("response_format")
+        return await self._post(payload, label="completion")
+
     async def write_descriptions(self, name: str, city: str, topic: str,
                                  locale: str, page_text: str) -> dict:
         """SEO enrichment: return {"short_description", "long_description"} generated
@@ -724,7 +761,7 @@ class _ApiExtractor:
                 {"role": "user", "content": user_msg},
             ],
             "temperature": 0.4,
-            "response_format": {"type": "json_object"},
+            **self._json_format(),
         }
         data = await self._post(payload, label=f"describe:{name}")
         raw = data.get("choices", [{}])[0].get("message", {}).get("content", "")
@@ -777,7 +814,8 @@ class FallbackExtractor:
     #: that is genuinely down or misconfigured does.
     _FAILURE_THRESHOLD = 20
 
-    def __init__(self, primaries: list, failure_threshold: int | None = None):
+    def __init__(self, primaries: list, failure_threshold: int | None = None,
+                 router=None, scope_to: list | None = None):
         self.primaries = primaries
         self._exhausted = [False] * len(primaries)
         self._blocked_until = [0.0] * len(primaries)
@@ -786,9 +824,42 @@ class FallbackExtractor:
         #: Human-readable cause once the chain is dead — surfaced in the run log
         #: and the daily email so an outage names itself.
         self.failure_reason: str | None = None
+        #: Optional ModelRouter. When present the chain is a quota-aware fleet:
+        #: `primaries` is already ordered best-quality-first, the router vetoes
+        #: providers whose daily budget ran out mid-run, and every attempt is
+        #: attributed to a provider bucket. None → the original single-provider
+        #: behaviour, byte for byte.
+        self.router = router
+        #: Narrows the router's "out of quota" question to these extractors.
+        #: The gateway may serve a single explicitly requested model, and
+        #: unrelated providers' spare capacity must not make that request look
+        #: servable when the pinned one is spent.
+        self._scope = scope_to
+        #: Quality score of the model that served the most recent successful
+        #: call, so callers can stamp the cache row. 0 when unrouted.
+        self.last_quality: int = 0
+        self.last_model: str = ""
+        #: Provider that served the most recent successful call. Recorded from
+        #: the chain rather than matched by model id later: the catalogue lists
+        #: llama-3.3-70b under three providers, and after failover the head of
+        #: the fleet is the wrong answer anyway.
+        self.last_provider: str = ""
+        #: Set when the routed fleet ran out of *daily free* quota. Distinct
+        #: from a provider outage: it is the expected end state of a free-tier
+        #: window and must not be reported as a failure.
+        self.quota_exhausted: bool = False
 
     def _available(self, idx: int) -> bool:
-        return not self._exhausted[idx] and time.monotonic() >= self._blocked_until[idx]
+        if self._exhausted[idx] or time.monotonic() < self._blocked_until[idx]:
+            return False
+        if self.router is not None:
+            # A daily free allowance can run out mid-run, and rpm pacing is
+            # per-provider; the ledger is the only thing that knows either.
+            # Asking before generating is the whole point of routing rather
+            # than cascading.
+            if not self.router.can_use(self.primaries[idx]):
+                return False
+        return True
 
     def _first_available(self) -> int | None:
         for i in range(len(self.primaries)):
@@ -826,6 +897,43 @@ class FallbackExtractor:
             log.error("extractor_circuit_breaker_open",
                       failures=self._consecutive_failures, reason=last_error)
 
+    #: Cap on a single pacing wait. Beyond this the provider is better treated
+    #: as unavailable so the caller can move on.
+    _PACE_MAX_WAIT = 65.0
+
+    async def _await_pacing(self) -> None:
+        """Sleep until at least one provider is off its rpm cooldown.
+
+        Only sleeps when pacing is the *sole* reason nothing is available;
+        `pace_wait` returns 0 for a provider held back by spent budget or a 429,
+        so those fall through to the normal failover path.
+        """
+        if self.router is None:
+            return
+        for _ in range(3):
+            if any(self._available(i) for i in range(len(self.primaries))):
+                return
+            wait = self.router.shortest_pace_wait()
+            if wait <= 0 or wait > self._PACE_MAX_WAIT:
+                return
+            log.debug("extractor_awaiting_rpm", wait_s=round(wait, 2))
+            await asyncio.sleep(wait + 0.01)
+
+    def _note_router(self, primary, **kwargs) -> None:
+        """Attribute one attempt to its provider's daily budget.
+
+        Failures count too: a 429 or a 400 still consumed a request slot at most
+        providers, and undercounting is exactly how a router walks into a hard
+        block it should have predicted. Never raises — a ledger problem must not
+        take down extraction.
+        """
+        if self.router is None:
+            return
+        try:
+            self.router.note(primary, **kwargs)
+        except Exception as exc:
+            log.warning("router_note_failed", error=str(exc))
+
     async def _call(self, method: str, label: str, *args, **kwargs):
         """Run `method` on the first available provider with failover.
 
@@ -840,6 +948,38 @@ class FallbackExtractor:
         empty result.
         """
         last_error = "no extraction provider configured"
+        if (self.router is not None and self.primaries
+                and not self.router.has_capacity(self._scope)):
+            # Every free allowance is spent for the day — the expected steady
+            # state of a free-tier fleet, not an outage. Flag it so callers stop
+            # the window cleanly instead of the breaker counting 20 of these and
+            # reporting a provider outage in the run banner and daily email.
+            #
+            # The exception type must stay ExtractorUnavailableError:
+            # ExtractorQuotaError is not a subclass of it, so raising that would
+            # sail past every `except ExtractorUnavailableError` in the pipeline
+            # and fail the run outright — the exact outcome this branch exists
+            # to avoid. `quota_exhausted` carries the distinction instead.
+            self.quota_exhausted = True
+            self.failure_reason = "free-tier daily quota spent"
+            log.info("extractor_quota_spent_for_day")
+            raise ExtractorUnavailableError(
+                "all routed providers are out of daily free quota")
+
+        # A new UTC day inside the window (ai_only runs 16:35 -> 00:20) restores
+        # the allowance; without clearing the flag the run would keep breaking
+        # out and the fresh budget between 00:00 and 00:20 would be unreachable.
+        if self.quota_exhausted:
+            self.quota_exhausted = False
+
+        # rpm pacing is a wait, not an outage, and it lives in the router rather
+        # than in `_blocked_until` — so the attempt loop below would find nothing
+        # to try, fall through, and have `_note_failure` count it. At the shipped
+        # `rpm: 30` that is 24 "failures" a minute: the breaker opens and aborts
+        # the run within seconds, which is the normal state during rollout when
+        # only one or two provider keys are set. Wait it out first instead.
+        await self._await_pacing()
+
         for round_no in range(2):
             transient_seen = False
             for i, primary in enumerate(self.primaries):
@@ -848,21 +988,29 @@ class FallbackExtractor:
                 try:
                     result = await getattr(primary, method)(*args, **kwargs)
                     self._consecutive_failures = 0
+                    self._note_router(primary, ok=True)
+                    self.last_quality = int(getattr(primary, "quality", 0) or 0)
+                    self.last_model = getattr(primary, "model", "")
+                    self.last_provider = getattr(primary, "provider", "")
                     return result
                 except ExtractorRateLimitError as exc:
                     self._blocked_until[i] = time.monotonic() + exc.wait_seconds
                     last_error = f"rate limited ({exc.wait_seconds:.0f}s)"
+                    self._note_router(primary, ok=False, rate_limited=True,
+                                      retry_after=exc.wait_seconds, error=last_error)
                     log.warning("extractor_rate_limited", provider=primary.__class__.__name__,
                                 label=label, wait_s=exc.wait_seconds)
                 except ExtractorQuotaError as exc:
                     self._exhausted[i] = True
                     last_error = str(exc)
                     self.failure_reason = str(exc)
+                    self._note_router(primary, ok=False, error=last_error)
                     log.warning("extractor_quota_exhausted",
                                 provider=primary.__class__.__name__, reason=str(exc))
                 except ExtractorUnavailableError as exc:
                     transient_seen = True
                     last_error = str(exc)
+                    self._note_router(primary, ok=False, error=last_error)
                 except Exception as exc:
                     # Last-resort net: an untyped bug (a parser AttributeError, a
                     # response shape nobody anticipated) used to escape the chain
@@ -873,6 +1021,7 @@ class FallbackExtractor:
                     # breaker, so a systematic failure still fails the run fast.
                     transient_seen = True
                     last_error = f"{type(exc).__name__}: {exc}"
+                    self._note_router(primary, ok=False, error=last_error)
                     log.exception("extractor_unexpected_error",
                                   provider=primary.__class__.__name__,
                                   method=method, label=label)
@@ -965,6 +1114,11 @@ class FallbackExtractor:
         """Free-form chat completion with provider fallback."""
         return await self._call("chat", "chat", user_msg, temperature)
 
+    async def completion(self, messages: list[dict], **params) -> dict:
+        """Raw OpenAI-shaped completion, routed and failed over like any other
+        call. Backs the public `/v1/chat/completions` gateway."""
+        return await self._call("completion", "completion", messages, **params)
+
     async def write_descriptions(self, name: str, city: str, topic: str,
                                  locale: str, page_text: str) -> dict:
         """SEO enrichment (short + long description) with provider fallback."""
@@ -995,6 +1149,9 @@ class FallbackExtractor:
         """
         if not self.primaries:
             return
+        if self.router is not None and len(self.primaries) > 1:
+            await self._preflight_fleet()
+            return
         await self.extract(
             text=self._PREFLIGHT_TEXT,
             city="Preflight",
@@ -1003,3 +1160,72 @@ class FallbackExtractor:
             source_url="https://example.com/preflight",
         )
         log.info("extractor_preflight_ok", model=self.model)
+
+    async def _preflight_fleet(self) -> None:
+        """Probe every routed model once and retire the broken ones up front.
+
+        With one provider, a bad model name fails the run immediately. With a
+        fleet, failover hides it: every page silently burns a wasted request on
+        the dead model before falling through. One probe per model (≈15 calls)
+        buys back thousands. A model that fails here is marked exhausted for the
+        run; only an entirely dead fleet raises.
+        """
+        live, dead = [], []
+        for i, primary in enumerate(self.primaries):
+            label = f"{getattr(primary, 'provider', '?')}:{primary.model}"
+            # Never probe a provider that has no budget left. build_extractor
+            # runs once per country group (five with the shipped priority list),
+            # so an unconditional 16-model probe costs ~80 requests a window —
+            # around 7% of GitHub Models' whole daily allowance, spent proving
+            # nothing.
+            if self.router is not None and not self.router.can_use(primary):
+                spec = self.router.spec_for(primary)
+                if spec is not None and self.router.ledger.remaining(spec) <= 0:
+                    live.append(label + " (no budget)")
+                    continue
+            try:
+                await primary.extract(
+                    text=self._PREFLIGHT_TEXT, city="Preflight", topic="running",
+                    locale="en", source_url="https://example.com/preflight",
+                )
+                self._note_router(primary, ok=True)
+                live.append(label)
+            except ExtractorRateLimitError as exc:
+                # Rate limited ≠ broken; leave it enabled and let the ledger
+                # hold it off until its window reopens.
+                self._blocked_until[i] = time.monotonic() + exc.wait_seconds
+                self._note_router(primary, ok=False, rate_limited=True,
+                                  retry_after=exc.wait_seconds, error="preflight 429")
+                live.append(label + " (rate limited)")
+            except ExtractorUnavailableError as exc:
+                # Transient by definition — a dropped connection, a one-off 5xx,
+                # a timeout. Retiring the highest-quality model for an 8-hour
+                # window over one network blip costs far more than the wasted
+                # requests this probe exists to prevent, so retry once and only
+                # then give up on it.
+                self._note_router(primary, ok=False, error=f"preflight: {exc}")
+                try:
+                    await primary.extract(
+                        text=self._PREFLIGHT_TEXT, city="Preflight", topic="running",
+                        locale="en", source_url="https://example.com/preflight",
+                    )
+                    self._note_router(primary, ok=True)
+                    live.append(label + " (recovered)")
+                except Exception as retry_exc:
+                    self._exhausted[i] = True
+                    self._note_router(primary, ok=False, error=f"preflight: {retry_exc}")
+                    dead.append(f"{label} ({type(retry_exc).__name__}: {retry_exc})")
+            except Exception as exc:
+                # A 400 on a retired model name, a 401 on a revoked key: these do
+                # not heal within the run.
+                self._exhausted[i] = True
+                self._note_router(primary, ok=False, error=f"preflight: {exc}")
+                dead.append(f"{label} ({type(exc).__name__}: {exc})")
+        self._consecutive_failures = 0
+        if dead:
+            log.warning("extractor_preflight_retired", models=dead)
+        if not live:
+            reason = "; ".join(dead) or "no model answered preflight"
+            self.failure_reason = reason
+            raise ExtractorUnavailableError(f"every routed model failed preflight: {reason}")
+        log.info("extractor_preflight_ok", live=live, retired=len(dead))

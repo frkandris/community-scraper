@@ -50,6 +50,7 @@ LOCALE_TO_DATAFORSEO_LOCATION: dict[str, int] = {
     "ja": 2392,   # Japan
     "ko": 2410,   # South Korea
     "zh": 2156,   # China (Taipei rides along; keyword carries the city)
+    "id": 2360,   # Indonesia
 }
 
 class DataForSEOClient:
