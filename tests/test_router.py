@@ -723,3 +723,46 @@ async def test_score_is_averaged_over_answered_pages_only():
     assert r["score"] == 100          # perfect on the one page it answered
     assert r["answered"] == 1 and r["failed"] == 2
     assert r["coverage"] == 0.33      # …but coverage says how thin that is
+
+
+# ── scoring: matching tolerance (MINEA, arXiv:2404.04068) ────────────────────
+
+def test_matching_tolerates_phrasing_but_not_different_clubs():
+    """Exact-key matching alone measures phrasing, not extraction.
+
+    MINEA scored the same extractions at 59.4% on exact name match and 88.4%
+    once containment was allowed. Our identity key also strips spaces
+    ("Szentendrei Futóklub" -> "szentendreifutoklub"), so token overlap is
+    impossible on it — the scorer normalises separately.
+    """
+    from scraper.scoring import _matches
+
+    # Same club, different phrasing → must match.
+    assert _matches("Szentendrei Futóklub", ["Szentendrei Futóklub"])
+    assert _matches("Szentendrei Futóklub", ["Szentendrei Futóklub Egyesület"])
+    assert _matches("Szentendrei Futóklub Egyesület", ["Szentendrei Futóklub"])
+    assert _matches("Futóklub Szentendre", ["Szentendre Futóklub"])
+    assert _matches("Szentendrei Futoklub", ["Szentendrei Futóklub"])
+
+    # Different clubs → must NOT match, or the score is meaningless.
+    assert not _matches("Szentendrei Futóklub", ["Budapesti Sakk Kör"])
+    assert not _matches("Pécsi Sakk Kör", ["Győri Sakk Kör"])
+    # Filler words alone identify nothing.
+    assert not _matches("Szentendrei Futóklub", ["Egyesület"])
+    assert not _matches("Szentendrei Futóklub", ["Sport Klub"])
+
+
+def test_score_page_is_symmetric_in_tolerance():
+    """Precision must forgive what recall forgives.
+
+    Otherwise a model is rewarded for finding the club and penalised for
+    naming it slightly differently — the same difference counted twice.
+    """
+    from scraper.scoring import score_page
+
+    expected = ["Alfa Klub", "Béta Kör"]
+    assert score_page(expected, expected) == 100
+    assert score_page(expected, ["Alfa Klub Egyesület", "Béta Kör"]) == 100
+    assert score_page(expected, ["Alfa Klub"]) == 75          # half the recall
+    assert score_page(expected, expected + ["Zaj Kft"]) == 90  # invented one
+    assert score_page(expected, []) == 20                      # answered, found none

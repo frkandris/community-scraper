@@ -20,6 +20,8 @@ the two cannot drift.
 from __future__ import annotations
 
 import json
+import re
+import unicodedata
 from pathlib import Path
 
 import structlog
@@ -38,12 +40,79 @@ _RECALL_POINTS = 50.0
 _PRECISION_POINTS = 30.0
 
 
-def score_page(expected: set[str], got: set[str]) -> float:
+def _key(name: str) -> str:
+    """Exact-identity key — the same collapse the database uses."""
+    return normalized_match_key(name)
+
+
+def _tokens(name: str) -> set[str]:
+    """Word tokens for fuzzy comparison.
+
+    Deliberately not `normalized_match_key`, which strips spaces entirely
+    ("Szentendrei Futóklub" -> "szentendreifutóklub") and therefore makes token
+    overlap impossible. Filler words that appear in half the club names in the
+    corpus carry no identifying information and are dropped.
+    """
+    folded = "".join(
+        c for c in unicodedata.normalize("NFD", name.lower())
+        if unicodedata.category(c) != "Mn"
+    )
+    return {t for t in re.split(r"[^a-z0-9]+", folded)
+            if len(t) > 2 and t not in _STOPWORDS}
+
+
+#: Words too common in Hungarian club names to identify anything on their own.
+_STOPWORDS = frozenset({
+    "egyesulet", "klub", "kor", "csoport", "sport", "sportegyesulet",
+    "kozhasznu", "alapitvany", "tarsasag", "szakosztaly", "es", "az",
+})
+
+
+def _matches(want: str, got: list[str]) -> bool:
+    """Did the model return this name, under any reasonable reading?
+
+    Exact matching alone under-counts badly: MINEA (arXiv:2404.04068) scored the
+    same extractions at 59.4% on exact name match and 88.4% once a containment
+    match was allowed. A model returning "Szentendrei Futóklub Egyesület" where
+    we recorded "Szentendrei Futóklub" is right, and scoring it as a miss
+    measures phrasing rather than extraction.
+
+    Three strategies, most conservative first — MINEA's escalation minus the LLM
+    judge, which would cost more calls than the measurement itself.
+    """
+    wk = _key(want)
+    keys = [_key(g) for g in got]
+    if wk in keys:
+        return True
+    if any(wk and k and (wk in k or k in wk) for k in keys):
+        return True
+    wt = _tokens(want)
+    if not wt:
+        return False
+    for g in got:
+        gt = _tokens(g)
+        if not gt:
+            continue
+        shared = len(wt & gt)
+        # Two-thirds of the shorter name's distinctive tokens, rounded up.
+        need = (2 * min(len(wt), len(gt)) + 2) // 3
+        if shared >= max(1, need):
+            return True
+    return False
+
+
+def score_page(expected, got) -> float:
+    """Score one page. Both arguments are raw names, not identity keys —
+    matching needs the words, and the key form has no spaces."""
+    expected, got = list(expected), list(got)
     if not expected:
         return 0.0
-    recall = len(expected & got) / len(expected)
-    precision = (len(expected & got) / len(got)) if got else 0.0
-    return _ANSWER_POINTS + _RECALL_POINTS * recall + _PRECISION_POINTS * precision
+    recall = sum(1 for w in expected if _matches(w, got)) / len(expected)
+    # Precision is judged with the same tolerance as recall, so a model is not
+    # punished for phrasing differences that recall forgives.
+    precision = (sum(1 for g in got if _matches(g, expected)) / len(got)) if got else 0.0
+    return (_ANSWER_POINTS + _RECALL_POINTS * recall
+            + _PRECISION_POINTS * min(1.0, precision))
 
 
 def golden_set(db_path: Path, limit: int = 12) -> list[dict]:
@@ -73,8 +142,7 @@ def golden_set(db_path: Path, limit: int = 12) -> list[dict]:
         except (TypeError, ValueError):
             continue
         text = entry.get("raw_text")
-        expected = {normalized_match_key(r.get("name", ""))
-                    for r in entry.get("records") or [] if r.get("name")}
+        expected = [r["name"] for r in entry.get("records") or [] if r.get("name")]
         if not text or not expected:
             continue
         out.append({"url": url, "city": city or "", "topic": topic or "",
@@ -104,7 +172,7 @@ async def score_model(extractor, pages: list[dict]) -> dict:
             if len(errors) < 3:
                 errors.append(f"{type(exc).__name__}: {str(exc)[:120]}")
             continue
-        got = {normalized_match_key(r.name) for r in records if r.name}
+        got = [r.name for r in records if r.name]
         total += score_page(page["expected"], got)
         answered += 1
     # A model that never answered is UNMEASURED, not bad. Reporting 0 conflates
