@@ -104,6 +104,19 @@ Models that can serve a request *right now* — a spent provider disappears from
 the list, so this reflects capacity, not just configuration. `auto` is listed
 first. Non-standard `quality` field carries the routing score.
 
+### `GET /v1/models/upstream`
+
+Non-standard. Asks each configured provider for its own model list and diffs it
+against `config/providers.yaml`, returning `configured` / `upstream` / `gone` /
+`new` per provider.
+
+Distinct from `/v1/models` on purpose: that one answers "what can the router use
+today" and therefore hides a provider whose daily budget is spent or one parked
+behind `allow_paid`. Only this route can answer "did a model disappear" or "is
+there a new free model", and only the server can ask it, because the provider
+keys live there. A provider that could not be reached reports an `error` and no
+`gone` entries.
+
 ### `POST /v1/score`
 
 Non-standard. Measures every routed model against a golden set drawn from our

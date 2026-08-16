@@ -21,6 +21,7 @@ Full contract: docs/wiki/pages/integrations/router-gateway-api.md.
 """
 from __future__ import annotations
 
+import asyncio
 import hmac
 import json
 import os
@@ -162,6 +163,43 @@ async def list_models(authorization: str | None = Header(default=None)):
                     "owned_by": "router",
                     "quality": mr.best_available_quality()})
     return {"object": "list", "data": data}
+
+
+@router.get("/models/upstream")
+async def models_upstream(authorization: str | None = Header(default=None)):
+    """What each provider *actually serves* right now, next to what we configured.
+
+    Distinct from `/v1/models`, which lists what the router can route to today —
+    that view hides a provider whose daily budget is spent or one parked behind
+    `allow_paid`, and a checker reading it concludes the models were retired.
+    This asks the providers themselves, which is the only way to answer "is
+    there a new free model" at all.
+
+    Keys live only on the server, so this route is the only place the question
+    can be asked from.
+    """
+    if not _authorized(authorization):
+        return _error(401, "Invalid or missing API key.", "invalid_request_error",
+                      "invalid_api_key")
+    from ..providers import fetch_upstream_models, load_catalogue
+
+    catalogue = load_catalogue()
+    out = []
+    for spec in catalogue.providers:
+        upstream, err = await asyncio.to_thread(fetch_upstream_models, spec)
+        configured = [m.model for m in spec.models]
+        out.append({
+            "provider": spec.name,
+            "enabled": spec.enabled,
+            "paid": spec.paid,
+            "error": err,
+            "configured": configured,
+            "upstream": upstream,
+            # Only meaningful when we actually got a list back.
+            "gone": [m for m in configured if m not in upstream] if upstream else [],
+            "new": [m for m in upstream if m not in configured],
+        })
+    return {"object": "list", "data": out}
 
 
 @router.get("/quota")

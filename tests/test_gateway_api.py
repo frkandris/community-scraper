@@ -391,3 +391,34 @@ def test_models_lists_by_daily_budget_not_momentary_pacing(client):
     # `auto` must not advertise a quality no listed model has.
     auto = next(m for m in body["data"] if m["id"] == "auto")
     assert auto["quality"] <= max(m["quality"] for m in body["data"] if m["id"] != "auto")
+
+
+def test_models_upstream_reports_configured_vs_served(client):
+    """/v1/models/upstream answers "what does the provider actually serve".
+
+    /v1/models cannot: it lists what the router can route to *today*, so a
+    provider whose daily budget is spent — or one parked behind allow_paid —
+    disappears from it, and a checker reading that concludes its models were
+    retired. That false alarm fired on 2026-08-16 for OpenRouter (quota spent)
+    and DeepSeek (parked).
+    """
+    def _fake(spec, timeout=20):
+        if spec.name == "alpha":
+            return ["alpha-big", "alpha-brand-new"], None
+        return [], "HTTP 401 bad key"
+
+    with patch("scraper.providers.fetch_upstream_models", side_effect=_fake):
+        body = client.get("/v1/models/upstream", headers=AUTH).json()
+
+    by_name = {r["provider"]: r for r in body["data"]}
+    alpha = by_name["alpha"]
+    assert alpha["gone"] == []                       # configured model is served
+    assert alpha["new"] == ["alpha-brand-new"]       # and a candidate surfaced
+    # A provider we could not reach must not have its models declared gone.
+    beta = by_name["beta"]
+    assert beta["error"] == "HTTP 401 bad key"
+    assert beta["gone"] == []
+
+
+def test_models_upstream_requires_auth(client):
+    assert client.get("/v1/models/upstream").status_code == 401

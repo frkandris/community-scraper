@@ -91,17 +91,17 @@ def live_models(spec) -> tuple[list[str], str | None]:
         return [], f"{type(exc).__name__}: {exc}"
 
 
-def remote_models(base: str, token: str) -> dict:
-    """Model ids the deployed gateway currently routes to, grouped by provider."""
-    data = _get_json(f"{base.rstrip('/')}/v1/models",
+def remote_report(base: str, token: str) -> list[dict]:
+    """Per-provider upstream/configured diff, computed on the server.
+
+    Asks /v1/models/upstream, not /v1/models: the latter lists what the router
+    can route to *today*, which omits a provider whose daily budget is spent or
+    one parked behind allow_paid — and reading that as "the models are gone"
+    produced exactly that false alarm on 2026-08-16.
+    """
+    data = _get_json(f"{base.rstrip('/')}/v1/models/upstream",
                      {"Authorization": f"Bearer {token}"})
-    out: dict[str, list[str]] = {}
-    for m in data.get("data", []):
-        if m["id"] == "auto":
-            continue
-        provider, _, model = m["id"].partition(":")
-        out.setdefault(provider, []).append(model)
-    return out
+    return data.get("data", [])
 
 
 def main() -> int:
@@ -117,39 +117,41 @@ def main() -> int:
     catalogue = load_catalogue()
     report: dict[str, dict] = {}
 
-    remote = {}
     if args.remote:
         base = os.environ.get("ROUTER_BASE_URL", "https://kozossegek.com")
         token = os.environ.get("ROUTER_API_KEY", "")
         if not token:
             raise SystemExit("--remote needs ROUTER_API_KEY in the environment")
         try:
-            remote = remote_models(base, token)
+            rows = remote_report(base, token)
         except Exception as exc:
             raise SystemExit(f"gateway unreachable: {exc}") from exc
-
-    for spec in catalogue.providers:
-        configured = [m.model for m in spec.models]
-        if args.remote:
-            # The gateway only reports what it routes to, so it can confirm a
-            # configured model works but never surface a NEW one.
-            upstream, err = remote.get(spec.name, []), None
-            gone = [m for m in configured if m not in upstream] if spec.enabled else []
-            new: list[str] = []
-        else:
+        for r in rows:
+            upstream = r["upstream"]
+            if args.free_only:
+                upstream = [m for m in upstream if m.endswith(":free")]
+            report[r["provider"]] = {
+                "enabled": r["enabled"],
+                "error": r["error"],
+                "configured": r["configured"],
+                "gone": r["gone"],
+                "new": [m for m in r["new"] if not args.free_only or m.endswith(":free")],
+                "upstream_count": len(upstream),
+            }
+    else:
+        for spec in catalogue.providers:
+            configured = [m.model for m in spec.models]
             upstream, err = live_models(spec)
             if args.free_only:
                 upstream = [m for m in upstream if m.endswith(":free")]
-            gone = [m for m in configured if m not in upstream] if upstream else []
-            new = [m for m in upstream if m not in configured]
-        report[spec.name] = {
-            "enabled": spec.enabled,
-            "error": err,
-            "configured": configured,
-            "gone": gone,
-            "new": new,
-            "upstream_count": len(upstream),
-        }
+            report[spec.name] = {
+                "enabled": spec.enabled,
+                "error": err,
+                "configured": configured,
+                "gone": [m for m in configured if m not in upstream] if upstream else [],
+                "new": [m for m in upstream if m not in configured],
+                "upstream_count": len(upstream),
+            }
 
     if args.as_json:
         print(json.dumps(report, indent=2, ensure_ascii=False))

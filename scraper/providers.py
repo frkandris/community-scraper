@@ -130,6 +130,51 @@ class OpenAICompatExtractor(_ApiExtractor):
         return f"<{self.provider}:{self.model} q={self.quality}>"
 
 
+#: Cloudflare and some provider edges reject urllib's default agent.
+_UA = "meetapedia-model-check/1.0"
+
+
+def fetch_upstream_models(spec: ProviderSpec, timeout: int = 20) -> tuple[list[str], str | None]:
+    """(model ids served by this provider right now, error).
+
+    Errors are returned, never raised: one dead provider must not hide the
+    others' answers. Lives here rather than in the script because the API keys
+    only exist on the server, so the deployed app is the only place that can
+    ask — see the /v1/models/upstream route.
+    """
+    import json as _json
+    import urllib.error
+    import urllib.request
+
+    key = spec.api_key
+    if not key:
+        return [], "no API key"
+    try:
+        if spec.name == "gemini":
+            # Google's OpenAI-compat surface has no /models; the native API does.
+            url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key}"
+            req = urllib.request.Request(url, headers={"User-Agent": _UA})
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = _json.load(resp)
+            return sorted(m["name"].removeprefix("models/")
+                          for m in data.get("models", [])), None
+        req = urllib.request.Request(
+            f"{spec.base_url.rstrip('/')}/models",
+            headers={"User-Agent": _UA, "Authorization": f"Bearer {key}"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = _json.load(resp)
+        return sorted(m["id"] for m in data.get("data", [])), None
+    except urllib.error.HTTPError as exc:
+        body = ""
+        try:
+            body = exc.read().decode()[:120]
+        except Exception:
+            pass
+        return [], f"HTTP {exc.code} {body}"
+    except Exception as exc:
+        return [], f"{type(exc).__name__}: {exc}"
+
+
 def _parse_models(raw: list) -> tuple[ModelSpec, ...]:
     out = []
     for entry in raw or []:
