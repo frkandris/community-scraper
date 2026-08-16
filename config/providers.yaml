@@ -82,8 +82,9 @@ providers:
         quality: 60
       - model: gemma-4-31b
         quality: 52
-      - model: llama-4-scout-17b-16e-instruct
-        quality: 48
+      # llama-4-scout-17b-16e-instruct removed 2026-08-16: 404 model_not_found
+      # in preflight. The other two Cerebras models serve fine — this is a name
+      # that does not exist here, not an account problem.
 
   # ── Google Gemini (AI Studio) ─────────────────────────────────────────────
   # Reached through Google's OpenAI-compatibility endpoint so it needs no

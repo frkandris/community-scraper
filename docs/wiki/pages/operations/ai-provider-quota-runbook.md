@@ -70,6 +70,32 @@ being retired. A 404/410 now retires that model for the run
 - **Every model dead** — the run aborts with the reason attached, exactly as the
   single-provider path did ([[extractor-circuit-breaker]]).
 
+## First live rollout — 2026-08-16
+
+Six providers enabled at once. What the first preflight actually returned, as a
+calibration for what to expect:
+
+| Provider | Outcome |
+|---|---|
+| Groq | 3/3 models live |
+| Gemini | 2/2 live — but only after the shipped 2.5-flash names were replaced |
+| Mistral | 2/2 live |
+| Cerebras | `HTTP 402 billing limit` until the account was activated; then 2/3 (one model name did not exist) |
+| OpenRouter | live but `no budget` — an earlier faulty run had spent the day's 50 requests |
+| GitHub Models | `410 github_models_retirement_brownout` — service retiring, disabled in config |
+
+**Every shipped model name was wrong.** The catalogue was seeded from vendor
+docs and round-up articles; on the day it went live, Groq had deprecated two of
+them, Gemini had closed 2.5-flash to new projects, and all three OpenRouter
+`:free` slugs had left the free tier. Treat a fresh catalogue entry as a guess
+until a preflight confirms it, and read `?grep=preflight_ok` after enabling
+anything.
+
+The same preflight showed both recovery paths working: one Gemini model came
+back `(recovered)` after a timeout retry, another was held as `(rate limited)`
+rather than retired. Without those, a network blip would have dropped the
+highest-quality model for the whole window.
+
 ## Changing priority or scoring
 
 - Reorder by editing `quality:` values, or better: run
