@@ -1082,3 +1082,47 @@ async def test_provenance_survives_an_interleaved_call(tmp_path, monkeypatch):
 
     assert (model, quality) == ("a-m0", 90)
     assert chain.last_model == "b-m0"   # the mutable attribute did move on
+
+
+@pytest.mark.asyncio
+async def test_concurrent_pages_fan_out_across_providers(tmp_path, monkeypatch):
+    """A call in flight must not leave its provider looking idle.
+
+    The ledger used to record a call only when it returned, so every waiting
+    task saw the best provider as available, picked it, and the fleet hit one
+    provider's rpm together instead of using the other four.
+    """
+    import asyncio
+
+    from scraper.extract import FallbackExtractor
+
+    monkeypatch.setenv("A_KEY", "k")
+    monkeypatch.setenv("B_KEY", "k")
+    router, _ = _router(tmp_path,
+                        _spec("a", env="A_KEY", quality=(90,)),
+                        _spec("b", env="B_KEY", quality=(40,)))
+
+    class _Slow:
+        def __init__(self, provider, model, quality):
+            self.provider, self.model, self.quality = provider, model, quality
+            self.concurrent = 0
+            self.peak = 0
+
+        async def extract(self, *a, **kw):
+            self.concurrent += 1
+            self.peak = max(self.peak, self.concurrent)
+            await asyncio.sleep(0.05)      # long enough to overlap
+            self.concurrent -= 1
+            return []
+
+    a, b = _Slow("a", "a-m0", 90), _Slow("b", "b-m0", 40)
+    chain = FallbackExtractor(primaries=[a, b], router=router)
+
+    await asyncio.gather(*[
+        chain.extract_traced(text="t", city="c", topic="running", locale="hu",
+                             source_url=f"https://x/{i}")
+        for i in range(2)
+    ])
+
+    # Both were used: the second page saw the first one's slot already claimed.
+    assert a.peak == 1 and b.peak == 1

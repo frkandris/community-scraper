@@ -1004,6 +1004,16 @@ class FallbackExtractor:
             self.wait_seconds += wait
             await asyncio.sleep(wait + 0.01)
 
+    def _note_router_reserve(self, primary) -> bool:
+        """Claim a request slot for `primary`. Never raises — see `_note_router`."""
+        if self.router is None:
+            return False
+        try:
+            return self.router.reserve(primary)
+        except Exception as exc:
+            log.warning("router_reserve_failed", error=str(exc))
+            return False
+
     def _note_router(self, primary, **kwargs) -> None:
         """Attribute one attempt to its provider's daily budget.
 
@@ -1112,6 +1122,10 @@ class FallbackExtractor:
             for i, primary in enumerate(self.primaries):
                 if not self._available(i):
                     continue
+                # Claim the slot before the await, not after it returns: while
+                # a call is in flight the provider otherwise still looks idle,
+                # so every concurrent page picks the same one.
+                _reserved = self._note_router_reserve(primary)
                 _t0 = time.monotonic()
                 try:
                     result = await getattr(primary, method)(*args, **kwargs)
@@ -1126,7 +1140,7 @@ class FallbackExtractor:
                     # it here would retire it after 20 successful calls.
                     for idx in failed_here - {i}:
                         self._note_provider_failure(idx, last_error)
-                    self._note_router(primary, ok=True)
+                    self._note_router(primary, ok=True, reserved=_reserved)
                     self.last_quality = int(getattr(primary, "quality", 0) or 0)
                     self.last_model = getattr(primary, "model", "")
                     self.last_provider = getattr(primary, "provider", "")
@@ -1136,7 +1150,8 @@ class FallbackExtractor:
                     self._blocked_until[i] = time.monotonic() + exc.wait_seconds
                     last_error = f"rate limited ({exc.wait_seconds:.0f}s)"
                     self._note_router(primary, ok=False, rate_limited=True,
-                                      retry_after=exc.wait_seconds, error=last_error)
+                                      retry_after=exc.wait_seconds, error=last_error,
+                                      reserved=_reserved)
                     log.warning("extractor_rate_limited", provider=primary.__class__.__name__,
                                 label=label, wait_s=exc.wait_seconds)
                 except ExtractorModelError as exc:
@@ -1147,7 +1162,8 @@ class FallbackExtractor:
                     # 20 of them must not abort the run.
                     self._exhausted[i] = True
                     last_error = str(exc)
-                    self._note_router(primary, ok=False, error=f"model gone: {exc}")
+                    self._note_router(primary, ok=False, error=f"model gone: {exc}",
+                                      reserved=_reserved)
                     log.warning("extractor_model_retired", model=str(exc))
                     continue
                 except ExtractorQuotaError as exc:
@@ -1155,7 +1171,7 @@ class FallbackExtractor:
                     self._exhausted[i] = True
                     last_error = str(exc)
                     self.failure_reason = str(exc)
-                    self._note_router(primary, ok=False, error=last_error)
+                    self._note_router(primary, ok=False, error=last_error, reserved=_reserved)
                     log.warning("extractor_quota_exhausted",
                                 provider=primary.__class__.__name__, reason=str(exc))
                 except ExtractorUnavailableError as exc:
@@ -1163,7 +1179,7 @@ class FallbackExtractor:
                     real_failure_seen = True
                     transient_seen = True
                     last_error = str(exc)
-                    self._note_router(primary, ok=False, error=last_error)
+                    self._note_router(primary, ok=False, error=last_error, reserved=_reserved)
                     failed_here.add(i)
                 except Exception as exc:
                     self._note_attempt(_t0)
@@ -1177,7 +1193,7 @@ class FallbackExtractor:
                     # breaker, so a systematic failure still fails the run fast.
                     transient_seen = True
                     last_error = f"{type(exc).__name__}: {exc}"
-                    self._note_router(primary, ok=False, error=last_error)
+                    self._note_router(primary, ok=False, error=last_error, reserved=_reserved)
                     log.exception("extractor_unexpected_error",
                                   provider=primary.__class__.__name__,
                                   method=method, label=label)

@@ -171,19 +171,41 @@ class QuotaLedger:
     #: daily cap points at the next UTC midnight, which is hours away.
     _DAILY_429_RETRY_AFTER = 1800.0
 
+    def reserve_call(self, provider: str) -> None:
+        """Take a request slot before issuing the call, not after it returns.
+
+        `note_call` records the outcome, which is too late to keep concurrent
+        callers apart: while a call is in flight the provider still looks idle
+        and under budget, so every waiting task picks the same one, blows its
+        rpm together and collects a fleet's worth of 429s. Claiming the slot at
+        selection time is what makes the second task look at the next provider.
+
+        Serial callers are unaffected: the same slot is claimed either way, only
+        earlier, and rpm is a limit on requests *started* per minute anyway.
+        """
+        self._sync()
+        row = self._row(provider)
+        row["calls"] = int(row.get("calls") or 0) + 1
+        self._last_call[provider] = time.monotonic()
+
     def note_call(
         self, provider: str, *, ok: bool = True, rate_limited: bool = False,
         retry_after: float | None = None, error: str | None = None,
-        spec: ProviderSpec | None = None,
+        spec: ProviderSpec | None = None, reserved: bool = False,
     ) -> None:
         """Record one attempt. Counts even when it failed — a rejected request
         still consumed a slot at most providers, and undercounting is exactly
         how a router walks into a hard block."""
         self._sync()
         row = self._row(provider)
-        row["calls"] = int(row.get("calls") or 0) + 1
+        if not reserved:
+            # `reserved` means reserve_call already claimed the slot and stamped
+            # the pacing clock at call *start*. Counting again here would double
+            # the day's usage, and re-stamping would push the next call to rpm
+            # seconds after this one finished rather than after it began.
+            row["calls"] = int(row.get("calls") or 0) + 1
+            self._last_call[provider] = time.monotonic()
         self._since_reload += 1
-        self._last_call[provider] = time.monotonic()
         if not ok:
             row["failures"] = int(row.get("failures") or 0) + 1
         blocked_until = None
@@ -321,6 +343,14 @@ class ModelRouter:
         """Best quality reachable today — ignoring momentary rpm cooldowns."""
         with_budget = self.with_budget()
         return with_budget[0].quality if with_budget else 0
+
+    def reserve(self, extractor) -> bool:
+        """Claim a request slot for this extractor's provider. True if claimed."""
+        provider = getattr(extractor, "provider", None)
+        if not provider:
+            return False
+        self.ledger.reserve_call(provider)
+        return True
 
     def note(self, extractor, **kwargs) -> None:
         """Attribute one call to the extractor's provider bucket."""
