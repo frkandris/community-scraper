@@ -241,6 +241,57 @@ RUN_WARNING = "warning"  # finished, but some pairs/pages failed and will be ret
 RUN_ABORTED = "aborted"  # stopped early: dead provider, or a top-level exception
 
 
+async def _extract_pair_pages(
+    extractor, pages, *, city, topic, fp_section, concurrency, on_progress,
+) -> "tuple[dict[str, Any], tuple[str, bool] | None]":
+    """Community extraction for one pair's uncached pages, several at a time.
+
+    Returns `({url: (records, model, quality) | Exception}, stop)`. A url absent
+    from the map was never attempted because the fleet stopped; `stop` is the
+    reason, or None if every page got its turn.
+
+    The pages of a pair are independent — nothing one extracts affects another —
+    so the serial loop was not expressing a constraint, only its own shape. It
+    cost the 2026-08-17 window 3.3 extractions/min against a fleet whose
+    combined ceiling is 185 calls/min (arXiv:2504.07347: idle capacity under a
+    solvable constraint is lost throughput). Concurrency is bounded by
+    `pipeline.extract_concurrency` and, above that, by the router refusing a
+    provider whose slot is already claimed.
+    """
+    results: dict[str, Any] = {}
+    stop: "tuple[str, bool] | None" = None
+    if not pages:
+        return results, stop
+    sem = asyncio.Semaphore(max(1, int(concurrency or 1)))
+
+    async def _one(url: str, text: str) -> None:
+        nonlocal stop
+        async with sem:
+            # Re-checked inside the slot, not once up front: the fleet can spend
+            # its last quota on the page ahead of this one, and attempting the
+            # rest would only collect identical failures.
+            if stop is not None or (stop := _stop_reason(extractor)) is not None:
+                return
+            if on_progress:
+                on_progress("extract", url)
+            try:
+                results[url] = await _extract_traced(
+                    extractor, text=text, city=city.name, topic=topic.name,
+                    locale=city.locale, source_url=url,
+                    false_positive_examples=fp_section,
+                )
+            except ExtractorUnavailableError as exc:
+                results[url] = exc
+                if stop is None:
+                    stop = _stop_reason(extractor)
+            finally:
+                if on_progress:
+                    on_progress(None, None)
+
+    await asyncio.gather(*[_one(u, t) for u, t in pages])
+    return results, stop
+
+
 def _stop_reason(extractor) -> tuple[str, bool] | None:
     """Why extraction cannot continue: (reason, is_outage), or None if it can.
 
@@ -360,6 +411,10 @@ class PipelineConfig:
     dataforseo_priority: int = 1  # standard mode: 1=normal, 2=high priority
     # Topics still searched for topic_tier="core" cities; empty = tiering disabled.
     core_topics: list[str] = field(default_factory=list)
+    #: Pages whose community extraction may be in flight at once. 1 reproduces
+    #: the serial chain exactly. Lives in settings.yaml, which is a mounted
+    #: volume in production, so it can be turned down without a deploy.
+    extract_concurrency: int = 1
 
 
 async def _extract_traced(extractor, **kwargs):
@@ -1336,6 +1391,24 @@ async def _run_ai_only(
             )
             records = []
             extract_dead = False
+
+            # Cache first, then everything that missed — extracted together
+            # rather than one page at a time. The loop below is unchanged; it
+            # reads an answer that is already in hand instead of awaiting one.
+            cached_by_url = {
+                url: cache.get_extracted(url, fingerprint=extractor.canonical_fingerprint)
+                for url, _ in pages
+            }
+            fresh_by_url: dict = {}
+            pair_stop: "tuple[str, bool] | None" = None
+            if run_communities and not extractor.exhausted:
+                fresh_by_url, pair_stop = await _extract_pair_pages(
+                    extractor,
+                    [(u, t) for u, t in pages if cached_by_url.get(u) is None],
+                    city=city, topic=topic, fp_section=extraction_fp_section,
+                    concurrency=config.extract_concurrency, on_progress=on_progress,
+                )
+
             for url, text in pages:
                 await asyncio.sleep(0)
                 community_names: list[str] = []
@@ -1344,7 +1417,7 @@ async def _run_ai_only(
                 # Always read from cache for community_names (helps person extraction).
                 # Only run fresh extraction when run_communities=True and cache misses.
                 community_cache_hit = False
-                cached = cache.get_extracted(url, fingerprint=extractor.canonical_fingerprint)
+                cached = cached_by_url.get(url)
                 if cached is not None:
                     log.debug("cache_hit_extract", url=url)
                     records.extend(cached)
@@ -1354,62 +1427,35 @@ async def _run_ai_only(
                     community_cache_hit = True
 
                 if not community_cache_hit and run_communities:
-                    if getattr(extractor, "rate_limited_out", False):
-                        # Every provider is inside a back-off window. Waiting it
-                        # out page by page burns the window on sleep, so stop
-                        # this pass cleanly and let the next one resume — the
-                        # daily budget is untouched, nothing is cached, and the
-                        # pages are retried. Not an abort: the providers are
-                        # alive.
-                        log.info("extract_paused_all_rate_limited",
-                                 city=city.name, topic=topic.name)
+                    outcome = fresh_by_url.get(url)
+                    if outcome is None:
+                        # Never attempted. Either the fleet stopped part-way
+                        # through the pair, or it was never usable at all.
+                        if pair_stop is None:
+                            # No stop reason means no provider was ever
+                            # configured — a deliberate no-LLM run, not an
+                            # outage. Count the page and carry on, as before.
+                            pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
+                            continue
+                        # `pair_stop` says whether this was an outage (abort the
+                        # run and report it) or the window ending normally.
+                        # Nothing was cached either way, so every unattempted
+                        # page is retried next pass.
+                        reason, is_outage = pair_stop
+                        if is_outage:
+                            pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
+                            pair_log["extract_error"] = reason
+                            pair_log["aborted"] = True
+                        log.info("extract_stopped_mid_pair", city=city.name,
+                                 topic=topic.name, reason=reason)
                         extract_dead = True
                         break
-                    if getattr(extractor, "quota_exhausted", False):
-                        # The free-tier fleet spent its daily allowance. That is
-                        # the designed end of a window, not an outage: stop
-                        # cleanly with no `aborted` flag, so the run detail and
-                        # the daily email do not report a provider failure.
-                        # Nothing is cached, so the pages retry tomorrow.
-                        log.info("extract_stopped_quota_spent", city=city.name,
-                                 topic=topic.name)
-                        extract_dead = True
-                        break
-                    if extractor.providers_down:
-                        # See _run_full: a dead provider chain aborts the run
-                        # rather than logging one failure per page for hours.
+                    if isinstance(outcome, BaseException):
                         pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
-                        pair_log["extract_error"] = getattr(extractor, "failure_reason", None)
-                        pair_log["aborted"] = True
-                        extract_dead = True
-                        break
-                    if extractor.exhausted:
-                        pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
+                        log.warning("extract_unavailable_page_skipped", url=url,
+                                    reason=str(outcome))
                         continue
-                    if on_progress:
-                        on_progress("extract", url)
-                    try:
-                        extracted, _model, _quality = await _extract_traced(
-                            extractor,
-                            text=text, city=city.name, topic=topic.name,
-                            locale=city.locale, source_url=url,
-                            false_positive_examples=extraction_fp_section,
-                        )
-                    except ExtractorUnavailableError as exc:
-                        pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
-                        log.warning("extract_unavailable_page_skipped", url=url, reason=str(exc))
-                        # The guards above run *before* the call, so a stop
-                        # caused by the last page of a pair would never be seen:
-                        # the loop would end and the run be filed as a warning
-                        # even though this very call opened the breaker.
-                        if (_reason := _mark_stop(extractor, pair_log)):
-                            log.info("extract_stopped_after_page", url=url, reason=_reason)
-                            extract_dead = True
-                            break
-                        continue
-                    finally:
-                        if on_progress:
-                            on_progress(None, None)
+                    extracted, _model, _quality = outcome
 
                     joinable = [r for r in extracted if r.joinable]
                     if len(joinable) < len(extracted):

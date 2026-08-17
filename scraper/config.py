@@ -62,6 +62,7 @@ def load_config_from_docs(
         dataforseo_mode=settings["search"].get("dataforseo_mode", "live"),
         dataforseo_priority=int(settings["search"].get("standard_priority", 1)),
         core_topics=pipeline_settings.get("core_topics", []) or [],
+        extract_concurrency=int(pipeline_settings.get("extract_concurrency", 1) or 1),
         fetch_timeout=settings["fetch"]["timeout_seconds"],
         fetch_min_text_length=settings["fetch"]["min_text_length"],
         fetch_max_concurrent=settings["fetch"]["max_concurrent"],
