@@ -855,6 +855,11 @@ class FallbackExtractor:
         #: so "consecutive" would stop meaning consecutive. The generation seen
         #: when a failure happened is compared against the one at recording time.
         self._provider_success_gen = [0] * len(self.primaries)
+        #: Which entries of `_exhausted` the breaker set, as opposed to a 402 or
+        #: a retired model name. Only these may be undone: a provider that
+        #: answers has proven itself alive, and under concurrency a call already
+        #: in flight can land right after another page's failures retired it.
+        self._retired_by_failures = [False] * len(self.primaries)
         #: Human-readable cause once the chain is dead — surfaced in the run log
         #: and the daily email so an outage names itself.
         self.failure_reason: str | None = None
@@ -976,6 +981,7 @@ class FallbackExtractor:
             return
         if self._provider_failures[idx] >= self._failure_threshold:
             self._exhausted[idx] = True
+            self._retired_by_failures[idx] = True
             self.failure_reason = (
                 f"{last_error} ({self._provider_failures[idx]} consecutive failures)")
             log.error("extractor_provider_retired",
@@ -1164,6 +1170,16 @@ class FallbackExtractor:
                     self._consecutive_failures = 0
                     self._provider_failures[i] = 0
                     self._provider_success_gen[i] += 1
+                    if self._retired_by_failures[i]:
+                        # It just answered. Whatever the breaker concluded from
+                        # a concurrent page's failures, this provider is alive,
+                        # and leaving it retired for the rest of the run is the
+                        # expensive mistake — the fleet is small.
+                        self._exhausted[i] = False
+                        self._retired_by_failures[i] = False
+                        self.failure_reason = None
+                        log.info("extractor_provider_recovered",
+                                 provider=primary.__class__.__name__)
                     # A fallback saving the page does not absolve the provider
                     # that failed first — that is exactly how a persistently
                     # broken endpoint earns its retirement. But *this* provider

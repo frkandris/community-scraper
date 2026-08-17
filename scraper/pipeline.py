@@ -1408,6 +1408,20 @@ async def _run_ai_only(
                     city=city, topic=topic, fp_section=extraction_fp_section,
                     concurrency=config.extract_concurrency, on_progress=on_progress,
                 )
+            if pair_stop is not None:
+                # Recorded once, here, and not per url. A stop can arrive with
+                # every page already attempted — nothing absent from the map to
+                # notice it by — and counting it per url turned one outage into
+                # one `extract_failed` per queued page. Setting `extract_dead`
+                # before the loop also stops a page earlier in the list from
+                # starting venue or person calls the fleet cannot serve.
+                reason, is_outage = pair_stop
+                if is_outage:
+                    pair_log["extract_error"] = reason
+                    pair_log["aborted"] = True
+                log.info("extract_stopped_mid_pair", city=city.name,
+                         topic=topic.name, reason=reason)
+                extract_dead = True
 
             for url, text in pages:
                 await asyncio.sleep(0)
@@ -1429,33 +1443,13 @@ async def _run_ai_only(
                 if not community_cache_hit and run_communities:
                     outcome = fresh_by_url.get(url)
                     if outcome is None:
-                        # Never attempted. Either the fleet stopped part-way
-                        # through the pair, or it was never usable at all.
+                        # Never attempted: either the fleet stopped part-way
+                        # (already recorded above, once) or it was never usable
+                        # at all — a deliberate no-LLM run, which is the only
+                        # case that counts as a failed page. Nothing was cached
+                        # either way, so the page is retried next pass.
                         if pair_stop is None:
-                            # No stop reason means no provider was ever
-                            # configured — a deliberate no-LLM run, not an
-                            # outage. Count the page and carry on, as before.
                             pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
-                            continue
-                        # `pair_stop` says whether this was an outage (abort the
-                        # run and report it) or the window ending normally.
-                        # Nothing was cached either way, so every unattempted
-                        # page is retried next pass.
-                        reason, is_outage = pair_stop
-                        if is_outage:
-                            pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
-                            pair_log["extract_error"] = reason
-                            pair_log["aborted"] = True
-                        log.info("extract_stopped_mid_pair", city=city.name,
-                                 topic=topic.name, reason=reason)
-                        extract_dead = True
-                        # Carry on through the rest of the pair rather than
-                        # breaking. The pages ahead are a mix of never-attempted
-                        # ones (nothing to do) and cache hits (records that
-                        # belong in this pair's totals), and with extraction
-                        # concurrent the loop may also still have completed
-                        # results to write — work the fleet was already charged
-                        # for. `extract_dead` ends the pass after the pair.
                         continue
                     if isinstance(outcome, BaseException):
                         pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
