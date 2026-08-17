@@ -125,10 +125,10 @@ window that follows. `extractor.deadline` is the run's `stop_at`.
 
 ## What this does not fix
 
-Throughput. `FallbackExtractor._call` still issues one request at a time across
-five providers with independent limits, which is why a full day's budget takes
-~9 hours to spend and why simultaneous cooldown happens at all. Parallelising
-the chain is the real fix (arXiv:2504.07347, work-conserving schedulers), and it
-touches the code path every extraction goes through — its own change, its own
-review round. See
-[the research notes](/docs/wiki/sources/2026-08-16-evaluation-and-throughput-arxiv.md).
+Throughput — and it did not, for one more day. `FallbackExtractor._call` issued
+one request at a time across five providers with independent limits, which is
+why a full day's budget took ~9 hours to spend and why simultaneous cooldown was
+reachable at all. That was fixed the same day in its own change, with its own
+review rounds: [[concurrent-extraction]]. The research behind it is in
+[the notes](/docs/wiki/sources/2026-08-16-evaluation-and-throughput-arxiv.md)
+(arXiv:2504.07347, work-conserving schedulers).

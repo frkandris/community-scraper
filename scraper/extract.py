@@ -1207,6 +1207,10 @@ class FallbackExtractor:
                                 label=label, wait_s=exc.wait_seconds)
                 except ExtractorModelError as exc:
                     self._note_attempt(_t0)
+                    # Permanent for the run, unlike a breaker retirement: clear
+                    # the reversible flag so a success still in flight cannot
+                    # resurrect a model that is gone or a quota that is spent.
+                    self._retired_by_failures[i] = False
                     # One dead model, not a dead provider: retire it for the run
                     # and move on. Deliberately not counted toward the circuit
                     # breaker — a stale catalogue entry is a config problem, and
@@ -1220,6 +1224,10 @@ class FallbackExtractor:
                     continue
                 except ExtractorQuotaError as exc:
                     self._note_attempt(_t0)
+                    # Permanent for the run, unlike a breaker retirement: clear
+                    # the reversible flag so a success still in flight cannot
+                    # resurrect a model that is gone or a quota that is spent.
+                    self._retired_by_failures[i] = False
                     self._exhausted[i] = True
                     last_error = str(exc)
                     self.failure_reason = str(exc)

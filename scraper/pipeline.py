@@ -241,6 +241,12 @@ RUN_WARNING = "warning"  # finished, but some pairs/pages failed and will be ret
 RUN_ABORTED = "aborted"  # stopped early: dead provider, or a top-level exception
 
 
+#: How many times a pair's skipped pages may be re-offered when the fleet turns
+#: out to be healthy after all. A small bound: the point is to recover from a
+#: momentary stop, not to retry into one.
+_MAX_EXTRACT_ROUNDS = 3
+
+
 async def _extract_pair_pages(
     extractor, pages, *, city, topic, fp_section, concurrency, on_progress,
 ) -> "tuple[dict[str, Any], tuple[str, bool] | None]":
@@ -259,18 +265,19 @@ async def _extract_pair_pages(
     provider whose slot is already claimed.
     """
     results: dict[str, Any] = {}
-    stop: "tuple[str, bool] | None" = None
     if not pages:
-        return results, stop
+        return results, None
     sem = asyncio.Semaphore(max(1, int(concurrency or 1)))
+    pending = list(pages)
+    skipped: list = []
 
     async def _one(url: str, text: str) -> None:
-        nonlocal stop
         async with sem:
-            # Re-checked inside the slot, not once up front: the fleet can spend
-            # its last quota on the page ahead of this one, and attempting the
-            # rest would only collect identical failures.
-            if stop is not None or (stop := _stop_reason(extractor)) is not None:
+            # Asked inside the slot, not once up front: the fleet can spend its
+            # last quota on the page ahead of this one, and attempting the rest
+            # would only collect identical failures.
+            if _stop_reason(extractor) is not None:
+                skipped.append((url, text))
                 return
             if on_progress:
                 on_progress("extract", url)
@@ -282,14 +289,24 @@ async def _extract_pair_pages(
                 )
             except ExtractorUnavailableError as exc:
                 results[url] = exc
-                if stop is None:
-                    stop = _stop_reason(extractor)
             finally:
                 if on_progress:
                     on_progress(None, None)
 
-    await asyncio.gather(*[_one(u, t) for u, t in pages])
-    return results, stop
+    # A stop seen mid-flight is a snapshot, not a verdict: a request already in
+    # flight can revive the very provider whose failures caused it, and a
+    # rate-limit pause seen early would otherwise mask a real outage that
+    # happened later. The state after everything has landed is the one that
+    # counts — and if it says the fleet is fine, the pages that stepped aside
+    # get their turn instead of being written off.
+    for _round in range(_MAX_EXTRACT_ROUNDS):
+        skipped = []
+        await asyncio.gather(*[_one(u, t) for u, t in pending])
+        stop = _stop_reason(extractor)
+        if stop is not None or not skipped:
+            return results, stop
+        pending = skipped
+    return results, _stop_reason(extractor)
 
 
 def _stop_reason(extractor) -> tuple[str, bool] | None:
