@@ -454,3 +454,17 @@ def test_ai_only_aborts_when_extractor_dies_midrun(tmp_path):
 
     assert len(logs) == 1, "the run must abort at the first pair, not walk both cities"
     assert logs[0]["extract_error"] and "HTTP 400" in logs[0]["extract_error"]
+
+
+def test_a_provider_that_recovers_on_retry_is_not_retired():
+    """Failing an attempt and succeeding on the retry is a working provider.
+
+    `_call` retries transient errors once, and the failures seen during a call
+    are applied at the end — so the provider that eventually answered has to be
+    excluded, or twenty self-recovering calls retire a healthy endpoint.
+    """
+    p = StubPrimary([ExtractorUnavailableError("500"), ["ok"]] * 30)
+    fe = FallbackExtractor(primaries=[p], failure_threshold=2)
+    for _ in range(30):
+        assert asyncio.run(fe.extract("t", "c", "top", "hu", "http://x")) == ["ok"]
+    assert not fe.providers_down

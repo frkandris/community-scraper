@@ -267,3 +267,25 @@ def test_repeated_insert_of_the_same_pair_is_a_no_op(tmp_path):
     assert insert_duplicate_candidate(db, *args) is True
     assert insert_duplicate_candidate(db, *args) is False
     assert len(get_duplicate_candidates(db, resolved=False)) == 1
+
+
+def test_reorienting_never_deletes_an_admin_flag(tmp_path):
+    """An auto re-scan must not demote a pair an admin flagged manually."""
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as conn:
+        for wk, lk, sig in (("key_a", "key_b", "fuzzy_name"),
+                            ("key_b", "key_a", "manual")):
+            conn.execute(
+                "INSERT INTO duplicate_candidates (entity_type, winner_id, loser_id,"
+                " winner_key, loser_key, similarity, signal, detected_at)"
+                " VALUES ('community','id_x','id_y',?,?,0.9,?,'2026-01-01')",
+                (wk, lk, sig),
+            )
+
+    insert_duplicate_candidate(db, "community", "id_b", "id_a",
+                               "key_b", "key_a", 0.95, "fuzzy_name")
+
+    pending = get_duplicate_candidates(db, resolved=False)
+    manual = [p for p in pending if p["signal"] == "manual"]
+    assert len(manual) == 1
+    assert (manual[0]["winner_key"], manual[0]["loser_key"]) == ("key_b", "key_a")

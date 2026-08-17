@@ -64,6 +64,42 @@ fetches were not, and neither were the sites on the other end.
 The distinction now runs all the way through: **"come back later" is not
 "gone"**. A paused run resumes with its window; an aborted one wastes it.
 
+## What the review rounds found
+
+Seven rounds, and the first two fixes were each nearly worse than the bug.
+
+**The exemption almost swallowed the breaker whole.** The quota ledger stamps a
+provider's rpm clock on *every* attempt, failures included — so a fleet
+answering 500s ends a call looking exactly like a fleet in cooldown, and the
+new exemption would have applied to it. A run against a genuinely dead API
+would never have aborted. Only an error actually seen during the call may open
+the breaker now (`real_failure_seen`), which pointedly excludes a retired model
+and a spent quota: both already have their own handling.
+
+**`rate_limited_out` was latched.** Set once and never cleared, one unlucky
+moment where every provider happened to be in cooldown would have stopped
+extraction for the rest of the window — and, because callers stop before the
+chain can look again, permanently masked a fleet that died afterwards. It is
+cleared at the top of every call, as `quota_exhausted` already was.
+
+**`pair_log["extract_error"]` was a crash.** Three branches set `extract_dead`
+and only one of them sets that key, so the shipped fix turned a clean pause into
+a `KeyError` in `_run_full`. Both sites now branch on `aborted`, and a pause
+also leaves the *city* loop — otherwise the next city went on paying DataForSEO
+for pages nothing could extract.
+
+**The breaker is now per provider.** One endpoint stuck on 500s used to drive a
+single global counter to 20 and retire the whole fleet with it, healthy
+providers included. A provider retires itself; `providers_down` — all of them
+retired — is what aborts a run. Two subtleties the rounds surfaced: `_call`
+retries once, so counting per *attempt* silently halved the configured
+threshold; and a provider that fails an attempt and succeeds on the retry is
+working, so it must be excluded from the tally its own call collected.
+
+**A 429 back-off no longer sleeps past the window.** `_RATE_LIMIT_MAX_WAIT` is
+15 minutes; without a deadline a call starting at 09:58 slept into the collector
+window that follows. `extractor.deadline` is the run's `stop_at`.
+
 ## Lessons
 
 - A circuit breaker must count only the failures it is meant to protect
@@ -78,6 +114,14 @@ The distinction now runs all the way through: **"come back later" is not
 - A retry loop that leaves side effects outside the retried call is not free.
   Enrichment's `continue` was correct about the database and wrong about the
   network.
+- Two of the seven review rounds found bugs *in the previous round's fix*. The
+  pattern is specific: each one relaxed a safety rule without asking what else
+  relied on it. Exempting rate limits from the breaker also exempted a dead
+  fleet; stopping the pass on a flag also crashed on a key only one branch set.
+- There was no measurement. The run achieved 3.3 extractions/min against a
+  combined fleet ceiling of 185 calls/min and nothing recorded whether the gap
+  was latency or pacing. `extractor_throughput` now logs `calls`, `call_s`,
+  `wait_s` and `calls_per_min` at the end of every run.
 
 ## What this does not fix
 

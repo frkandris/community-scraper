@@ -2525,68 +2525,75 @@ def insert_duplicate_candidate(
     similarity: float,
     signal: str,
 ) -> bool:
+    """Record a duplicate pair once, whichever way round it is computed.
+
+    Winner and loser carry meaning (winner = the record a merge keeps), so a
+    re-scan may legitimately produce the reverse order for a pair already known.
+    One pair must still be one row.
+
+    The whole read-modify-write runs inside BEGIN IMMEDIATE. `idx_dup_pair` is a
+    *partial* unique index (`WHERE resolution IS NULL`) on one orientation only,
+    so it cannot express "this pair, either way round" — two writers racing on
+    opposite orientations would both pass their own check and commit. Taking the
+    write lock up front is what actually makes the rule hold. Without it, the
+    2026-08-17 post-run scan died on "UNIQUE constraint failed:
+    duplicate_candidates.entity_type, winner_key, loser_key".
+    """
     now = datetime.now(timezone.utc).isoformat()
     with _connect(db_path) as conn:
-        # Pair idempotency checks BOTH orders: winner/loser now carry meaning
-        # (winner = the record a merge keeps), so re-scans may compute the
-        # reverse order for an already-known pair and must not duplicate it.
-        existing = conn.execute(
+        conn.execute("BEGIN IMMEDIATE")
+        rows = conn.execute(
             "SELECT id, winner_key, resolution, signal FROM duplicate_candidates"
             " WHERE entity_type=? AND ((winner_key=? AND loser_key=?)"
-            "                       OR (winner_key=? AND loser_key=?))",
+            "                       OR (winner_key=? AND loser_key=?))"
+            # Manual first so the admin's row is the one kept, then oldest —
+            # never storage order, which decided the outcome by luck.
+            " ORDER BY (signal='manual') DESC, id",
             (entity_type, winner_key, loser_key, loser_key, winner_key),
-        ).fetchone()
-        if existing:
-            # Pending rows get their orientation corrected in place so a later
-            # merge keeps the right record. Precedence: an admin's manual flag
-            # always wins (it also stamps signal='manual' so later auto scans
-            # cannot flip it back); auto re-scans may only reorient other auto
-            # rows.
-            may_update = signal == "manual" or existing[3] != "manual"
-            needs_change = (existing[1] != winner_key
-                            or (signal == "manual" and existing[3] != "manual"))
-            if existing[2] is None and may_update and needs_change:
-                # Reorienting can collide with *another* pending row holding the
-                # reverse orientation of the same pair: idx_dup_pair is partial
-                # (resolution IS NULL), and rows predating the both-orders
-                # lookup above could be stored both ways round. They describe
-                # one pair, so the redundant one goes rather than the write
-                # failing — 2026-08-17 the post-run scan died on
-                # "UNIQUE constraint failed: duplicate_candidates.entity_type,
-                # winner_key, loser_key" and took the whole pass with it.
-                conn.execute(
-                    "DELETE FROM duplicate_candidates"
-                    " WHERE entity_type=? AND winner_key=? AND loser_key=?"
-                    "   AND resolution IS NULL AND id<>?",
-                    (entity_type, winner_key, loser_key, existing[0]),
-                )
-                conn.execute(
-                    "UPDATE duplicate_candidates"
-                    " SET winner_id=?, loser_id=?, winner_key=?, loser_key=?, signal=?"
-                    " WHERE id=?",
-                    (winner_id, loser_id, winner_key, loser_key,
-                     signal if signal == "manual" else existing[3], existing[0]),
-                )
-                conn.commit()
+        ).fetchall()
+
+        if any(r[2] is not None for r in rows):
+            # Already decided (merged or dismissed). A re-scan must not raise it
+            # again, whatever orientation it computed this time — and a leftover
+            # *pending* row for the same pair is exactly that: the decision
+            # covers the pair, so a legacy reverse row would otherwise keep a
+            # dismissed pair on the admin list forever.
+            for row in rows:
+                if row[2] is None:
+                    conn.execute("DELETE FROM duplicate_candidates WHERE id=?", (row[0],))
+            conn.commit()
             return False
-        # ON CONFLICT, not a bare INSERT: the SELECT above and this write are
-        # separate statements, so a row can appear between them — the
-        # 2026-08-17 post-run scan died on
-        # "UNIQUE constraint failed: duplicate_candidates.entity_type,
-        # winner_key, loser_key" and took the whole duplicate pass with it.
-        # "Record this pair unless it is already known" is exactly what the
-        # conflict clause says, and it says it atomically. The WHERE mirrors
-        # idx_dup_pair's own predicate — without it SQLite cannot tell which
-        # index the clause targets and rejects the statement.
-        cursor = conn.execute("""
+
+        if rows:
+            keep, *redundant = rows
+            # Precedence: an admin's manual flag always wins, and stamps
+            # signal='manual' so later auto scans cannot flip it back. An auto
+            # re-scan may reorient another auto row, never a manual one.
+            keep_is_manual = keep[3] == "manual"
+            # Delete before reorienting, not after: the row we are about to
+            # rewrite may be moving onto the orientation a redundant row still
+            # occupies, and the partial unique index would reject the UPDATE.
+            for row in redundant:
+                conn.execute("DELETE FROM duplicate_candidates WHERE id=?", (row[0],))
+            if signal == "manual" or not keep_is_manual:
+                new_signal = "manual" if signal == "manual" else keep[3]
+                if keep[1] != winner_key or new_signal != keep[3]:
+                    conn.execute(
+                        "UPDATE duplicate_candidates"
+                        " SET winner_id=?, loser_id=?, winner_key=?, loser_key=?, signal=?"
+                        " WHERE id=?",
+                        (winner_id, loser_id, winner_key, loser_key, new_signal, keep[0]),
+                    )
+            conn.commit()
+            return False
+
+        conn.execute("""
             INSERT INTO duplicate_candidates
               (entity_type, winner_id, loser_id, winner_key, loser_key, similarity, signal, detected_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (entity_type, winner_key, loser_key)
-              WHERE resolution IS NULL DO NOTHING
         """, (entity_type, winner_id, loser_id, winner_key, loser_key, similarity, signal, now))
         conn.commit()
-        return cursor.rowcount > 0
+        return True
 
 
 def get_duplicate_candidates(

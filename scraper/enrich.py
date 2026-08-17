@@ -116,6 +116,7 @@ async def enrich_batch(
             # are spent, and we hammer third-party sites for nothing.
             if (getattr(extractor, "providers_down", False)
                     or getattr(extractor, "rate_limited_out", False)
+                    or getattr(extractor, "quota_exhausted", False)
                     or getattr(extractor, "exhausted", False)):
                 stats["stopped_no_provider"] = True
                 log.warning("enrich_stopped_no_provider", failed=stats["failed"])

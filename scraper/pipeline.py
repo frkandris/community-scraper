@@ -241,6 +241,56 @@ RUN_WARNING = "warning"  # finished, but some pairs/pages failed and will be ret
 RUN_ABORTED = "aborted"  # stopped early: dead provider, or a top-level exception
 
 
+def _stop_reason(extractor) -> tuple[str, bool] | None:
+    """Why extraction cannot continue: (reason, is_outage), or None if it can.
+
+    Pure — callers decide what to record. An earlier version marked the pair log
+    itself, which meant asking the question from a context with no pair log
+    silently discarded the answer.
+
+    The community branch guards on these flags before calling, but venue and
+    person extraction did not — and since the flags describe a single attempt,
+    a pause raised by a venue call was cleared by the next call before anything
+    read it, so the pass walked every remaining page instead of stopping.
+
+    Only `providers_down` is an outage; the other two are the window ending
+    normally and must not be reported as a failure.
+    """
+    if getattr(extractor, "providers_down", False):
+        return (getattr(extractor, "failure_reason", None)
+                or "no extraction provider available"), True
+    if getattr(extractor, "rate_limited_out", False):
+        return "all providers rate limited", False
+    if getattr(extractor, "quota_exhausted", False):
+        return "free-tier daily quota spent", False
+    return None
+
+
+def _mark_stop(extractor, pair_log: dict) -> str | None:
+    """Record a stop on the pair log and return its reason, or None to carry on."""
+    stop = _stop_reason(extractor)
+    if stop is None:
+        return None
+    reason, is_outage = stop
+    if is_outage:
+        pair_log["extract_error"] = reason
+        pair_log["aborted"] = True
+    return reason
+
+
+def _log_throughput(extractor, run_mode: str) -> None:
+    """Report where the window's time went, on every exit path.
+
+    The yield of a serial chain is decided by two numbers: compare
+    `calls_per_min` against the fleet's combined rpm ceiling (185 as configured
+    on 2026-08-17). A large gap is latency the chain idles on, which concurrency
+    would recover; `wait_s` approaching `call_s` instead means pacing binds and
+    concurrency would only hit the same limits harder.
+    """
+    if extractor is not None and getattr(extractor, "calls_made", 0):
+        log.info("extractor_throughput", run_mode=run_mode, **extractor.throughput())
+
+
 def classify_run_outcome(pair_logs: list[dict], run_error: str | None = None) -> str:
     """Three-state run outcome from the pair logs plus any top-level error.
 
@@ -411,6 +461,9 @@ async def run_pipeline(
     _skip_extracted = skip_extracted if skip_extracted is not None else config.cache_skip_extracted
 
     extractor: FallbackExtractor = build_extractor(config)
+    # The chain may sit out a 429 for up to 15 minutes; past the window end that
+    # sleep finishes nothing and delays the collector window behind it.
+    extractor.deadline = stop_at
 
     run_stats: dict[str, dict[str, int]] = {}
     total_new = 0
@@ -471,6 +524,7 @@ async def run_pipeline(
             )
             total_new += upgrade_new
             pair_logs += upgrade_logs
+        _log_throughput(extractor, run_mode)
         return pair_logs, total_new
 
     # Preflight: one live extraction before the pair loops start. A provider-side
@@ -501,12 +555,22 @@ async def run_pipeline(
                 on_pair_start=on_pair_start, pairs_filter=pairs_to_run, stop_at=stop_at,
             )
         search_client = _build_search_client(config)
-        full_new, full_logs = await _run_full(
-            cities, topics, config, extractor, cache, _skip_scraped, _skip_extracted, run_stats, on_progress,
-            run_communities=run_communities, run_venues=run_venues, run_persons=run_persons,
-            on_pair_start=on_pair_start, pairs_filter=pairs_to_run, stop_at=stop_at,
-            search_client=search_client,
-        )
+        if (_stop := _stop_reason(extractor)) and run_mode == "full":
+            # `_run_ai_only` above already gave up. Running the full chain now
+            # pays DataForSEO for searches whose extractions cannot run. Skip
+            # the pass, not the run: the duplicate scan and the run summary
+            # below still have to happen.
+            log.info("full_pass_skipped_extractor_stopped", reason=_stop[0])
+            full_new, full_logs = 0, []
+        else:
+            full_new, full_logs = await _run_full(
+                cities, topics, config, extractor, cache, _skip_scraped, _skip_extracted,
+                run_stats, on_progress,
+                run_communities=run_communities, run_venues=run_venues,
+                run_persons=run_persons,
+                on_pair_start=on_pair_start, pairs_filter=pairs_to_run, stop_at=stop_at,
+                search_client=search_client,
+            )
         total_new = reai_new + full_new
         pair_logs = reai_logs + full_logs
 
@@ -520,6 +584,13 @@ async def run_pipeline(
         else:
             covered = get_covered_pairs(config.db_path)
             uncovered = all_pairs - covered - done_pairs
+        # `full` mode's catch-up re-runs the whole search → fetch → extract
+        # chain. Entering it with a fleet that already stopped means paying
+        # DataForSEO for pages nothing can extract, so the same reasoning that
+        # skips it on a dead search provider applies to a dead extractor.
+        if uncovered and run_mode == "full" and (_stop := _stop_reason(extractor)):
+            log.info("catchup_skipped_extractor_stopped", reason=_stop[0])
+            uncovered = None
         if uncovered and not _window_closed(stop_at):
             log.info("catchup_pass_start", pairs=len(uncovered))
             catchup_new, catchup_logs = await _run_full(
@@ -535,6 +606,7 @@ async def run_pipeline(
             log.info("catchup_pass_complete", new_records=catchup_new, pairs=len(uncovered))
 
     log.info("pipeline_complete", run_mode=run_mode, total_new_records=total_new)
+    _log_throughput(extractor, run_mode)
     if run_mode != "search_only":
         try:
             from .duplicates import detect_all
@@ -599,9 +671,15 @@ async def _run_full(
     # Early exits use this flag instead of return so the Playwright fetcher
     # cleanup below always runs.
     aborted = False
+    # `aborted` means something broke; `stopped` means the window is simply
+    # over — the fleet spent its free quota, or every provider is inside a
+    # back-off. Both must leave the *city* loop: without this a quota-spent
+    # pause only ended the current city's topics and the next city went on
+    # paying DataForSEO and fetching pages for extractions that cannot run.
+    stopped = False
 
     for city in cities:
-        if aborted:
+        if aborted or stopped:
             break
         run_stats[city.name] = {}
         for topic in topics:
@@ -807,6 +885,14 @@ async def _run_full(
                     except ExtractorUnavailableError as exc:
                         pair_log["extract_failed"] += 1
                         log.warning("extract_unavailable_page_skipped", url=url, reason=str(exc))
+                        # The guards above run *before* the call, so a stop
+                        # caused by the last page of a pair would never be seen:
+                        # the loop would end and the run be filed as a warning
+                        # even though this very call opened the breaker.
+                        if (_reason := _mark_stop(extractor, pair_log)):
+                            log.info("extract_stopped_after_page", url=url, reason=_reason)
+                            extract_dead = True
+                            break
                         continue
                     finally:
                         extract_dur = time.monotonic() - t0
@@ -829,7 +915,9 @@ async def _run_full(
                             "enriched": False,
                             "fields_added": [],
                         }
-                        if config.enrich_communities and _needs_enrichment(record) and (record.confidence or 0.0) >= 0.7:
+                        if (config.enrich_communities and not extract_dead
+                                and _needs_enrichment(record)
+                                and (record.confidence or 0.0) >= 0.7):
                             enrich_timing["needed"] = True
                             record = await _enrich_record(
                                 record, searxng, extractor, config, semaphore,
@@ -838,6 +926,21 @@ async def _run_full(
                             )
                         enrich_logs.append(log_entry)
                         final_records.append(record)
+                        # `_enrich_record` swallows provider errors by design —
+                        # enrichment is best-effort and a record without a
+                        # website is still a record. But the swallow also hid
+                        # the fleet dying: if the last thing a run did was an
+                        # enrichment call, the outage was never recorded and the
+                        # run was filed as clean.
+                        #
+                        # Flag it and stop enriching; do NOT break. The loop
+                        # still has to append every extracted record, because
+                        # `final_records` is what gets cached under this
+                        # fingerprint — a short list here would be cached as the
+                        # page's permanent, silently incomplete extraction.
+                        if not extract_dead and (_reason := _mark_stop(extractor, pair_log)):
+                            log.info("extract_stopped_during_enrich", reason=_reason)
+                            extract_dead = True
 
                     if cache:
                         cache.save_extracted(url, final_records, duration_s=extract_dur,
@@ -883,6 +986,10 @@ async def _run_full(
                         # must not show a venue-blind run as a clean ✓.
                         pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
                         log.warning("venues_extract_error", url=url, error=str(exc))
+                        if (_reason := _mark_stop(extractor, pair_log)):
+                            log.info("extract_paused_mid_page", url=url, reason=_reason)
+                            extract_dead = True
+                            break
 
                 # ── Person extraction (with fingerprint cache) ───────────────
                 if community_names:
@@ -911,6 +1018,10 @@ async def _run_full(
                         except Exception as exc:
                             pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
                             log.warning("persons_extract_error", url=url, error=str(exc))
+                            if (_reason := _mark_stop(extractor, pair_log)):
+                                log.info("extract_paused_mid_page", url=url, reason=_reason)
+                                extract_dead = True
+                                break
 
             # ── Synthesize PersonRecords from community leader fields ────────
             if run_persons:
@@ -937,9 +1048,19 @@ async def _run_full(
             pair_logs.append(pair_log)
 
             if extract_dead:
-                log.warning("extract_provider_down_run_aborted", city=city.name,
-                            topic=topic.name, reason=pair_log["extract_error"])
-                aborted = True
+                # Three different things set `extract_dead`, and only one of
+                # them is an outage. `aborted` is set solely by the
+                # providers_down branch, so it — not the flag — decides how the
+                # run is reported. The bracket access here also used to raise
+                # KeyError on the other two paths, which turned a clean pause
+                # into a crashed run.
+                if pair_log.get("aborted"):
+                    log.warning("extract_provider_down_run_aborted", city=city.name,
+                                topic=topic.name, reason=pair_log.get("extract_error"))
+                    aborted = True
+                else:
+                    log.info("extract_window_stopped", city=city.name, topic=topic.name)
+                    stopped = True
                 break
 
     if pw_fetcher:
@@ -1043,6 +1164,7 @@ async def _run_quality_upgrade(
     total_new = 0
     pending: dict[tuple[str, str], list] = {}
 
+    stopped: tuple[str, bool] | None = None
     for page in candidates:
         if _window_closed(stop_at):
             log.info("quality_upgrade_window_closed", upgraded=upgraded)
@@ -1076,6 +1198,14 @@ async def _run_quality_upgrade(
             # Keep the older, weaker result — it beats losing the page entirely.
             failed += 1
             log.warning("quality_upgrade_failed", url=page["url"], reason=str(exc))
+            if (_stop := _stop_reason(extractor)):
+                # Walking hundreds more pages against a fleet that has stopped
+                # produces nothing but failure counters, and an outage here was
+                # filed as a mere warning because the sweep has no other place
+                # to record one.
+                log.info("quality_upgrade_stopped", reason=_stop[0])
+                stopped = _stop
+                break
             continue
         finally:
             if on_progress:
@@ -1117,6 +1247,9 @@ async def _run_quality_upgrade(
         "extract_failed": failed,
         "cache_hits_extract": upgraded,
     })
+    if stopped is not None and stopped[1]:
+        entry["extract_error"] = stopped[0]
+        entry["aborted"] = True
     return total_new, [entry]
 
 
@@ -1246,6 +1379,14 @@ async def _run_ai_only(
                     except ExtractorUnavailableError as exc:
                         pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
                         log.warning("extract_unavailable_page_skipped", url=url, reason=str(exc))
+                        # The guards above run *before* the call, so a stop
+                        # caused by the last page of a pair would never be seen:
+                        # the loop would end and the run be filed as a warning
+                        # even though this very call opened the breaker.
+                        if (_reason := _mark_stop(extractor, pair_log)):
+                            log.info("extract_stopped_after_page", url=url, reason=_reason)
+                            extract_dead = True
+                            break
                         continue
                     finally:
                         if on_progress:
@@ -1287,6 +1428,10 @@ async def _run_ai_only(
                         # must not show a venue-blind run as a clean ✓.
                         pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
                         log.warning("venues_extract_error", url=url, error=str(exc))
+                        if (_reason := _mark_stop(extractor, pair_log)):
+                            log.info("extract_paused_mid_page", url=url, reason=_reason)
+                            extract_dead = True
+                            break
 
                 # ── Person extraction (with fingerprint cache) ───────────────
                 if community_names:
@@ -1313,6 +1458,10 @@ async def _run_ai_only(
                         except Exception as exc:
                             pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
                             log.warning("persons_extract_error", url=url, error=str(exc))
+                            if (_reason := _mark_stop(extractor, pair_log)):
+                                log.info("extract_paused_mid_page", url=url, reason=_reason)
+                                extract_dead = True
+                                break
 
             # ── Synthesize PersonRecords from community leader fields ────────
             if run_persons:
@@ -1339,8 +1488,14 @@ async def _run_ai_only(
             pair_logs.append(pair_log)
 
             if extract_dead:
-                log.warning("extract_provider_down_run_aborted", city=city.name,
-                            topic=topic.name, reason=pair_log.get("extract_error"))
+                if pair_log.get("aborted"):
+                    log.warning("extract_provider_down_run_aborted", city=city.name,
+                                topic=topic.name, reason=pair_log.get("extract_error"))
+                else:
+                    # Alive, just out of budget or inside a back-off window:
+                    # nothing is cached, the pages retry, and the run must not
+                    # be reported as a provider failure.
+                    log.info("extract_window_stopped", city=city.name, topic=topic.name)
                 return total_new, pair_logs
 
     return total_new, pair_logs

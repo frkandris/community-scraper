@@ -440,7 +440,13 @@ async def main() -> None:
                     break
                 # Provider down: enrich_batch fails fast and leaves candidates
                 # unmarked, so pool stays nonzero — bail out instead of tight-looping.
-                if extractor.exhausted or (stats["enriched"] == 0 and stats["failed"] > 0):
+                # `stopped_no_provider` is the batch's own verdict and must be
+                # honoured even when it enriched a few records first — otherwise
+                # a batch that managed five before the fleet went quiet simply
+                # starts another doomed one.
+                if (stats.get("stopped_no_provider")
+                        or extractor.exhausted
+                        or (stats["enriched"] == 0 and stats["failed"] > 0)):
                     log.warning("enrich_aborted_provider_down", enriched_this_window=total)
                     break
                 await asyncio.sleep(1)  # yield to the event loop between rounds

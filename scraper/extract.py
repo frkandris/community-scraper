@@ -843,6 +843,12 @@ class FallbackExtractor:
         self._blocked_until = [0.0] * len(primaries)
         self._failure_threshold = failure_threshold or self._FAILURE_THRESHOLD
         self._consecutive_failures = 0
+        #: Consecutive real failures per provider. The breaker used to count
+        #: only globally, so one provider stuck on 500s could retire a fleet in
+        #: which everything else was healthy and merely pacing. A provider now
+        #: retires itself, and `providers_down` — all of them retired — is what
+        #: aborts the run.
+        self._provider_failures = [0] * len(self.primaries)
         #: Human-readable cause once the chain is dead — surfaced in the run log
         #: and the daily email so an outage names itself.
         self.failure_reason: str | None = None
@@ -873,6 +879,21 @@ class FallbackExtractor:
         #: Set when every provider is inside a back-off window. Also not an
         #: outage — the APIs are alive and asking us to slow down.
         self.rate_limited_out: bool = False
+        #: Hard end of the run's window (UTC), when the caller has one. A 429
+        #: back-off may be 20 minutes long; sitting it out past the window end
+        #: spends the tail of the night asleep and finishes nothing. Set by
+        #: `run_pipeline`; None means "no deadline", as in admin one-offs.
+        self.deadline: "datetime | None" = None
+        #: Throughput accounting for one run. The chain is serial, so the
+        #: window's yield is decided by these two numbers alone: time spent
+        #: inside provider calls, and time spent waiting to be allowed to make
+        #: one. Overnight on 2026-08-17 the run managed 3.3 extractions/min
+        #: against a combined fleet ceiling of 185 calls/min, and there was no
+        #: measurement to say which half of the gap was latency and which was
+        #: pacing. `extractor_throughput` is logged at the end of every run.
+        self.calls_made: int = 0
+        self.call_seconds: float = 0.0
+        self.wait_seconds: float = 0.0
 
     def _available(self, idx: int) -> bool:
         if self._exhausted[idx] or time.monotonic() < self._blocked_until[idx]:
@@ -899,6 +920,18 @@ class FallbackExtractor:
     #: 8-hour window a 15-minute wait is cheap; abandoning the window is not.
     _RATE_LIMIT_MAX_WAIT = 900.0
 
+    def _max_wait_now(self) -> float:
+        """How long the chain may sit out a back-off, given the window end.
+
+        Waiting past the deadline is worse than giving up on the page: the
+        pipeline stops at the window boundary anyway, so the sleep buys nothing
+        and the collector window that follows starts late.
+        """
+        if self.deadline is None:
+            return self._RATE_LIMIT_MAX_WAIT
+        left = (self.deadline - datetime.now(timezone.utc)).total_seconds()
+        return max(0.0, min(self._RATE_LIMIT_MAX_WAIT, left))
+
     @property
     def exhausted(self) -> bool:
         """True when no provider is configured or every provider is permanently
@@ -915,17 +948,38 @@ class FallbackExtractor:
         """
         return bool(self.primaries) and all(self._exhausted)
 
-    def _note_failure(self, last_error: str) -> None:
-        """Count a failed call; open the breaker at the threshold."""
+    def _note_provider_failure(self, idx: int, last_error: str) -> None:
+        """Count a real failure against one provider and retire it at the limit.
+
+        Per provider, not per fleet: a single endpoint answering 500s used to
+        drive the global counter to 20 and retire every provider with it,
+        including ones that were healthy and simply waiting out an rpm window.
+        A provider now takes only itself down; when the last one goes,
+        `providers_down` turns True and the run aborts as before.
+        """
+        self._provider_failures[idx] += 1
         self._consecutive_failures += 1
-        if not self.primaries or self.providers_down:
+        if self._exhausted[idx]:
             return
-        if self._consecutive_failures >= self._failure_threshold:
-            self._exhausted = [True] * len(self.primaries)
+        if self._provider_failures[idx] >= self._failure_threshold:
+            self._exhausted[idx] = True
             self.failure_reason = (
-                f"{last_error} ({self._consecutive_failures} consecutive failures)")
-            log.error("extractor_circuit_breaker_open",
-                      failures=self._consecutive_failures, reason=last_error)
+                f"{last_error} ({self._provider_failures[idx]} consecutive failures)")
+            log.error("extractor_provider_retired",
+                      provider=self.primaries[idx].__class__.__name__,
+                      failures=self._provider_failures[idx], reason=last_error)
+            if self.providers_down:
+                log.error("extractor_circuit_breaker_open", reason=last_error)
+
+    def _note_failure(self, last_error: str) -> None:
+        """Nothing could even be attempted and nothing was merely blocked.
+
+        Every provider is already retired or out of budget, so there is no new
+        information to record beyond the reason the caller will report.
+        """
+        self._consecutive_failures += 1
+        if self.primaries and not self.failure_reason and self.providers_down:
+            self.failure_reason = last_error
 
     #: Cap on a single pacing wait. Beyond this the provider is better treated
     #: as unavailable so the caller can move on.
@@ -947,6 +1001,7 @@ class FallbackExtractor:
             if wait <= 0 or wait > self._PACE_MAX_WAIT:
                 return
             log.debug("extractor_awaiting_rpm", wait_s=round(wait, 2))
+            self.wait_seconds += wait
             await asyncio.sleep(wait + 0.01)
 
     def _note_router(self, primary, **kwargs) -> None:
@@ -1001,6 +1056,12 @@ class FallbackExtractor:
         # out and the fresh budget between 00:00 and 00:20 would be unreachable.
         if self.quota_exhausted:
             self.quota_exhausted = False
+        # Same reasoning for the back-off flag: it describes *this* attempt.
+        # Latched, it would let one unlucky moment where every provider happened
+        # to be in cooldown stop extraction for the rest of the window — and,
+        # worse, permanently suppress the breaker, since callers stop before
+        # the chain ever gets to notice a fleet that has since died.
+        self.rate_limited_out = False
 
         # rpm pacing is a wait, not an outage, and it lives in the router rather
         # than in `_blocked_until` — so the attempt loop below would find nothing
@@ -1010,20 +1071,44 @@ class FallbackExtractor:
         # only one or two provider keys are set. Wait it out first instead.
         await self._await_pacing()
 
+        # A provider that merely *paced* us is not evidence of anything: the
+        # ledger stamps its rpm clock on every attempt including failed ones, so
+        # a fleet returning 500s ends up looking exactly like a fleet in
+        # cooldown. Only a real error seen in this call may open the breaker —
+        # which means transient/unexpected errors only. A retired model is a
+        # stale catalogue entry and a spent quota is the designed end of a free
+        # window; both already have their own handling and neither may count.
+        real_failure_seen = False
+        # Providers that produced a real error during *this* call. Applied once
+        # at the end: `_call` retries transient errors a second round, so
+        # counting per attempt would silently halve the configured threshold.
+        failed_here: set[int] = set()
         for round_no in range(2):
             transient_seen = False
             for i, primary in enumerate(self.primaries):
                 if not self._available(i):
                     continue
+                _t0 = time.monotonic()
                 try:
                     result = await getattr(primary, method)(*args, **kwargs)
+                    self._note_attempt(_t0)
                     self._consecutive_failures = 0
+                    self._provider_failures[i] = 0
+                    # A fallback saving the page does not absolve the provider
+                    # that failed first — that is exactly how a persistently
+                    # broken endpoint earns its retirement. But *this* provider
+                    # just answered, so it is excluded: one that fails its first
+                    # attempt and succeeds on the retry is working, and counting
+                    # it here would retire it after 20 successful calls.
+                    for idx in failed_here - {i}:
+                        self._note_provider_failure(idx, last_error)
                     self._note_router(primary, ok=True)
                     self.last_quality = int(getattr(primary, "quality", 0) or 0)
                     self.last_model = getattr(primary, "model", "")
                     self.last_provider = getattr(primary, "provider", "")
                     return result
                 except ExtractorRateLimitError as exc:
+                    self._note_attempt(_t0)
                     self._blocked_until[i] = time.monotonic() + exc.wait_seconds
                     last_error = f"rate limited ({exc.wait_seconds:.0f}s)"
                     self._note_router(primary, ok=False, rate_limited=True,
@@ -1031,6 +1116,7 @@ class FallbackExtractor:
                     log.warning("extractor_rate_limited", provider=primary.__class__.__name__,
                                 label=label, wait_s=exc.wait_seconds)
                 except ExtractorModelError as exc:
+                    self._note_attempt(_t0)
                     # One dead model, not a dead provider: retire it for the run
                     # and move on. Deliberately not counted toward the circuit
                     # breaker — a stale catalogue entry is a config problem, and
@@ -1041,6 +1127,7 @@ class FallbackExtractor:
                     log.warning("extractor_model_retired", model=str(exc))
                     continue
                 except ExtractorQuotaError as exc:
+                    self._note_attempt(_t0)
                     self._exhausted[i] = True
                     last_error = str(exc)
                     self.failure_reason = str(exc)
@@ -1048,10 +1135,15 @@ class FallbackExtractor:
                     log.warning("extractor_quota_exhausted",
                                 provider=primary.__class__.__name__, reason=str(exc))
                 except ExtractorUnavailableError as exc:
+                    self._note_attempt(_t0)
+                    real_failure_seen = True
                     transient_seen = True
                     last_error = str(exc)
                     self._note_router(primary, ok=False, error=last_error)
+                    failed_here.add(i)
                 except Exception as exc:
+                    self._note_attempt(_t0)
+                    real_failure_seen = True
                     # Last-resort net: an untyped bug (a parser AttributeError, a
                     # response shape nobody anticipated) used to escape the chain
                     # and abort the entire run from one bad page — 2026-07-30's
@@ -1065,6 +1157,7 @@ class FallbackExtractor:
                     log.exception("extractor_unexpected_error",
                                   provider=primary.__class__.__name__,
                                   method=method, label=label)
+                    failed_here.add(i)
             if round_no == 0 and not self.exhausted:
                 if transient_seen:
                     continue  # one immediate retry for transient API/network errors
@@ -1078,8 +1171,9 @@ class FallbackExtractor:
                 # simply sit out.
                 if wait <= 0 and self.router is not None:
                     wait = self.router.shortest_pace_wait()
-                if 0 < wait <= self._RATE_LIMIT_MAX_WAIT:
+                if 0 < wait <= self._max_wait_now():
                     log.info("extractor_awaiting_rate_limit", wait_s=round(wait, 1), label=label)
+                    self.wait_seconds += wait
                     await asyncio.sleep(wait + 0.1)
                     continue
             break
@@ -1090,7 +1184,10 @@ class FallbackExtractor:
         # the API is alive and telling us to slow down, and the daily budget is
         # very likely untouched. Counting it as failure aborted the 2026-08-17
         # run after 45 minutes with 13,523 Groq calls still available.
-        if self._all_temporarily_blocked():
+        for idx in failed_here:
+            self._note_provider_failure(idx, last_error)
+
+        if not real_failure_seen and self._all_temporarily_blocked():
             self.rate_limited_out = True
             log.info("extractor_all_rate_limited", label=label)
             raise ExtractorUnavailableError(
@@ -1098,6 +1195,39 @@ class FallbackExtractor:
 
         self._note_failure(last_error)
         raise ExtractorUnavailableError(f"{method} unavailable: {last_error}")
+
+    def _note_attempt(self, t0: float) -> None:
+        """Count one provider attempt and the wall time it cost.
+
+        Failures count too, for the same reason the quota ledger counts them: a
+        429 or a 500 still spent a request slot and still spent the window's
+        clock. Measuring only successes would make a struggling fleet look
+        faster than a healthy one.
+        """
+        self.calls_made += 1
+        self.call_seconds += time.monotonic() - t0
+
+    def throughput(self) -> dict:
+        """What the window actually achieved, and where the time went.
+
+        Counts calls made through the chain only; `preflight()` probes each
+        configured model directly and is excluded, so a run's first ~10 calls do
+        not appear here. That is deliberate — preflight latency is a fixed
+        per-run cost and would flatter or spoil the per-page rate.
+
+        `calls_per_min` is the number to compare against the fleet's combined
+        rpm ceiling: a large gap means the serial chain is idling on latency,
+        which concurrency fixes, while `wait_s` close to `call_s` means pacing
+        is binding and more concurrency would only hit the same limits harder.
+        """
+        busy = self.call_seconds + self.wait_seconds
+        return {
+            "calls": self.calls_made,
+            "call_s": round(self.call_seconds, 1),
+            "wait_s": round(self.wait_seconds, 1),
+            "avg_call_s": round(self.call_seconds / self.calls_made, 2) if self.calls_made else 0.0,
+            "calls_per_min": round(self.calls_made / (busy / 60), 1) if busy > 0 else 0.0,
+        }
 
     def _all_temporarily_blocked(self) -> bool:
         """True when every live provider is merely waiting out a 429 or its rpm

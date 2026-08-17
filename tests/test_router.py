@@ -914,3 +914,133 @@ async def test_rate_limits_do_not_open_the_circuit_breaker(tmp_path, monkeypatch
     # Well past the 20-failure threshold, and still not treated as an outage.
     assert chain.providers_down is False
     assert chain.failure_reason is None
+
+
+def test_throughput_reports_where_the_window_went():
+    """The number that decides whether concurrency is worth it.
+
+    A serial chain achieving far fewer calls/min than the fleet's combined rpm
+    ceiling is idling on latency; wait_s approaching call_s means pacing binds
+    instead. Overnight on 2026-08-17 there was no measurement to tell them
+    apart.
+    """
+    from scraper.extract import FallbackExtractor
+
+    ex = FallbackExtractor(primaries=[])
+    assert ex.throughput() == {"calls": 0, "call_s": 0.0, "wait_s": 0.0,
+                               "avg_call_s": 0.0, "calls_per_min": 0.0}
+
+    ex.calls_made, ex.call_seconds, ex.wait_seconds = 10, 40.0, 20.0
+    t = ex.throughput()
+    assert t["avg_call_s"] == 4.0
+    assert t["calls_per_min"] == 10.0  # 10 calls over 60s of busy time
+
+
+@pytest.mark.asyncio
+async def test_a_dead_fleet_still_opens_the_breaker(tmp_path, monkeypatch):
+    """Rate limits are exempt from the breaker; genuine errors must not be.
+
+    The exemption nearly swallowed the breaker whole: the quota ledger stamps a
+    provider's rpm clock on *every* attempt, failures included, so a fleet
+    answering 500s ends the call looking exactly like a fleet in cooldown. Only
+    a real error seen during the call may open it — and it must still open.
+    """
+    from scraper.extract import (ExtractorUnavailableError, FallbackExtractor)
+
+    monkeypatch.setenv("A_KEY", "k")
+    router, _ = _router(tmp_path, _spec("a", env="A_KEY", quality=(60,)))
+
+    class _Broken:
+        provider, model, quality = "a", "a-m0", 60
+
+        async def extract(self, *a, **kw):
+            raise ExtractorUnavailableError("500 upstream exploded")
+
+    chain = FallbackExtractor(primaries=[_Broken()], router=router)
+    for i in range(25):
+        with pytest.raises(ExtractorUnavailableError):
+            await chain.extract(text="t", city="c", topic="running", locale="hu",
+                                source_url=f"https://x/{i}")
+
+    assert chain.providers_down is True
+    assert chain.rate_limited_out is False
+
+
+@pytest.mark.asyncio
+async def test_rate_limited_out_clears_on_the_next_call(tmp_path, monkeypatch):
+    """The flag describes one attempt, not the rest of the run.
+
+    Latched, it would both stop extraction for the whole window after a single
+    unlucky moment and permanently mask a fleet that died afterwards, because
+    callers stop before the chain can notice.
+    """
+    from scraper.extract import (ExtractorRateLimitError,
+                                 ExtractorUnavailableError, FallbackExtractor)
+
+    monkeypatch.setenv("A_KEY", "k")
+    router, _ = _router(tmp_path, _spec("a", env="A_KEY", quality=(60,)))
+
+    class _Flaky:
+        provider, model, quality = "a", "a-m0", 60
+        limited = True
+
+        async def extract(self, *a, **kw):
+            if _Flaky.limited:
+                raise ExtractorRateLimitError(1200)
+            return []
+
+    chain = FallbackExtractor(primaries=[_Flaky()], router=router)
+    with pytest.raises(ExtractorUnavailableError):
+        await chain.extract(text="t", city="c", topic="running", locale="hu",
+                            source_url="https://x/1")
+    assert chain.rate_limited_out is True
+
+    # Let both back-off clocks expire — the chain's own, and the ledger's.
+    _Flaky.limited = False
+    chain._blocked_until = [0.0]
+    router.ledger._row("a")["blocked_until"] = 0.0
+    router.ledger._last_call.pop("a", None)
+    assert await chain.extract(text="t", city="c", topic="running", locale="hu",
+                               source_url="https://x/2") == []
+    assert chain.rate_limited_out is False
+
+
+@pytest.mark.asyncio
+async def test_one_broken_provider_does_not_retire_a_healthy_one(tmp_path, monkeypatch):
+    """The breaker is per provider, not per fleet.
+
+    A single endpoint stuck on 500s used to drive one global counter to 20 and
+    retire everything with it — including providers that were healthy and simply
+    waiting out an rpm window.
+    """
+    from scraper.extract import ExtractorUnavailableError, FallbackExtractor
+
+    monkeypatch.setenv("A_KEY", "k")
+    monkeypatch.setenv("B_KEY", "k")
+    router, _ = _router(tmp_path,
+                        _spec("a", env="A_KEY", quality=(60,)),
+                        _spec("b", env="B_KEY", quality=(50,)))
+
+    class _Broken:
+        provider, model, quality = "a", "a-m0", 60
+
+        async def extract(self, *a, **kw):
+            raise ExtractorUnavailableError("500 upstream exploded")
+
+    class _Healthy:
+        provider, model, quality = "b", "b-m0", 50
+        calls = 0
+
+        async def extract(self, *a, **kw):
+            _Healthy.calls += 1
+            return []
+
+    chain = FallbackExtractor(primaries=[_Broken(), _Healthy()], router=router)
+    for i in range(30):
+        assert await chain.extract(text="t", city="c", topic="running", locale="hu",
+                                   source_url=f"https://x/{i}") == []
+
+    assert chain.providers_down is False
+    assert chain._exhausted[0] is True    # the broken one retired itself
+    assert chain._exhausted[1] is False   # the healthy one kept serving
+    assert _Healthy.calls == 30
