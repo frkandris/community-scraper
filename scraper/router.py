@@ -183,19 +183,6 @@ class QuotaLedger:
     #: daily cap points at the next UTC midnight, which is hours away.
     _DAILY_429_RETRY_AFTER = 1800.0
 
-    def release_call(self, provider: str) -> None:
-        """Give back a slot claimed for a call that never ran.
-
-        Cancellation is the reason this exists: `asyncio.CancelledError` is a
-        BaseException, so it slips past every `except Exception` between the
-        reservation and `note_call`, and the slot would stay charged for the
-        life of the process.
-        """
-        if self._reserved.get(provider):
-            self._reserved[provider] -= 1
-            row = self._row(provider)
-            row["calls"] = max(0, int(row.get("calls") or 0) - 1)
-
     def reserve_call(self, provider: str) -> None:
         """Take a request slot before issuing the call, not after it returns.
 
@@ -381,12 +368,6 @@ class ModelRouter:
             return False
         self.ledger.reserve_call(provider)
         return True
-
-    def release(self, extractor) -> None:
-        """Give back a slot claimed for a call that never reported an outcome."""
-        provider = getattr(extractor, "provider", None)
-        if provider:
-            self.ledger.release_call(provider)
 
     def note(self, extractor, **kwargs) -> None:
         """Attribute one call to the extractor's provider bucket."""

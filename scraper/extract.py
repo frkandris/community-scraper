@@ -562,6 +562,10 @@ class _ApiExtractor:
     #: `_json_items()` already tolerates a non-conforming top level.
     json_mode: bool = True
 
+    #: Created on first use, never at construction: extractors are built before
+    #: the event loop that runs them exists.
+    _rate_lock: "asyncio.Lock | None" = None
+
     def _json_format(self) -> dict:
         return {"response_format": {"type": "json_object"}} if self.json_mode else {}
 
@@ -569,10 +573,22 @@ class _ApiExtractor:
         return {"Authorization": f"Bearer {self.api_key}"}
 
     async def _rate_limit(self) -> None:
-        elapsed = time.monotonic() - self._last_request_time
-        if elapsed < self.rate_limit_seconds:
-            await asyncio.sleep(self.rate_limit_seconds - elapsed)
-        self._last_request_time = time.monotonic()
+        """Space this extractor's own requests out.
+
+        Serialised on a lock, and the clock is stamped *before* the lock is
+        released. Without it, concurrent callers all read the same timestamp,
+        all sleep the same amount, and wake together into a burst — which is
+        exactly the shape the limit exists to prevent. Only the non-routed
+        path (a single DeepSeek key) depends on this; the free-tier fleet is
+        paced by the quota ledger instead.
+        """
+        if self._rate_lock is None:
+            self._rate_lock = asyncio.Lock()
+        async with self._rate_lock:
+            elapsed = time.monotonic() - self._last_request_time
+            if elapsed < self.rate_limit_seconds:
+                await asyncio.sleep(self.rate_limit_seconds - elapsed)
+            self._last_request_time = time.monotonic()
 
     async def _post(self, payload: dict, label: str) -> dict:
         await self._rate_limit()
@@ -1041,15 +1057,6 @@ class FallbackExtractor:
             log.warning("router_reserve_failed", error=str(exc))
             return False
 
-    def _release_router(self, primary) -> None:
-        """Hand a claimed slot back. Never raises — see `_note_router`."""
-        if self.router is None:
-            return
-        try:
-            self.router.release(primary)
-        except Exception as exc:
-            log.warning("router_release_failed", error=str(exc))
-
     def _note_router(self, primary, **kwargs) -> None:
         """Attribute one attempt to its provider's daily budget.
 
@@ -1265,9 +1272,12 @@ class FallbackExtractor:
                     if _reserved and not _settled:
                         # Only a cancellation reaches here unsettled: it is a
                         # BaseException, so it slips past every `except
-                        # Exception` above, and the slot would stay charged for
-                        # the life of the process.
-                        self._release_router(primary)
+                        # Exception` above. The request may already have reached
+                        # the provider and been counted there, so it is recorded
+                        # rather than given back — over-counting costs a call of
+                        # budget, under-counting buys a surprise 429 tomorrow.
+                        self._note_router(primary, ok=False, error="cancelled",
+                                          reserved=_reserved)
             if round_no == 0 and not self.exhausted:
                 if transient_seen:
                     continue  # one immediate retry for transient API/network errors
