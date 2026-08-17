@@ -362,6 +362,23 @@ class PipelineConfig:
     core_topics: list[str] = field(default_factory=list)
 
 
+async def _extract_traced(extractor, **kwargs):
+    """Extract one page and report which model served it, as one operation.
+
+    Prefer the extractor's own traced call, which carries provenance out with
+    the result. Anything extractor-shaped that lacks it — admin flows, test
+    doubles — falls back to reading the mutable attributes afterwards, which is
+    only correct while nothing else can call the chain in between. Concurrent
+    callers must use an extractor that provides `extract_traced`.
+    """
+    traced = getattr(extractor, "extract_traced", None)
+    if traced is not None:
+        return await traced(**kwargs)
+    records = await extractor.extract(**kwargs)
+    model, quality = _served_by(extractor)
+    return records, model, quality
+
+
 def _served_by(extractor) -> tuple[str, int | None]:
     """(model, quality) of the model that actually served the last call.
 
@@ -869,19 +886,20 @@ async def _run_full(
                         on_progress("extract", url)
                     t0 = time.monotonic()
                     try:
-                        extracted = await extractor.extract(
+                        # Provenance comes out *with* the result. Reading it
+                        # afterwards was correct only as long as nothing else
+                        # could call the chain in between — and _enrich_record
+                        # goes through the same chain, so the page would be
+                        # stamped with the enricher's provider: the score that
+                        # then drives or blocks the upgrade sweep.
+                        extracted, _model, _quality = await _extract_traced(
+                            extractor,
                             text=text, city=city.name, topic=topic.name,
                             locale=city.locale, source_url=url,
                             false_positive_examples=build_prompt_section(
                                 all_fps, city=city.name, topic=topic.name
                             ),
                         )
-                        # Read the provenance HERE, not after enrichment:
-                        # _enrich_record goes through the same chain and
-                        # overwrites last_model/last_quality, so the page would
-                        # be stamped with the enricher's provider — the score
-                        # that then drives or blocks the upgrade sweep.
-                        _model, _quality = _served_by(extractor)
                     except ExtractorUnavailableError as exc:
                         pair_log["extract_failed"] += 1
                         log.warning("extract_unavailable_page_skipped", url=url, reason=str(exc))
@@ -1189,7 +1207,8 @@ async def _run_quality_upgrade(
         if on_progress:
             on_progress("extract", page["url"])
         try:
-            records = await extractor.extract(
+            records, model, quality = await _extract_traced(
+                extractor,
                 text=text, city=city, topic=topic,
                 locale=locale, source_url=page["url"],
                 false_positive_examples=build_prompt_section(all_fps, city=city, topic=topic),
@@ -1211,7 +1230,6 @@ async def _run_quality_upgrade(
             if on_progress:
                 on_progress(None, None)
 
-        model, quality = _served_by(extractor)
         if (quality or 0) <= page["q"]:
             # Failover handed the call to a model no better than the cached one.
             # Overwriting would be churn without gain.
@@ -1371,7 +1389,8 @@ async def _run_ai_only(
                     if on_progress:
                         on_progress("extract", url)
                     try:
-                        extracted = await extractor.extract(
+                        extracted, _model, _quality = await _extract_traced(
+                            extractor,
                             text=text, city=city.name, topic=topic.name,
                             locale=city.locale, source_url=url,
                             false_positive_examples=extraction_fp_section,
@@ -1397,7 +1416,6 @@ async def _run_ai_only(
                         log.info("joinability_filtered", url=url,
                                  kept=len(joinable), removed=len(extracted) - len(joinable))
 
-                    _model, _quality = _served_by(extractor)
                     cache.save_extracted(url, joinable,
                                          fingerprint=extractor.canonical_fingerprint,
                                          model=_model, quality=_quality)

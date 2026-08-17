@@ -1020,7 +1020,31 @@ class FallbackExtractor:
             log.warning("router_note_failed", error=str(exc))
 
     async def _call(self, method: str, label: str, *args, **kwargs):
+        result, _served = await self._call_traced(method, label, *args, **kwargs)
+        return result
+
+    async def extract_traced(
+        self, text: str, city: str, topic: str, locale: str, source_url: str,
+        false_positive_examples: str = "",
+    ) -> "tuple[list[CommunityRecord], str, int | None]":
+        """`extract()` plus which model actually served it.
+
+        Provenance used to be read off `last_model` *after* the await returned.
+        That is correct only because no await separates the two — the moment a
+        caller extracts several pages concurrently, another page's call lands in
+        between and the page is cached under the wrong model, which is the score
+        that then drives or blocks the upgrade sweep. Returning it with the
+        result removes the ordering requirement instead of documenting it.
+        """
+        records, served = await self._call_traced(
+            "extract", source_url, text, city, topic, locale, source_url,
+            false_positive_examples)
+        return records, served[0], served[1]
+
+    async def _call_traced(self, method: str, label: str, *args, **kwargs):
         """Run `method` on the first available provider with failover.
+
+        Returns `(result, (model, quality))`.
 
         - ExtractorQuotaError  → provider permanently skipped for this run
         - ExtractorRateLimitError → provider blocked until the window passes;
@@ -1106,7 +1130,7 @@ class FallbackExtractor:
                     self.last_quality = int(getattr(primary, "quality", 0) or 0)
                     self.last_model = getattr(primary, "model", "")
                     self.last_provider = getattr(primary, "provider", "")
-                    return result
+                    return result, (self.last_model, self.last_quality or None)
                 except ExtractorRateLimitError as exc:
                     self._note_attempt(_t0)
                     self._blocked_until[i] = time.monotonic() + exc.wait_seconds

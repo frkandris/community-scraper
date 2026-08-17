@@ -1044,3 +1044,41 @@ async def test_one_broken_provider_does_not_retire_a_healthy_one(tmp_path, monke
     assert chain._exhausted[0] is True    # the broken one retired itself
     assert chain._exhausted[1] is False   # the healthy one kept serving
     assert _Healthy.calls == 30
+
+
+@pytest.mark.asyncio
+async def test_provenance_survives_an_interleaved_call(tmp_path, monkeypatch):
+    """Which model served a page must not depend on what ran next.
+
+    `last_model` is a single mutable attribute. Reading it after the await was
+    correct only while nothing else could call the chain in between — the
+    ordering requirement that concurrency removes. `extract_traced` carries the
+    answer out with the result instead.
+    """
+    from scraper.extract import FallbackExtractor
+
+    monkeypatch.setenv("A_KEY", "k")
+    monkeypatch.setenv("B_KEY", "k")
+    router, _ = _router(tmp_path,
+                        _spec("a", env="A_KEY", quality=(90,)),
+                        _spec("b", env="B_KEY", quality=(40,)))
+
+    class _P:
+        def __init__(self, provider, model, quality):
+            self.provider, self.model, self.quality = provider, model, quality
+
+        async def extract(self, *a, **kw):
+            return []
+
+    good, weak = _P("a", "a-m0", 90), _P("b", "b-m0", 40)
+    chain = FallbackExtractor(primaries=[good, weak], router=router)
+
+    _records, model, quality = await chain.extract_traced(
+        text="t", city="c", topic="running", locale="hu", source_url="https://x/1")
+    # Another page goes through the chain before the caller uses the answer.
+    chain._exhausted[0] = True
+    await chain.extract_traced(text="t", city="c", topic="running", locale="hu",
+                               source_url="https://x/2")
+
+    assert (model, quality) == ("a-m0", 90)
+    assert chain.last_model == "b-m0"   # the mutable attribute did move on
