@@ -749,6 +749,17 @@ async def _run_full(
                         community_cache_hit = True
 
                 if not community_cache_hit and run_communities:
+                    if getattr(extractor, "rate_limited_out", False):
+                        # Every provider is inside a back-off window. Waiting it
+                        # out page by page burns the window on sleep, so stop
+                        # this pass cleanly and let the next one resume — the
+                        # daily budget is untouched, nothing is cached, and the
+                        # pages are retried. Not an abort: the providers are
+                        # alive.
+                        log.info("extract_paused_all_rate_limited",
+                                 city=city.name, topic=topic.name)
+                        extract_dead = True
+                        break
                     if getattr(extractor, "quota_exhausted", False):
                         # The free-tier fleet spent its daily allowance. That is
                         # the designed end of a window, not an outage: stop
@@ -1192,6 +1203,17 @@ async def _run_ai_only(
                     community_cache_hit = True
 
                 if not community_cache_hit and run_communities:
+                    if getattr(extractor, "rate_limited_out", False):
+                        # Every provider is inside a back-off window. Waiting it
+                        # out page by page burns the window on sleep, so stop
+                        # this pass cleanly and let the next one resume — the
+                        # daily budget is untouched, nothing is cached, and the
+                        # pages are retried. Not an abort: the providers are
+                        # alive.
+                        log.info("extract_paused_all_rate_limited",
+                                 city=city.name, topic=topic.name)
+                        extract_dead = True
+                        break
                     if getattr(extractor, "quota_exhausted", False):
                         # The free-tier fleet spent its daily allowance. That is
                         # the designed end of a window, not an outage: stop

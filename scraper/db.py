@@ -2546,6 +2546,20 @@ def insert_duplicate_candidate(
             needs_change = (existing[1] != winner_key
                             or (signal == "manual" and existing[3] != "manual"))
             if existing[2] is None and may_update and needs_change:
+                # Reorienting can collide with *another* pending row holding the
+                # reverse orientation of the same pair: idx_dup_pair is partial
+                # (resolution IS NULL), and rows predating the both-orders
+                # lookup above could be stored both ways round. They describe
+                # one pair, so the redundant one goes rather than the write
+                # failing — 2026-08-17 the post-run scan died on
+                # "UNIQUE constraint failed: duplicate_candidates.entity_type,
+                # winner_key, loser_key" and took the whole pass with it.
+                conn.execute(
+                    "DELETE FROM duplicate_candidates"
+                    " WHERE entity_type=? AND winner_key=? AND loser_key=?"
+                    "   AND resolution IS NULL AND id<>?",
+                    (entity_type, winner_key, loser_key, existing[0]),
+                )
                 conn.execute(
                     "UPDATE duplicate_candidates"
                     " SET winner_id=?, loser_id=?, winner_key=?, loser_key=?, signal=?"
@@ -2555,10 +2569,21 @@ def insert_duplicate_candidate(
                 )
                 conn.commit()
             return False
+        # ON CONFLICT, not a bare INSERT: the SELECT above and this write are
+        # separate statements, so a row can appear between them — the
+        # 2026-08-17 post-run scan died on
+        # "UNIQUE constraint failed: duplicate_candidates.entity_type,
+        # winner_key, loser_key" and took the whole duplicate pass with it.
+        # "Record this pair unless it is already known" is exactly what the
+        # conflict clause says, and it says it atomically. The WHERE mirrors
+        # idx_dup_pair's own predicate — without it SQLite cannot tell which
+        # index the clause targets and rejects the statement.
         cursor = conn.execute("""
             INSERT INTO duplicate_candidates
               (entity_type, winner_id, loser_id, winner_key, loser_key, similarity, signal, detected_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (entity_type, winner_key, loser_key)
+              WHERE resolution IS NULL DO NOTHING
         """, (entity_type, winner_id, loser_id, winner_key, loser_key, similarity, signal, now))
         conn.commit()
         return cursor.rowcount > 0

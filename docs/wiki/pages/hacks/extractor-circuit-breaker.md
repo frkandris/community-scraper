@@ -75,3 +75,8 @@ silently lost every venue can no longer report a clean ✓.
   (`tests/test_false_positive_cache.py`).
 - Threshold 20 is a guess tuned to "obviously dead, but survive a bad minute". Lower it
   and a flaky API aborts real work; raise it and the breaker stops earning its keep.
+- **Only real failures may count.** A 429 from a per-minute limit is the provider
+  working correctly, and routing it through `_note_failure` cost a whole night's
+  window ([[2026-08-rate-limits-opened-the-breaker]]). `_all_temporarily_blocked()`
+  raises with `rate_limited_out` instead: the pass pauses, the run is not aborted.
+  Any future retryable condition needs the same exemption.

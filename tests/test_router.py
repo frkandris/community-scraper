@@ -879,3 +879,38 @@ def test_scoring_is_one_to_one_and_order_independent():
     assert score_page(dupes, ["Szentendrei Futóklub", "Pécsi Sakk Kör"], g, p) == 100
     assert score_page(["Szentendrei Futóklub"],
                       ["Szentendrei Futóklub", "Szentendrei Futoklub"], g, p) == 100
+
+
+@pytest.mark.asyncio
+async def test_rate_limits_do_not_open_the_circuit_breaker(tmp_path, monkeypatch):
+    """A 429 is the API asking us to slow down, not a provider outage.
+
+    The 2026-08-17 overnight run aborted after 45 minutes with
+    "no extraction provider configured (20 consecutive failures)" while 13,523
+    Groq calls were still available: every provider happened to be inside a
+    back-off window, the chain could not find one to call, and counted each
+    miss as a failure until the breaker opened.
+    """
+    from scraper.extract import (ExtractorRateLimitError,
+                                 ExtractorUnavailableError, FallbackExtractor)
+
+    monkeypatch.setenv("A_KEY", "k")
+    router, _ = _router(tmp_path, _spec("a", env="A_KEY", quality=(60,)))
+
+    class _Limited:
+        provider, model, quality = "a", "a-m0", 60
+
+        async def extract(self, *a, **kw):
+            # Longer than the chain is willing to wait, as Groq's 1197s was.
+            raise ExtractorRateLimitError(1200)
+
+    chain = FallbackExtractor(primaries=[_Limited()], router=router)
+    for i in range(25):
+        with pytest.raises(ExtractorUnavailableError):
+            await chain.extract(text="t", city="c", topic="running", locale="hu",
+                                source_url=f"https://x/{i}")
+
+    assert chain.rate_limited_out is True
+    # Well past the 20-failure threshold, and still not treated as an outage.
+    assert chain.providers_down is False
+    assert chain.failure_reason is None

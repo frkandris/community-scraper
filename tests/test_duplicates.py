@@ -1,3 +1,4 @@
+import sqlite3
 from pathlib import Path
 from scraper.db import (
     init_db,
@@ -231,3 +232,38 @@ def test_save_results_detects_cross_topic_duplicates(tmp_path):
     assert candidates[0]["signal"] == "fuzzy_name"
     assert candidates[0]["winner_key"].startswith("c2:")
     assert candidates[0]["loser_key"].startswith("c2:")
+
+
+def test_reorienting_survives_a_reverse_pending_row(tmp_path):
+    """A pair stored both ways round must collapse, not crash the scan.
+
+    idx_dup_pair is partial (resolution IS NULL), so two pending rows for the
+    same pair in opposite orientations are allowed to coexist — rows written
+    before the lookup checked both orders. Reorienting one onto the other used
+    to raise "UNIQUE constraint failed" and abort the whole post-run scan
+    (production, 2026-08-17).
+    """
+    db = _db(tmp_path)
+    with sqlite3.connect(db) as conn:
+        for wk, lk in (("key_a", "key_b"), ("key_b", "key_a")):
+            conn.execute(
+                "INSERT INTO duplicate_candidates (entity_type, winner_id, loser_id,"
+                " winner_key, loser_key, similarity, signal, detected_at)"
+                " VALUES ('community','id_x','id_y',?,?,0.9,'fuzzy_name','2026-01-01')",
+                (wk, lk),
+            )
+
+    insert_duplicate_candidate(db, "community", "id_b", "id_a",
+                               "key_b", "key_a", 0.95, "manual")
+
+    pending = get_duplicate_candidates(db, resolved=False)
+    assert len(pending) == 1
+    assert (pending[0]["winner_key"], pending[0]["loser_key"]) == ("key_b", "key_a")
+
+
+def test_repeated_insert_of_the_same_pair_is_a_no_op(tmp_path):
+    db = _db(tmp_path)
+    args = ("community", "id_a", "id_b", "key_a", "key_b", 0.9, "fuzzy_name")
+    assert insert_duplicate_candidate(db, *args) is True
+    assert insert_duplicate_candidate(db, *args) is False
+    assert len(get_duplicate_candidates(db, resolved=False)) == 1

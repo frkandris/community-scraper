@@ -14,9 +14,11 @@ SHORT = "Zenei kör Budapesten"
 
 
 def _rec(description="Rövid.", **kw):
+    kw.setdefault("name", "Zenei Kör")
+    kw.setdefault("source_url", "https://klub.test/a")
     return CommunityRecord(
-        name="Zenei Kör", topic="music", city="Budapest", locale="hu",
-        source_url="https://klub.test/a", extracted_at="2026-01-01T00:00:00+00:00",
+        topic="music", city="Budapest", locale="hu",
+        extracted_at="2026-01-01T00:00:00+00:00",
         description=description, **kw)
 
 
@@ -192,3 +194,38 @@ def test_new_null_fields_do_not_change_fingerprint():
                   "enrich_attempted_at": "2026-07-27T00:00:00+00:00",
                   "extracted_at": "2026-07-27"}  # volatile fields differ too
     assert fp(base) == fp(with_nulls)  # adding null/volatile fields ≠ content change
+
+
+def test_batch_stops_when_the_fleet_is_down(tmp_path):
+    """One failure is enough once the extractor reports it has nothing left.
+
+    Production, 2026-08-17: the circuit breaker opened and the loop logged 368
+    identical `enrich_call_failed` lines in seconds, each preceded by a source
+    fetch. The records survive (nothing is marked), but the fetches do not.
+    """
+    base = Path(tmp_path)
+    base.mkdir(parents=True, exist_ok=True)
+    db = base / "scraper.db"
+    init_db(db)
+    for i in range(5):
+        save_results("Budapest", "music", [_rec(name=f"Klub {i}",
+                                                source_url=f"https://e{i}.test")], db)
+        CacheManager(db).save_scraped(f"https://e{i}.test", "Forrásszöveg. " * 60,
+                                      "Budapest", "music")
+
+    class DeadExtractor:
+        exhausted = False
+        providers_down = True
+        calls = 0
+
+        async def write_descriptions(self, *a, **kw):
+            DeadExtractor.calls += 1
+            raise RuntimeError(
+                "write_descriptions unavailable: no extraction provider configured")
+
+    stats = asyncio.run(enrich_batch(db, DeadExtractor(), HU, limit=20,
+                                     fetch_missing=False))
+
+    assert DeadExtractor.calls == 1
+    assert stats["failed"] == 1
+    assert stats["stopped_no_provider"] is True

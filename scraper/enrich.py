@@ -77,6 +77,7 @@ async def enrich_batch(
         db_path, set(city_names), min(MAX_BATCH, max(limit * 3, limit)))
     stats = {"pool": len(pool), "enriched": 0, "skipped": 0, "no_source": 0,
              "failed": 0, "dry_run": dry_run, "stopped_at_deadline": False,
+             "stopped_no_provider": False,
              "samples": []}
     for c in pool:
         if stats["enriched"] >= limit:
@@ -108,6 +109,17 @@ async def enrich_batch(
         except Exception as exc:
             log.warning("enrich_call_failed", name=c["name"], city=c["city"], error=str(exc))
             stats["failed"] += 1
+            # A dead fleet is not a per-record problem: on 2026-08-17 the
+            # breaker opened and the loop logged 368 identical failures in
+            # seconds, re-fetching a source page for each one. Nothing is
+            # marked, so the records come back next round — but the fetches
+            # are spent, and we hammer third-party sites for nothing.
+            if (getattr(extractor, "providers_down", False)
+                    or getattr(extractor, "rate_limited_out", False)
+                    or getattr(extractor, "exhausted", False)):
+                stats["stopped_no_provider"] = True
+                log.warning("enrich_stopped_no_provider", failed=stats["failed"])
+                break
             continue  # transient provider error — do NOT mark; retry next batch
         ok = validate(res.get("short_description", ""), res.get("long_description", ""))
         if not ok:

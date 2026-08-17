@@ -870,6 +870,9 @@ class FallbackExtractor:
         #: from a provider outage: it is the expected end state of a free-tier
         #: window and must not be reported as a failure.
         self.quota_exhausted: bool = False
+        #: Set when every provider is inside a back-off window. Also not an
+        #: outage — the APIs are alive and asking us to slow down.
+        self.rate_limited_out: bool = False
 
     def _available(self, idx: int) -> bool:
         if self._exhausted[idx] or time.monotonic() < self._blocked_until[idx]:
@@ -889,7 +892,12 @@ class FallbackExtractor:
                 return i
         return None
 
-    _RATE_LIMIT_MAX_WAIT = 300.0
+    #: Longest 429 back-off the chain will sit out before giving up on a call.
+    #: Raised 300 -> 900 on 2026-08-17: Groq answered with 1197s, the chain
+    #: refused to wait, and twenty such refusals in a row opened the breaker and
+    #: aborted the night's run with 97% of the daily budget unspent. In an
+    #: 8-hour window a 15-minute wait is cheap; abandoning the window is not.
+    _RATE_LIMIT_MAX_WAIT = 900.0
 
     @property
     def exhausted(self) -> bool:
@@ -1075,8 +1083,36 @@ class FallbackExtractor:
                     await asyncio.sleep(wait + 0.1)
                     continue
             break
+
+        # Distinguish "every provider is momentarily busy" from "the providers
+        # are broken". The breaker exists to stop a run walking thousands of
+        # pages against a dead API; a rate limit is the opposite situation —
+        # the API is alive and telling us to slow down, and the daily budget is
+        # very likely untouched. Counting it as failure aborted the 2026-08-17
+        # run after 45 minutes with 13,523 Groq calls still available.
+        if self._all_temporarily_blocked():
+            self.rate_limited_out = True
+            log.info("extractor_all_rate_limited", label=label)
+            raise ExtractorUnavailableError(
+                f"{method} unavailable: all providers rate limited")
+
         self._note_failure(last_error)
         raise ExtractorUnavailableError(f"{method} unavailable: {last_error}")
+
+    def _all_temporarily_blocked(self) -> bool:
+        """True when every live provider is merely waiting out a 429 or its rpm
+        window — i.e. nothing is wrong, everything is just busy."""
+        live = [i for i in range(len(self.primaries)) if not self._exhausted[i]]
+        if not live:
+            return False
+        now = time.monotonic()
+        for i in live:
+            if self._blocked_until[i] > now:
+                continue
+            if self.router is not None and not self.router.can_use(self.primaries[i]):
+                continue
+            return False  # this one was callable, so the failure was real
+        return True
 
     @property
     def model_fingerprint(self) -> str:
