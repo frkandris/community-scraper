@@ -52,8 +52,10 @@ pipeline:
   # ceiling is 185 calls/min, which is why the 2026-08-17 window managed 3.3
   # extractions/min and left 15,690 free calls to expire. Raise to spend the
   # daily budget in hours instead of never; lower to 1 to rule concurrency out
-  # when diagnosing. This file is a mounted volume in production, so changing
-  # it needs no deploy — but the running process reads it at startup.
+  # when diagnosing. This file is a mounted volume in production, so changing it
+  # needs no deploy: edit it at /admin/config, which saves and reloads the
+  # runtime config in place. A production copy predating this key gets the
+  # default of 1, so shipping the feature turns nothing on by itself.
   extract_concurrency: 1
   commit_after_run: false
   push_after_commit: false

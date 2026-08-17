@@ -252,9 +252,13 @@ async def _extract_pair_pages(
 ) -> "tuple[dict[str, Any], tuple[str, bool] | None]":
     """Community extraction for one pair's uncached pages, several at a time.
 
-    Returns `({url: (records, model, quality) | Exception}, stop)`. A url absent
-    from the map was never attempted because the fleet stopped; `stop` is the
-    reason, or None if every page got its turn.
+    Returns `({url: (records, model, quality) | Exception}, stop, deferred)`.
+    `stop` is why it gave up, or None if the fleet was fine at the end;
+    `deferred` holds urls that never got a turn. Both are needed: a page can be
+    left over with no stop reason at all — each round a call retires the last
+    provider, the queue steps aside, and a sibling already in flight revives it —
+    and "the fleet was never usable" must stay distinguishable from "this page
+    kept losing the race", because only the first is a failure.
 
     The pages of a pair are independent — nothing one extracts affects another —
     so the serial loop was not expressing a constraint, only its own shape. It
@@ -266,7 +270,7 @@ async def _extract_pair_pages(
     """
     results: dict[str, Any] = {}
     if not pages:
-        return results, None
+        return results, None, set()
     sem = asyncio.Semaphore(max(1, int(concurrency or 1)))
     pending = list(pages)
     skipped: list = []
@@ -304,9 +308,11 @@ async def _extract_pair_pages(
         await asyncio.gather(*[_one(u, t) for u, t in pending])
         stop = _stop_reason(extractor)
         if stop is not None or not skipped:
-            return results, stop
+            return results, stop, {u for u, _ in skipped}
         pending = skipped
-    return results, _stop_reason(extractor)
+    log.info("extract_pages_deferred", city=city.name, topic=topic.name,
+             pages=len(skipped))
+    return results, _stop_reason(extractor), {u for u, _ in skipped}
 
 
 def _stop_reason(extractor) -> tuple[str, bool] | None:
@@ -1418,8 +1424,9 @@ async def _run_ai_only(
             }
             fresh_by_url: dict = {}
             pair_stop: "tuple[str, bool] | None" = None
+            deferred_urls: set = set()
             if run_communities and not extractor.exhausted:
-                fresh_by_url, pair_stop = await _extract_pair_pages(
+                fresh_by_url, pair_stop, deferred_urls = await _extract_pair_pages(
                     extractor,
                     [(u, t) for u, t in pages if cached_by_url.get(u) is None],
                     city=city, topic=topic, fp_section=extraction_fp_section,
@@ -1460,12 +1467,14 @@ async def _run_ai_only(
                 if not community_cache_hit and run_communities:
                     outcome = fresh_by_url.get(url)
                     if outcome is None:
-                        # Never attempted: either the fleet stopped part-way
-                        # (already recorded above, once) or it was never usable
-                        # at all — a deliberate no-LLM run, which is the only
-                        # case that counts as a failed page. Nothing was cached
-                        # either way, so the page is retried next pass.
-                        if pair_stop is None:
+                        # Never attempted, for one of three reasons. The fleet
+                        # stopped part-way (recorded above, once); the page kept
+                        # losing the race for a slot (`deferred_urls` — nothing
+                        # went wrong, it simply did not get a turn); or no
+                        # provider was ever usable, which is the only one that
+                        # is a failed page. Nothing was cached in any case, so
+                        # the page is retried next pass.
+                        if pair_stop is None and url not in deferred_urls:
                             pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
                         continue
                     if isinstance(outcome, BaseException):

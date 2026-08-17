@@ -64,9 +64,12 @@ converting it would widen the blast radius without buying a window.
 Each of these is a bug that the review rounds found, phrased as the rule that
 now holds:
 
-- **A page absent from the result map was never attempted; a page mapped to an
-  exception was.** They are not the same: the first retries for free, the second
-  is a counted failure.
+- **Absent, deferred and failed are three different things.** A page mapped to
+  an exception was attempted and failed — that is counted. A page that never got
+  a turn is *deferred*, and is returned as such rather than inferred from its
+  absence: with the fleet flapping, a page can be left over with no stop reason
+  at all, and calling that a failure would report phantom errors every night.
+  Only "no provider was ever usable" is a failed page.
 - **The stop is recorded once, before the loop.** A stop can arrive with every
   page already attempted, leaving nothing absent to notice it by — and recording
   it per url turned one outage into one `extract_failed` per queued page.

@@ -502,3 +502,63 @@ def test_completed_extractions_are_cached_even_when_the_pair_stops(tmp_path):
     # Every page that was extracted is cached, so the next pass skips it.
     assert all(cache.get_extracted(u, fingerprint=chain.canonical_fingerprint) is not None
                for u in urls)
+
+
+def test_pages_of_a_pair_overlap(tmp_path):
+    """The point of the change: a pair's pages no longer wait for each other."""
+    from scraper.cache import CacheManager
+    from scraper.pipeline import _run_ai_only
+    db, cfg, cities, topics = _pipeline_fixtures(tmp_path)
+    cfg.extract_concurrency = 4
+    cache = CacheManager(db)
+    cities = [CityConfig(name="Budapest", locale="hu", search_variants=[])]
+    for i in range(4):
+        cache.save_scraped(f"https://budapest.test/{i}", "Elég hosszú oldalszöveg.",
+                           "Budapest", "running")
+
+    class _Slow:
+        provider, model, quality = "p", "m", 50
+        model_fingerprint = "fp"
+        in_flight = 0
+        peak = 0
+
+        async def extract(self, *a, **kw):
+            _Slow.in_flight += 1
+            _Slow.peak = max(_Slow.peak, _Slow.in_flight)
+            await asyncio.sleep(0.02)
+            _Slow.in_flight -= 1
+            return []
+
+    asyncio.run(_run_ai_only(cities, topics, cfg, FallbackExtractor(primaries=[_Slow()]),
+                             cache, True, {}, None, run_venues=False, run_persons=False))
+    assert _Slow.peak > 1, "extraction still serialised"
+
+
+def test_serial_is_still_available(tmp_path):
+    """extract_concurrency=1 must reproduce the old chain exactly — the kill switch."""
+    from scraper.cache import CacheManager
+    from scraper.pipeline import _run_ai_only
+    db, cfg, cities, topics = _pipeline_fixtures(tmp_path)
+    cfg.extract_concurrency = 1
+    cache = CacheManager(db)
+    cities = [CityConfig(name="Budapest", locale="hu", search_variants=[])]
+    for i in range(4):
+        cache.save_scraped(f"https://budapest.test/{i}", "Elég hosszú oldalszöveg.",
+                           "Budapest", "running")
+
+    class _Watch:
+        provider, model, quality = "p", "m", 50
+        model_fingerprint = "fp"
+        in_flight = 0
+        peak = 0
+
+        async def extract(self, *a, **kw):
+            _Watch.in_flight += 1
+            _Watch.peak = max(_Watch.peak, _Watch.in_flight)
+            await asyncio.sleep(0.01)
+            _Watch.in_flight -= 1
+            return []
+
+    asyncio.run(_run_ai_only(cities, topics, cfg, FallbackExtractor(primaries=[_Watch()]),
+                             cache, True, {}, None, run_venues=False, run_persons=False))
+    assert _Watch.peak == 1
