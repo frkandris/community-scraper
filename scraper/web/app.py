@@ -6253,10 +6253,17 @@ async def trigger_run(
         # Manual collector runs get the same window box as the cron: stop before
         # the off-peak extract window opens, so a big collection started midday
         # can't occupy is_running for days and starve the nightly extraction.
+        # Both saver modes are boxed to their own window. The argument that
+        # stopped a midday collection from occupying is_running for days works
+        # in reverse too: an unbounded manual `ai_only` started in the evening
+        # runs straight through the morning and the 10:30 collector never
+        # starts, costing a day of collection. A manual run is a run brought
+        # forward, not a run without an end.
         stop_at = None
-        if run_mode == "search_only":
+        _window_key = {"search_only": "search_until", "ai_only": "extract_until"}.get(run_mode)
+        if _window_key:
             from ..main import _next_window_end, _settings_schedule
-            until = _settings_schedule().get("search_until")
+            until = _settings_schedule().get(_window_key)
             if until:
                 stop_at = _next_window_end(started, str(until))
         pair_logs: list = []
