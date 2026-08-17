@@ -849,6 +849,12 @@ class FallbackExtractor:
         #: retires itself, and `providers_down` — all of them retired — is what
         #: aborts the run.
         self._provider_failures = [0] * len(self.primaries)
+        #: Bumped whenever a provider answers. A concurrent call can finish its
+        #: failover, succeed on the very provider an earlier page is still
+        #: failing over from, and then have that older failure applied on top —
+        #: so "consecutive" would stop meaning consecutive. The generation seen
+        #: when a failure happened is compared against the one at recording time.
+        self._provider_success_gen = [0] * len(self.primaries)
         #: Human-readable cause once the chain is dead — surfaced in the run log
         #: and the daily email so an outage names itself.
         self.failure_reason: str | None = None
@@ -948,7 +954,8 @@ class FallbackExtractor:
         """
         return bool(self.primaries) and all(self._exhausted)
 
-    def _note_provider_failure(self, idx: int, last_error: str) -> None:
+    def _note_provider_failure(self, idx: int, last_error: str,
+                               seen_gen: int | None = None) -> None:
         """Count a real failure against one provider and retire it at the limit.
 
         Per provider, not per fleet: a single endpoint answering 500s used to
@@ -957,6 +964,12 @@ class FallbackExtractor:
         A provider now takes only itself down; when the last one goes,
         `providers_down` turns True and the run aborts as before.
         """
+        if seen_gen is not None and seen_gen != self._provider_success_gen[idx]:
+            # The provider answered someone else since this failure happened, so
+            # the failure is not consecutive with anything. Dropping it is the
+            # conservative direction: a provider that is genuinely down cannot
+            # be answering.
+            return
         self._provider_failures[idx] += 1
         self._consecutive_failures += 1
         if self._exhausted[idx]:
@@ -994,14 +1007,22 @@ class FallbackExtractor:
         """
         if self.router is None:
             return
-        for _ in range(3):
+        # Bounded by total time waited, not by a number of attempts. With
+        # several pages in flight a sibling can claim the slot this task just
+        # waited for, and three fixed tries were enough to lose that race
+        # repeatedly — after which the chain declares a perfectly healthy fleet
+        # "all rate limited" and stops the pass. Waiting its turn is the whole
+        # point; only the clock may end it.
+        waited = 0.0
+        while waited < self._PACE_MAX_WAIT:
             if any(self._available(i) for i in range(len(self.primaries))):
                 return
             wait = self.router.shortest_pace_wait()
-            if wait <= 0 or wait > self._PACE_MAX_WAIT:
+            if wait <= 0 or wait > self._PACE_MAX_WAIT - waited:
                 return
             log.debug("extractor_awaiting_rpm", wait_s=round(wait, 2))
             self.wait_seconds += wait
+            waited += wait
             await asyncio.sleep(wait + 0.01)
 
     def _note_router_reserve(self, primary) -> bool:
@@ -1013,6 +1034,15 @@ class FallbackExtractor:
         except Exception as exc:
             log.warning("router_reserve_failed", error=str(exc))
             return False
+
+    def _release_router(self, primary) -> None:
+        """Hand a claimed slot back. Never raises — see `_note_router`."""
+        if self.router is None:
+            return
+        try:
+            self.router.release(primary)
+        except Exception as exc:
+            log.warning("router_release_failed", error=str(exc))
 
     def _note_router(self, primary, **kwargs) -> None:
         """Attribute one attempt to its provider's daily budget.
@@ -1116,7 +1146,7 @@ class FallbackExtractor:
         # Providers that produced a real error during *this* call. Applied once
         # at the end: `_call` retries transient errors a second round, so
         # counting per attempt would silently halve the configured threshold.
-        failed_here: set[int] = set()
+        failed_here: dict[int, int] = {}
         for round_no in range(2):
             transient_seen = False
             for i, primary in enumerate(self.primaries):
@@ -1126,21 +1156,25 @@ class FallbackExtractor:
                 # a call is in flight the provider otherwise still looks idle,
                 # so every concurrent page picks the same one.
                 _reserved = self._note_router_reserve(primary)
+                _settled = False
                 _t0 = time.monotonic()
                 try:
                     result = await getattr(primary, method)(*args, **kwargs)
                     self._note_attempt(_t0)
                     self._consecutive_failures = 0
                     self._provider_failures[i] = 0
+                    self._provider_success_gen[i] += 1
                     # A fallback saving the page does not absolve the provider
                     # that failed first — that is exactly how a persistently
                     # broken endpoint earns its retirement. But *this* provider
                     # just answered, so it is excluded: one that fails its first
                     # attempt and succeeds on the retry is working, and counting
                     # it here would retire it after 20 successful calls.
-                    for idx in failed_here - {i}:
-                        self._note_provider_failure(idx, last_error)
+                    for idx, gen in failed_here.items():
+                        if idx != i:
+                            self._note_provider_failure(idx, last_error, seen_gen=gen)
                     self._note_router(primary, ok=True, reserved=_reserved)
+                    _settled = True
                     self.last_quality = int(getattr(primary, "quality", 0) or 0)
                     self.last_model = getattr(primary, "model", "")
                     self.last_provider = getattr(primary, "provider", "")
@@ -1152,6 +1186,7 @@ class FallbackExtractor:
                     self._note_router(primary, ok=False, rate_limited=True,
                                       retry_after=exc.wait_seconds, error=last_error,
                                       reserved=_reserved)
+                    _settled = True
                     log.warning("extractor_rate_limited", provider=primary.__class__.__name__,
                                 label=label, wait_s=exc.wait_seconds)
                 except ExtractorModelError as exc:
@@ -1164,6 +1199,7 @@ class FallbackExtractor:
                     last_error = str(exc)
                     self._note_router(primary, ok=False, error=f"model gone: {exc}",
                                       reserved=_reserved)
+                    _settled = True
                     log.warning("extractor_model_retired", model=str(exc))
                     continue
                 except ExtractorQuotaError as exc:
@@ -1172,6 +1208,7 @@ class FallbackExtractor:
                     last_error = str(exc)
                     self.failure_reason = str(exc)
                     self._note_router(primary, ok=False, error=last_error, reserved=_reserved)
+                    _settled = True
                     log.warning("extractor_quota_exhausted",
                                 provider=primary.__class__.__name__, reason=str(exc))
                 except ExtractorUnavailableError as exc:
@@ -1180,7 +1217,8 @@ class FallbackExtractor:
                     transient_seen = True
                     last_error = str(exc)
                     self._note_router(primary, ok=False, error=last_error, reserved=_reserved)
-                    failed_here.add(i)
+                    _settled = True
+                    failed_here[i] = self._provider_success_gen[i]
                 except Exception as exc:
                     self._note_attempt(_t0)
                     real_failure_seen = True
@@ -1194,10 +1232,18 @@ class FallbackExtractor:
                     transient_seen = True
                     last_error = f"{type(exc).__name__}: {exc}"
                     self._note_router(primary, ok=False, error=last_error, reserved=_reserved)
+                    _settled = True
                     log.exception("extractor_unexpected_error",
                                   provider=primary.__class__.__name__,
                                   method=method, label=label)
-                    failed_here.add(i)
+                    failed_here[i] = self._provider_success_gen[i]
+                finally:
+                    if _reserved and not _settled:
+                        # Only a cancellation reaches here unsettled: it is a
+                        # BaseException, so it slips past every `except
+                        # Exception` above, and the slot would stay charged for
+                        # the life of the process.
+                        self._release_router(primary)
             if round_no == 0 and not self.exhausted:
                 if transient_seen:
                     continue  # one immediate retry for transient API/network errors
@@ -1224,8 +1270,8 @@ class FallbackExtractor:
         # the API is alive and telling us to slow down, and the daily budget is
         # very likely untouched. Counting it as failure aborted the 2026-08-17
         # run after 45 minutes with 13,523 Groq calls still available.
-        for idx in failed_here:
-            self._note_provider_failure(idx, last_error)
+        for idx, gen in failed_here.items():
+            self._note_provider_failure(idx, last_error, seen_gen=gen)
 
         if not real_failure_seen and self._all_temporarily_blocked():
             self.rate_limited_out = True

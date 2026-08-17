@@ -468,3 +468,37 @@ def test_a_provider_that_recovers_on_retry_is_not_retired():
     for _ in range(30):
         assert asyncio.run(fe.extract("t", "c", "top", "hu", "http://x")) == ["ok"]
     assert not fe.providers_down
+
+
+def test_completed_extractions_are_cached_even_when_the_pair_stops(tmp_path):
+    """Work the fleet was already charged for must reach the cache.
+
+    With extraction concurrent, every page of a pair can finish before the
+    consumer loop notices the fleet stopped. Breaking out of the loop there
+    threw those results away and made the next pass pay for them again.
+    """
+    from scraper.cache import CacheManager
+    from scraper.pipeline import _run_ai_only
+    db, cfg, cities, topics = _pipeline_fixtures(tmp_path)
+    cfg.extract_concurrency = 4
+    cache = CacheManager(db)
+    cities = [CityConfig(name="Budapest", locale="hu", search_variants=[])]
+    urls = [f"https://budapest.test/{i}" for i in range(4)]
+    for url in urls:
+        cache.save_scraped(url, "Elég hosszú oldalszöveg a teszthez.", "Budapest", "running")
+
+    class _Primary:
+        provider, model, quality = "p", "m", 50
+        model_fingerprint = "fp"
+
+        async def extract(self, text, city, topic, locale, source_url,
+                          false_positive_examples=""):
+            return []
+
+    chain = FallbackExtractor(primaries=[_Primary()])
+    asyncio.run(_run_ai_only(cities, topics, cfg, chain, cache, True, {}, None,
+                             run_venues=False, run_persons=False))
+
+    # Every page that was extracted is cached, so the next pass skips it.
+    assert all(cache.get_extracted(u, fingerprint=chain.canonical_fingerprint) is not None
+               for u in urls)

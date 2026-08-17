@@ -1449,7 +1449,14 @@ async def _run_ai_only(
                         log.info("extract_stopped_mid_pair", city=city.name,
                                  topic=topic.name, reason=reason)
                         extract_dead = True
-                        break
+                        # Carry on through the rest of the pair rather than
+                        # breaking. The pages ahead are a mix of never-attempted
+                        # ones (nothing to do) and cache hits (records that
+                        # belong in this pair's totals), and with extraction
+                        # concurrent the loop may also still have completed
+                        # results to write — work the fleet was already charged
+                        # for. `extract_dead` ends the pass after the pair.
+                        continue
                     if isinstance(outcome, BaseException):
                         pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
                         log.warning("extract_unavailable_page_skipped", url=url,
@@ -1474,7 +1481,8 @@ async def _run_ai_only(
 
                 # ── Venue extraction (with fingerprint cache) ────────────────
                 # Gated on community_names — except for venues-only runs (see _run_full).
-                if run_venues and (community_names or not run_communities) and cache.get_venue_extracted(
+                if run_venues and not extract_dead and (
+                        community_names or not run_communities) and cache.get_venue_extracted(
                         url, fingerprint=extractor.canonical_venue_fingerprint) is None:
                     try:
                         _topic_slugs = [t.name for t in topics]
@@ -1495,7 +1503,6 @@ async def _run_ai_only(
                         if (_reason := _mark_stop(extractor, pair_log)):
                             log.info("extract_paused_mid_page", url=url, reason=_reason)
                             extract_dead = True
-                            break
 
                 # ── Person extraction (with fingerprint cache) ───────────────
                 if community_names:
@@ -1504,7 +1511,7 @@ async def _run_ai_only(
                     if _person_cache is not None:
                         if _person_cache:
                             log.debug("person_cache_hit", url=url, cached=len(_person_cache))
-                    elif run_persons:
+                    elif run_persons and not extract_dead:
                         try:
                             persons = await extractor.extract_persons(
                                 text, city.name, topic.name, city.locale, url, community_names,
@@ -1525,7 +1532,6 @@ async def _run_ai_only(
                             if (_reason := _mark_stop(extractor, pair_log)):
                                 log.info("extract_paused_mid_page", url=url, reason=_reason)
                                 extract_dead = True
-                                break
 
             # ── Synthesize PersonRecords from community leader fields ────────
             if run_persons:

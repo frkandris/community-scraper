@@ -79,6 +79,11 @@ class QuotaLedger:
         self._fixed_day = day
         self.day = day or utc_day()
         self._usage: dict[str, dict] = {}
+        #: Calls claimed but not yet reported, per provider. Per instance, not
+        #: shared like `_last_call`: a reservation belongs to a call this
+        #: ledger is waiting on. Must exist before `reload`, which re-applies
+        #: them over the freshly-read database counts.
+        self._reserved: dict[str, int] = {}
         self._since_reload = 0
         self.reload()
 
@@ -86,12 +91,19 @@ class QuotaLedger:
         self._since_reload = 0
         if not self.db_path:
             self._usage = {}
-            return
-        try:
-            self._usage = get_provider_usage(self.db_path, self.day)
-        except Exception as exc:  # a broken ledger must not stop extraction
-            log.warning("quota_ledger_unreadable", error=str(exc))
-            self._usage = {}
+        else:
+            try:
+                self._usage = get_provider_usage(self.db_path, self.day)
+            except Exception as exc:  # a broken ledger must not stop extraction
+                log.warning("quota_ledger_unreadable", error=str(exc))
+                self._usage = {}
+        # Reservations for calls still in flight are not in the database yet —
+        # `note_call` writes them when the call returns. Re-applying them keeps
+        # a periodic reload from handing the same capacity out twice.
+        for provider, count in self._reserved.items():
+            if count > 0:
+                self._row(provider)["calls"] = int(
+                    self._row(provider).get("calls") or 0) + count
 
     def _sync(self) -> None:
         """Roll onto a new UTC day and pick up other processes' spend.
@@ -171,6 +183,19 @@ class QuotaLedger:
     #: daily cap points at the next UTC midnight, which is hours away.
     _DAILY_429_RETRY_AFTER = 1800.0
 
+    def release_call(self, provider: str) -> None:
+        """Give back a slot claimed for a call that never ran.
+
+        Cancellation is the reason this exists: `asyncio.CancelledError` is a
+        BaseException, so it slips past every `except Exception` between the
+        reservation and `note_call`, and the slot would stay charged for the
+        life of the process.
+        """
+        if self._reserved.get(provider):
+            self._reserved[provider] -= 1
+            row = self._row(provider)
+            row["calls"] = max(0, int(row.get("calls") or 0) - 1)
+
     def reserve_call(self, provider: str) -> None:
         """Take a request slot before issuing the call, not after it returns.
 
@@ -186,6 +211,7 @@ class QuotaLedger:
         self._sync()
         row = self._row(provider)
         row["calls"] = int(row.get("calls") or 0) + 1
+        self._reserved[provider] = self._reserved.get(provider, 0) + 1
         self._last_call[provider] = time.monotonic()
 
     def note_call(
@@ -198,11 +224,15 @@ class QuotaLedger:
         how a router walks into a hard block."""
         self._sync()
         row = self._row(provider)
-        if not reserved:
-            # `reserved` means reserve_call already claimed the slot and stamped
-            # the pacing clock at call *start*. Counting again here would double
-            # the day's usage, and re-stamping would push the next call to rpm
-            # seconds after this one finished rather than after it began.
+        if reserved:
+            # The slot was claimed by reserve_call, which also stamped the
+            # pacing clock at call *start*. Counting again would double the
+            # day's usage, and re-stamping would push the next call to rpm
+            # seconds after this one finished rather than after it began. The
+            # reservation is settled here: the call is about to be persisted.
+            if self._reserved.get(provider):
+                self._reserved[provider] -= 1
+        else:
             row["calls"] = int(row.get("calls") or 0) + 1
             self._last_call[provider] = time.monotonic()
         self._since_reload += 1
@@ -351,6 +381,12 @@ class ModelRouter:
             return False
         self.ledger.reserve_call(provider)
         return True
+
+    def release(self, extractor) -> None:
+        """Give back a slot claimed for a call that never reported an outcome."""
+        provider = getattr(extractor, "provider", None)
+        if provider:
+            self.ledger.release_call(provider)
 
     def note(self, extractor, **kwargs) -> None:
         """Attribute one call to the extractor's provider bucket."""
