@@ -743,3 +743,33 @@ def test_the_prefetch_batches_across_cities():
     src = inspect.getsource(pipeline._run_full)
     assert "_walk = [(c, t) for c in cities for t in topics" in src
     assert "await _refill_prefetch()" in src
+
+
+def test_prefetched_results_do_not_accumulate(tmp_path):
+    """One result list per pair, held for the whole run, is an OOM at scale.
+
+    The prefetch writes to search_cache, so the loop reaches the pair on the
+    cache-hit path — which used to leave the entry in the dict forever.
+    """
+    from scraper.db import save_search_cache
+    from scraper.pipeline import _run_full
+    db, cfg, cities, topics = _pipeline_fixtures(tmp_path)
+    cfg.search_concurrency = 4
+    cities = [CityConfig(name=n, locale="hu", search_variants=[])
+              for n in ("Budapest", "Szeged", "Pécs", "Győr")]
+    topics = [TopicConfig(name="running", search_terms={"hu": ["kifejezés"]})]
+    # Every pair already cached: the loop takes the cache-hit path throughout.
+    for c in cities:
+        save_search_cache(db, c.name, "running", [], ["q"])
+
+    class _Never:
+        exhausted = False
+
+        async def search_all(self, *a, **kw):
+            raise AssertionError("cached pairs must not be searched again")
+
+    _, logs = asyncio.run(_run_full(cities, topics, cfg,
+                                    FallbackExtractor(primaries=[]), None,
+                                    True, True, {}, None, search_client=_Never()))
+    assert len(logs) == 4
+    assert all(p["search_cache_hit"] for p in logs)

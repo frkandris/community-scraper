@@ -946,6 +946,13 @@ async def _run_full(
             terms = topic.search_terms.get(city.locale) or topic.search_terms.get("en", [])
             queries = build_queries(city.name, city.search_variants, terms)
 
+            # Popped here, before either branch. The prefetch writes its result
+            # to `search_cache`, so by the time the loop arrives the pair takes
+            # the cache-hit path — which never popped, and the dict grew one
+            # result list per prefetched pair for the whole run. At production
+            # scale that is the same OOM this pipeline already learned once.
+            _pre = prefetched.pop((city.name, topic.name), None)
+
             use_search_cache = skip_scraped and config.search_cache_ttl_days > 0
             search_cache_hit = False
             cached_urls = get_search_cache(config.db_path, city.name, topic.name,
@@ -971,10 +978,9 @@ async def _run_full(
                     aborted = True
                     break
                 try:
-                    if ((city.name, topic.name) not in prefetched
-                            and not _should_stop(stop_at, should_stop)):
+                    if _pre is None and not _should_stop(stop_at, should_stop):
                         await _refill_prefetch()
-                    _pre = prefetched.pop((city.name, topic.name), None)
+                        _pre = prefetched.pop((city.name, topic.name), None)
                     if isinstance(_pre, BaseException):
                         raise _pre
                     search_results = _pre if _pre is not None else await searxng.search_all(
