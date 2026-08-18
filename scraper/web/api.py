@@ -223,6 +223,30 @@ async def quota(authorization: str | None = Header(default=None)):
     }
 
 
+@router.get("/backlog")
+async def backlog(authorization: str | None = Header(default=None)):
+    """Non-standard: how much work is queued, so nobody has to infer it.
+
+    "Why is there so little for the extractor to do?" was asked three times in
+    two days and answered each time by reading logs that only hold the last few
+    minutes. `pages_pending` is the direct answer: pages fetched and cached
+    whose extraction at the current fingerprint is missing. If it is near zero,
+    the extraction window has nothing to do and the constraint is collection.
+    """
+    if not _authorized(authorization):
+        return _error(401, "Invalid or missing API key.", "invalid_request_error",
+                      "invalid_api_key")
+    if not app_state.db_path or not app_state.pipeline_cfg:
+        return _error(503, "Pipeline is not configured.", "server_error", "no_config")
+    from ..db import get_backlog_counts
+    from ..pipeline import build_extractor
+    fp = build_extractor(app_state.pipeline_cfg).canonical_fingerprint
+    # Off the event loop: this is several COUNT(*) over the biggest tables, and
+    # /healthz already taught us what a blocking query on a busy database costs.
+    counts = await asyncio.to_thread(get_backlog_counts, app_state.db_path, fp)
+    return {"object": "backlog", "fingerprint": fp, **counts}
+
+
 @router.get("/logs")
 async def logs(
     authorization: str | None = Header(default=None),

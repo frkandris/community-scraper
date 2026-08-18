@@ -2094,6 +2094,58 @@ def get_search_cache(db_path: Path, city: str, topic: str,
 
 
 
+def get_backlog_counts(db_path: Path, current_fp: str) -> dict:
+    """How much work is queued, in one round trip.
+
+    Written because the same question — "why is there so little for the
+    extractor to do?" — kept being answered by inference from logs, and the
+    logs only hold the last few minutes. Counting is cheap and the answer is
+    exact.
+
+    `pages_pending` is the number that decides whether an extraction window has
+    anything to do: pages fetched and cached whose extraction at the *current*
+    fingerprint is missing.
+    """
+    if not db_path.exists():
+        return {}
+    with _connect(db_path) as conn:
+        def _one(sql: str, args: tuple = ()) -> int:
+            return int(conn.execute(sql, args).fetchone()[0] or 0)
+
+        return {
+            "searched_pairs": _one("SELECT COUNT(*) FROM search_cache"),
+            "collected_pairs": _one(
+                "SELECT COUNT(*) FROM search_cache WHERE collected_at IS NOT NULL"),
+            "pages_cached": _one("SELECT COUNT(*) FROM cache_pages"),
+            # `scraped_at IS NOT NULL` is the marker for "this row has page
+            # text"; the text itself lives inside the `data` JSON blob.
+            "pages_scraped": _one(
+                "SELECT COUNT(*) FROM cache_pages WHERE scraped_at IS NOT NULL"),
+            "pages_pending": _one(
+                "SELECT COUNT(*) FROM cache_pages"
+                " WHERE scraped_at IS NOT NULL"
+                "   AND (extract_fingerprint IS NULL OR extract_fingerprint != ?)",
+                (current_fp,)),
+            "communities": _one("SELECT COUNT(*) FROM communities WHERE hidden=0"),
+            # long_description lives inside the `data` JSON blob, not a column.
+            # json_extract needs SQLite's JSON1; if a deployment somehow lacks
+            # it, the count is omitted rather than the whole answer lost.
+            **({"unenriched": _one(
+                "SELECT COUNT(*) FROM communities WHERE hidden=0"
+                " AND (json_extract(data,'$.long_description') IS NULL"
+                "   OR json_extract(data,'$.long_description') = '')")}
+               if _has_json1(conn) else {}),
+        }
+
+
+def _has_json1(conn) -> bool:
+    try:
+        conn.execute("SELECT json_extract('{}', '$.x')")
+        return True
+    except sqlite3.OperationalError:
+        return False
+
+
 def get_covered_pairs(db_path: Path) -> set[tuple[str, str]]:
     """Return all (city, topic) pairs that have a search cache entry."""
     if not db_path.exists():

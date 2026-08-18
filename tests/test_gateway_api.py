@@ -422,3 +422,24 @@ def test_models_upstream_reports_configured_vs_served(client):
 
 def test_models_upstream_requires_auth(client):
     assert client.get("/v1/models/upstream").status_code == 401
+
+
+def test_backlog_needs_a_key_and_reports_pending_pages(tmp_path, monkeypatch):
+    """The endpoint exists so "is there work?" is answered, not inferred."""
+    from scraper.db import get_backlog_counts, init_db, save_search_cache
+    db = tmp_path / "s.db"
+    init_db(db)
+    save_search_cache(db, "Budapest", "running", ["https://a.test"], ["q"])
+
+    counts = get_backlog_counts(db, "fp-current")
+    assert counts["searched_pairs"] == 1
+    assert counts["pages_pending"] == 0        # nothing fetched yet
+
+    from scraper.cache import CacheManager
+    CacheManager(db).save_scraped("https://a.test", "szöveg " * 60, "Budapest", "running")
+    assert get_backlog_counts(db, "fp-current")["pages_pending"] == 1
+
+    CacheManager(db).save_extracted("https://a.test", [], fingerprint="fp-current")
+    assert get_backlog_counts(db, "fp-current")["pages_pending"] == 0
+    # A prompt or model change moves the fingerprint, and the page is work again.
+    assert get_backlog_counts(db, "fp-next")["pages_pending"] == 1
