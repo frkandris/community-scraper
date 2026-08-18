@@ -52,8 +52,7 @@ returns `({url: result-or-error}, stop)`. The page loop is otherwise untouched:
 it reads an answer already in hand instead of awaiting one, so cache writes,
 venue and person extraction, and enrichment stay serial and in page order.
 
-`pipeline.extract_concurrency` (settings.yaml, a **mounted volume** in
-production) bounds it. **1 reproduces the serial chain exactly** — the kill
+`pipeline.extract_concurrency` (settings.yaml, **version-controlled**) bounds it. **1 reproduces the serial chain exactly** — the kill
 switch, and the first thing to try when diagnosing anything in this area.
 
 `_run_full` is deliberately still serial. It is not on the twin schedule, so

@@ -193,8 +193,9 @@ def main() -> int:
               f'    -d \'{{"model":"{first[0]}:{first[1][0]}",'
               f'"messages":[{{"role":"user","content":"hi"}}],"max_tokens":5}}\' \\\n'
               f'    https://kozossegek.com/v1/chat/completions')
-        print("\nIf the call fails too, fix config/providers.yaml — a mounted "
-              "volume in production, so no deploy is needed.")
+        print("\nIf the call fails too, fix config/providers.yaml in the "
+              "repository and deploy. config/ is not a persisted volume: an "
+              "edit made on the server is lost at the next deploy.")
         return 1
     return 0
 

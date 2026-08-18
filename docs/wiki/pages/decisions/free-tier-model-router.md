@@ -20,7 +20,8 @@ DeepSeek stays configured but **parked** behind `router.allow_paid: false`.
 The catalogue lives in `config/providers.yaml`, not in code, because free
 providers rename and retire models constantly — Groq deprecated two Llama models
 in June 2026 and DeepSeek's July rename cost a whole extraction window
-([[2026-07-deepseek-model-retired]]). `config/` is a mounted volume in
+([[2026-07-deepseek-model-retired]]). `config/` is version-controlled and shipped in the image, NOT a persisted
+volume in
 production, so correcting a model name needs no deploy.
 
 ## Why these rules and not others

@@ -66,10 +66,9 @@ pipeline:
   # ceiling is 185 calls/min, which is why the 2026-08-17 window managed 3.3
   # extractions/min and left 15,690 free calls to expire. Raise to spend the
   # daily budget in hours instead of never; lower to 1 to rule concurrency out
-  # when diagnosing. This file is a mounted volume in production, so changing it
-  # needs no deploy: edit it at /admin/config, which saves and reloads the
-  # runtime config in place. A production copy predating this key gets the
-  # default of 1, so shipping the feature turns nothing on by itself.
+  # when diagnosing. Change it here and deploy — config/ is not persisted, so an
+  # edit made through /admin/config is gone at the next deploy (which is how the
+  # first day of concurrency settings was lost). The editor is read-only now.
   extract_concurrency: 4
   # How many pairs may have their *search* in flight at once. The collector
   # spends 45-70s per pair waiting on a queued DataForSEO task, and pairs are

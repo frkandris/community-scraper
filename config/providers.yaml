@@ -5,7 +5,10 @@
 # llama-3.1-8b-instant and llama-3.3-70b-versatile in June 2026, DeepSeek
 # retired "deepseek-chat" in July 2026 and cost us a whole extraction window
 # (docs/wiki/pages/post-mortems/2026-07-deepseek-model-retired.md). Editing a
-# model name here needs no deploy: config/ is a mounted volume in production.
+# model name here is a code change like any other: edit it in git and deploy.
+# config/ is NOT a persisted volume — an edit made through /admin/config is
+# gone at the next deploy (proven 2026-08-18, when settings changed in the
+# repository reached production and UI edits did not).
 #
 # HOW THE ROUTER USES THIS
 # Routing happens BEFORE generation, not as a cascade: the router picks the

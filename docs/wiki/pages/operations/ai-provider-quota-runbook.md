@@ -60,7 +60,8 @@ being retired. A 404/410 now retires that model for the run
 (`ExtractorModelError`) instead of costing one wasted request per page.
 
 - **Wrong model name** (`HTTP 400`) — the usual cause. Fix the `model:` line in
-  `config/providers.yaml`; it is a mounted volume, so no deploy is needed. The
+  `config/providers.yaml` **in git**, then deploy — config/ is not a persisted
+  volume, so an edit made on the server is lost at the next deploy. The
   fleet preflight retires such a model for the run rather than burning a wasted
   request on every page.
 - **Revoked key** (`HTTP 401`) — rotate it in Coolify.
