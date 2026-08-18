@@ -425,10 +425,20 @@ async def main() -> None:
             return
         from .enrich import enrich_batch
         from .web.app import _build_extractor
+        try:
+            return await _enrich_body(cfg, unbounded, start, end, enrich_batch,
+                                      _build_extractor)
+        finally:
+            # Everything below the slot claim runs under this, including the
+            # cancellable preflight: a stop during it used to leave
+            # `_enrich_running` true for the life of the process.
+            _release_enrich()
+
+    async def _enrich_body(cfg, unbounded, start, end, enrich_batch,
+                           _build_extractor) -> None:
         extractor = _build_extractor(app_state.pipeline_cfg)
         if extractor.exhausted:
             log.info("enrich_skipped", reason="no_extractor")
-            _release_enrich()
             return
         # Probe the fleet before the batch, as run_pipeline does. Without it a
         # stale model name costs one wasted request *per record* for the whole
@@ -438,11 +448,9 @@ async def main() -> None:
             await extractor.preflight()
         except Exception as exc:
             log.warning("enrich_skipped", reason="preflight_failed", error=str(exc))
-            _release_enrich()
             return
         scope = {c.name for c in (app_state.cities or [])}
         if not scope:
-            _release_enrich()
             return
         limit = int(cfg.get("enrich_batch_limit") or 200)
         # Hard off-peak cutoff passed into each batch so a round started near the
@@ -577,6 +585,12 @@ async def main() -> None:
                     # A manual or control-API run owns the slot. Leave it alone.
                     await asyncio.sleep(_WORKER_IDLE_SECONDS)
                     continue
+                if (schedule_cfg.get("enrich_enabled")
+                        and not app_state._enrich_running
+                        and not getattr(app_state, "worker_paused", False)):
+                    # Self-healing: enrichment used to be started only at boot,
+                    # so once stopped it stayed stopped until the next deploy.
+                    app_state._enrich_boot_task = asyncio.create_task(_enrich_run())
                 if getattr(app_state, "worker_paused", False):
                     # Stopped by an operator. Without this the worker simply
                     # started another run the moment the cancelled one ended,
@@ -605,13 +619,18 @@ async def main() -> None:
                 outcome: dict = {}
 
                 def _on_finished(pair_logs: list, total_new: int) -> None:
+                    # Not len(pair_logs): `ai_only` logs a pair even when it has
+                    # no cached pages, and every never-searched pair is in the
+                    # filter — so an empty extraction pass looked busy and the
+                    # worker would have run it forever, never collecting.
+                    # A pair did fresh work only if it had a page that was not
+                    # already extracted.
+                    outcome["worked"] = sum(
+                        1 for p in pair_logs
+                        if (p.get("urls_found") or 0) > (p.get("cache_hits_extract") or 0))
                     outcome["pairs"] = len(pair_logs)
                     outcome["new"] = total_new
                     finished.set()
-
-                def _was_cancelled() -> bool:
-                    task = getattr(app_state, "_run_task", None)
-                    return bool(task is not None and task.cancelled())
 
                 cfg = app_state.pipeline_cfg
                 started, reason = launch_pipeline_run(
@@ -640,19 +659,32 @@ async def main() -> None:
                     await asyncio.wait({run_task})
                 else:
                     await finished.wait()
-                log.info("worker_run_finished", mode=mode,
-                         pairs=outcome.get("pairs"), new_records=outcome.get("new"))
+                # Held from before the await: the run's finally releases the
+                # coordinator and clears app_state._run_task, so asking
+                # afterwards always said "not cancelled".
+                was_cancelled = bool(run_task is not None and run_task.cancelled())
+                log.info("worker_run_finished", mode=mode, pairs=outcome.get("pairs"),
+                         worked=outcome.get("worked"), new_records=outcome.get("new"),
+                         cancelled=was_cancelled)
 
-                if mode == "ai_only" and not outcome.get("pairs") and not _was_cancelled():
+                if mode == "ai_only" and not outcome.get("worked") and not was_cancelled:
                     # An empty pass means there is nothing to extract yet. A
                     # *cancelled* pass means someone stopped it, which says
                     # nothing about whether work exists — parking extraction for
                     # a quarter of an hour on that would be wrong.
                     extract_idle_until = _time.monotonic() + _WORKER_EXTRACT_RETRY_S
-                elif mode == "search_only":
-                    # Collection has added pages, so extraction is worth asking
-                    # about again immediately.
+                elif mode == "search_only" and outcome.get("worked"):
+                    # Only when collection actually fetched something. Clearing
+                    # it unconditionally made a caught-up system alternate empty
+                    # ai_only and search_only runs with no pause at all, writing
+                    # a run record for each.
                     extract_idle_until = 0.0
+                elif mode == "search_only" and not was_cancelled:
+                    # Nothing left to collect either. Wait before asking again
+                    # rather than spinning through both modes.
+                    extract_idle_until = max(
+                        extract_idle_until, _time.monotonic() + _WORKER_EXTRACT_RETRY_S)
+                    await asyncio.sleep(_WORKER_IDLE_SECONDS)
             except asyncio.CancelledError:
                 log.info("worker_stopped")
                 raise

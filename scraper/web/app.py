@@ -6352,6 +6352,9 @@ async def trigger_run(
 
 @admin.post("/api/stop")
 async def stop_run():
+    # Pause as well as cancel: under the continuous worker, cancelling alone
+    # only ended the current run and the next one started within the minute.
+    app_state.worker_paused = True
     if app_state.run_coordinator.cancel():
         log.info("run_cancelled_by_user")
     # Enrichment runs outside the coordinator (coexists with the pipeline), so

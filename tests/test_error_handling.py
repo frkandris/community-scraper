@@ -681,3 +681,18 @@ def test_stop_pauses_the_worker():
     src = inspect.getsource(api)
     assert "app_state.worker_paused = True" in src      # stop pauses
     assert "app_state.worker_paused = False" in src     # run/resume clears it
+
+
+def test_the_worker_measures_extraction_work_not_pair_count():
+    """`ai_only` logs a pair even when it has no cached pages.
+
+    Every never-searched pair is in the run's filter, so an empty extraction
+    pass looked busy — and the worker would have relaunched it forever while
+    quota lasted, never once running the paid collector.
+    """
+    import inspect
+
+    from scraper import main
+    src = inspect.getsource(main)
+    assert '(p.get("urls_found") or 0) > (p.get("cache_hits_extract") or 0)' in src
+    assert 'outcome.get("worked")' in src
