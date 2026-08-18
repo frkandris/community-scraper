@@ -69,6 +69,21 @@ def _city_coords(name: str) -> "tuple[float, float] | None":
     return None
 
 
+def _known_categories(login: str, password: str) -> set:
+    """Every valid category slug. Free endpoint — no account charge."""
+    try:
+        data = _post(CATEGORIES_ENDPOINT, None, login, password)
+    except Exception as exc:
+        print(f"could not load categories ({exc}); skipping the check", file=sys.stderr)
+        return set()
+    out = set()
+    for task in data.get("tasks") or []:
+        for result in task.get("result") or []:
+            for item in result.get("categories") or []:
+                out.add(item if isinstance(item, str) else item.get("category", ""))
+    return {c for c in out if c}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--city", help="look coordinates up in CITY_COORDS")
@@ -91,11 +106,8 @@ def main() -> int:
         return 2
 
     if args.list_categories:
-        data = _post(CATEGORIES_ENDPOINT, None, login, password)
-        for task in data.get("tasks") or []:
-            for result in task.get("result") or []:
-                for item in result.get("categories") or []:
-                    print(item)
+        for cat in sorted(_known_categories(login, password)):
+            print(cat)
         return 0
 
     if args.city:
@@ -110,12 +122,32 @@ def main() -> int:
         print("give --city, or both --lat and --lon", file=sys.stderr)
         return 2
 
+    # "lat,lon,radius": the radius is whole kilometres, minimum 1. A float
+    # renders as "10.0" and the API answers 40501 Invalid Field — which names
+    # the field but not what is wrong with it. Latitude and longitude take up
+    # to 7 decimals.
+    radius = max(1, int(round(args.radius)))
     task: dict = {
-        "location_coordinate": f"{lat},{lon},{args.radius}",
+        "location_coordinate": f"{lat},{lon},{radius}",
         "limit": args.limit,
     }
     if args.categories:
-        task["categories"] = [c.strip() for c in args.categories.split(",") if c.strip()][:10]
+        wanted = [c.strip() for c in args.categories.split(",") if c.strip()][:10]
+        # Checked against the free categories endpoint first. An unknown slug
+        # fails the paid request with the same opaque 40501, and guessing slugs
+        # from documentation prose is exactly how this probe wasted its first
+        # two attempts.
+        known = _known_categories(login, password)
+        unknown = [c for c in wanted if c not in known] if known else []
+        if unknown:
+            print(f"unknown categories: {', '.join(unknown)}", file=sys.stderr)
+            close = [k for k in known
+                     if any(part in k for c in unknown for part in c.split("_"))][:15]
+            if close:
+                print("did you mean: " + ", ".join(close), file=sys.stderr)
+            print("full list: --list-categories", file=sys.stderr)
+            return 2
+        task["categories"] = wanted
     if args.title:
         task["title"] = args.title
 
