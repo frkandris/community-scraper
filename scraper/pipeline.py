@@ -264,6 +264,15 @@ RUN_ABORTED = "aborted"  # stopped early: dead provider, or a top-level exceptio
 _MAX_EXTRACT_ROUNDS = 3
 
 
+#: One writer at a time. SQLite allows exactly one anyway, and moving these
+#: calls into threads removed the accidental serialisation the event loop used
+#: to provide: `save_results` reads, merges and replaces a whole topic
+#: non-atomically, so two overlapping saves could drop one side's extractions.
+#: Serialising costs nothing real — the writes are short and no longer hold the
+#: loop, which is the part that mattered.
+_db_write_lock: "asyncio.Lock | None" = None
+
+
 async def _off_loop(fn, *args, **kwargs):
     """Run a blocking database call without stopping the world.
 
@@ -277,7 +286,11 @@ async def _off_loop(fn, *args, **kwargs):
     The event loop also serves the public site. Anything that holds it for
     hundreds of milliseconds is taking that time from visitors.
     """
-    return await asyncio.to_thread(lambda: fn(*args, **kwargs))
+    global _db_write_lock
+    if _db_write_lock is None:
+        _db_write_lock = asyncio.Lock()  # created inside the loop that uses it
+    async with _db_write_lock:
+        return await asyncio.to_thread(lambda: fn(*args, **kwargs))
 
 
 async def _extract_pair_pages(
@@ -1012,7 +1025,7 @@ async def _run_full(
             # every fetch failed, leave the marker NULL so a later run retries
             # instead of suppressing the pair until the long search-cache TTL.
             if not urls or fetched:
-                mark_search_collection_complete(config.db_path, city.name, topic.name)
+                await _off_loop(mark_search_collection_complete, config.db_path, city.name, topic.name)
 
             if not run_communities and not run_venues and not run_persons:
                 # search_only is a strict collection mode: after the fetch batch it
@@ -1162,10 +1175,10 @@ async def _run_full(
                                              fingerprint=extractor.canonical_fingerprint,
                                              model=_model, quality=_quality)
                         if enrich_timing["needed"]:
-                            cache.mark_enrich_scraped(url, enrich_timing["scrape"])
-                            cache.mark_enrich_extracted(url, enrich_timing["count"],
+                            await _off_loop(cache.mark_enrich_scraped, url, enrich_timing["scrape"])
+                            await _off_loop(cache.mark_enrich_extracted, url, enrich_timing["count"],
                                                         enrich_timing["extract"], model=extractor.model)
-                            cache.save_enrich_log(url, enrich_logs)
+                            await _off_loop(cache.save_enrich_log, url, enrich_logs)
 
                     # NB: no per-URL save_results — the pair-final batch save below
                     # covers it; saving per URL re-ran O(n²) dedup + a full topic
@@ -1192,7 +1205,7 @@ async def _run_full(
                             await _off_loop(upsert_venues, config.db_path, [v.model_dump() for v in venues])
                             log.info("venues_extracted", url=url, found=len(venues))
                         if cache:
-                            cache.save_venue_extracted(url, [v.model_dump() for v in venues],
+                            await _off_loop(cache.save_venue_extracted, url, [v.model_dump() for v in venues],
                                                        fingerprint=extractor.canonical_venue_fingerprint,
                                                        model=extractor.model)
                     except Exception as exc:
@@ -1226,7 +1239,7 @@ async def _run_full(
                                 log.info("persons_extract_zero", url=url,
                                          communities=len(community_names))
                             if cache:
-                                cache.save_person_extracted(url, city.name, topic.name,
+                                await _off_loop(cache.save_person_extracted, url, city.name, topic.name,
                                                             [p.model_dump() for p in persons],
                                                             fingerprint=extractor.canonical_person_fingerprint,
                                                             model=extractor.model)
@@ -1248,7 +1261,7 @@ async def _run_full(
                 # persons survive.
                 synth_names = {p.community_name for p in leader_persons}
                 for rec in records:
-                    delete_leader_persons_for_community(
+                    await _off_loop(delete_leader_persons_for_community,
                         config.db_path, rec.name, city.name,
                         only_synthesized=rec.name not in synth_names)
                 if leader_persons:
@@ -1632,7 +1645,7 @@ async def _run_ai_only(
                         if venues:
                             await _off_loop(upsert_venues, config.db_path, [v.model_dump() for v in venues])
                             log.info("venues_extracted", url=url, found=len(venues))
-                        cache.save_venue_extracted(url, [v.model_dump() for v in venues],
+                        await _off_loop(cache.save_venue_extracted, url, [v.model_dump() for v in venues],
                                                    fingerprint=extractor.canonical_venue_fingerprint,
                                                    model=extractor.model)
                     except Exception as exc:
@@ -1663,7 +1676,7 @@ async def _run_ai_only(
                             else:
                                 log.info("persons_extract_zero", url=url,
                                          communities=len(community_names))
-                            cache.save_person_extracted(url, city.name, topic.name,
+                            await _off_loop(cache.save_person_extracted, url, city.name, topic.name,
                                                         [p.model_dump() for p in persons],
                                                         fingerprint=extractor.canonical_person_fingerprint,
                                                         model=extractor.model)
@@ -1684,7 +1697,7 @@ async def _run_ai_only(
                 # persons survive.
                 synth_names = {p.community_name for p in leader_persons}
                 for rec in records:
-                    delete_leader_persons_for_community(
+                    await _off_loop(delete_leader_persons_for_community,
                         config.db_path, rec.name, city.name,
                         only_synthesized=rec.name not in synth_names)
                 if leader_persons:

@@ -1126,3 +1126,25 @@ async def test_concurrent_pages_fan_out_across_providers(tmp_path, monkeypatch):
 
     # Both were used: the second page saw the first one's slot already claimed.
     assert a.peak == 1 and b.peak == 1
+
+
+def test_a_minute_limit_cannot_ratchet_the_daily_ceiling_down(tmp_path):
+    """The learned ceiling must not feed the rule that learns it.
+
+    Comparing "are we near the daily limit?" against the *learned* budget makes
+    a ratchet: recording an observed limit lowers the budget, which makes the
+    next per-minute 429 look near-daily, which lowers it again. On 2026-08-18
+    that walked Groq's 13,680/day down to 336 and the fleet lost 85% of its
+    free capacity.
+    """
+    db = tmp_path / "s.db"
+    init_db(db)
+    ledger = QuotaLedger(db, day="2026-08-18")
+    spec = _spec(rpd=13680)
+
+    # Two hundred per-minute 429s, short Retry-After, nowhere near 13,680.
+    for _ in range(200):
+        ledger.note_call("groq", ok=False, rate_limited=True, retry_after=60, spec=spec)
+
+    assert ledger._row("groq").get("observed_limit") in (None, 0)
+    assert ledger.budget(spec) > 12_000, "the daily ceiling was eaten by minute limits"

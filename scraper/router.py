@@ -240,11 +240,23 @@ class QuotaLedger:
             # configured rpd, is what distinguishes the two.
             # Near the configured allowance, a 429 of any length is much more
             # likely to be the daily cap than a burst limit.
-            near_daily = spec is not None and row["calls"] >= 0.8 * self.budget(spec)
+            # Measured against the *configured* rpd, never against the learned
+            # budget. Comparing with the learned one is a ratchet: the moment an
+            # observed limit is recorded the budget drops, which makes
+            # `near_daily` true at a lower call count, which lets the next
+            # per-minute 429 lower it again. On 2026-08-18 that walked Groq's
+            # 13,680/day down to 336 — the fleet lost 85% of its free capacity
+            # to a heuristic eating its own output, and the worker started
+            # buying searches because extraction "had no quota".
+            configured = int(spec.rpd) if spec is not None else 0
+            near_daily = configured > 0 and row["calls"] >= 0.8 * configured
             if wait >= self._DAILY_429_RETRY_AFTER or near_daily:
                 observed_limit = row["calls"]
                 prev = row.get("observed_limit")
                 row["observed_limit"] = min(prev, observed_limit) if prev else observed_limit
+                log.warning("provider_daily_limit_learned", provider=provider,
+                            observed=row["observed_limit"], configured=configured,
+                            wait_s=round(wait, 1))
             else:
                 log.info("provider_minute_limit", provider=provider, wait_s=round(wait, 1))
         if error:

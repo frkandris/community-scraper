@@ -705,17 +705,26 @@ def test_no_blocking_database_write_is_left_on_the_event_loop():
     tolerable; with eight searches and four extractions in flight /healthz
     reached six seconds, the Docker liveness probe killed the container, and
     Traefik dropped the route — 2026-08-18's 404s, three steps upstream.
+
+    Checked by parsing rather than against a list of names: the first version
+    of this test carried a hand-written list and missed ten call sites.
+    A wrapped call passes the function by name, so it is not a Call node at
+    all — every remaining Call to a write-shaped name is an offender.
     """
-    import re
+    import ast
     from pathlib import Path as _P
 
-    src = _P("scraper/pipeline.py").read_text(encoding="utf-8")
-    blocking = ("save_search_cache", "save_results", "upsert_venues",
-                "upsert_persons", "cache.save_extracted", "cache.save_scraped")
+    verbs = ("save_", "upsert_", "mark_", "delete_", "update_", "record_",
+             "insert_", "replace_")
+    tree = ast.parse(_P("scraper/pipeline.py").read_text(encoding="utf-8"))
     offenders = []
-    for lineno, line in enumerate(src.split("\n"), 1):
-        code = line.split("#", 1)[0]
-        for name in blocking:
-            if re.search(rf"(^|[^_.\w]){re.escape(name)}\s*\(", code) and "_off_loop" not in code:
-                offenders.append(f"{lineno}: {line.strip()[:70]}")
-    assert not offenders, "blocking writes on the event loop:\n" + "\n".join(offenders)
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+        if name.startswith(verbs):
+            offenders.append(f"line {node.lineno}: {name}(...)")
+    assert not offenders, (
+        "blocking database calls left on the event loop — wrap them in "
+        "_off_loop():\n" + "\n".join(offenders))
