@@ -262,7 +262,23 @@ async def backlog(authorization: str | None = Header(default=None)):
     # done-pair scan, and /healthz already taught us what a blocking query on a
     # busy database costs.
     counts = await asyncio.to_thread(_work)
-    return {"object": "backlog", "fingerprint": fp, **counts}
+    return {
+        "object": "backlog",
+        "fingerprint": fp,
+        # The settings that decide throughput and cost, as the *running process*
+        # sees them. config/settings.yaml is a mounted volume edited through
+        # /admin/config, so the repo's copy proves nothing about production and
+        # "did my change take effect?" had no answer short of reading behaviour
+        # hours later.
+        "config": {
+            "extract_concurrency": cfg.extract_concurrency,
+            "search_concurrency": cfg.search_concurrency,
+            "dataforseo_mode": cfg.dataforseo_mode,
+            "standard_priority": cfg.dataforseo_priority,
+            "search_max_pages": cfg.search_max_pages,
+        },
+        **counts,
+    }
 
 
 @router.get("/logs")
