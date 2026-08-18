@@ -15,6 +15,7 @@ from .cache import CacheManager
 from .config import CONFIG_DIR, load_config
 from .db import finish_run, get_last_run, get_last_run_row, init_db, start_run
 from .pipeline import RUN_ABORTED, classify_run_outcome, run_pipeline
+from .router import build_router
 from .web.app import app as web_app, templates
 from .web.log_stream import broadcaster
 from .web.state import app_state
@@ -385,6 +386,11 @@ async def main() -> None:
     #: 9.5-hour budget is not spent asleep.
     _ENRICH_RATE_LIMIT_PAUSE_S = 75
 
+    #: How long enrichment waits when there is nothing to do — the pool is empty,
+    #: or the daily quota is spent. Long enough to be cheap, short enough that a
+    #: midnight reset or a fresh batch of extractions is picked up promptly.
+    _ENRICH_IDLE_PAUSE_S = 900
+
     async def _enrich_run() -> None:
         """Managed off-peak SEO description enrichment. Fires at enrich_cron and on
         startup when already in-window (so a restart resumes instead of waiting a
@@ -397,9 +403,10 @@ async def main() -> None:
             log.info("enrich_skipped", reason="already_running")
             return
         cfg = _settings_schedule()
+        unbounded = bool(cfg.get("worker_enabled"))
         start = _cron_start_hhmm(cfg.get("enrich_cron") or "30 16 * * *")
         end = cfg.get("enrich_until") or "00:30"
-        if not _within_window(datetime.now(timezone.utc), start, end):
+        if not unbounded and not _within_window(datetime.now(timezone.utc), start, end):
             return  # self-gated to the configured window: safe to call on every startup
         if not app_state.db_path or not app_state.pipeline_cfg:
             return
@@ -425,12 +432,15 @@ async def main() -> None:
         # Hard off-peak cutoff passed into each batch so a round started near the
         # boundary stops issuing paid LLM calls the instant the window closes,
         # instead of running a full limit-long round into peak pricing.
-        deadline = _next_window_end(datetime.now(timezone.utc), end)
+        # Under the worker there is no window to close, so no deadline: the
+        # batch stops when the fleet runs out of quota and waits out per-minute
+        # limits, which is the only thing that ever needed a clock.
+        deadline = None if unbounded else _next_window_end(datetime.now(timezone.utc), end)
         app_state._enrich_running = True
         app_state._enrich_task = asyncio.current_task()  # so /api/stop can cancel it
         total = 0
         try:
-            while _within_window(datetime.now(timezone.utc), start, end):
+            while unbounded or _within_window(datetime.now(timezone.utc), start, end):
                 stats = await enrich_batch(
                     app_state.db_path, extractor, scope, limit=limit,
                     fetch_missing=False,
@@ -442,7 +452,13 @@ async def main() -> None:
                     break
                 if stats["pool"] == 0:
                     log.info("enrich_complete", enriched_this_window=total)
-                    break
+                    if not unbounded:
+                        break
+                    # Caught up. Extraction keeps adding communities, so wait
+                    # for them rather than ending — under the worker there is no
+                    # cron that would start this again.
+                    await asyncio.sleep(_ENRICH_IDLE_PAUSE_S)
+                    continue
                 # Provider down: enrich_batch fails fast and leaves candidates
                 # unmarked, so pool stays nonzero — bail out instead of tight-looping.
                 if stats.get("stopped_rate_limited"):
@@ -461,7 +477,13 @@ async def main() -> None:
                         or extractor.exhausted
                         or (stats["enriched"] == 0 and stats["failed"] > 0)):
                     log.warning("enrich_aborted_provider_down", enriched_this_window=total)
-                    break
+                    if not unbounded:
+                        break
+                    # Out of daily quota, most likely. It returns at 00:00 UTC
+                    # and this is the only thing waiting for it — sleeping is
+                    # how enrichment resumes on the new day without a cron.
+                    await asyncio.sleep(_ENRICH_IDLE_PAUSE_S)
+                    continue
                 await asyncio.sleep(1)  # yield to the event loop between rounds
             else:
                 log.info("enrich_window_closed", enriched_this_window=total)
@@ -474,8 +496,123 @@ async def main() -> None:
             app_state._enrich_task = None
 
     scheduler = AsyncIOScheduler()
+
+    # ── Continuous worker ─────────────────────────────────────────────────────
+    #: Nothing here is clock-bound. The twin windows existed for two reasons and
+    #: both are gone: DeepSeek's off-peak discount (extraction moved to a free
+    #: fleet) and a belief that DataForSEO was cheaper at certain hours (it is
+    #: not — priced by queue, verified 2026-08-18). What is left is one real
+    #: constraint: only one pipeline run at a time. So the work chooses itself.
+    #:
+    #:   free quota left  → extract, because it expires at 00:00 UTC
+    #:   none left        → collect, because that is what money buys
+    #:
+    #: The daily reset is the only time anything happens "at" a time, and even
+    #: that is not scheduled: quota returning is simply a condition the collector
+    #: is watching for, so extraction resumes on its own.
+
+    #: Idle wait between iterations. Long enough not to spin, short enough that a
+    #: quota reset or a finished run is picked up promptly.
+    _WORKER_IDLE_SECONDS = 60
+    #: After an extraction pass that found nothing, how long before asking again.
+    #: Without it the worker would relaunch an empty run every minute.
+    _WORKER_EXTRACT_RETRY_S = 900
+
+    def _free_quota_available() -> bool:
+        """True when some provider still has daily budget. Never raises."""
+        try:
+            cfg = app_state.pipeline_cfg
+            if cfg is None:
+                return False
+            mr = build_router(
+                app_state.db_path,
+                temperature=cfg.deepseek_temperature,
+                timeout_seconds=cfg.deepseek_timeout,
+                max_text_chars=cfg.deepseek_max_text_chars,
+                rate_limit_seconds=cfg.deepseek_rate_limit_seconds,
+                fingerprint_model=cfg.deepseek_fingerprint_model or cfg.deepseek_model,
+            )
+            return bool(mr and mr.enabled and mr.has_capacity())
+        except Exception as exc:
+            log.warning("worker_quota_check_failed", error=str(exc))
+            # Assume there is quota: a broken check must not park the extractor
+            # for the rest of the day.
+            return True
+
+    async def _worker_loop() -> None:
+        from .web.app import launch_pipeline_run
+        import time as _time
+        extract_idle_until = 0.0
+        log.info("worker_started")
+        while True:
+            try:
+                if app_state.is_running:
+                    # A manual or control-API run owns the slot. Leave it alone.
+                    await asyncio.sleep(_WORKER_IDLE_SECONDS)
+                    continue
+
+                quota = _free_quota_available()
+                extract_ready = quota and _time.monotonic() >= extract_idle_until
+                if extract_ready:
+                    mode = "ai_only"
+                    # Stop when the budget is gone — collection is what is left
+                    # to do, and it costs money rather than a daily allowance.
+                    def _preempt() -> bool:
+                        return not _free_quota_available()
+                else:
+                    mode = "search_only"
+                    # Stop when the budget comes back. At 00:00 UTC the ledger
+                    # rolls over and this turns true on its own, which is the
+                    # whole of "start extraction after the reset".
+                    def _preempt() -> bool:
+                        return (_free_quota_available()
+                                and _time.monotonic() >= extract_idle_until)
+
+                finished = asyncio.Event()
+                outcome: dict = {}
+
+                def _on_finished(pair_logs: list, total_new: int) -> None:
+                    outcome["pairs"] = len(pair_logs)
+                    outcome["new"] = total_new
+                    finished.set()
+
+                started, reason = launch_pipeline_run(
+                    mode, should_stop=_preempt, on_finished=_on_finished)
+                if not started:
+                    log.info("worker_run_skipped", mode=mode, reason=reason)
+                    await asyncio.sleep(_WORKER_IDLE_SECONDS)
+                    continue
+
+                log.info("worker_run_started", mode=mode, quota=quota)
+                await finished.wait()
+                log.info("worker_run_finished", mode=mode,
+                         pairs=outcome.get("pairs"), new_records=outcome.get("new"))
+
+                if mode == "ai_only" and not outcome.get("pairs"):
+                    extract_idle_until = _time.monotonic() + _WORKER_EXTRACT_RETRY_S
+                elif mode == "search_only":
+                    # Collection has added pages, so extraction is worth asking
+                    # about again immediately.
+                    extract_idle_until = 0.0
+            except asyncio.CancelledError:
+                log.info("worker_stopped")
+                raise
+            except Exception as exc:
+                log.error("worker_iteration_failed", error=str(exc))
+                await asyncio.sleep(_WORKER_IDLE_SECONDS)
+
     scheduler.start()
     app_state.scheduler = scheduler
+    worker_enabled = bool(_settings_schedule().get("worker_enabled"))
+    if worker_enabled:
+        # Ops toggle, configured in source control and meant to be short-lived:
+        # delete it and the twin-cron branch below once the worker has proven
+        # itself. martinfowler.com/articles/feature-toggles.html
+        app_state._worker_task = asyncio.create_task(_worker_loop())
+        if _settings_schedule().get("enrich_enabled"):
+            # Enrichment coexists with extraction (it does not take the run
+            # slot), and with no window to wait for it should simply be running.
+            app_state._enrich_boot_task = asyncio.create_task(_enrich_run())
     if _settings_cron_enabled():
         minute, hour, day, month, day_of_week = _cron_fields(cron_expr)
         scheduler.add_job(
@@ -487,7 +624,7 @@ async def main() -> None:
         log.info("scheduler_cron_enabled", cron=cron_expr, version=app_state.version)
 
     schedule_cfg = _settings_schedule()
-    if schedule_cfg.get("saver_enabled"):
+    if schedule_cfg.get("saver_enabled") and not worker_enabled:
         # Cost-saver twin jobs: search collects cheaply during the day; extraction
         # runs only in DeepSeek's off-peak window on the already-collected pages.
         # Complementary *_until windows keep the two from overlapping (single-run
@@ -540,6 +677,13 @@ async def main() -> None:
 
         now = datetime.now(timezone.utc)
         last_row = get_last_run_row(db_path)
+        if worker_enabled:
+            # The worker starts on boot and picks the right work immediately, so
+            # there is nothing to recover: an interrupted run's finished pairs
+            # are already cached and its unfinished ones are simply pending
+            # again. This is what stops a deploy from costing a collection run.
+            log.info("startup_run_skipped", reason="worker_drives_the_day")
+            return
         startup_mode, stop_at = _startup_plan(last_row, _settings_schedule(), now)
         if startup_mode is None:
             log.info("startup_run_skipped", reason="nothing_to_recover",

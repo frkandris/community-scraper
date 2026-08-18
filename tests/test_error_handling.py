@@ -642,3 +642,17 @@ def test_a_too_large_payload_retires_the_model_not_the_fleet(tmp_path):
     with patch.object(httpx.AsyncClient, "post", _fake_post):
         with pytest.raises(ExtractorModelError):
             asyncio.run(ex._post({"messages": []}, "label"))
+
+
+def test_the_worker_toggle_disables_the_twin_crons():
+    """Strangler fig: the new driver and the old one never both run.
+
+    The twin windows stay in the file so the worker can be switched off, but a
+    cron firing alongside the worker would fight it for the run slot.
+    """
+    import inspect
+
+    from scraper import main
+    src = inspect.getsource(main.main_entry if hasattr(main, "main_entry") else main)
+    assert 'schedule_cfg.get("saver_enabled") and not worker_enabled' in src
+    assert 'reason="worker_drives_the_day"' in src

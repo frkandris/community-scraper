@@ -140,6 +140,16 @@ schedule:
   #    LLM calls, so it does not compete for the same budget. Its constraint is
   #    money per query, not wall-clock, which is why it takes the longer but
   #    later slot.
+  # ── Continuous worker (replaces the twin windows) ─────────────────────────
+  # Nothing is clock-bound any more. The worker picks extraction while free
+  # quota remains — it expires at 00:00 UTC — and collection once it is gone.
+  # Quota returning at midnight is a condition the collector watches for, not a
+  # schedule, so extraction resumes on its own. A restart simply starts it
+  # again, which is why a deploy no longer costs a collection run.
+  #
+  # Ops toggle: set false to fall back to the twin crons below, which stay in
+  # place until the worker has proven itself and can then be deleted.
+  worker_enabled: true
   saver_enabled: true
   extract_cron: "30 0 * * *"
   extract_until: "10:00"

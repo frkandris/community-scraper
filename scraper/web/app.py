@@ -6230,6 +6230,7 @@ def launch_pipeline_run(
     filter_city: str = "",
     stop_at: "datetime | None" = None,
     should_stop: "Callable[[], bool] | None" = None,
+    on_finished: "Callable[[list, int], None] | None" = None,
 ) -> tuple[bool, str]:
     """Reserve the run slot and start a pipeline run. Returns (started, reason).
 
@@ -6310,6 +6311,11 @@ def launch_pipeline_run(
                                 total_new, error=run_error, outcome=_outcome)
             finally:
                 app_state.run_coordinator.release(asyncio.current_task())
+                if on_finished is not None:
+                    try:
+                        on_finished(pair_logs, total_new)
+                    except Exception as exc:
+                        log.warning("run_on_finished_failed", error=str(exc))
 
     task = asyncio.create_task(_run())
     app_state.run_coordinator.attach(task)
