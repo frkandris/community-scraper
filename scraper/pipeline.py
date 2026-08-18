@@ -264,6 +264,22 @@ RUN_ABORTED = "aborted"  # stopped early: dead provider, or a top-level exceptio
 _MAX_EXTRACT_ROUNDS = 3
 
 
+async def _off_loop(fn, *args, **kwargs):
+    """Run a blocking database call without stopping the world.
+
+    SQLite calls are synchronous, and the pipeline made fourteen of them
+    directly inside coroutines. Serially that was tolerable; with eight
+    searches and four extractions in flight it pushed `/healthz` to six
+    seconds — and the Docker liveness probe kills a container that answers
+    slowly, which makes Traefik drop the route and every visitor gets a 404.
+    That is the 2026-08-18 outage, three steps upstream of where it hurt.
+
+    The event loop also serves the public site. Anything that holds it for
+    hundreds of milliseconds is taking that time from visitors.
+    """
+    return await asyncio.to_thread(lambda: fn(*args, **kwargs))
+
+
 async def _extract_pair_pages(
     extractor, pages, *, city, topic, fp_section, concurrency, on_progress,
 ) -> "tuple[dict[str, Any], tuple[str, bool] | None]":
@@ -804,7 +820,7 @@ async def _prefetch_searches(
             out[(city.name, topic.name)] = results
             from .fetch import _is_blocked as _url_blocked
             try:
-                save_search_cache(
+                await _off_loop(save_search_cache,
                     config.db_path, city.name, topic.name,
                     [r.url for r in results
                      if not _url_blocked(r.url, config.fetch_blocked_domains)],
@@ -948,7 +964,7 @@ async def _run_full(
                 # twice per run via the catch-up pass); an empty cached list correctly
                 # marks the pair as done. The full (uncapped) URL list is stored; reads
                 # apply [:search_max_pages].
-                save_search_cache(config.db_path, city.name, topic.name, all_urls, queries)
+                await _off_loop(save_search_cache, config.db_path, city.name, topic.name, all_urls, queries)
 
             fetched: list[tuple[str, str]] = []
             pair_log = {**_new_pair_log(city.name, topic.name, queries),
@@ -984,7 +1000,7 @@ async def _run_full(
             for url, text, scrape_dur in await asyncio.gather(*[_fetch_one(u) for u in urls_to_fetch]):
                 if text:
                     if cache:
-                        cache.save_scraped(url, text, city.name, topic.name,
+                        await _off_loop(cache.save_scraped, url, text, city.name, topic.name,
                                            duration_s=scrape_dur, source_queries=queries)
                     fetched.append((url, text))
                     pair_log["fetched_urls"].append(url)
@@ -1142,7 +1158,7 @@ async def _run_full(
                             extract_dead = True
 
                     if cache:
-                        cache.save_extracted(url, final_records, duration_s=extract_dur,
+                        await _off_loop(cache.save_extracted, url, final_records, duration_s=extract_dur,
                                              fingerprint=extractor.canonical_fingerprint,
                                              model=_model, quality=_quality)
                         if enrich_timing["needed"]:
@@ -1173,7 +1189,7 @@ async def _run_full(
                         venues = await extractor.extract_venues(
                             text, city.name, city.locale, url, valid_topics=_topic_slugs)
                         if venues:
-                            upsert_venues(config.db_path, [v.model_dump() for v in venues])
+                            await _off_loop(upsert_venues, config.db_path, [v.model_dump() for v in venues])
                             log.info("venues_extracted", url=url, found=len(venues))
                         if cache:
                             cache.save_venue_extracted(url, [v.model_dump() for v in venues],
@@ -1204,7 +1220,7 @@ async def _run_full(
                                 text, city.name, topic.name, city.locale, url, community_names,
                             )
                             if persons:
-                                upsert_persons(config.db_path, [p.model_dump() for p in persons])
+                                await _off_loop(upsert_persons, config.db_path, [p.model_dump() for p in persons])
                                 log.info("persons_extracted", url=url, found=len(persons))
                             else:
                                 log.info("persons_extract_zero", url=url,
@@ -1236,13 +1252,13 @@ async def _run_full(
                         config.db_path, rec.name, city.name,
                         only_synthesized=rec.name not in synth_names)
                 if leader_persons:
-                    upsert_persons(config.db_path,
-                                   [{**p.model_dump(), "origin": "leader_field"}
-                                    for p in leader_persons])
+                    await _off_loop(upsert_persons, config.db_path,
+                                    [{**p.model_dump(), "origin": "leader_field"}
+                                     for p in leader_persons])
                     log.info("persons_from_leaders", city=city.name, topic=topic.name,
                              found=len(leader_persons))
 
-            count = save_results(city.name, topic.name, records, config.db_path)
+            count = await _off_loop(save_results, city.name, topic.name, records, config.db_path)
             run_stats[city.name][topic.name] = count
             pair_logs.append(pair_log)
 
@@ -1417,7 +1433,7 @@ async def _run_quality_upgrade(
             # Overwriting would be churn without gain.
             continue
         joinable = [r for r in records if r.joinable]
-        cache.save_extracted(page["url"], joinable, fingerprint=fingerprint,
+        await _off_loop(cache.save_extracted, page["url"], joinable, fingerprint=fingerprint,
                              model=model, quality=quality)
         if joinable:
             # Batched, never per page: save_results ends in a full topic
@@ -1432,7 +1448,7 @@ async def _run_quality_upgrade(
     for (city, topic), recs in pending.items():
         # save_results returns the pair's total stock, not the number added, so
         # the count comes from what we handed in — as at every other call site.
-        save_results(city, topic, recs, config.db_path)
+        await _off_loop(save_results, city, topic, recs, config.db_path)
         total_new += len(recs)
 
     if not (upgraded or failed):
@@ -1594,7 +1610,7 @@ async def _run_ai_only(
                         log.info("joinability_filtered", url=url,
                                  kept=len(joinable), removed=len(extracted) - len(joinable))
 
-                    cache.save_extracted(url, joinable,
+                    await _off_loop(cache.save_extracted, url, joinable,
                                          fingerprint=extractor.canonical_fingerprint,
                                          model=_model, quality=_quality)
 
@@ -1614,7 +1630,7 @@ async def _run_ai_only(
                         venues = await extractor.extract_venues(
                             text, city.name, city.locale, url, valid_topics=_topic_slugs)
                         if venues:
-                            upsert_venues(config.db_path, [v.model_dump() for v in venues])
+                            await _off_loop(upsert_venues, config.db_path, [v.model_dump() for v in venues])
                             log.info("venues_extracted", url=url, found=len(venues))
                         cache.save_venue_extracted(url, [v.model_dump() for v in venues],
                                                    fingerprint=extractor.canonical_venue_fingerprint,
@@ -1642,7 +1658,7 @@ async def _run_ai_only(
                                 text, city.name, topic.name, city.locale, url, community_names,
                             )
                             if persons:
-                                upsert_persons(config.db_path, [p.model_dump() for p in persons])
+                                await _off_loop(upsert_persons, config.db_path, [p.model_dump() for p in persons])
                                 log.info("persons_extracted", url=url, found=len(persons))
                             else:
                                 log.info("persons_extract_zero", url=url,
@@ -1672,13 +1688,13 @@ async def _run_ai_only(
                         config.db_path, rec.name, city.name,
                         only_synthesized=rec.name not in synth_names)
                 if leader_persons:
-                    upsert_persons(config.db_path,
-                                   [{**p.model_dump(), "origin": "leader_field"}
-                                    for p in leader_persons])
+                    await _off_loop(upsert_persons, config.db_path,
+                                    [{**p.model_dump(), "origin": "leader_field"}
+                                     for p in leader_persons])
                     log.info("persons_from_leaders", city=city.name, topic=topic.name,
                              found=len(leader_persons))
 
-            count = save_results(city.name, topic.name, records, config.db_path)
+            count = await _off_loop(save_results, city.name, topic.name, records, config.db_path)
             run_stats[city.name][topic.name] = count
             pair_logs.append(pair_log)
 
@@ -1725,7 +1741,7 @@ async def scrape_submitted_url(
     # Same joinable gate as the main pipeline — without it these flows
     # published records the normal run would reject.
     records = [r for r in records if r.joinable]
-    save_results(city, topic, records, db_path)
+    await _off_loop(save_results, city, topic, records, db_path)
     log.info("scrape_submitted_url_done", city=city, topic=topic, url=url, found=len(records))
     return True
 
@@ -1773,7 +1789,7 @@ async def reextract_community(
     # Same joinable gate as the main pipeline — without it these flows
     # published records the normal run would reject.
     records = [r for r in records if r.joinable]
-    save_results(city, topic, records, db_path)
+    await _off_loop(save_results, city, topic, records, db_path)
     log.info("reextract_community_done", community_id=community_id, found=len(records))
     return True
 

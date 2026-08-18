@@ -696,3 +696,26 @@ def test_the_worker_measures_extraction_work_not_pair_count():
     src = inspect.getsource(main)
     assert '(p.get("urls_found") or 0) > (p.get("cache_hits_extract") or 0)' in src
     assert 'outcome.get("worked")' in src
+
+
+def test_no_blocking_database_write_is_left_on_the_event_loop():
+    """The loop that serves the site must not be held by a SQLite write.
+
+    Fourteen of these ran directly inside coroutines. Serially it was
+    tolerable; with eight searches and four extractions in flight /healthz
+    reached six seconds, the Docker liveness probe killed the container, and
+    Traefik dropped the route — 2026-08-18's 404s, three steps upstream.
+    """
+    import re
+    from pathlib import Path as _P
+
+    src = _P("scraper/pipeline.py").read_text(encoding="utf-8")
+    blocking = ("save_search_cache", "save_results", "upsert_venues",
+                "upsert_persons", "cache.save_extracted", "cache.save_scraped")
+    offenders = []
+    for lineno, line in enumerate(src.split("\n"), 1):
+        code = line.split("#", 1)[0]
+        for name in blocking:
+            if re.search(rf"(^|[^_.\w]){re.escape(name)}\s*\(", code) and "_off_loop" not in code:
+                offenders.append(f"{lineno}: {line.strip()[:70]}")
+    assert not offenders, "blocking writes on the event loop:\n" + "\n".join(offenders)

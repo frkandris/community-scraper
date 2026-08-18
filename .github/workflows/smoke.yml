@@ -38,6 +38,23 @@ jobs:
           if [ "${{ github.event_name }}" = "push" ]; then WAIT=600; else WAIT=120; fi
           python scripts/smoke_test.py --wait "$WAIT"
 
+      # Detection without action is half a monitor. The remediation for the
+      # only failure this has ever seen — Traefik holding no route while the
+      # container is healthy — is mechanical, and waiting for a human to read
+      # an email is the slowest part of it.
+      # Not on `push`: a deploy is already in flight there, and a second one
+      # would fight it.
+      - name: Recover the route
+        if: failure() && github.event_name != 'push'
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_APP_UUID: ${{ secrets.COOLIFY_APP_UUID }}
+        # continue-on-error so the job still reports the incident: a recovery
+        # that turned the run green would hide the fact that the site went down.
+        run: python scripts/recover_deploy.py --wait 420
+        continue-on-error: true
+
       - name: Explain a failure
         if: failure()
         run: |
@@ -45,6 +62,8 @@ jobs:
           echo "Most likely causes, in the order they actually happened:"
           echo "  1. Traefik did not re-register the route after a deploy."
           echo "     Fix: POST /api/v1/deploy?uuid=<app>&force=true  (not restart)"
-          echo "  2. A database lock failed the container healthcheck and it was"
-          echo "     pulled from rotation. Check /healthz for db:\"busy\"."
+          echo "     The 'Recover the route' step above attempts exactly this."
+          echo "  2. The pipeline blocked the event loop until /healthz timed"
+          echo "     out, Docker marked the container unhealthy and Traefik"
+          echo "     dropped it. Check /healthz latency, not just its status."
           echo "See docs/wiki/pages/operations/production-monitoring.md"

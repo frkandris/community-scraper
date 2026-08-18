@@ -34,7 +34,13 @@ RUN TZ=Europe/Budapest date '+%Y-%m-%d.%H:%M' > /app/VERSION
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')" || exit 1
+# Liveness, and generous on purpose. Failing this check makes Traefik drop the
+# route, so every visitor gets a 404 — the cost of a false negative is a total
+# outage, and the cost of a false positive is a few slow minutes. On 2026-08-18
+# the pipeline's synchronous writes pushed /healthz to 6s and the old 10s/3
+# margin was one bad minute away from killing a perfectly working container.
+# Being busy is not being dead.
+HEALTHCHECK --interval=30s --timeout=30s --start-period=90s --retries=5 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz', timeout=25)" || exit 1
 
 CMD ["python", "-m", "scraper.main"]
