@@ -6,6 +6,32 @@ from .models import SearchResult
 
 log = structlog.get_logger()
 
+#: One HTTP client for the whole process, created lazily inside the event loop.
+#:
+#: Every request used to open its own — and `_search_standard` opened one *per
+#: poll*, so a single search at normal priority could open 150. With eight
+#: searches in flight the container ran out of file descriptors on 2026-08-18:
+#: `providers.yaml` became unreadable and SQLite could not open the database,
+#: from socket exhaustion three levels away. A pooled client also reuses
+#: connections to the same host, which is what an API client should do anyway.
+#: Keyed by event loop, not global: a client holds connections belonging to the
+#: loop that created them, so reusing one across loops is wrong — and it is what
+#: made the first version of this leak into other tests.
+_shared_clients: "dict[int, httpx.AsyncClient]" = {}
+
+
+def shared_client() -> "httpx.AsyncClient":
+    key = id(asyncio.get_running_loop())
+    client = _shared_clients.get(key)
+    if client is None or client.is_closed:
+        client = httpx.AsyncClient(
+            timeout=30.0,
+            limits=httpx.Limits(max_connections=64, max_keepalive_connections=16),
+        )
+        _shared_clients[key] = client
+    return client
+
+
 
 class SearchQuotaError(Exception):
     """Raised when the search API returns a rate-limit or payment-required error."""
@@ -117,8 +143,8 @@ class DataForSEOClient:
         payload = [task]
         headers = {"Authorization": self._auth_header, "Content-Type": "application/json"}
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.post(self._BASE, json=payload, headers=headers)
+            client = shared_client()
+            resp = await client.post(self._BASE, json=payload, headers=headers)
         except Exception as exc:
             log.warning("dataforseo_request_failed", query=query, error=str(exc))
             raise SearchUnavailableError(f"DataForSEO request failed: {exc}") from exc
@@ -182,12 +208,12 @@ class DataForSEOClient:
         """Queue-mode search: task_post ($0.6/1K) then poll task_get until done."""
         headers = {"Authorization": self._auth_header, "Content-Type": "application/json"}
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.post(
-                    self._TASK_POST,
-                    json=[{**task, "priority": self.standard_priority}],
-                    headers=headers,
-                )
+            client = shared_client()
+            resp = await client.post(
+                self._TASK_POST,
+                json=[{**task, "priority": self.standard_priority}],
+                headers=headers,
+            )
         except Exception as exc:
             log.warning("dataforseo_task_post_failed", query=query, error=str(exc))
             raise SearchUnavailableError(f"DataForSEO task_post failed: {exc}") from exc
@@ -225,8 +251,8 @@ class DataForSEOClient:
         while time.monotonic() < deadline:
             await asyncio.sleep(self._STANDARD_POLL_SECONDS)
             try:
-                async with httpx.AsyncClient(timeout=30.0) as client:
-                    poll = await client.get(f"{self._TASK_GET}/{task_id}", headers=headers)
+                client = shared_client()
+                poll = await client.get(f"{self._TASK_GET}/{task_id}", headers=headers)
                 pdata = poll.json()
             except Exception as exc:
                 log.warning("dataforseo_task_get_failed", query=query, error=str(exc))

@@ -12,6 +12,23 @@ from .models import CommunityRecord, PersonRecord, VenueRecord
 log = structlog.get_logger()
 
 
+#: Keyed by (event loop, timeout): a client holds connections belonging to the
+#: loop that created them, so one must never be shared across loops.
+_http_clients: "dict[tuple[int, float], httpx.AsyncClient]" = {}
+
+
+def _shared_client(timeout: float) -> "httpx.AsyncClient":
+    key = (id(asyncio.get_running_loop()), float(timeout))
+    client = _http_clients.get(key)
+    if client is None or client.is_closed:
+        client = httpx.AsyncClient(
+            timeout=timeout,
+            limits=httpx.Limits(max_connections=64, max_keepalive_connections=16),
+        )
+        _http_clients[key] = client
+    return client
+
+
 def _prompt_hash(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()[:12]
 
@@ -593,12 +610,15 @@ class _ApiExtractor:
     async def _post(self, payload: dict, label: str) -> dict:
         await self._rate_limit()
         try:
-            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-                resp = await client.post(
-                    f"{self._BASE_URL}/chat/completions",
-                    json=payload,
-                    headers=self._headers(),
-                )
+            # Pooled, not per-call: with four extractions and enrichment in
+            # flight this opened a socket per LLM request, and on 2026-08-18 the
+            # container ran out of file descriptors — SQLite could not open the
+            # database because HTTP clients had taken every handle.
+            resp = await _shared_client(self.timeout_seconds).post(
+                f"{self._BASE_URL}/chat/completions",
+                json=payload,
+                headers=self._headers(),
+            )
         except Exception as exc:
             log.warning("api_request_failed", provider=self.__class__.__name__, label=label, error=str(exc))
             raise ExtractorUnavailableError(f"{self.__class__.__name__}: {exc}") from exc
