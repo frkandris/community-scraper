@@ -238,12 +238,30 @@ async def backlog(authorization: str | None = Header(default=None)):
                       "invalid_api_key")
     if not app_state.db_path or not app_state.pipeline_cfg:
         return _error(503, "Pipeline is not configured.", "server_error", "no_config")
-    from ..db import get_backlog_counts
+    from ..db import get_backlog_counts, get_fully_processed_pairs
     from ..pipeline import build_extractor
-    fp = build_extractor(app_state.pipeline_cfg).canonical_fingerprint
-    # Off the event loop: this is several COUNT(*) over the biggest tables, and
-    # /healthz already taught us what a blocking query on a busy database costs.
-    counts = await asyncio.to_thread(get_backlog_counts, app_state.db_path, fp)
+    cfg = app_state.pipeline_cfg
+    fp = build_extractor(cfg).canonical_fingerprint
+
+    def _work() -> dict:
+        counts = get_backlog_counts(app_state.db_path, fp)
+        # `pages_pending` counts every cached page whose extraction is not
+        # current. That is not the same as work the run will do: the done-pair
+        # filter only looks at a pair's first `max_pages` urls, so pages beyond
+        # that are pending forever and invisible to it. `pairs_pending` is the
+        # number the run actually acts on — report both, and their disagreement.
+        done = get_fully_processed_pairs(
+            app_state.db_path, fp, max_pages=cfg.search_max_pages)
+        total = len(app_state.cities or []) * len(app_state.topics or [])
+        counts["pairs_total"] = total
+        counts["pairs_done"] = len(done)
+        counts["pairs_pending"] = max(0, total - len(done))
+        return counts
+
+    # Off the event loop: several COUNT(*) over the biggest tables plus the
+    # done-pair scan, and /healthz already taught us what a blocking query on a
+    # busy database costs.
+    counts = await asyncio.to_thread(_work)
     return {"object": "backlog", "fingerprint": fp, **counts}
 
 
