@@ -438,6 +438,11 @@ class PipelineConfig:
     #: the serial chain exactly. Lives in settings.yaml, which is a mounted
     #: volume in production, so it can be turned down without a deploy.
     extract_concurrency: int = 1
+    #: Pairs whose *search* may be in flight at once. The collector spends
+    #: 45-70s per pair waiting on a queued DataForSEO task; 1 is the serial
+    #: collector. Raising this is what makes `standard_priority: 1` viable —
+    #: half the price for a slower queue only pays off if the wait overlaps.
+    search_concurrency: int = 1
 
 
 async def _extract_traced(extractor, **kwargs):
@@ -731,6 +736,65 @@ def _build_search_client(config: PipelineConfig) -> FallbackSearchClient:
     return FallbackSearchClient(primaries=search_primaries)
 
 
+async def _prefetch_searches(
+    searxng, pairs, config, *, concurrency: int,
+) -> dict:
+    """Issue several pairs' searches at once, keyed by `(city, topic)`.
+
+    The collector's cost is almost entirely DataForSEO round trips: a pair takes
+    45-70 seconds, nearly all of it waiting for a queued task. Pairs are
+    independent, so that wait was the loop's shape rather than a constraint —
+    the same mistake, and the same fix, as [[concurrent-extraction]].
+
+    Queries within a pair stay sequential on purpose: `search_all` stops issuing
+    them once `stop_after` unique urls are collected, which typically skips the
+    third. Running them together would buy latency with money.
+
+    Returns `{(city, topic): results | Exception}`. Anything missing simply
+    falls through to a live call at the normal call site, so a failure here can
+    only cost time, never correctness.
+
+    Successful searches are written to `search_cache` here rather than only at
+    the call site. The run can stop — window closed, provider gone — with pairs
+    still unconsumed, and an unsaved paid search is re-paid on every future run.
+    The call site writes the same row again; it is an upsert.
+    """
+    out: dict = {}
+    if not pairs:
+        return out
+    sem = asyncio.Semaphore(max(1, int(concurrency or 1)))
+
+    async def _one(city, topic) -> None:
+        async with sem:
+            if searxng.exhausted:
+                return
+            terms = topic.search_terms.get(city.locale) or topic.search_terms.get("en", [])
+            queries = build_queries(city.name, city.search_variants, terms)
+            try:
+                results = await searxng.search_all(
+                    queries, locale=city.locale,
+                    num_results=config.search_results_per_query,
+                    stop_after=config.search_max_pages * 2,
+                )
+            except (SearchQuotaError, SearchUnavailableError) as exc:
+                out[(city.name, topic.name)] = exc
+                return
+            out[(city.name, topic.name)] = results
+            from .fetch import _is_blocked as _url_blocked
+            try:
+                save_search_cache(
+                    config.db_path, city.name, topic.name,
+                    [r.url for r in results
+                     if not _url_blocked(r.url, config.fetch_blocked_domains)],
+                    queries)
+            except Exception as exc:  # a cache write must not lose the result
+                log.warning("prefetch_search_cache_write_failed",
+                            city=city.name, topic=topic.name, error=str(exc))
+
+    await asyncio.gather(*[_one(c, t) for c, t in pairs])
+    return out
+
+
 async def _run_full(
     cities: list[CityConfig],
     topics: list[TopicConfig],
@@ -777,6 +841,19 @@ async def _run_full(
         if aborted or stopped:
             break
         run_stats[city.name] = {}
+        # One city's topics, searched together. A city is a natural batch: its
+        # pairs are adjacent in the walk, so nothing is fetched that the run
+        # would not have reached anyway.
+        prefetched = await _prefetch_searches(
+            searxng,
+            [(city, t) for t in topics
+             if (pairs_filter is None or (city.name, t.name) in pairs_filter)
+             and _tier_allows(city, t.name, config.core_topics)
+             and not (skip_scraped and config.search_cache_ttl_days > 0
+                      and get_search_cache(config.db_path, city.name, t.name,
+                                           config.search_cache_ttl_days) is not None)],
+            config, concurrency=config.search_concurrency,
+        ) if not _window_closed(stop_at) else {}
         for topic in topics:
             if pairs_filter is not None and (city.name, topic.name) not in pairs_filter:
                 continue
@@ -821,7 +898,10 @@ async def _run_full(
                     aborted = True
                     break
                 try:
-                    search_results = await searxng.search_all(
+                    _pre = prefetched.pop((city.name, topic.name), None)
+                    if isinstance(_pre, BaseException):
+                        raise _pre
+                    search_results = _pre if _pre is not None else await searxng.search_all(
                         queries, locale=city.locale, num_results=config.search_results_per_query,
                         stop_after=config.search_max_pages * 2,
                     )

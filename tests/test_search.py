@@ -122,3 +122,17 @@ async def test_standard_task_post_rejection_fails_fast_without_polling(monkeypat
     )
     with pytest.raises(SearchUnavailableError, match="40501.*location_name"):
         await client.search("choir Bratislava", locale="sk")
+
+
+def test_normal_priority_gets_a_longer_polling_window():
+    """Half the price, a slower queue — the wait has to fit.
+
+    DataForSEO publishes ~1 min for the priority queue and ~5 min for the
+    normal one, with a stated *target* of 45 minutes. A flat 300s made normal
+    priority time out, which is why we paid $1.2/1K instead of $0.6.
+    """
+    from scraper.search import DataForSEOClient
+    high = DataForSEOClient("u", "p", mode="standard", standard_priority=2)
+    normal = DataForSEOClient("u", "p", mode="standard", standard_priority=1)
+    assert high._STANDARD_TIMEOUT_SECONDS == 300.0
+    assert normal._NORMAL_PRIORITY_TIMEOUT_SECONDS > high._STANDARD_TIMEOUT_SECONDS

@@ -70,7 +70,14 @@ class DataForSEOClient:
     _TASK_POST = "https://api.dataforseo.com/v3/serp/google/organic/task_post"
     _TASK_GET = "https://api.dataforseo.com/v3/serp/google/organic/task_get/regular"
     _STANDARD_POLL_SECONDS = 10.0
+    #: How long to wait for a queued task, by priority. DataForSEO publishes
+    #: ~1 minute for the priority queue and ~5 minutes for the normal one, with
+    #: a stated *target* of 45 minutes for the latter — so the old flat 300s
+    #: made normal priority unusable and locked us into paying $1.2/1K instead
+    #: of $0.6. Waiting longer only pays off when the waits overlap, which is
+    #: what `pipeline.search_concurrency` is for.
     _STANDARD_TIMEOUT_SECONDS = 300.0
+    _NORMAL_PRIORITY_TIMEOUT_SECONDS = 1500.0
 
     def __init__(self, login: str, password: str, rate_limit_seconds: float = 1.0,
                  mode: str = "live", standard_priority: int = 1):
@@ -212,7 +219,9 @@ class DataForSEOClient:
             raise SearchUnavailableError("DataForSEO task_post returned no task id")
 
         import time
-        deadline = time.monotonic() + self._STANDARD_TIMEOUT_SECONDS
+        budget = (self._STANDARD_TIMEOUT_SECONDS if self.standard_priority >= 2
+                  else self._NORMAL_PRIORITY_TIMEOUT_SECONDS)
+        deadline = time.monotonic() + budget
         while time.monotonic() < deadline:
             await asyncio.sleep(self._STANDARD_POLL_SECONDS)
             try:
@@ -231,7 +240,8 @@ class DataForSEOClient:
             if status == 40201:
                 raise SearchQuotaError("DataForSEO: task quota exhausted (40201)")
             # 40601/40602 = task queued / in progress — keep polling
-        log.warning("dataforseo_task_timeout", query=query, task_id=task_id)
+        log.warning("dataforseo_task_timeout", query=query, task_id=task_id,
+                    waited_s=round(budget), priority=self.standard_priority)
         raise SearchUnavailableError("DataForSEO standard task timed out")
 
     async def search_all(

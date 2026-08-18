@@ -17,8 +17,14 @@ search:
   # "live" = instant, $2/1K queries. "standard" = task queue: $0.6/1K normal
   # or $1.2/1K high priority. Manual dashboard runs also use this mode.
   dataforseo_mode: standard
-  # Normal queue can legally exceed our 5-minute poll window. High priority is
-  # ~$1.2/1K (vs $0.6 normal, $2 live) and normally completes within one minute.
+  # 1 = normal queue ($0.6/1K, ~5 min average, 45 min stated target).
+  # 2 = priority queue ($1.2/1K, ~1 min). Live mode is $2/1K.
+  #
+  # We paid double because the collector polled for at most 5 minutes and
+  # processed one pair at a time, so a slower queue meant timeouts. Both halves
+  # of that are gone: the poll window follows the priority (25 min on normal),
+  # and pipeline.search_concurrency overlaps the waits. Switching to 1 halves
+  # the search bill — do it together with search_concurrency, never alone.
   standard_priority: 2
 
 fetch:
@@ -57,6 +63,12 @@ pipeline:
   # runtime config in place. A production copy predating this key gets the
   # default of 1, so shipping the feature turns nothing on by itself.
   extract_concurrency: 1
+  # How many pairs may have their *search* in flight at once. The collector
+  # spends 45-70s per pair waiting on a queued DataForSEO task, and pairs are
+  # independent, so 1 leaves that wait unoverlapped. This is also what makes
+  # search.standard_priority: 1 worth having — half the price ($0.6 vs $1.2 per
+  # 1K SERPs) for a slower queue only pays off when the waits overlap.
+  search_concurrency: 1
   commit_after_run: false
   push_after_commit: false
   test_mode: false

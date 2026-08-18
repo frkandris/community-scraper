@@ -279,11 +279,15 @@ def test_provider_death_aborts_run_instead_of_per_pair_failures(tmp_path):
             True, True, {}, None,
         ))
 
-    # pair 1: real quota error; pair 2: abort marker; pairs 3-4: never walked
-    assert len(logs) == 2
+    # One marker, and the run stops. Searches for a city are now issued
+    # together before its topics are walked, so the provider is already known
+    # to be gone by the time the first pair is processed — the failure and the
+    # abort collapse into one entry instead of two. Nothing is cached either
+    # way, so every unsearched pair is retried next run.
+    assert len(logs) == 1
     assert all(p["search_failed"] for p in logs)
+    assert logs[0]["aborted"] is True
     assert "credits gone" in (logs[0]["search_error"] or "")
-    assert "credits gone" in (logs[1]["search_error"] or "")
 
 
 def test_missing_credentials_abort_carries_reason(tmp_path):
@@ -562,3 +566,51 @@ def test_serial_is_still_available(tmp_path):
     asyncio.run(_run_ai_only(cities, topics, cfg, FallbackExtractor(primaries=[_Watch()]),
                              cache, True, {}, None, run_venues=False, run_persons=False))
     assert _Watch.peak == 1
+
+
+def test_a_citys_searches_are_issued_together(tmp_path):
+    """The collector's cost is waiting on queued tasks; pairs are independent."""
+    from scraper.pipeline import _run_full
+    db, cfg, cities, topics = _pipeline_fixtures(tmp_path)
+    cfg.search_concurrency = 4
+    cities = [CityConfig(name="Budapest", locale="hu", search_variants=[])]
+    topics = [TopicConfig(name=t, search_terms={"hu": ["kifejezés"]})
+              for t in ("running", "chess", "music", "dance")]
+
+    class _Slow:
+        in_flight = 0
+        peak = 0
+        exhausted = False
+
+        async def search_all(self, queries, locale="en", num_results=10, stop_after=None):
+            _Slow.in_flight += 1
+            _Slow.peak = max(_Slow.peak, _Slow.in_flight)
+            await asyncio.sleep(0.02)
+            _Slow.in_flight -= 1
+            return []
+
+    asyncio.run(_run_full(cities, topics, cfg, FallbackExtractor(primaries=[]), None,
+                          True, True, {}, None, search_client=_Slow()))
+    assert _Slow.peak > 1, "searches still issued one pair at a time"
+
+
+def test_a_prefetched_search_is_saved_even_if_never_consumed(tmp_path):
+    """An unsaved paid search is re-paid on every future run."""
+    from scraper.db import get_search_cache
+    from scraper.pipeline import _prefetch_searches
+    from scraper.search import SearchResult
+    db, cfg, cities, topics = _pipeline_fixtures(tmp_path)
+    city = CityConfig(name="Budapest", locale="hu", search_variants=[])
+    topic = TopicConfig(name="running", search_terms={"hu": ["kifejezés"]})
+
+    class _Ok:
+        exhausted = False
+
+        async def search_all(self, queries, locale="en", num_results=10, stop_after=None):
+            return [SearchResult(url="https://a.test", title="t", snippet="s")]
+
+    out = asyncio.run(_prefetch_searches(_Ok(), [(city, topic)], cfg, concurrency=2))
+
+    assert out[("Budapest", "running")]          # returned to the caller
+    # …and durable, even though no pair loop ever consumed it.
+    assert get_search_cache(db, "Budapest", "running", 7) == ["https://a.test"]
