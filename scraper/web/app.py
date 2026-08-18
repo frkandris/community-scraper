@@ -6337,6 +6337,10 @@ async def trigger_run(
     filter_country: str = Form(""),
     filter_city: str = Form(""),
 ):
+    # Asking for a run means wanting work to happen again, so it lifts a pause
+    # left by Stop. Without this the button started one run and then everything
+    # — the worker and enrichment — stayed paused until a restart.
+    app_state.worker_paused = False
     started, reason = launch_pipeline_run(
         run_mode,
         skip_scraped=(skip_scraped == "on"),

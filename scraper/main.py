@@ -680,10 +680,10 @@ async def main() -> None:
                     # a run record for each.
                     extract_idle_until = 0.0
                 elif mode == "search_only" and not was_cancelled:
-                    # Nothing left to collect either. Wait before asking again
-                    # rather than spinning through both modes.
-                    extract_idle_until = max(
-                        extract_idle_until, _time.monotonic() + _WORKER_EXTRACT_RETRY_S)
+                    # Nothing left to collect either. Sleep — and deliberately
+                    # do NOT touch the extraction cooldown: pushing it forward
+                    # on every empty pass made it a ratchet that never expired,
+                    # so extraction stayed off even after the quota reset.
                     await asyncio.sleep(_WORKER_IDLE_SECONDS)
             except asyncio.CancelledError:
                 log.info("worker_stopped")
