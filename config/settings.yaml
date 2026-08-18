@@ -1,3 +1,11 @@
+# This file is the single source of truth for runtime settings, and it lives in
+# git. Do not edit it through /admin/config — a deploy replaces the container and
+# the edit is gone, which is exactly how 2026-08-18's concurrency settings were
+# silently lost. Change it here, commit, push; the deploy applies it.
+#   "I should be able to walk up with a laptop loaded with only an operating
+#    system, and by using the repository, obtain everything I need to build and
+#    run the product." — martinfowler.com/articles/continuousIntegration.html
+
 deepseek:
   # 2026-07: DeepSeek retired the "deepseek-chat" model name (supported names:
   # deepseek-v4-pro / deepseek-v4-flash). fingerprint_model pins the extraction
@@ -25,7 +33,7 @@ search:
   # of that are gone: the poll window follows the priority (25 min on normal),
   # and pipeline.search_concurrency overlaps the waits. Switching to 1 halves
   # the search bill — do it together with search_concurrency, never alone.
-  standard_priority: 2
+  standard_priority: 1
 
 fetch:
   timeout_seconds: 15
@@ -62,13 +70,13 @@ pipeline:
   # needs no deploy: edit it at /admin/config, which saves and reloads the
   # runtime config in place. A production copy predating this key gets the
   # default of 1, so shipping the feature turns nothing on by itself.
-  extract_concurrency: 1
+  extract_concurrency: 4
   # How many pairs may have their *search* in flight at once. The collector
   # spends 45-70s per pair waiting on a queued DataForSEO task, and pairs are
   # independent, so 1 leaves that wait unoverlapped. This is also what makes
   # search.standard_priority: 1 worth having — half the price ($0.6 vs $1.2 per
   # 1K SERPs) for a slower queue only pays off when the waits overlap.
-  search_concurrency: 1
+  search_concurrency: 8
   commit_after_run: false
   push_after_commit: false
   test_mode: false

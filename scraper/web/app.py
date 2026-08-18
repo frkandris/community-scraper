@@ -5894,13 +5894,22 @@ async def save_topics(request: Request, topics_yaml: str = Form(...)):
 
 @admin.post("/config/settings")
 async def save_settings(request: Request, settings_yaml: str = Form(...)):
-    try:
-        _validate_candidate_config(settings_yaml=settings_yaml)
-        (CONFIG_DIR / "settings.yaml").write_text(settings_yaml, encoding="utf-8")
-        _reload_runtime_config()
-        return RedirectResponse("/admin/config?saved=settings", status_code=302)
-    except Exception as exc:
-        return _config_error_redirect(exc)
+    """Refused on purpose. settings.yaml is version-controlled.
+
+    This form used to write the file and reload the config, which looked like it
+    worked — until the next deploy replaced the container and the edit was gone.
+    On 2026-08-18 the concurrency settings were lost exactly that way, and the
+    only evidence was the pipeline quietly running the old values.
+
+    A form that silently loses its input is worse than no form. cities.yaml and
+    topics.yaml keep their editors: those are content, curated by hand and read
+    back from disk. Settings are code.
+    """
+    del settings_yaml
+    return _config_error_redirect(Exception(
+        "settings.yaml is version-controlled — edit it in the repository and "
+        "deploy. A change saved here would be silently reverted by the next "
+        "deploy, which is how the 2026-08-18 concurrency settings were lost."))
 
 
 @admin.get("/subscriptions", response_class=HTMLResponse)
