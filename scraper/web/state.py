@@ -55,6 +55,10 @@ class RunCoordinator:
 @dataclass
 class AppState:
     is_running: bool = False
+    #: Set by /v1/control/stop and cleared by /v1/control/run|resume.
+    #: Without it the continuous worker started a new run the moment the
+    #: cancelled one ended, so stopping was impossible.
+    worker_paused: bool = False
     last_run_at: datetime | None = None
     cities: list = field(default_factory=list)
     topics: list = field(default_factory=list)

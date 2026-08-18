@@ -281,6 +281,7 @@ async def control_status(authorization: str | None = Header(default=None)):
         "topic": app_state.current_topic,
         "url": app_state.current_url,
         "enriching": bool(getattr(app_state, "_enrich_running", False)),
+        "worker_paused": bool(getattr(app_state, "worker_paused", False)),
         "last_run_at": (app_state.last_run_at.isoformat()
                         if app_state.last_run_at else None),
     }
@@ -304,6 +305,8 @@ async def control_run(request: Request,
         return _error(400, f"Unknown mode {mode!r}.", "invalid_request_error")
 
     from .app import launch_pipeline_run
+    # Asking for a run means the operator wants work happening again.
+    app_state.worker_paused = False
     started, reason = launch_pipeline_run(
         mode,
         skip_scraped=bool(body.get("skip_scraped", True)),
@@ -326,6 +329,9 @@ async def control_stop(authorization: str | None = Header(default=None)):
     if not _control_authorized(authorization):
         return _error(401, "Invalid or missing API key.", "invalid_request_error",
                       "invalid_api_key")
+    # Pause first: cancelling alone only ended the current run, and the
+    # continuous worker started another within the minute.
+    app_state.worker_paused = True
     stopped = bool(app_state.run_coordinator.cancel())
     # Enrichment runs outside the coordinator (it coexists with extraction), so
     # it is cancelled separately or it would keep going alone.
@@ -336,7 +342,18 @@ async def control_stop(authorization: str | None = Header(default=None)):
         enrich_stopped = True
     log.info("control_stop", run=stopped, enrich=enrich_stopped)
     return {"object": "control.stop", "run_stopped": stopped,
-            "enrich_stopped": enrich_stopped}
+            "enrich_stopped": enrich_stopped, "worker_paused": True}
+
+
+@router.post("/control/resume")
+async def control_resume(authorization: str | None = Header(default=None)):
+    """Let the worker pick work again after a stop."""
+    if not _control_authorized(authorization):
+        return _error(401, "Invalid or missing API key.", "invalid_request_error",
+                      "invalid_api_key")
+    app_state.worker_paused = False
+    log.info("control_resume")
+    return {"object": "control.resume", "worker_paused": False}
 
 
 @router.get("/backlog")

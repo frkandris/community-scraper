@@ -391,6 +391,11 @@ async def main() -> None:
     #: midnight reset or a fresh batch of extractions is picked up promptly.
     _ENRICH_IDLE_PAUSE_S = 900
 
+    def _release_enrich() -> None:
+        """Hand the enrichment slot back on an early return."""
+        app_state._enrich_running = False
+        app_state._enrich_task = None
+
     async def _enrich_run() -> None:
         """Managed off-peak SEO description enrichment. Fires at enrich_cron and on
         startup when already in-window (so a restart resumes instead of waiting a
@@ -402,19 +407,28 @@ async def main() -> None:
         if app_state._enrich_running:
             log.info("enrich_skipped", reason="already_running")
             return
+        # Claimed here, before the first await. The flag used to be set after
+        # the extractor was built, so two starts — the boot task and the cron —
+        # could both pass the check and run in parallel, doubling provider calls
+        # and leaving one of them uncancellable through `_enrich_task`.
+        app_state._enrich_running = True
+        app_state._enrich_task = asyncio.current_task()
         cfg = _settings_schedule()
         unbounded = bool(cfg.get("worker_enabled"))
         start = _cron_start_hhmm(cfg.get("enrich_cron") or "30 16 * * *")
         end = cfg.get("enrich_until") or "00:30"
         if not unbounded and not _within_window(datetime.now(timezone.utc), start, end):
+            _release_enrich()
             return  # self-gated to the configured window: safe to call on every startup
         if not app_state.db_path or not app_state.pipeline_cfg:
+            _release_enrich()
             return
         from .enrich import enrich_batch
         from .web.app import _build_extractor
         extractor = _build_extractor(app_state.pipeline_cfg)
         if extractor.exhausted:
             log.info("enrich_skipped", reason="no_extractor")
+            _release_enrich()
             return
         # Probe the fleet before the batch, as run_pipeline does. Without it a
         # stale model name costs one wasted request *per record* for the whole
@@ -424,9 +438,11 @@ async def main() -> None:
             await extractor.preflight()
         except Exception as exc:
             log.warning("enrich_skipped", reason="preflight_failed", error=str(exc))
+            _release_enrich()
             return
         scope = {c.name for c in (app_state.cities or [])}
         if not scope:
+            _release_enrich()
             return
         limit = int(cfg.get("enrich_batch_limit") or 200)
         # Hard off-peak cutoff passed into each batch so a round started near the
@@ -436,8 +452,6 @@ async def main() -> None:
         # batch stops when the fleet runs out of quota and waits out per-minute
         # limits, which is the only thing that ever needed a clock.
         deadline = None if unbounded else _next_window_end(datetime.now(timezone.utc), end)
-        app_state._enrich_running = True
-        app_state._enrich_task = asyncio.current_task()  # so /api/stop can cancel it
         total = 0
         try:
             while unbounded or _within_window(datetime.now(timezone.utc), start, end):
@@ -518,8 +532,19 @@ async def main() -> None:
     #: Without it the worker would relaunch an empty run every minute.
     _WORKER_EXTRACT_RETRY_S = 900
 
+    #: The quota answer is cached for this long. `should_stop` is consulted
+    #: between every pair, and building a router parses the provider catalogue
+    #: and reads the ledger — per pair, with eight searches in flight, that is a
+    #: real cost for a number that changes on the scale of minutes.
+    _QUOTA_CACHE_SECONDS = 30.0
+    _quota_cache: dict = {"at": 0.0, "value": True}
+
     def _free_quota_available() -> bool:
         """True when some provider still has daily budget. Never raises."""
+        import time as _t
+        now = _t.monotonic()
+        if now - _quota_cache["at"] < _QUOTA_CACHE_SECONDS:
+            return bool(_quota_cache["value"])
         try:
             cfg = app_state.pipeline_cfg
             if cfg is None:
@@ -532,12 +557,14 @@ async def main() -> None:
                 rate_limit_seconds=cfg.deepseek_rate_limit_seconds,
                 fingerprint_model=cfg.deepseek_fingerprint_model or cfg.deepseek_model,
             )
-            return bool(mr and mr.enabled and mr.has_capacity())
+            value = bool(mr and mr.enabled and mr.has_capacity())
         except Exception as exc:
             log.warning("worker_quota_check_failed", error=str(exc))
             # Assume there is quota: a broken check must not park the extractor
             # for the rest of the day.
-            return True
+            value = True
+        _quota_cache.update(at=now, value=value)
+        return value
 
     async def _worker_loop() -> None:
         from .web.app import launch_pipeline_run
@@ -548,6 +575,12 @@ async def main() -> None:
             try:
                 if app_state.is_running:
                     # A manual or control-API run owns the slot. Leave it alone.
+                    await asyncio.sleep(_WORKER_IDLE_SECONDS)
+                    continue
+                if getattr(app_state, "worker_paused", False):
+                    # Stopped by an operator. Without this the worker simply
+                    # started another run the moment the cancelled one ended,
+                    # so /v1/control/stop could not actually stop anything.
                     await asyncio.sleep(_WORKER_IDLE_SECONDS)
                     continue
 
@@ -576,19 +609,45 @@ async def main() -> None:
                     outcome["new"] = total_new
                     finished.set()
 
+                def _was_cancelled() -> bool:
+                    task = getattr(app_state, "_run_task", None)
+                    return bool(task is not None and task.cancelled())
+
+                cfg = app_state.pipeline_cfg
                 started, reason = launch_pipeline_run(
-                    mode, should_stop=_preempt, on_finished=_on_finished)
+                    mode,
+                    # The cache flags are the whole point of a saver run and the
+                    # launcher's defaults are the admin form's ("Full Refresh").
+                    # Without these, search_only would re-buy every search we
+                    # already own and ai_only would re-extract every done page —
+                    # which also means it would never look idle, so the worker
+                    # would never collect again.
+                    skip_scraped=bool(getattr(cfg, "cache_skip_scraped", True)),
+                    skip_extracted=bool(getattr(cfg, "cache_skip_extracted", True)),
+                    should_stop=_preempt, on_finished=_on_finished)
                 if not started:
                     log.info("worker_run_skipped", mode=mode, reason=reason)
                     await asyncio.sleep(_WORKER_IDLE_SECONDS)
                     continue
 
                 log.info("worker_run_started", mode=mode, quota=quota)
-                await finished.wait()
+                # Wait on the task, not only on the callback: a task cancelled
+                # before it ever ran never reaches its finally, and the callback
+                # would never fire. asyncio.wait returns for done, cancelled and
+                # failed alike, and never re-raises.
+                run_task = getattr(app_state, "_run_task", None)
+                if run_task is not None:
+                    await asyncio.wait({run_task})
+                else:
+                    await finished.wait()
                 log.info("worker_run_finished", mode=mode,
                          pairs=outcome.get("pairs"), new_records=outcome.get("new"))
 
-                if mode == "ai_only" and not outcome.get("pairs"):
+                if mode == "ai_only" and not outcome.get("pairs") and not _was_cancelled():
+                    # An empty pass means there is nothing to extract yet. A
+                    # *cancelled* pass means someone stopped it, which says
+                    # nothing about whether work exists — parking extraction for
+                    # a quarter of an hour on that would be wrong.
                     extract_idle_until = _time.monotonic() + _WORKER_EXTRACT_RETRY_S
                 elif mode == "search_only":
                     # Collection has added pages, so extraction is worth asking
@@ -643,7 +702,7 @@ async def main() -> None:
                  search_until=schedule_cfg.get("search_until"),
                  extract_cron=schedule_cfg.get("extract_cron"),
                  extract_until=schedule_cfg.get("extract_until"))
-    if schedule_cfg.get("enrich_enabled"):
+    if schedule_cfg.get("enrich_enabled") and not worker_enabled:
         # Managed off-peak description enrichment — survives restarts (re-registered
         # here every startup + a startup-resume hook below). Runs only in DeepSeek's
         # discount window.

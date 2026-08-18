@@ -6260,13 +6260,17 @@ def launch_pipeline_run(
         app_state.current_topic = topic
 
     async def _run() -> None:
-        started = datetime.now(timezone.utc)
         from ..db import finish_run as _finish_run, start_run as _start_run
-        _run_id = _start_run(app_state.db_path, started, run_mode) if app_state.db_path else None
         pair_logs: list = []
         total_new = 0
         run_error: str | None = None
+        _run_id = None
         try:
+            started = datetime.now(timezone.utc)
+            # Inside the try: a database hiccup starting the run record used to
+            # skip the finally, and with it the on_finished callback the
+            # scheduler waits on.
+            _run_id = _start_run(app_state.db_path, started, run_mode) if app_state.db_path else None
             pair_logs, total_new = await run_pipeline(
                 cities,
                 app_state.topics,

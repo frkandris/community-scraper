@@ -656,3 +656,28 @@ def test_the_worker_toggle_disables_the_twin_crons():
     src = inspect.getsource(main.main_entry if hasattr(main, "main_entry") else main)
     assert 'schedule_cfg.get("saver_enabled") and not worker_enabled' in src
     assert 'reason="worker_drives_the_day"' in src
+
+
+def test_the_worker_never_runs_a_full_refresh():
+    """The launcher's defaults are the admin form's, and they are the wrong ones.
+
+    skip_scraped=False means re-buying every search we already own;
+    skip_extracted=False means re-extracting every finished page, which also
+    means the extractor never looks idle and the worker never collects again.
+    """
+    import inspect
+
+    from scraper import main
+    src = inspect.getsource(main)
+    assert 'skip_scraped=bool(getattr(cfg, "cache_skip_scraped", True))' in src
+    assert 'skip_extracted=bool(getattr(cfg, "cache_skip_extracted", True))' in src
+
+
+def test_stop_pauses_the_worker():
+    """Cancelling alone could not stop anything: the worker restarted within a minute."""
+    import inspect
+
+    from scraper.web import api
+    src = inspect.getsource(api)
+    assert "app_state.worker_paused = True" in src      # stop pauses
+    assert "app_state.worker_paused = False" in src     # run/resume clears it
