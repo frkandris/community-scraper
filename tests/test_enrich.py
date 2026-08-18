@@ -196,6 +196,34 @@ def test_new_null_fields_do_not_change_fingerprint():
     assert fp(base) == fp(with_nulls)  # adding null/volatile fields ≠ content change
 
 
+def test_a_rate_limit_pauses_the_batch_but_says_so(tmp_path):
+    """A 60-second limit must not end a 9.5-hour window.
+
+    Production, 2026-08-18: every provider hit its per-minute limit at 01:17 and
+    the enrichment window ended after 73 records, with 15,000 free calls and
+    eight hours left.
+    """
+    base = Path(tmp_path)
+    base.mkdir(parents=True, exist_ok=True)
+    db = base / "scraper.db"
+    init_db(db)
+    save_results("Budapest", "music", [_rec()], db)
+    CacheManager(db).save_scraped("https://klub.test/a", "Forrásszöveg. " * 60,
+                                  "Budapest", "music")
+
+    class _Limited:
+        exhausted = providers_down = quota_exhausted = False
+        rate_limited_out = True
+
+        async def write_descriptions(self, *a, **kw):
+            raise RuntimeError("write_descriptions unavailable: all providers rate limited")
+
+    stats = asyncio.run(enrich_batch(db, _Limited(), HU, limit=20, fetch_missing=False))
+
+    assert stats["stopped_rate_limited"] is True
+    assert stats["stopped_no_provider"] is False   # not an ending — a wait
+
+
 def test_batch_stops_when_the_fleet_is_down(tmp_path):
     """One failure is enough once the extractor reports it has nothing left.
 

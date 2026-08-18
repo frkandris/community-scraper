@@ -380,6 +380,11 @@ async def main() -> None:
         # DeepSeek off-peak: extract the already-collected pages only
         await _cron_run("ai_only", "re-ai", _settings_schedule().get("extract_until"))
 
+    #: How long enrichment waits out a per-minute limit before trying again.
+    #: Longer than the 60s windows the free tiers publish, short enough that a
+    #: 9.5-hour budget is not spent asleep.
+    _ENRICH_RATE_LIMIT_PAUSE_S = 75
+
     async def _enrich_run() -> None:
         """Managed off-peak SEO description enrichment. Fires at enrich_cron and on
         startup when already in-window (so a restart resumes instead of waiting a
@@ -440,6 +445,14 @@ async def main() -> None:
                     break
                 # Provider down: enrich_batch fails fast and leaves candidates
                 # unmarked, so pool stays nonzero — bail out instead of tight-looping.
+                if stats.get("stopped_rate_limited"):
+                    # A per-minute limit is the fleet asking us to slow down.
+                    # Sleeping past it and carrying on is the whole point of
+                    # having a 9.5-hour window; the loop condition still ends
+                    # the run at the window boundary.
+                    log.info("enrich_waiting_out_rate_limit", enriched_this_window=total)
+                    await asyncio.sleep(_ENRICH_RATE_LIMIT_PAUSE_S)
+                    continue
                 # `stopped_no_provider` is the batch's own verdict and must be
                 # honoured even when it enriched a few records first — otherwise
                 # a batch that managed five before the fleet went quiet simply

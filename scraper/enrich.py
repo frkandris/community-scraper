@@ -77,7 +77,7 @@ async def enrich_batch(
         db_path, set(city_names), min(MAX_BATCH, max(limit * 3, limit)))
     stats = {"pool": len(pool), "enriched": 0, "skipped": 0, "no_source": 0,
              "failed": 0, "dry_run": dry_run, "stopped_at_deadline": False,
-             "stopped_no_provider": False,
+             "stopped_no_provider": False, "stopped_rate_limited": False,
              "samples": []}
     for c in pool:
         if stats["enriched"] >= limit:
@@ -114,8 +114,15 @@ async def enrich_batch(
             # seconds, re-fetching a source page for each one. Nothing is
             # marked, so the records come back next round — but the fetches
             # are spent, and we hammer third-party sites for nothing.
+            if getattr(extractor, "rate_limited_out", False):
+                # Every provider is inside a per-minute window. That is a wait,
+                # not an ending: on 2026-08-18 a 60-second limit ended the whole
+                # 9.5-hour enrichment window after 73 records. Stop the batch so
+                # the caller can pause, and say plainly that it may come back.
+                stats["stopped_rate_limited"] = True
+                log.info("enrich_paused_rate_limited", failed=stats["failed"])
+                break
             if (getattr(extractor, "providers_down", False)
-                    or getattr(extractor, "rate_limited_out", False)
                     or getattr(extractor, "quota_exhausted", False)
                     or getattr(extractor, "exhausted", False)):
                 stats["stopped_no_provider"] = True
