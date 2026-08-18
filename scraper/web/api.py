@@ -55,6 +55,40 @@ def _valid_keys() -> list[str]:
     return [k.strip() for k in (os.environ.get(_API_KEYS_ENV) or "").split(",") if k.strip()]
 
 
+#: Separate key for the operator endpoints under /v1/control. These start and
+#: stop pipeline runs, which is a different kind of authority from asking a
+#: model a question, and the gateway key is handed to other software.
+_CONTROL_KEYS_ENV = "CONTROL_API_KEY"
+
+
+def _control_keys() -> list[str]:
+    """Keys accepted for /v1/control. Falls back to the gateway keys.
+
+    The fallback keeps the endpoints usable the moment they ship, but it does
+    mean anything holding a gateway key can drive the pipeline — so it warns.
+    Setting CONTROL_API_KEY separates the two authorities.
+    """
+    keys = [k.strip() for k in (os.environ.get(_CONTROL_KEYS_ENV) or "").split(",") if k.strip()]
+    if keys:
+        return keys
+    fallback = _valid_keys()
+    if fallback:
+        log.warning("control_api_using_gateway_key",
+                    hint=f"set {_CONTROL_KEYS_ENV} to separate operator access "
+                         "from model access")
+    return fallback
+
+
+def _control_authorized(authorization: str | None) -> bool:
+    keys = _control_keys()
+    if not keys:
+        return False
+    token = authorization[7:].strip() if (
+        authorization and authorization.lower().startswith("bearer ")) else ""
+    token_b = token.encode("utf-8", "surrogatepass")
+    return any(hmac.compare_digest(token_b, k.encode("utf-8")) for k in keys)
+
+
 def _authorized(authorization: str | None) -> bool:
     keys = _valid_keys()
     if not keys:
@@ -221,6 +255,88 @@ async def quota(authorization: str | None = Header(default=None)):
                    "remaining", "blocked", "paid")}
                  for p in mr.ledger.snapshot(mr.catalogue)],
     }
+
+
+# ── Operator control ──────────────────────────────────────────────────────────
+# Deliberately NOT part of the OpenAI-compatible surface. /v1/chat/completions
+# and /v1/models are a published interface: other software depends on their
+# shape and it cannot be changed cheaply. These are for whoever operates this
+# deployment, and they live under their own prefix and their own key so the two
+# never have to evolve together.
+# See martinfowler.com/bliki/PublishedInterface.html
+
+
+@router.get("/control/status")
+async def control_status(authorization: str | None = Header(default=None)):
+    """What is running, and what it has been doing."""
+    if not _control_authorized(authorization):
+        return _error(401, "Invalid or missing API key.", "invalid_request_error",
+                      "invalid_api_key")
+    return {
+        "object": "control.status",
+        "running": bool(app_state.is_running),
+        "run_mode": app_state.current_run_mode,
+        "phase": app_state.current_phase,
+        "city": app_state.current_city,
+        "topic": app_state.current_topic,
+        "url": app_state.current_url,
+        "enriching": bool(getattr(app_state, "_enrich_running", False)),
+        "last_run_at": (app_state.last_run_at.isoformat()
+                        if app_state.last_run_at else None),
+    }
+
+
+@router.post("/control/run")
+async def control_run(request: Request,
+                      authorization: str | None = Header(default=None)):
+    """Start a pipeline run now. Body: {"mode": "ai_only"|"search_only"|"full", …}"""
+    if not _control_authorized(authorization):
+        return _error(401, "Invalid or missing API key.", "invalid_request_error",
+                      "invalid_api_key")
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        return _error(400, "Body must be a JSON object.", "invalid_request_error")
+    mode = str(body.get("mode") or "ai_only")
+    if mode not in ("ai_only", "search_only", "full"):
+        return _error(400, f"Unknown mode {mode!r}.", "invalid_request_error")
+
+    from .app import launch_pipeline_run
+    started, reason = launch_pipeline_run(
+        mode,
+        skip_scraped=bool(body.get("skip_scraped", True)),
+        skip_extracted=bool(body.get("skip_extracted", True)),
+        run_communities=bool(body.get("run_communities", True)),
+        run_venues=bool(body.get("run_venues", True)),
+        run_persons=bool(body.get("run_persons", True)),
+        filter_country=str(body.get("country") or ""),
+        filter_city=str(body.get("city") or ""),
+    )
+    if not started:
+        return _error(409, reason, "invalid_request_error", "run_in_progress")
+    log.info("control_run_started", mode=mode)
+    return {"object": "control.run", "started": True, "mode": mode}
+
+
+@router.post("/control/stop")
+async def control_stop(authorization: str | None = Header(default=None)):
+    """Stop the running pipeline and any enrichment job."""
+    if not _control_authorized(authorization):
+        return _error(401, "Invalid or missing API key.", "invalid_request_error",
+                      "invalid_api_key")
+    stopped = bool(app_state.run_coordinator.cancel())
+    # Enrichment runs outside the coordinator (it coexists with extraction), so
+    # it is cancelled separately or it would keep going alone.
+    task = getattr(app_state, "_enrich_task", None)
+    enrich_stopped = False
+    if task is not None and not task.done():
+        task.cancel()
+        enrich_stopped = True
+    log.info("control_stop", run=stopped, enrich=enrich_stopped)
+    return {"object": "control.stop", "run_stopped": stopped,
+            "enrich_stopped": enrich_stopped}
 
 
 @router.get("/backlog")

@@ -443,3 +443,24 @@ def test_backlog_needs_a_key_and_reports_pending_pages(tmp_path, monkeypatch):
     assert get_backlog_counts(db, "fp-current")["pages_pending"] == 0
     # A prompt or model change moves the fingerprint, and the page is work again.
     assert get_backlog_counts(db, "fp-next")["pages_pending"] == 1
+
+
+def test_control_endpoints_refuse_without_a_key(monkeypatch):
+    """Operator endpoints are separate from the model endpoints, and fail closed."""
+    monkeypatch.delenv("CONTROL_API_KEY", raising=False)
+    monkeypatch.delenv("ROUTER_API_KEY", raising=False)
+    from scraper.web.api import _control_authorized
+    assert _control_authorized("Bearer anything") is False
+
+
+def test_control_key_falls_back_to_the_gateway_key(monkeypatch):
+    """Usable on day one, but the fallback is the thing to move away from."""
+    from scraper.web.api import _control_authorized
+    monkeypatch.delenv("CONTROL_API_KEY", raising=False)
+    monkeypatch.setenv("ROUTER_API_KEY", "gw-key")
+    assert _control_authorized("Bearer gw-key") is True
+
+    # A dedicated key takes over completely: the gateway key stops working.
+    monkeypatch.setenv("CONTROL_API_KEY", "op-key")
+    assert _control_authorized("Bearer op-key") is True
+    assert _control_authorized("Bearer gw-key") is False

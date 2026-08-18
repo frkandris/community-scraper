@@ -10,7 +10,7 @@ import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 from urllib.parse import quote as _url_quote, urlsplit
 
 import structlog
@@ -6218,28 +6218,31 @@ async def log_stream(last_seq: int = 0):
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
+def launch_pipeline_run(
+    run_mode: str,
+    *,
+    skip_scraped: bool = False,
+    skip_extracted: bool = False,
+    run_communities: bool = True,
+    run_venues: bool = True,
+    run_persons: bool = True,
+    filter_country: str = "",
+    filter_city: str = "",
+    stop_at: "datetime | None" = None,
+    should_stop: "Callable[[], bool] | None" = None,
+) -> tuple[bool, str]:
+    """Reserve the run slot and start a pipeline run. Returns (started, reason).
 
-@admin.post("/api/run")
-async def trigger_run(
-    run_mode: str = Form("full"),
-    skip_scraped: str = Form("off"),
-    skip_extracted: str = Form("off"),
-    run_communities: str = Form("on"),
-    run_venues: str = Form("on"),
-    run_persons: str = Form("on"),
-    filter_country: str = Form(""),
-    filter_city: str = Form(""),
-):
+    The one place a run is launched. It was inline in the admin form handler,
+    which meant every other way of starting a run — the control API, the
+    scheduler — would have had to reproduce the reservation, the run record and
+    the three-state outcome classification, and drift from it.
+    """
     if run_mode not in ("full", "ai_only", "search_only"):
         run_mode = "full"
     mode_label = {"ai_only": "re-ai", "search_only": "collect"}.get(run_mode, "smart")
     if not app_state.run_coordinator.reserve(mode_label):
-        return JSONResponse({"ok": False, "error": "already running"})
-    _skip_scraped = (skip_scraped == "on")
-    _skip_extracted = (skip_extracted == "on")
-    _run_communities = (run_communities == "on")
-    _run_venues = (run_venues == "on")
-    _run_persons = (run_persons == "on")
+        return False, "already running"
 
     cities = app_state.cities or []
     if filter_city.strip():
@@ -6259,22 +6262,6 @@ async def trigger_run(
         started = datetime.now(timezone.utc)
         from ..db import finish_run as _finish_run, start_run as _start_run
         _run_id = _start_run(app_state.db_path, started, run_mode) if app_state.db_path else None
-        # Manual collector runs get the same window box as the cron: stop before
-        # the off-peak extract window opens, so a big collection started midday
-        # can't occupy is_running for days and starve the nightly extraction.
-        # Both saver modes are boxed to their own window. The argument that
-        # stopped a midday collection from occupying is_running for days works
-        # in reverse too: an unbounded manual `ai_only` started in the evening
-        # runs straight through the morning and the 10:30 collector never
-        # starts, costing a day of collection. A manual run is a run brought
-        # forward, not a run without an end.
-        stop_at = None
-        _window_key = {"search_only": "search_until", "ai_only": "extract_until"}.get(run_mode)
-        if _window_key:
-            from ..main import _next_window_end, _settings_schedule
-            until = _settings_schedule().get(_window_key)
-            if until:
-                stop_at = _next_window_end(started, str(until))
         pair_logs: list = []
         total_new = 0
         run_error: str | None = None
@@ -6285,27 +6272,35 @@ async def trigger_run(
                 app_state.pipeline_cfg,
                 cache=app_state.cache_manager,
                 run_mode=run_mode,
-                skip_scraped=_skip_scraped,
-                skip_extracted=_skip_extracted,
-                run_communities=_run_communities,
-                run_venues=_run_venues,
-                run_persons=_run_persons,
+                skip_scraped=skip_scraped,
+                skip_extracted=skip_extracted,
+                run_communities=run_communities,
+                run_venues=run_venues,
+                run_persons=run_persons,
                 on_progress=_on_progress,
                 on_pair_start=_on_pair_start,
                 stop_at=stop_at,
+                should_stop=should_stop,
             )
             app_state.last_run_at = datetime.now(timezone.utc)
+        except asyncio.CancelledError:
+            # A deploy or a stop. Nothing is lost — every finished pair is
+            # already cached — so it is recorded as a clean stop, not a failure.
+            # Three of these were reported as failed runs on 2026-08-17 purely
+            # because a deploy landed mid-window.
+            log.info("run_stopped", run_mode=run_mode)
+            raise
         except Exception as exc:
             # Persisted, not just logged: a preflight abort or any top-level
             # failure must name itself in the run history and the daily email.
             run_error = str(exc)
-            log.error("manual_run_failed", error=str(exc))
+            log.error("run_failed", run_mode=run_mode, error=str(exc))
         finally:
             global _home_stats_cache
             try:
                 _home_stats_cache = {}
                 if app_state.db_path and _run_id:
-                    # Same three-state classification as scheduled runs: a dead
+                    # Same three-state classification everywhere: a dead
                     # provider is an abort, scattered retryable pair failures are
                     # a warning, so run history never shows either as a clean ✓.
                     _outcome = classify_run_outcome(pair_logs, run_error)
@@ -6318,7 +6313,31 @@ async def trigger_run(
 
     task = asyncio.create_task(_run())
     app_state.run_coordinator.attach(task)
-    return JSONResponse({"ok": True})
+    return True, "started"
+
+
+@admin.post("/api/run")
+async def trigger_run(
+    run_mode: str = Form("full"),
+    skip_scraped: str = Form("off"),
+    skip_extracted: str = Form("off"),
+    run_communities: str = Form("on"),
+    run_venues: str = Form("on"),
+    run_persons: str = Form("on"),
+    filter_country: str = Form(""),
+    filter_city: str = Form(""),
+):
+    started, reason = launch_pipeline_run(
+        run_mode,
+        skip_scraped=(skip_scraped == "on"),
+        skip_extracted=(skip_extracted == "on"),
+        run_communities=(run_communities == "on"),
+        run_venues=(run_venues == "on"),
+        run_persons=(run_persons == "on"),
+        filter_country=filter_country,
+        filter_city=filter_city,
+    )
+    return JSONResponse({"ok": started} if started else {"ok": False, "error": reason})
 
 
 @admin.post("/api/stop")

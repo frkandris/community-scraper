@@ -99,6 +99,9 @@ def run(base_hu: str, base_intl: str, expect_version: str = "") -> Checks:
     print("Auth boundaries (these MUST refuse):")
     c.check("admin requires auth", f"{base_hu}/admin", status=401)
     c.check("gateway requires auth", f"{base_hu}/v1/models", status=401)
+    # The operator endpoints start and stop pipeline runs. An unauthenticated
+    # one would be worse than an open gateway, so it is checked by name.
+    c.check("control requires auth", f"{base_hu}/v1/control/status", status=401)
 
     if version:
         print(f"\ndeployed version: {version}")

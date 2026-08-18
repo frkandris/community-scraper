@@ -201,6 +201,23 @@ async def _enrich_record(
     return record
 
 
+def _should_stop(stop_at, should_stop: "Callable[[], bool] | None" = None) -> bool:
+    """True when this run should wind up between pairs.
+
+    Two independent reasons, checked at the same points. `stop_at` is a
+    deadline; `should_stop` is a question the caller answers — "has the fleet's
+    quota come back, so extraction should take over from collection?" — which is
+    what lets the scheduler pre-empt a long run without giving it a clock.
+    """
+    if should_stop is not None:
+        try:
+            if should_stop():
+                return True
+        except Exception as exc:  # a broken predicate must not end a run
+            log.warning("should_stop_failed", error=str(exc))
+    return _window_closed(stop_at)
+
+
 def _window_closed(stop_at) -> bool:
     """True when a stop_at deadline is set and has passed (aware UTC datetime)."""
     if stop_at is None:
@@ -541,6 +558,7 @@ async def run_pipeline(
     on_progress: Callable[[str | None, str | None], None] | None = None,
     on_pair_start: "Callable[[str, str], None] | None" = None,
     stop_at: "Any | None" = None,
+    should_stop: "Callable[[], bool] | None" = None,
     allow_upgrade: bool = False,
 ) -> tuple[list[dict], int]:
     """stop_at: optional aware datetime (UTC) — pair loops stop gracefully once
@@ -620,7 +638,7 @@ async def run_pipeline(
                 return pair_logs, total_new
             upgrade_new, upgrade_logs = await _run_quality_upgrade(
                 cities, topics, config, extractor, cache, current_fp,
-                stop_at=stop_at, on_progress=on_progress,
+                stop_at=stop_at, should_stop=should_stop, on_progress=on_progress,
             )
             total_new += upgrade_new
             pair_logs += upgrade_logs
@@ -645,6 +663,7 @@ async def run_pipeline(
             cities, topics, config, extractor, cache, _skip_extracted, run_stats, on_progress,
             run_communities=run_communities, run_venues=run_venues, run_persons=run_persons,
             on_pair_start=on_pair_start, pairs_filter=pairs_to_run, stop_at=stop_at,
+                should_stop=should_stop,
         )
     else:
         reai_new, reai_logs = (0, [])
@@ -653,6 +672,7 @@ async def run_pipeline(
                 cities, topics, config, extractor, cache, _skip_extracted, run_stats, on_progress,
                 run_communities=run_communities, run_venues=run_venues, run_persons=run_persons,
                 on_pair_start=on_pair_start, pairs_filter=pairs_to_run, stop_at=stop_at,
+                should_stop=should_stop,
             )
         search_client = _build_search_client(config)
         if (_stop := _stop_reason(extractor)) and run_mode == "full":
@@ -669,6 +689,7 @@ async def run_pipeline(
                 run_communities=run_communities, run_venues=run_venues,
                 run_persons=run_persons,
                 on_pair_start=on_pair_start, pairs_filter=pairs_to_run, stop_at=stop_at,
+                should_stop=should_stop,
                 search_client=search_client,
             )
         total_new = reai_new + full_new
@@ -691,7 +712,7 @@ async def run_pipeline(
         if uncovered and run_mode == "full" and (_stop := _stop_reason(extractor)):
             log.info("catchup_skipped_extractor_stopped", reason=_stop[0])
             uncovered = None
-        if uncovered and not _window_closed(stop_at):
+        if uncovered and not _should_stop(stop_at, should_stop):
             log.info("catchup_pass_start", pairs=len(uncovered))
             catchup_new, catchup_logs = await _run_full(
                 cities, topics, config, extractor, cache,
@@ -699,6 +720,7 @@ async def run_pipeline(
                 run_communities=run_communities, run_venues=run_venues,
                 run_persons=run_persons, pairs_filter=uncovered,
                 on_pair_start=on_pair_start, stop_at=stop_at,
+                should_stop=should_stop,
                 search_client=search_client,
             )
             total_new += catchup_new
@@ -811,6 +833,7 @@ async def _run_full(
     pairs_filter: set[tuple[str, str]] | None = None,
     on_pair_start: "Callable[[str, str], None] | None" = None,
     stop_at: "Any | None" = None,
+    should_stop: "Callable[[], bool] | None" = None,
     search_client: "FallbackSearchClient | None" = None,
 ) -> tuple[int, list[dict]]:
     searxng = search_client if search_client is not None else _build_search_client(config)
@@ -853,7 +876,7 @@ async def _run_full(
                       and get_search_cache(config.db_path, city.name, t.name,
                                            config.search_cache_ttl_days) is not None)],
             config, concurrency=config.search_concurrency,
-        ) if not _window_closed(stop_at) else {}
+        ) if not _should_stop(stop_at, should_stop) else {}
         for topic in topics:
             if pairs_filter is not None and (city.name, topic.name) not in pairs_filter:
                 continue
@@ -861,7 +884,7 @@ async def _run_full(
             # but direct _run_full callers may pass no filter).
             if not _tier_allows(city, topic.name, config.core_topics):
                 continue
-            if _window_closed(stop_at):
+            if _should_stop(stop_at, should_stop):
                 log.info("run_window_closed", city=city.name, topic=topic.name)
                 aborted = True
                 break
@@ -1253,6 +1276,7 @@ async def _run_quality_upgrade(
     fingerprint: str,
     *,
     stop_at: "Any | None" = None,
+    should_stop: "Callable[[], bool] | None" = None,
     on_progress: Callable[[str | None, str | None], None] | None = None,
 ) -> tuple[int, list[dict]]:
     """Re-extract pages whose cached result came from a weaker model.
@@ -1342,7 +1366,7 @@ async def _run_quality_upgrade(
 
     stopped: tuple[str, bool] | None = None
     for page in candidates:
-        if _window_closed(stop_at):
+        if _should_stop(stop_at, should_stop):
             log.info("quality_upgrade_window_closed", upgraded=upgraded)
             break
         # Re-checked every page: the fleet's budget drains as we spend it, and
@@ -1444,6 +1468,7 @@ async def _run_ai_only(
     on_pair_start: "Callable[[str, str], None] | None" = None,
     pairs_filter: "set[tuple[str, str]] | None" = None,
     stop_at: "Any | None" = None,
+    should_stop: "Callable[[], bool] | None" = None,
 ) -> tuple[int, list[dict]]:
     if not cache:
         log.warning("ai_only_mode_no_cache")
@@ -1462,7 +1487,7 @@ async def _run_ai_only(
         for topic in topics:
             if pairs_filter is not None and (city.name, topic.name) not in pairs_filter:
                 continue
-            if _window_closed(stop_at):
+            if _should_stop(stop_at, should_stop):
                 log.info("run_window_closed", city=city.name, topic=topic.name)
                 return total_new, pair_logs
             await asyncio.sleep(0)
