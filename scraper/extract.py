@@ -612,11 +612,18 @@ class _ApiExtractor:
             except (TypeError, ValueError):
                 retry_after = float(_API_RETRY_DEFAULT_WAIT)
             raise ExtractorRateLimitError(retry_after)
-        if resp.status_code in (404, 410):
+        if resp.status_code in (404, 410, 413):
             # 404 = no such model / no entitlement; 410 = the service itself is
-            # gone (GitHub Models' retirement brownout). Neither heals by
-            # retrying, so the model is retired for the run instead of costing
-            # one wasted request per page.
+            # gone (GitHub Models' retirement brownout); 413 = this model's
+            # context is smaller than the page we send. None heals by retrying,
+            # so the model is retired for the run instead of costing one wasted
+            # request per page.
+            #
+            # 413 was a plain >=400 until 2026-08-18, when it opened the breaker
+            # on twenty consecutive failures and aborted the night's extraction
+            # run — a fleet-wide outage declared because one model could not take
+            # an 8,000-character prompt. If every model starts answering 413,
+            # `max_text_chars` is the thing to lower, not this branch.
             log.warning("api_model_gone", provider=getattr(self, "provider", "?"),
                         model=self.model, label=label,
                         status=resp.status_code, body=resp.text[:200])

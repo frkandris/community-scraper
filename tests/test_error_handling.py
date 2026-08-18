@@ -614,3 +614,31 @@ def test_a_prefetched_search_is_saved_even_if_never_consumed(tmp_path):
     assert out[("Budapest", "running")]          # returned to the caller
     # …and durable, even though no pair loop ever consumed it.
     assert get_search_cache(db, "Budapest", "running", 7) == ["https://a.test"]
+
+
+def test_a_too_large_payload_retires_the_model_not_the_fleet(tmp_path):
+    """413 means this model's context is too small, not that the fleet is down.
+
+    Production, 2026-08-18: HTTP 413 counted as a plain failure, twenty in a
+    row opened the breaker and the night's extraction run was reported as a
+    provider outage.
+    """
+    import httpx
+
+    from scraper.extract import ExtractorModelError
+    from scraper.providers import OpenAICompatExtractor
+
+    ex = OpenAICompatExtractor(provider="p", base_url="https://x.test",
+                               api_key="k", model="m", quality=50)
+
+    class _Resp:
+        status_code = 413
+        text = '{"error":"payload too large"}'
+        headers: dict = {}
+
+    async def _fake_post(*a, **kw):
+        return _Resp()
+
+    with patch.object(httpx.AsyncClient, "post", _fake_post):
+        with pytest.raises(ExtractorModelError):
+            asyncio.run(ex._post({"messages": []}, "label"))
