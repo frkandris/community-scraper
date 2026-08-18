@@ -94,6 +94,13 @@ now holds:
   slot this task just waited for; three fixed retries lost that race often
   enough to have the chain call a healthy fleet "all rate limited".
 
+## What drives it now
+
+The twin windows this was built inside are gone: a continuous worker picks
+extraction while free quota remains and collection once it is spent
+([[continuous-worker]]). `extract_concurrency` still bounds a pair's pages; what
+changed is that nothing waits for a clock to start.
+
 ## What to watch
 
 `extractor_throughput` at the end of every run: `calls_per_min` against the

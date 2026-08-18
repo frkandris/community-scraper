@@ -70,6 +70,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[scheduler-disabled-no-cron]] — APScheduler registers the enabled twin cost-saver jobs and daily report; the legacy combined cron remains opt-in.
 - [[free-tier-model-router]] — Extraction routes across six free LLM providers by measured quality under a persisted daily quota ledger, with paid DeepSeek parked behind a flag.
 - [[concurrent-extraction]] — Why a pair's pages are extracted several at a time, what had to be true first, and the config knob that turns it off.
+- [[continuous-worker]] — Why the twin time windows were deleted, what decides the work now, and the ten defects the reviews found in getting there.
 - [[cost-optimization-2026-07]] — Cost controls reduce paid search and LLM work through caching, query short-circuiting, venue gates, off-peak extraction, standard search, and topic tiers.
 - [[admin-simplification-2026-07]] — Removed the revalidate, recategorize, description-maintenance and Full Rebuild admin flows; the admin now centers on low-cost world indexing plus a user-interaction Inbox with pending badges.
 - [[description-enrichment-plan]] — Enriching thin community descriptions (~80→250 words) from cached raw_text is the biggest re-indexing lever, but must be run staged and supervised — not autonomously — because it costs LLM money at scale and risks re-triggering the 2026-06 corpus-churn devaluation.
