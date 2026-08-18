@@ -76,11 +76,16 @@ def _known_categories(login: str, password: str) -> set:
     except Exception as exc:
         print(f"could not load categories ({exc}); skipping the check", file=sys.stderr)
         return set()
+    # tasks[].result is a flat list of {"category_name", "business_count"} —
+    # not a wrapper with a "categories" key, which is what the first version
+    # looked for, so it silently printed nothing.
     out = set()
     for task in data.get("tasks") or []:
-        for result in task.get("result") or []:
-            for item in result.get("categories") or []:
-                out.add(item if isinstance(item, str) else item.get("category", ""))
+        for item in task.get("result") or []:
+            if isinstance(item, str):
+                out.add(item)
+            elif isinstance(item, dict):
+                out.add(item.get("category_name") or item.get("category") or "")
     return {c for c in out if c}
 
 
@@ -163,6 +168,7 @@ def main() -> int:
 
     total_cost = 0.0
     shown = 0
+    seen_categories: dict = {}
     for t in data.get("tasks") or []:
         total_cost += float(t.get("cost") or 0)
         if t.get("status_code") not in (20000, 20100):
@@ -173,6 +179,8 @@ def main() -> int:
             print(f"total matches in database: {result.get('total_count')}")
             for item in result.get("items") or []:
                 shown += 1
+                _cat = item.get("category") or "(none)"
+                seen_categories[_cat] = seen_categories.get(_cat, 0) + 1
                 print(f"\n{shown}. {item.get('title')}")
                 print(f"   category : {item.get('category')}")
                 print(f"   address  : {item.get('address')}")
@@ -180,9 +188,16 @@ def main() -> int:
                 print(f"   url      : {item.get('url') or '—'}")
                 print(f"   rating   : {(item.get('rating') or {}).get('value') or '—'}")
 
-    # The number that decides whether this is worth building on: what a returned
-    # organisation costs compared with the ~$0.001 a community costs today via
-    # search + fetch + extraction.
+    # What actually came back, by category. Unfiltered, this endpoint returns
+    # whatever Google Maps holds nearby — bus stops and hair salons included —
+    # so the interesting number is not the cost per listing but the cost per
+    # listing we would index. Note that results carry human-readable categories
+    # ("Community center") while the filter takes slugs ("community_center").
+    if seen_categories:
+        print("\ncategories returned:")
+        for cat, n in sorted(seen_categories.items(), key=lambda kv: -kv[1]):
+            print(f"   {n:>3}  {cat}")
+
     print(f"\ncost: ${total_cost:.4f} for {shown} listings", end="")
     if shown:
         print(f"  (${total_cost / shown:.6f} each)")
