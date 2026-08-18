@@ -484,10 +484,17 @@ async def main() -> None:
                 # Provider down: enrich_batch fails fast and leaves candidates
                 # unmarked, so pool stays nonzero — bail out instead of tight-looping.
                 if stats.get("stopped_rate_limited"):
-                    # A per-minute limit is the fleet asking us to slow down.
-                    # Sleeping past it and carrying on is the whole point of
-                    # having a 9.5-hour window; the loop condition still ends
-                    # the run at the window boundary.
+                    # A per-minute limit is the fleet asking us to slow down,
+                    # and waiting it out is right — unless there is no daily
+                    # budget left to wait for. A spent allowance also answers
+                    # 429, and on 2026-08-18 that had enrichment retry every 75
+                    # seconds for hours: 37 batches, zero records, every attempt
+                    # another refused call.
+                    if not _free_quota_available():
+                        log.info("enrich_waiting_for_quota_reset",
+                                 enriched_this_window=total)
+                        await asyncio.sleep(_ENRICH_IDLE_PAUSE_S)
+                        continue
                     log.info("enrich_waiting_out_rate_limit", enriched_this_window=total)
                     await asyncio.sleep(_ENRICH_RATE_LIMIT_PAUSE_S)
                     continue

@@ -279,15 +279,14 @@ def test_provider_death_aborts_run_instead_of_per_pair_failures(tmp_path):
             True, True, {}, None,
         ))
 
-    # One marker, and the run stops. Searches for a city are now issued
-    # together before its topics are walked, so the provider is already known
-    # to be gone by the time the first pair is processed — the failure and the
-    # abort collapse into one entry instead of two. Nothing is cached either
-    # way, so every unsearched pair is retried next run.
-    assert len(logs) == 1
+    # pair 1: real quota error; pair 2: abort marker; pairs 3-4: never walked.
+    # The prefetch reads ahead lazily — it is triggered by the pair that needs
+    # it — so the first pair still sees its own failure rather than inheriting
+    # a provider that was already marked dead before the walk began.
+    assert len(logs) == 2
     assert all(p["search_failed"] for p in logs)
-    assert logs[0]["aborted"] is True
-    assert "credits gone" in (logs[0]["search_error"] or "")
+    assert logs[1]["aborted"] is True
+    assert all("credits gone" in (p["search_error"] or "") for p in logs)
 
 
 def test_missing_credentials_abort_carries_reason(tmp_path):
@@ -728,3 +727,19 @@ def test_no_blocking_database_write_is_left_on_the_event_loop():
     assert not offenders, (
         "blocking database calls left on the event loop — wrap them in "
         "_off_loop():\n" + "\n".join(offenders))
+
+
+def test_the_prefetch_batches_across_cities():
+    """A city is too small a batch to use the configured concurrency.
+
+    A core city has six topics and most are already cached, so a per-city
+    batch was typically one or two pairs — search_concurrency: 8 never
+    engaged, and the collector measured 0.16 pairs/min on 2026-08-18, below
+    the serial version it replaced.
+    """
+    import inspect
+
+    from scraper import pipeline
+    src = inspect.getsource(pipeline._run_full)
+    assert "_walk = [(c, t) for c in cities for t in topics" in src
+    assert "await _refill_prefetch()" in src

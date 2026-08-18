@@ -831,6 +831,11 @@ async def _prefetch_searches(
                 out[(city.name, topic.name)] = exc
                 return
             out[(city.name, topic.name)] = results
+            # Logged here as well as at the call site: once searches moved into
+            # the prefetch, `search_done` stopped appearing for almost every
+            # pair and the collector became invisible in the logs.
+            log.info("search_done", city=city.name, topic=topic.name,
+                     urls=len(results), via="prefetch")
             from .fetch import _is_blocked as _url_blocked
             try:
                 await _off_loop(save_search_cache,
@@ -879,6 +884,35 @@ async def _run_full(
     total_new = 0
     pair_logs: list[dict] = []
 
+    # Pairs this run will walk, in order. The prefetch reads ahead along it —
+    # batching by *city* looked natural but a core city has six topics and most
+    # are already cached, so a batch was typically one or two pairs and
+    # `search_concurrency: 8` never engaged. Measured 0.16 pairs/min on
+    # 2026-08-18, below even the serial collector it replaced.
+    _walk = [(c, t) for c in cities for t in topics
+             if (pairs_filter is None or (c.name, t.name) in pairs_filter)
+             and _tier_allows(c, t.name, config.core_topics)]
+    _walk_pos = 0
+    prefetched: dict = {}
+
+    async def _refill_prefetch() -> None:
+        """Put another `search_concurrency` searches in flight, across cities."""
+        nonlocal _walk_pos
+        want = max(1, int(config.search_concurrency or 1))
+        batch: list = []
+        while len(batch) < want and _walk_pos < len(_walk):
+            c, t = _walk[_walk_pos]
+            _walk_pos += 1
+            if skip_scraped and config.search_cache_ttl_days > 0:
+                hit = await _off_loop(get_search_cache, config.db_path, c.name,
+                                      t.name, config.search_cache_ttl_days)
+                if hit is not None:
+                    continue  # the loop serves this one from cache
+            batch.append((c, t))
+        if batch:
+            prefetched.update(await _prefetch_searches(
+                searxng, batch, config, concurrency=want))
+
     # Early exits use this flag instead of return so the Playwright fetcher
     # cleanup below always runs.
     aborted = False
@@ -893,19 +927,6 @@ async def _run_full(
         if aborted or stopped:
             break
         run_stats[city.name] = {}
-        # One city's topics, searched together. A city is a natural batch: its
-        # pairs are adjacent in the walk, so nothing is fetched that the run
-        # would not have reached anyway.
-        prefetched = await _prefetch_searches(
-            searxng,
-            [(city, t) for t in topics
-             if (pairs_filter is None or (city.name, t.name) in pairs_filter)
-             and _tier_allows(city, t.name, config.core_topics)
-             and not (skip_scraped and config.search_cache_ttl_days > 0
-                      and get_search_cache(config.db_path, city.name, t.name,
-                                           config.search_cache_ttl_days) is not None)],
-            config, concurrency=config.search_concurrency,
-        ) if not _should_stop(stop_at, should_stop) else {}
         for topic in topics:
             if pairs_filter is not None and (city.name, topic.name) not in pairs_filter:
                 continue
@@ -950,6 +971,9 @@ async def _run_full(
                     aborted = True
                     break
                 try:
+                    if ((city.name, topic.name) not in prefetched
+                            and not _should_stop(stop_at, should_stop)):
+                        await _refill_prefetch()
                     _pre = prefetched.pop((city.name, topic.name), None)
                     if isinstance(_pre, BaseException):
                         raise _pre
