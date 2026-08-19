@@ -61,6 +61,19 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 
 **Extractor failure rules**: `run_pipeline()` calls `extractor.preflight()` — one live mini-extraction — before any pair loop, so a broken model name or revoked key fails the run immediately instead of one skipped page at a time (`search_only` skips it: no LLM). During a run, `FallbackExtractor` opens a circuit breaker after `_FAILURE_THRESHOLD` (20) *consecutive* failed calls; one success resets the counter. `providers_down` (providers configured but all dead) aborts the run with the reason in the pair log's `extract_error` → run detail banner + daily email. `exhausted` alone must NOT abort — it is also true when no API key is set, which is a deliberate no-LLM run.
 
+**`max_tokens` is capacity, not headroom.** Free tiers charge `prompt +
+max_tokens` against a per-minute token window **before generating** — Groq's is
+8,000. Sending no cap (as we did until 2026-08-19) reserves the model's maximum
+on every call: roughly one request per minute, which is why Groq stopped at 354
+calls in a day and 838 of Gemini's 1,205 came back 429, and why an 8,000-char
+prompt returned a plain HTTP 413 instead of a truncated answer. Raising
+`deepseek.max_output_tokens` "for safety" makes runs slower, not safer. If
+`llm_output_truncated` appears in the log, cut `max_text_chars` first: past a
+page's useful content that half of the sum buys nothing. Learned on a sibling
+project, where measuring a model on the *real* workload — not a synthetic
+prompt — also reversed the catalogue's quality ranking, so treat
+`providers.yaml` scores as measured-for-English-extraction, not universal.
+
 **Cache**: everything goes through `cache.py` (a thin facade over `db.py`). Each scraped URL gets a row in `cache_pages`. The extraction cache is fingerprint-keyed: SHA-256[:12] of `SYSTEM_PROMPT + model_name`. Changing either invalidates all cached extractions automatically.
 
 **Web app** (`web/app.py`): single FastAPI app serving two domains from one container. Public router (`_fastapi`) and admin router (`admin`, gated by `_BasicAuth` ASGI middleware). `_detect_site(request)` reads the `Host` header and returns `"meetapedia"` or `"kozossegek"`. `lang_context(request)` injects site-aware variables (`site`, `site_name`, `site_url`, `lang`, `locale`, `map_url`, `about_url`, `explore_url`, `submit_url`, `map_center`) into every public template. `_site_cities(request)` filters cities by domain (HU-only vs. all). Shared runtime state lives in `web/state.py:app_state` singleton.

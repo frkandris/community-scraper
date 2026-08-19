@@ -445,6 +445,7 @@ def build_router(
     temperature: float = 0.1,
     timeout_seconds: int = 60,
     max_text_chars: int = 8000,
+    max_output_tokens: int = 1500,
     rate_limit_seconds: float = 1.0,
     fingerprint_model: str | None = None,
     catalogue: ProviderCatalogue | None = None,
@@ -464,6 +465,7 @@ def build_router(
         temperature=temperature,
         timeout_seconds=timeout_seconds,
         max_text_chars=max_text_chars,
+        max_output_tokens=max_output_tokens,
         rate_limit_seconds=rate_limit_seconds,
         fingerprint_model=fingerprint_model,
     )

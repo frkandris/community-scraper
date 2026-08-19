@@ -592,8 +592,44 @@ class _ApiExtractor:
     #: the event loop that runs them exists.
     _rate_lock: "asyncio.Lock | None" = None
 
+    #: Cap on generated tokens, sent on every request.
+    #:
+    #: Not headroom — **capacity**. Groq's free tier reserves
+    #: `prompt + max_tokens` against an 8,000-token-per-minute window *before*
+    #: generating, so omitting it (which we did until 2026-08-19) reserves the
+    #: model's maximum on every call. That is one request per minute at best,
+    #: and it is why Groq stopped at 354 calls in a day, why 838 of Gemini's
+    #: 1,205 calls came back 429, and why an 8,000-char prompt produced a plain
+    #: HTTP 413 rather than a truncated answer.
+    #:
+    #: Raising it "for safety" makes the run slower, not safer. If output is
+    #: being truncated (`llm_output_truncated` in the log), shorten the prompt
+    #: first — `max_text_chars` — because that half of the sum buys nothing
+    #: once the page's useful content is included.
+    max_output_tokens: int = 1500
+
+    def _budgeted(self) -> dict:
+        return {"max_tokens": self.max_output_tokens} if self.max_output_tokens else {}
+
     def _json_format(self) -> dict:
         return {"response_format": {"type": "json_object"}} if self.json_mode else {}
+
+    def _warn_if_truncated(self, data: dict, label: str) -> None:
+        """Say so when the cap cut the answer off.
+
+        A truncated response is invalid JSON, and the parser reports it as
+        "LLM returned invalid JSON" — which reads like a bad model rather than
+        a budget we set. The page is then retried forever against the same cap.
+        """
+        try:
+            reason = (data.get("choices") or [{}])[0].get("finish_reason")
+        except Exception:
+            return
+        if reason == "length":
+            log.warning("llm_output_truncated", provider=getattr(self, "provider", "?"),
+                        model=self.model, label=label,
+                        max_tokens=self.max_output_tokens,
+                        hint="shorten the prompt (max_text_chars) before raising this")
 
     def _headers(self) -> dict:
         return {"Authorization": f"Bearer {self.api_key}"}
@@ -693,8 +729,10 @@ class _ApiExtractor:
             ],
             "temperature": self.temperature,
             **self._json_format(),
+            **self._budgeted(),
         }
         data = await self._post(payload, label=source_url)
+        self._warn_if_truncated(data, source_url)
         raw = data.get("choices", [{}])[0].get("message", {}).get("content", "")
         return _parse_communities(raw, city, topic, locale, source_url)
 
@@ -719,6 +757,7 @@ class _ApiExtractor:
             ],
             "temperature": 0.0,
             **self._json_format(),
+            **self._budgeted(),
         }
         try:
             data = await self._post(payload, label=source_url)
@@ -749,6 +788,7 @@ class _ApiExtractor:
             ],
             "temperature": 0.0,
             **self._json_format(),
+            **self._budgeted(),
         }
         try:
             data = await self._post(payload, label=source_url)
@@ -775,6 +815,7 @@ class _ApiExtractor:
             ],
             "temperature": 0.0,
             **self._json_format(),
+            **self._budgeted(),
         }
         try:
             data = await self._post(payload, label=record.name)
@@ -843,6 +884,7 @@ class _ApiExtractor:
             ],
             "temperature": 0.4,
             **self._json_format(),
+            **self._budgeted(),
         }
         data = await self._post(payload, label=f"describe:{name}")
         raw = data.get("choices", [{}])[0].get("message", {}).get("content", "")
@@ -868,11 +910,13 @@ class DeepSeekExtractor(_ApiExtractor):
         temperature: float = 0.1,
         timeout_seconds: int = 60,
         max_text_chars: int = 8000,
+        max_output_tokens: int = 1500,
         rate_limit_seconds: float = 1.0,
         fingerprint_model: str | None = None,
     ):
         super().__init__(api_key, model, temperature, timeout_seconds, max_text_chars,
                          rate_limit_seconds, fingerprint_model=fingerprint_model)
+        self.max_output_tokens = max_output_tokens
 
 
 _GROQ_RETRY_DEFAULT_WAIT = _API_RETRY_DEFAULT_WAIT

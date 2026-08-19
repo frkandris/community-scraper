@@ -1166,3 +1166,39 @@ def test_a_rate_limit_keeps_what_the_provider_said():
 
     # Still constructible without one — the preflight path has no body to quote.
     assert ExtractorRateLimitError(30.0).reason == ""
+
+
+def test_every_request_carries_a_token_cap():
+    """max_tokens is capacity on a free tier, not safety headroom.
+
+    Groq reserves prompt + max_tokens against an 8,000-token minute window
+    *before* generating, so sending no cap reserves the model's maximum on
+    every call — one request a minute at best. Until 2026-08-19 we sent none:
+    Groq stopped at 354 calls in a day and 838 of Gemini's 1,205 came back 429.
+    """
+    from scraper.providers import OpenAICompatExtractor
+
+    ex = OpenAICompatExtractor(provider="p", base_url="https://x.test",
+                               api_key="k", model="m", quality=50)
+    assert ex._budgeted() == {"max_tokens": 1500}
+
+    # Tunable, because the lesson is that this is the first knob to turn.
+    assert OpenAICompatExtractor(provider="p", base_url="https://x.test", api_key="k",
+                                 model="m", quality=50,
+                                 max_output_tokens=800)._budgeted() == {"max_tokens": 800}
+
+
+def test_truncation_is_reported_as_truncation():
+    """A cut-off answer is invalid JSON, which reads like a bad model."""
+    import structlog
+
+    from scraper.providers import OpenAICompatExtractor
+
+    ex = OpenAICompatExtractor(provider="p", base_url="https://x.test",
+                               api_key="k", model="m", quality=50)
+    with structlog.testing.capture_logs() as captured:
+        ex._warn_if_truncated({"choices": [{"finish_reason": "length"}]}, "url")
+        ex._warn_if_truncated({"choices": [{"finish_reason": "stop"}]}, "url")
+        ex._warn_if_truncated({}, "url")            # malformed: must not raise
+    names = [e.get("event") for e in captured]
+    assert names.count("llm_output_truncated") == 1

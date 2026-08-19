@@ -471,6 +471,9 @@ class PipelineConfig:
     deepseek_temperature: float = 0.1
     deepseek_timeout: int = 60
     deepseek_max_text_chars: int = 8000
+    #: Cap on generated tokens. Capacity, not headroom — see
+    #: `_ApiExtractor.max_output_tokens`.
+    deepseek_max_output_tokens: int = 1500
     deepseek_rate_limit_seconds: float = 1.0
     cache_skip_scraped: bool = True
     cache_skip_extracted: bool = True
@@ -541,6 +544,7 @@ def build_extractor(config: "PipelineConfig") -> FallbackExtractor:
         temperature=config.deepseek_temperature,
         timeout_seconds=config.deepseek_timeout,
         max_text_chars=config.deepseek_max_text_chars,
+        max_output_tokens=config.deepseek_max_output_tokens,
         rate_limit_seconds=config.deepseek_rate_limit_seconds,
         fingerprint_model=fingerprint_model,
     )
@@ -567,6 +571,7 @@ def build_extractor(config: "PipelineConfig") -> FallbackExtractor:
             temperature=config.deepseek_temperature,
             timeout_seconds=config.deepseek_timeout,
             max_text_chars=config.deepseek_max_text_chars,
+        max_output_tokens=config.deepseek_max_output_tokens,
             rate_limit_seconds=config.deepseek_rate_limit_seconds,
             fingerprint_model=config.deepseek_fingerprint_model or None,
         ))

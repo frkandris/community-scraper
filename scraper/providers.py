@@ -114,6 +114,7 @@ class OpenAICompatExtractor(_ApiExtractor):
         temperature: float = 0.1,
         timeout_seconds: int = 60,
         max_text_chars: int = 8000,
+        max_output_tokens: int = 1500,
         rate_limit_seconds: float = 1.0,
         fingerprint_model: str | None = None,
     ):
@@ -121,6 +122,7 @@ class OpenAICompatExtractor(_ApiExtractor):
             api_key, model, temperature, timeout_seconds, max_text_chars,
             rate_limit_seconds, fingerprint_model=fingerprint_model,
         )
+        self.max_output_tokens = max_output_tokens
         self.provider = provider
         self.quality = quality
         self.json_mode = json_mode
@@ -240,6 +242,7 @@ def build_extractors(
     temperature: float = 0.1,
     timeout_seconds: int = 60,
     max_text_chars: int = 8000,
+    max_output_tokens: int = 1500,
     rate_limit_seconds: float = 1.0,
     fingerprint_model: str | None = None,
     allow_paid: bool | None = None,
@@ -265,6 +268,7 @@ def build_extractors(
                 temperature=temperature,
                 timeout_seconds=timeout_seconds,
                 max_text_chars=max_text_chars,
+                max_output_tokens=max_output_tokens,
                 rate_limit_seconds=rate_limit_seconds,
                 fingerprint_model=fingerprint_model,
             ))

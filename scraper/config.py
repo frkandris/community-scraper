@@ -82,6 +82,7 @@ def load_config_from_docs(
         deepseek_temperature=deepseek_cfg.get("temperature", 0.1),
         deepseek_timeout=deepseek_cfg.get("timeout_seconds", 60),
         deepseek_max_text_chars=deepseek_cfg.get("max_text_chars", 8000),
+        deepseek_max_output_tokens=int(deepseek_cfg.get("max_output_tokens", 1500) or 1500),
         deepseek_rate_limit_seconds=deepseek_cfg.get("rate_limit_seconds", 1.0),
     )
     return cities, topics, pipeline_cfg

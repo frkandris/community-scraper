@@ -15,7 +15,21 @@ deepseek:
   fingerprint_model: deepseek-chat
   temperature: 0.1
   timeout_seconds: 60
+  # Characters of page text sent to the model. Half of a sum that free tiers
+  # charge against a per-minute token window, so it is throughput as much as
+  # quality — see max_output_tokens.
   max_text_chars: 8000
+  # Cap on generated tokens, sent on every request. NOT safety headroom:
+  # Groq's free tier reserves prompt + max_tokens against an 8,000-token
+  # minute window *before* generating, so leaving it unset (as we did until
+  # 2026-08-19) reserved the model's maximum on every call — one request a
+  # minute at best. That is why Groq stopped at 354 calls in a day and 838 of
+  # Gemini's 1,205 came back 429.
+  #
+  # Raising this "for safety" makes runs slower, not safer. If the log shows
+  # llm_output_truncated, cut max_text_chars first: past the useful content of
+  # a page, that half of the sum buys nothing.
+  max_output_tokens: 1500
   rate_limit_seconds: 1.0
 
 search:
