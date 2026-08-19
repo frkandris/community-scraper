@@ -1148,3 +1148,21 @@ def test_a_minute_limit_cannot_ratchet_the_daily_ceiling_down(tmp_path):
 
     assert ledger._row("groq").get("observed_limit") in (None, 0)
     assert ledger.budget(spec) > 12_000, "the daily ceiling was eaten by minute limits"
+
+
+def test_a_rate_limit_keeps_what_the_provider_said():
+    """838 refusals in a day, and no record of which limit was hit.
+
+    Requests-per-minute, tokens-per-minute and requests-per-day are three
+    different problems with three different answers, and the router only models
+    the first and the third. Discarding the reason made them indistinguishable.
+    """
+    from scraper.extract import ExtractorRateLimitError
+
+    exc = ExtractorRateLimitError(60.0, "tokens per minute exceeded")
+    assert exc.wait_seconds == 60.0
+    assert "tokens per minute" in exc.reason
+    assert "tokens per minute" in str(exc)
+
+    # Still constructible without one — the preflight path has no body to quote.
+    assert ExtractorRateLimitError(30.0).reason == ""

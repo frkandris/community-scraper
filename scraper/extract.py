@@ -38,10 +38,19 @@ class ExtractorQuotaError(Exception):
 
 
 class ExtractorRateLimitError(Exception):
-    """Raised when the primary extractor is temporarily rate-limited."""
-    def __init__(self, wait_seconds: float):
+    """Raised when the primary extractor is temporarily rate-limited.
+
+    `reason` carries what the provider actually said. Without it a 429 is just
+    a number: on 2026-08-18 Gemini refused 838 of 1,205 calls and there was no
+    way to tell a per-minute request limit from a token limit from the daily
+    cap — three different problems with three different answers, and our model
+    only knows about requests.
+    """
+    def __init__(self, wait_seconds: float, reason: str = ""):
         self.wait_seconds = wait_seconds
-        super().__init__(f"Rate limited for {wait_seconds:.0f}s")
+        self.reason = reason
+        super().__init__(f"Rate limited for {wait_seconds:.0f}s"
+                         + (f": {reason}" if reason else ""))
 
 
 class ExtractorModelError(Exception):
@@ -631,7 +640,14 @@ class _ApiExtractor:
                 retry_after = float(resp.headers.get("retry-after", _API_RETRY_DEFAULT_WAIT))
             except (TypeError, ValueError):
                 retry_after = float(_API_RETRY_DEFAULT_WAIT)
-            raise ExtractorRateLimitError(retry_after)
+            # Providers name the limit they enforced — "requests per minute",
+            # "tokens per minute", "requests per day". Keeping the first line of
+            # it is the difference between tuning the right knob and guessing.
+            _reason = " ".join((resp.text or "")[:300].split())
+            log.info("api_rate_limited", provider=getattr(self, "provider", "?"),
+                     model=self.model, label=label, wait_s=round(retry_after, 1),
+                     reason=_reason[:200])
+            raise ExtractorRateLimitError(retry_after, _reason[:200])
         if resp.status_code in (404, 410, 413):
             # 404 = no such model / no entitlement; 410 = the service itself is
             # gone (GitHub Models' retirement brownout); 413 = this model's
@@ -1232,7 +1248,8 @@ class FallbackExtractor:
                 except ExtractorRateLimitError as exc:
                     self._note_attempt(_t0)
                     self._blocked_until[i] = time.monotonic() + exc.wait_seconds
-                    last_error = f"rate limited ({exc.wait_seconds:.0f}s)"
+                    last_error = (f"rate limited ({exc.wait_seconds:.0f}s)"
+                                  + (f": {exc.reason}" if exc.reason else ""))
                     self._note_router(primary, ok=False, rate_limited=True,
                                       retry_after=exc.wait_seconds, error=last_error,
                                       reserved=_reserved)
