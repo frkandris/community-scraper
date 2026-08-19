@@ -174,6 +174,30 @@ def build_report_html(day: str, summary: dict, traffic: dict,
             "<td style='padding:4px 0 4px 8px'></td></tr>"
             + "".join(rows) + "</table>")
 
+        # The question this block could not answer: how much can we process in a
+        # day, and are we collecting about that much? On 2026-08-18 we fetched
+        # 2,434 pages and AI-processed 353 of them — a sevenfold over-collection
+        # that took an afternoon of arithmetic to notice. Both numbers are
+        # already here; the ratio is what makes them mean something.
+        _calls = sum(int(p.get("used") or 0) for p in providers)
+        _fails = sum(int(p.get("failures") or 0) for p in providers)
+        _budget = sum(int(p.get("budget") or 0) for p in providers)
+        _ok = max(0, _calls - _fails)
+        _done = int(hu.get("pages_extracted") or 0) + int(intl.get("pages_extracted") or 0)
+        _fetched = int(hu.get("pages_scraped") or 0) + int(intl.get("pages_scraped") or 0)
+        if _done:
+            per_page = _ok / _done
+            capacity = int(_budget / per_page) if per_page else 0
+            ratio = f"{_fetched / _done:.1f}×" if _done else "—"
+            refused = f"{_fails * 100 // _calls}%" if _calls else "0%"
+            ai_html += (
+                "<p style='margin:8px 0 0;font-size:13px;color:#8C8478'>"
+                f"{_ok} sikeres hívás / {_done} feldolgozott oldal = "
+                f"<b>{per_page:.1f} hívás/oldal</b>. A teljes napi kerettel ez "
+                f"<b>~{capacity:,} oldal/nap</b> kapacitás. "
+                f"Letöltve {_fetched} oldal — {ratio} a feldolgozottnak. "
+                f"Elutasított hívás: {refused}.</p>".replace(",", " "))
+
     runs_html = ""
     if summary["runs"]:
         items = []
