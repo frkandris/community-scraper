@@ -546,6 +546,9 @@ async def main() -> None:
     #: After an extraction pass that found nothing, how long before asking again.
     #: Without it the worker would relaunch an empty run every minute.
     _WORKER_EXTRACT_RETRY_S = 900
+    #: Consecutive extraction passes producing no records before standing aside
+    #: regardless of what the work signal says. A backstop, not the mechanism.
+    _WORKER_EMPTY_LIMIT = 3
 
     #: The quota answer is cached for this long. `should_stop` is consulted
     #: between every pair, and building a router parses the provider catalogue
@@ -585,6 +588,7 @@ async def main() -> None:
         from .web.app import launch_pipeline_run
         import time as _time
         extract_idle_until = 0.0
+        empty_extractions = 0
         log.info("worker_started")
         while True:
             try:
@@ -626,15 +630,22 @@ async def main() -> None:
                 outcome: dict = {}
 
                 def _on_finished(pair_logs: list, total_new: int) -> None:
-                    # Not len(pair_logs): `ai_only` logs a pair even when it has
-                    # no cached pages, and every never-searched pair is in the
-                    # filter — so an empty extraction pass looked busy and the
-                    # worker would have run it forever, never collecting.
-                    # A pair did fresh work only if it had a page that was not
-                    # already extracted.
+                    # "Worked" must mean *something was cached*, not "there was
+                    # a page to try". Two versions of this were wrong:
+                    #   len(pair_logs)  — ai_only logs a pair even with no
+                    #     cached pages, so an empty pass looked busy;
+                    #   urls_found > cache_hits_extract — a page that *fails*
+                    #     counts, and a failure caches nothing, so the next run
+                    #     finds the identical state. On 2026-08-18 one
+                    #     permanently failing page drove ~100 runs in 4.5 hours,
+                    #     every two and a half minutes, each writing a run record.
+                    # Pages newly extracted = found, minus served from cache,
+                    # minus failed.
                     outcome["worked"] = sum(
-                        1 for p in pair_logs
-                        if (p.get("urls_found") or 0) > (p.get("cache_hits_extract") or 0))
+                        max(0, (p.get("urls_found") or 0)
+                               - (p.get("cache_hits_extract") or 0)
+                               - (p.get("extract_failed") or 0))
+                        for p in pair_logs)
                     outcome["pairs"] = len(pair_logs)
                     outcome["new"] = total_new
                     finished.set()
@@ -674,6 +685,16 @@ async def main() -> None:
                          worked=outcome.get("worked"), new_records=outcome.get("new"),
                          cancelled=was_cancelled)
 
+                if mode == "ai_only":
+                    # Independent of the "worked" signal, which has now been
+                    # wrong twice in two days. Whatever it says, an extraction
+                    # pass that produces no records three times running is not
+                    # making progress and must stand aside for the collector.
+                    empty_extractions = 0 if outcome.get("new") else empty_extractions + 1
+                    if empty_extractions >= _WORKER_EMPTY_LIMIT and not was_cancelled:
+                        log.info("worker_extraction_idle",
+                                 consecutive_empty=empty_extractions)
+                        extract_idle_until = _time.monotonic() + _WORKER_EXTRACT_RETRY_S
                 if mode == "ai_only" and not outcome.get("worked") and not was_cancelled:
                     # An empty pass means there is nothing to extract yet. A
                     # *cancelled* pass means someone stopped it, which says

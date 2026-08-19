@@ -682,19 +682,36 @@ def test_stop_pauses_the_worker():
     assert "app_state.worker_paused = False" in src     # run/resume clears it
 
 
-def test_the_worker_measures_extraction_work_not_pair_count():
-    """`ai_only` logs a pair even when it has no cached pages.
+def test_the_worker_counts_pages_it_actually_cached():
+    """"Worked" must mean something was cached, not that there was a page to try.
 
-    Every never-searched pair is in the run's filter, so an empty extraction
-    pass looked busy — and the worker would have relaunched it forever while
-    quota lasted, never once running the paid collector.
+    Both earlier versions looped. `len(pair_logs)` counted pairs with no cached
+    pages at all. `urls_found > cache_hits_extract` counted a page that
+    *failed* — and a failure caches nothing, so the next run finds the same
+    state: on 2026-08-18 one permanently failing page drove ~100 runs in four
+    and a half hours.
     """
     import inspect
 
     from scraper import main
     src = inspect.getsource(main)
-    assert '(p.get("urls_found") or 0) > (p.get("cache_hits_extract") or 0)' in src
+    assert '- (p.get("extract_failed") or 0)' in src, "failures still count as work"
     assert 'outcome.get("worked")' in src
+    # And a backstop, because this signal has now been wrong twice.
+    assert "_WORKER_EMPTY_LIMIT" in src
+
+
+def test_a_failing_page_is_not_progress():
+    """The arithmetic itself, on the pair log that caused the loop."""
+    pair_log = {"urls_found": 1, "cache_hits_extract": 0, "extract_failed": 1}
+    worked = max(0, pair_log["urls_found"] - pair_log["cache_hits_extract"]
+                 - pair_log["extract_failed"])
+    assert worked == 0
+
+    # A page genuinely extracted for the first time does count.
+    fresh = {"urls_found": 5, "cache_hits_extract": 3, "extract_failed": 1}
+    assert max(0, fresh["urls_found"] - fresh["cache_hits_extract"]
+               - fresh["extract_failed"]) == 1
 
 
 def test_no_blocking_database_write_is_left_on_the_event_loop():
