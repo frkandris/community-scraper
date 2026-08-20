@@ -1239,3 +1239,28 @@ def test_a_daily_token_refusal_is_learned_however_short_the_backoff(tmp_path):
     ledger.note_call("groq", ok=False, rate_limited=True, retry_after=1149,
                      spec=spec, error="Rate limit reached ... on tokens per day (TPD)")
     assert ledger._row("groq").get("observed_limit")
+
+
+@pytest.mark.asyncio
+async def test_token_cost_is_not_shared_between_concurrent_pages():
+    """One extractor instance serves several pages at once.
+
+    An attribute holding "the last call's cost" hands a page its neighbour's
+    number — the same shape `extract_traced` removed for provenance, and a
+    token ceiling is only useful if the figure belongs to the call.
+    """
+    import asyncio
+
+    from scraper.providers import OpenAICompatExtractor
+
+    ex = OpenAICompatExtractor(provider="p", base_url="https://x.test",
+                               api_key="k", model="m", quality=50)
+    seen: dict = {}
+
+    async def one(name: str, cost: int, pause: float) -> None:
+        ex._note_usage({"usage": {"total_tokens": cost}})
+        await asyncio.sleep(pause)          # let the other task run in between
+        seen[name] = ex.last_tokens
+
+    await asyncio.gather(one("a", 100, 0.02), one("b", 900, 0.01))
+    assert seen == {"a": 100, "b": 900}

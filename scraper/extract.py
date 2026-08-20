@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import json
 import time
+import contextvars
 from datetime import datetime, timezone
 
 import httpx
@@ -10,6 +11,11 @@ import structlog
 from .models import CommunityRecord, PersonRecord, VenueRecord
 
 log = structlog.get_logger()
+
+#: Tokens the current task's most recent provider call reported. Per task by
+#: construction — see `_ApiExtractor.last_tokens`.
+_CALL_TOKENS: "contextvars.ContextVar[int]" = contextvars.ContextVar(
+    "extractor_call_tokens", default=0)
 
 
 #: Keyed by (event loop, timeout): a client holds connections belonging to the
@@ -614,19 +620,26 @@ class _ApiExtractor:
     def _json_format(self) -> dict:
         return {"response_format": {"type": "json_object"}} if self.json_mode else {}
 
-    #: Tokens the most recent call reported. Read straight from the response's
-    #: `usage` block rather than estimated, because a token ceiling is only
-    #: useful if the number counted against it is the provider's own.
-    last_tokens: int = 0
+    @property
+    def last_tokens(self) -> int:
+        """What the call *this task* just made reported it cost.
+
+        A ContextVar, not an attribute: one extractor instance serves several
+        concurrent pages, and an attribute would hand a page its neighbour's
+        cost. That is the same fragile "read the last call's leftovers" shape
+        that `extract_traced` removed for provenance, and a token ceiling is
+        only useful if the number counted against it belongs to the call.
+        """
+        return _CALL_TOKENS.get()
 
     def _note_usage(self, data: dict) -> None:
         try:
             usage = data.get("usage") or {}
-            self.last_tokens = int(usage.get("total_tokens")
-                                   or (int(usage.get("prompt_tokens") or 0)
-                                       + int(usage.get("completion_tokens") or 0)))
+            _CALL_TOKENS.set(int(usage.get("total_tokens")
+                                 or (int(usage.get("prompt_tokens") or 0)
+                                     + int(usage.get("completion_tokens") or 0))))
         except Exception:
-            self.last_tokens = 0
+            _CALL_TOKENS.set(0)
 
     def _warn_if_truncated(self, data: dict, label: str) -> None:
         """Say so when the cap cut the answer off.
@@ -716,7 +729,7 @@ class _ApiExtractor:
             raise ExtractorModelError(
                 f"{getattr(self, 'provider', '?')}:{self.model} HTTP {resp.status_code}")
         if resp.status_code >= 400:
-            self.last_tokens = 0
+            _CALL_TOKENS.set(0)
             log.warning("api_request_failed", provider=self.__class__.__name__, label=label,
                         status=resp.status_code, body=resp.text[:200])
             raise ExtractorUnavailableError(
