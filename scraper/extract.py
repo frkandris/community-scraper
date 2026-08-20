@@ -614,6 +614,20 @@ class _ApiExtractor:
     def _json_format(self) -> dict:
         return {"response_format": {"type": "json_object"}} if self.json_mode else {}
 
+    #: Tokens the most recent call reported. Read straight from the response's
+    #: `usage` block rather than estimated, because a token ceiling is only
+    #: useful if the number counted against it is the provider's own.
+    last_tokens: int = 0
+
+    def _note_usage(self, data: dict) -> None:
+        try:
+            usage = data.get("usage") or {}
+            self.last_tokens = int(usage.get("total_tokens")
+                                   or (int(usage.get("prompt_tokens") or 0)
+                                       + int(usage.get("completion_tokens") or 0)))
+        except Exception:
+            self.last_tokens = 0
+
     def _warn_if_truncated(self, data: dict, label: str) -> None:
         """Say so when the cap cut the answer off.
 
@@ -702,11 +716,14 @@ class _ApiExtractor:
             raise ExtractorModelError(
                 f"{getattr(self, 'provider', '?')}:{self.model} HTTP {resp.status_code}")
         if resp.status_code >= 400:
+            self.last_tokens = 0
             log.warning("api_request_failed", provider=self.__class__.__name__, label=label,
                         status=resp.status_code, body=resp.text[:200])
             raise ExtractorUnavailableError(
                 f"{self.__class__.__name__}: HTTP {resp.status_code}")
-        return resp.json()
+        data = resp.json()
+        self._note_usage(data)
+        return data
 
     async def extract(
         self,
@@ -1283,7 +1300,8 @@ class FallbackExtractor:
                     for idx, gen in failed_here.items():
                         if idx != i:
                             self._note_provider_failure(idx, last_error, seen_gen=gen)
-                    self._note_router(primary, ok=True, reserved=_reserved)
+                    self._note_router(primary, ok=True, reserved=_reserved,
+                                      tokens=getattr(primary, "last_tokens", 0))
                     _settled = True
                     self.last_quality = int(getattr(primary, "quality", 0) or 0)
                     self.last_model = getattr(primary, "model", "")

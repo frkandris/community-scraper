@@ -540,9 +540,20 @@ def init_db(db_path: Path, force: bool = False) -> None:
                 observed_limit  INTEGER,
                 blocked_until   REAL NOT NULL DEFAULT 0,
                 last_error      TEXT,
+                -- Tokens, not just calls. Groq's free tier is bounded by
+                -- *tokens per day* (200,000), not by requests: on 2026-08-20 it
+                -- refused with "TPD: Limit 200000, Used 199087" after ~390
+                -- calls, while our catalogue planned for 14,400. A request
+                -- count cannot express that ceiling at all.
+                tokens          INTEGER NOT NULL DEFAULT 0,
                 PRIMARY KEY (day, provider)
             )
         """)
+        for _col, _type in (("tokens", "INTEGER NOT NULL DEFAULT 0"),):
+            try:
+                conn.execute(f"ALTER TABLE provider_usage ADD COLUMN {_col} {_type}")
+            except sqlite3.OperationalError:
+                pass
 
         _migrate_unicode_record_keys(conn)
         conn.commit()
@@ -3475,6 +3486,7 @@ def record_provider_call(
     blocked_until: float | None = None,
     error: str | None = None,
     observed_limit: int | None = None,
+    tokens: int = 0,
 ) -> None:
     """Count one provider call against its daily budget.
 
@@ -3495,6 +3507,7 @@ def record_provider_call(
             """
             UPDATE provider_usage
                SET calls          = calls + 1,
+                   tokens         = tokens + ?,
                    failures       = failures + ?,
                    rate_limits    = rate_limits + ?,
                    blocked_until  = MAX(blocked_until, COALESCE(?, 0)),
@@ -3506,7 +3519,8 @@ def record_provider_call(
                    END
              WHERE day=? AND provider=?
             """,
-            (0 if ok else 1, 1 if rate_limited else 0, blocked_until, error,
+            (int(tokens or 0), 0 if ok else 1, 1 if rate_limited else 0,
+             blocked_until, error,
              observed_limit, observed_limit, observed_limit, day, provider),
         )
         conn.commit()

@@ -48,6 +48,11 @@ class ProviderSpec:
     models: tuple[ModelSpec, ...]
     rpm: int = 30
     rpd: int = 1000
+    #: Tokens per day. 0 = unknown/unlimited. For several free tiers this is the
+    #: ceiling that actually binds — Groq allows 14,400 requests a day but only
+    #: 200,000 tokens, so a request budget alone plans for capacity that is not
+    #: there and the run spends the day being refused.
+    tpd: int = 0
     paid: bool = False
     enabled: bool = True
 
@@ -230,6 +235,7 @@ def load_catalogue(config_dir: Path | None = None) -> ProviderCatalogue:
             models=models,
             rpm=int(entry.get("rpm", 30) or 30),
             rpd=int(entry.get("rpd", 1000) or 1000),
+            tpd=int(entry.get("tpd", 0) or 0),
             paid=bool(entry.get("paid", False)),
             enabled=bool(entry.get("enabled", True)),
         ))

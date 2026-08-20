@@ -40,6 +40,16 @@ log = structlog.get_logger()
 #: for the enrichment job and admin-triggered work that share the same key.
 _DAILY_HEADROOM = 0.95
 
+#: A provider with less than about one call's worth of tokens left is done for
+#: the day: starting a call we cannot finish just buys another refusal.
+#:
+#: Sized from measurement, not from the worst case. Groq spent 200,000 tokens
+#: over ~390 calls on 2026-08-19 — about 510 tokens each, far below the 8,000
+#: characters a prompt may carry, because most pages are short. Reserving a
+#: full worst-case request would throw away several real calls' worth of
+#: budget at the end of every day.
+_MIN_TOKENS_TO_START = 2000
+
 
 def utc_day(now: datetime | None = None) -> str:
     return (now or datetime.now(timezone.utc)).strftime("%Y-%m-%d")
@@ -127,7 +137,7 @@ class QuotaLedger:
     def _row(self, provider: str) -> dict:
         return self._usage.setdefault(
             provider,
-            {"calls": 0, "failures": 0, "rate_limits": 0,
+            {"calls": 0, "failures": 0, "rate_limits": 0, "tokens": 0,
              "observed_limit": None, "blocked_until": 0.0, "last_error": None},
         )
 
@@ -140,6 +150,21 @@ class QuotaLedger:
 
     def used(self, provider: str) -> int:
         return int(self._row(provider).get("calls") or 0)
+
+    def tokens_used(self, provider: str) -> int:
+        return int(self._row(provider).get("tokens") or 0)
+
+    def tokens_left(self, spec: ProviderSpec) -> int:
+        """Tokens still available today, or a large number when unbounded.
+
+        For several free tiers this is the ceiling that binds. Groq allows
+        14,400 requests a day and 200,000 tokens; at our prompt sizes the tokens
+        run out after a few hundred calls, and a request budget alone cannot see
+        it coming — it simply spends the day being refused.
+        """
+        if not spec.tpd:
+            return 1 << 30
+        return max(0, int(spec.tpd * _DAILY_HEADROOM) - self.tokens_used(spec.name))
 
     def remaining(self, spec: ProviderSpec) -> int:
         return max(0, self.budget(spec) - self.used(spec.name))
@@ -172,6 +197,7 @@ class QuotaLedger:
     def available(self, spec: ProviderSpec) -> bool:
         self._sync()
         return (self.remaining(spec) > 0
+                and self.tokens_left(spec) > _MIN_TOKENS_TO_START
                 and not self.blocked(spec.name)
                 and self.paced(spec))
 
@@ -205,6 +231,7 @@ class QuotaLedger:
         self, provider: str, *, ok: bool = True, rate_limited: bool = False,
         retry_after: float | None = None, error: str | None = None,
         spec: ProviderSpec | None = None, reserved: bool = False,
+        tokens: int = 0,
     ) -> None:
         """Record one attempt. Counts even when it failed — a rejected request
         still consumed a slot at most providers, and undercounting is exactly
@@ -250,6 +277,13 @@ class QuotaLedger:
             # buying searches because extraction "had no quota".
             configured = int(spec.rpd) if spec is not None else 0
             near_daily = configured > 0 and row["calls"] >= 0.8 * configured
+            # The provider often says which limit it enforced. "tokens per day"
+            # is a daily refusal however short the Retry-After — Groq's was
+            # 1,149 seconds, under the 1,800 threshold, so without this the
+            # ceiling was never learned and the router kept planning for 14,400
+            # requests against a budget that was gone.
+            said_daily = "per day" in (error or "").lower()
+            near_daily = near_daily or said_daily
             if wait >= self._DAILY_429_RETRY_AFTER or near_daily:
                 observed_limit = row["calls"]
                 prev = row.get("observed_limit")
@@ -259,6 +293,11 @@ class QuotaLedger:
                             wait_s=round(wait, 1))
             else:
                 log.info("provider_minute_limit", provider=provider, wait_s=round(wait, 1))
+        # Measured, not estimated: the response says exactly what it cost, and
+        # a token ceiling is only useful if the number counted against it is the
+        # provider's own.
+        if tokens:
+            row["tokens"] = int(row.get("tokens") or 0) + int(tokens)
         if error:
             row["last_error"] = error[:200]
         if not self.db_path:
@@ -267,6 +306,7 @@ class QuotaLedger:
             record_provider_call(
                 self.db_path, self.day, provider, ok=ok, rate_limited=rate_limited,
                 blocked_until=blocked_until, error=error, observed_limit=observed_limit,
+                tokens=int(tokens or 0),
             )
         except Exception as exc:
             log.warning("quota_ledger_write_failed", provider=provider, error=str(exc))
@@ -287,6 +327,9 @@ class QuotaLedger:
                 "budget": self.budget(spec),
                 "used": self.used(spec.name),
                 "remaining": self.remaining(spec),
+                "tokens": int(row.get("tokens") or 0),
+                "tpd": int(spec.tpd or 0),
+                "tokens_left": self.tokens_left(spec) if spec.tpd else None,
                 "rate_limits": int(row.get("rate_limits") or 0),
                 "failures": int(row.get("failures") or 0),
                 "observed_limit": row.get("observed_limit"),
@@ -382,6 +425,7 @@ class ModelRouter:
         return True
 
     def note(self, extractor, **kwargs) -> None:
+        """Attribute one call — and what it cost — to the provider's bucket."""
         """Attribute one call to the extractor's provider bucket."""
         provider = getattr(extractor, "provider", None)
         if provider:

@@ -151,6 +151,11 @@ def build_report_html(day: str, summary: dict, traffic: dict,
             note = []
             if p.get("observed_limit"):
                 note.append(f"észlelt plafon {p['observed_limit']}")
+            # Tokens, because for several free tiers that is the ceiling that
+            # actually ends the day — Groq's 200,000/day runs out while 13,000
+            # requests are still nominally available.
+            if p.get("tokens"):
+                note.append(f"{int(p['tokens']):,} token".replace(",", " "))
             if p.get("rate_limits"):
                 note.append(f"{p['rate_limits']}× 429")
             if p.get("failures"):

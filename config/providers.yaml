@@ -32,6 +32,13 @@
 #                 poor proxy. `scripts/score_providers.py` overwrites these with
 #                 measured scores from our own golden set — do that before
 #                 trusting the ordering.
+#   tpd           Tokens per day, 0 = unknown. For several free tiers this is
+#                 the ceiling that actually binds and a request count cannot
+#                 express it: Groq allows 14,400 requests but only 200,000
+#                 tokens, and on 2026-08-20 it refused with
+#                 "TPD: Limit 200000, Used 199087" after about 390 calls while
+#                 the catalogue planned for 13,680. Read from the provider's own
+#                 refusal, not from a docs page.
 #   rpm / rpd     Published free-tier limits (2026-08). Several providers
 #                 stopped publishing numbers, so these are conservative
 #                 starting points; the ledger LEARNS the real limit from 429s
@@ -65,6 +72,9 @@ providers:
     base_url: https://api.groq.com/openai/v1
     rpm: 30
     rpd: 14400
+    # Measured from Groq's own 429 on 2026-08-20: "tokens per day (TPD):
+    # Limit 200000". This, not rpd, is what ends Groq's day.
+    tpd: 200000
     models:
       - model: openai/gpt-oss-120b
         quality: 62

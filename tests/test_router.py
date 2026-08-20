@@ -16,12 +16,12 @@ def _db(tmp_path: Path) -> Path:
     return p
 
 
-def _spec(name="groq", rpd=1000, paid=False, quality=(60, 40), env="X_KEY"):
+def _spec(name="groq", rpd=1000, paid=False, quality=(60, 40), env="X_KEY", tpd=0):
     return ProviderSpec(
         name=name, base_url="https://api.test/v1", api_key_env=env,
         models=tuple(ModelSpec(model=f"{name}-m{i}", quality=q)
                      for i, q in enumerate(quality)),
-        rpm=30, rpd=rpd, paid=paid,
+        rpm=30, rpd=rpd, tpd=tpd, paid=paid,
     )
 
 
@@ -1202,3 +1202,40 @@ def test_truncation_is_reported_as_truncation():
         ex._warn_if_truncated({}, "url")            # malformed: must not raise
     names = [e.get("event") for e in captured]
     assert names.count("llm_output_truncated") == 1
+
+
+def test_a_token_ceiling_ends_the_day_even_with_requests_left(tmp_path):
+    """Groq allows 14,400 requests a day and 200,000 tokens.
+
+    On 2026-08-20 it refused with "TPD: Limit 200000, Used 199087" after about
+    390 calls, while the catalogue planned for 13,680 — so extraction stopped
+    at the first pair with real work, every run, all day, and the pages piled
+    up behind it.
+    """
+    db = tmp_path / "s.db"
+    init_db(db)
+    ledger = QuotaLedger(db, day="2026-08-20")
+    spec = _spec(rpd=14400, tpd=200_000)
+
+    assert ledger.available(spec) is True
+    # Two hundred calls, a thousand tokens each: requests barely touched.
+    for _ in range(200):
+        ledger.note_call("groq", spec=spec, tokens=1000)
+    assert ledger.remaining(spec) > 13_000        # plenty of requests left
+    assert ledger.available(spec) is False        # and no tokens to use them
+
+
+def test_a_daily_token_refusal_is_learned_however_short_the_backoff(tmp_path):
+    """Groq's Retry-After was 1,149s — under the 1,800s "this is daily" bar.
+
+    Without reading what the provider said, the ceiling was never learned and
+    the router kept planning against a budget that was already gone.
+    """
+    db = tmp_path / "s.db"
+    init_db(db)
+    ledger = QuotaLedger(db, day="2026-08-20")
+    spec = _spec(rpd=14400)
+
+    ledger.note_call("groq", ok=False, rate_limited=True, retry_after=1149,
+                     spec=spec, error="Rate limit reached ... on tokens per day (TPD)")
+    assert ledger._row("groq").get("observed_limit")
