@@ -95,6 +95,11 @@ async def main() -> int:
     ap.add_argument("--pages", type=int, default=12,
                     help="golden-set size (default 12; every model runs all of them)")
     ap.add_argument("--only", help="score just this provider")
+    ap.add_argument("--locale", default="",
+                    help="score one market only, e.g. hu. Without it the sample "
+                         "is whatever the corpus holds most of (70%% international "
+                         "here), which is not the question when the primary "
+                         "market is Hungarian.")
     ap.add_argument("--apply", action="store_true", help="write scores back to the YAML")
     ap.add_argument("--db", type=Path, default=DB)
     args = ap.parse_args()
@@ -106,7 +111,8 @@ async def main() -> int:
     if not fleet:
         raise SystemExit("no model has an API key set — nothing to score")
 
-    out = await score_fleet(args.db, fleet, pages=args.pages)
+    out = await score_fleet(args.db, fleet, pages=args.pages,
+                            locale=(args.locale or None))
     if out.get("error"):
         raise SystemExit(out["error"])
 

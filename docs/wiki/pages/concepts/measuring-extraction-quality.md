@@ -27,6 +27,28 @@ that finds a real club the incumbent missed is scored down for it. The right
 question it answers is "can this free model replace the one that built our
 corpus". A real correctness metric needs [needles](#what-is-still-missing).
 
+## The sample must also be the right workload
+
+`golden_set(..., locale="hu")` restricts it to one market, and measuring
+without that is how a ranking ends up describing the wrong question. This
+corpus is roughly 30% Hungarian and 70% international, so an unfiltered sample
+is mostly English pages — while Hungarian is the primary market and the one
+the routing order should serve.
+
+A sibling project paid for this lesson in 2026-08: replaying a *real* thirty
+candidate request separated four model configurations that a three-candidate
+synthetic prompt had shown as equivalent. The model our own catalogue scored
+higher (67 vs 62) was the one that slipped into English mid-answer and dropped
+half the required fields — because our 67 was measured on English extraction.
+
+Two consequences worth holding on to:
+
+- **Scores in `providers.yaml` are measured-for-English-extraction**, not
+  universal. Re-measure per market before trusting the order on a new one.
+- **Measure on the real request shape.** A smaller synthetic prompt does not
+  separate models that a full one does, and the difference only appears under
+  the real load.
+
 ## The sample must not move
 
 `golden_set` orders by `url_hash`, never by `extracted_at`. The pipeline

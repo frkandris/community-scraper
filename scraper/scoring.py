@@ -294,7 +294,8 @@ def corpus_names(db_path: Path, limit: int = 40_000) -> tuple[list[str], set[str
     return names, stems
 
 
-def golden_set(db_path: Path, limit: int = 12) -> list[dict]:
+def golden_set(db_path: Path, limit: int = 12,
+               locale: str | None = None) -> list[dict]:
     """Cached pages plus the community names we believe they contain.
 
     Only pages that yielded at least one community are used: a page with zero
@@ -304,6 +305,14 @@ def golden_set(db_path: Path, limit: int = 12) -> list[dict]:
     The sample is **deterministic** (ordered by url_hash). A sample that moves
     between runs makes scores incomparable, and silently so — the numbers still
     look like numbers.
+
+    `locale` restricts it to one market, and measuring without it is how a
+    ranking ends up describing the wrong workload. The corpus is roughly 30%
+    Hungarian and 70% international, so an unfiltered sample is mostly English
+    pages — while Hungarian is the primary market. A sibling project found the
+    same trap the expensive way: a model that scored better on its synthetic
+    English prompt dropped into English mid-answer on the real Hungarian task
+    and lost half the required fields.
     """
     if not Path(db_path).exists():
         raise FileNotFoundError(f"no database at {db_path}")
@@ -332,7 +341,14 @@ def golden_set(db_path: Path, limit: int = 12) -> list[dict]:
         except (TypeError, ValueError):
             continue
         text = entry.get("raw_text")
-        expected = [r["name"] for r in entry.get("records") or [] if r.get("name")]
+        records = entry.get("records") or []
+        if locale:
+            # The locale lives on the extracted records, not on cache_pages —
+            # its city/topic columns are overwritten last-write-wins and cannot
+            # be trusted for a join (see get_fully_processed_pairs).
+            if not any((r.get("locale") or "") == locale for r in records):
+                continue
+        expected = [r["name"] for r in records if r.get("name")]
         if not text or not expected:
             continue
         out.append({"url": url, "city": city or "", "topic": topic or "",
@@ -386,12 +402,19 @@ async def score_model(extractor, pages: list[dict],
     }
 
 
-async def score_fleet(db_path: Path, extractors: list, pages: int = 8) -> dict:
-    """Score every extractor over one shared golden set."""
-    gs = golden_set(db_path, limit=pages)
+async def score_fleet(db_path: Path, extractors: list, pages: int = 8,
+                      locale: str | None = None) -> dict:
+    """Score every extractor over one shared golden set.
+
+    Pass `locale` to measure a single market. A fleet ranked without it is
+    ranked on whatever the corpus happens to contain most of, which is not the
+    same question as "which model should serve our primary market".
+    """
+    gs = golden_set(db_path, limit=pages, locale=locale)
     if not gs:
-        return {"error": "no usable golden pages (need cached pages with records)",
-                "pages": 0, "results": []}
+        return {"error": "no usable golden pages (need cached pages with records)"
+                         + (f" for locale {locale!r}" if locale else ""),
+                "pages": 0, "locale": locale, "results": []}
     # Genericness is measured from the WHOLE corpus, not the sample. A golden
     # set is a dozen pages and a few dozen names — far too small for document
     # frequency to mean anything, and the topic word ("sakk", "futás") would
@@ -419,9 +442,14 @@ async def score_fleet(db_path: Path, extractors: list, pages: int = 8) -> dict:
     # same pages with different genericness are not comparable either.
     sample_fp = hashlib.sha256(
         ("|".join(sorted(p["url"] for p in gs))
-         + "#" + str(len(generic)) + "," + str(len(places))).encode()).hexdigest()[:12]
+         + "#" + str(len(generic)) + "," + str(len(places))
+         + "@" + (locale or "mixed")).encode()).hexdigest()[:12]
     return {
         "pages": len(gs),
+        # Part of the sample's identity: a score measured on Hungarian pages
+        # and one measured on English pages answer different questions, and
+        # comparing them is the mistake this parameter exists to prevent.
+        "locale": locale or "mixed",
         "sample": sample_fp,
         # Deduplicated: a cached extraction can hold the same name twice, and
         # counting it twice overstates how much the sample actually covers.

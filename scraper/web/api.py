@@ -454,6 +454,7 @@ async def score(
     authorization: str | None = Header(default=None),
     pages: int = 8,
     provider: str = "",
+    locale: str = "",
 ):
     """Measure the routed fleet on our own extraction task.
 
@@ -465,6 +466,10 @@ async def score(
     Costs one LLM call per model per page: at the default 8 pages and a
     12-model fleet that is ~96 calls, which comes out of the same daily budget
     the crawler uses. Check `GET /v1/quota` first.
+
+    `locale` restricts the sample to one market. Measuring without it ranks the
+    fleet on whatever the corpus holds most of — 70% international here — which
+    is not the question when the primary market is Hungarian.
     """
     if not _authorized(authorization):
         return _error(401, "Invalid or missing API key.", "invalid_request_error",
@@ -485,7 +490,7 @@ async def score(
 
     from ..scoring import score_fleet
     try:
-        out = await score_fleet(app_state.db_path, fleet,
+        out = await score_fleet(app_state.db_path, fleet, locale=locale.strip() or None,
                                 pages=max(1, min(pages, 40)))
     except FileNotFoundError as exc:
         return _error(503, str(exc), "server_error", "no_database")
