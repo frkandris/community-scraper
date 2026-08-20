@@ -1264,3 +1264,25 @@ async def test_token_cost_is_not_shared_between_concurrent_pages():
 
     await asyncio.gather(one("a", 100, 0.02), one("b", 900, 0.01))
     assert seen == {"a": 100, "b": 900}
+
+
+def test_capacity_means_requests_and_tokens(tmp_path, monkeypatch):
+    """The worker asked "is there quota?" and got a request count.
+
+    Groq's day ends on 200,000 tokens while 13,000 of its 14,400 requests
+    remain, so the worker chose extraction, the pass reached the first pair
+    with real work, and stopped on "all providers rate limited". Ninety runs
+    on 2026-08-19 did exactly that.
+    """
+    monkeypatch.setenv("A_KEY", "k")
+    router, ledger = _router(tmp_path, _spec("a", env="A_KEY", quality=(60,), tpd=200_000))
+
+    assert router.has_capacity() is True
+    assert router.with_budget()
+    spec = router.spec_for(router.with_budget()[0])
+
+    for _ in range(200):
+        ledger.note_call("a", spec=spec, tokens=1000)
+
+    assert router.has_capacity() is False, "token exhaustion must end the day"
+    assert router.with_budget() == []

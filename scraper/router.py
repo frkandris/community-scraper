@@ -378,6 +378,17 @@ class ModelRouter:
         """
         return sorted(self._all, key=lambda e: -e.quality)
 
+    def _has_daily_budget(self, spec) -> bool:
+        """Requests *and* tokens. Either running out ends the provider's day.
+
+        Checking requests alone let the worker choose extraction while Groq's
+        200,000 tokens were gone but 13,000 of its 14,400 requests were not —
+        so the pass started, hit the first pair with real work, and stopped on
+        "all providers rate limited". Every run, all day, on 2026-08-19.
+        """
+        return (self.ledger.remaining(spec) > 0
+                and self.ledger.tokens_left(spec) > _MIN_TOKENS_TO_START)
+
     def has_capacity(self, scope: list | None = None) -> bool:
         """True when at least one provider still has *daily* budget left.
 
@@ -391,7 +402,7 @@ class ModelRouter:
         """
         self.ledger._sync()
         pool = scope if scope is not None else self._all
-        return any(self.ledger.remaining(spec) > 0
+        return any(self._has_daily_budget(spec)
                    for spec in {self._specs[e.provider] for e in pool
                                 if e.provider in self._specs})
 
@@ -408,7 +419,7 @@ class ModelRouter:
         """
         usable = [e for e in self._all
                   if e.provider in self._specs
-                  and self.ledger.remaining(self._specs[e.provider]) > 0]
+                  and self._has_daily_budget(self._specs[e.provider])]
         return sorted(usable, key=lambda e: -e.quality)
 
     def best_available_quality(self) -> int:

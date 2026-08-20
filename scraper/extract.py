@@ -17,6 +17,11 @@ log = structlog.get_logger()
 _CALL_TOKENS: "contextvars.ContextVar[int]" = contextvars.ContextVar(
     "extractor_call_tokens", default=0)
 
+#: A preflight probe is small, so it needs less headroom than a real page —
+#: but not none: probing a provider whose token budget is spent buys a refusal
+#: and nothing else.
+_MIN_PREFLIGHT_TOKENS = 500
+
 
 #: Keyed by (event loop, timeout): a client holds connections belonging to the
 #: loop that created them, so one must never be shared across loops.
@@ -1366,7 +1371,12 @@ class FallbackExtractor:
                     real_failure_seen = True
                     transient_seen = True
                     last_error = str(exc)
-                    self._note_router(primary, ok=False, error=last_error, reserved=_reserved)
+                    # Tokens too: an HTTP 200 whose body will not parse still
+                    # cost what the provider says it cost, and not counting it
+                    # is how a budget looks healthy right up to the refusal.
+                    self._note_router(primary, ok=False, error=last_error,
+                                      reserved=_reserved,
+                                      tokens=getattr(primary, "last_tokens", 0))
                     _settled = True
                     failed_here[i] = self._provider_success_gen[i]
                 except Exception as exc:
@@ -1381,7 +1391,9 @@ class FallbackExtractor:
                     # breaker, so a systematic failure still fails the run fast.
                     transient_seen = True
                     last_error = f"{type(exc).__name__}: {exc}"
-                    self._note_router(primary, ok=False, error=last_error, reserved=_reserved)
+                    self._note_router(primary, ok=False, error=last_error,
+                                      reserved=_reserved,
+                                      tokens=getattr(primary, "last_tokens", 0))
                     _settled = True
                     log.exception("extractor_unexpected_error",
                                   provider=primary.__class__.__name__,
@@ -1624,7 +1636,12 @@ class FallbackExtractor:
             # nothing.
             if self.router is not None and not self.router.can_use(primary):
                 spec = self.router.spec_for(primary)
-                if spec is not None and self.router.ledger.remaining(spec) <= 0:
+                # Tokens as well as requests: Groq's day ends on its 200,000
+                # tokens while thousands of requests remain, and probing it
+                # then spends a refusal proving what the ledger already knows.
+                if spec is not None and (
+                        self.router.ledger.remaining(spec) <= 0
+                        or self.router.ledger.tokens_left(spec) <= _MIN_PREFLIGHT_TOKENS):
                     live.append(label + " (no budget)")
                     continue
             try:
@@ -1632,7 +1649,8 @@ class FallbackExtractor:
                     text=self._PREFLIGHT_TEXT, city="Preflight", topic="running",
                     locale="en", source_url="https://example.com/preflight",
                 )
-                self._note_router(primary, ok=True)
+                self._note_router(primary, ok=True,
+                                  tokens=getattr(primary, "last_tokens", 0))
                 live.append(label)
             except ExtractorRateLimitError as exc:
                 # Rate limited ≠ broken; leave it enabled and let the ledger
@@ -1657,7 +1675,8 @@ class FallbackExtractor:
                         text=self._PREFLIGHT_TEXT, city="Preflight", topic="running",
                         locale="en", source_url="https://example.com/preflight",
                     )
-                    self._note_router(primary, ok=True)
+                    self._note_router(primary, ok=True,
+                                      tokens=getattr(primary, "last_tokens", 0))
                     live.append(label + " (recovered)")
                 except Exception as retry_exc:
                     self._exhausted[i] = True
