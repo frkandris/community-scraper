@@ -14,7 +14,8 @@ from apscheduler.triggers.cron import CronTrigger
 from .cache import CacheManager
 from .config import CONFIG_DIR, load_config
 from .db import finish_run, get_last_run, get_last_run_row, init_db, start_run
-from .pipeline import RUN_ABORTED, classify_run_outcome, run_pipeline
+from .pipeline import (RUN_ABORTED, WORKER_EXTRACT, classify_run_outcome,
+                        next_worker_action, pages_worked, run_pipeline)
 from .router import build_router
 from .web.app import app as web_app, templates
 from .web.log_stream import broadcaster
@@ -610,15 +611,16 @@ async def main() -> None:
                     continue
 
                 quota = _free_quota_available()
-                extract_ready = quota and _time.monotonic() >= extract_idle_until
-                if extract_ready:
-                    mode = "ai_only"
+                extract_ready = _time.monotonic() >= extract_idle_until
+                mode = next_worker_action(
+                    is_running=False, paused=False,
+                    quota=quota, extract_ready=extract_ready)
+                if mode == WORKER_EXTRACT:
                     # Stop when the budget is gone — collection is what is left
                     # to do, and it costs money rather than a daily allowance.
                     def _preempt() -> bool:
                         return not _free_quota_available()
                 else:
-                    mode = "search_only"
                     # Stop when the budget comes back. At 00:00 UTC the ledger
                     # rolls over and this turns true on its own, which is the
                     # whole of "start extraction after the reset".
@@ -630,22 +632,7 @@ async def main() -> None:
                 outcome: dict = {}
 
                 def _on_finished(pair_logs: list, total_new: int) -> None:
-                    # "Worked" must mean *something was cached*, not "there was
-                    # a page to try". Two versions of this were wrong:
-                    #   len(pair_logs)  — ai_only logs a pair even with no
-                    #     cached pages, so an empty pass looked busy;
-                    #   urls_found > cache_hits_extract — a page that *fails*
-                    #     counts, and a failure caches nothing, so the next run
-                    #     finds the identical state. On 2026-08-18 one
-                    #     permanently failing page drove ~100 runs in 4.5 hours,
-                    #     every two and a half minutes, each writing a run record.
-                    # Pages newly extracted = found, minus served from cache,
-                    # minus failed.
-                    outcome["worked"] = sum(
-                        max(0, (p.get("urls_found") or 0)
-                               - (p.get("cache_hits_extract") or 0)
-                               - (p.get("extract_failed") or 0))
-                        for p in pair_logs)
+                    outcome["worked"] = pages_worked(pair_logs)
                     outcome["pairs"] = len(pair_logs)
                     outcome["new"] = total_new
                     finished.set()

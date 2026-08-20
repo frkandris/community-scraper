@@ -398,6 +398,52 @@ def _mark_stop(extractor, pair_log: dict) -> str | None:
     return reason
 
 
+#: What the continuous worker should do next. Strings rather than an enum
+#: because they are also the run modes the pipeline already speaks.
+WORKER_WAIT, WORKER_EXTRACT, WORKER_COLLECT = "wait", "ai_only", "search_only"
+
+
+def next_worker_action(*, is_running: bool, paused: bool, quota: bool,
+                       extract_ready: bool) -> str:
+    """Choose the next action from the four facts that decide it.
+
+    Extracted from the worker loop so the choice can be tested as a choice.
+    It was previously three nested conditions inside a closure, and the only
+    way to check it was to assert on the source text — which passes when the
+    logic is wrong and fails when a variable is renamed.
+
+    The rule itself: free quota expires at midnight and collection costs money,
+    so extraction goes first whenever there is budget and work to spend it on.
+    """
+    if is_running or paused:
+        return WORKER_WAIT
+    return WORKER_EXTRACT if (quota and extract_ready) else WORKER_COLLECT
+
+
+def pages_worked(pair_logs: "list[dict]") -> int:
+    """Pages this run newly extracted and cached.
+
+    The worker's "was that pass worth anything?" question, and it has been
+    answered wrongly twice:
+
+    * `len(pair_logs)` — `ai_only` logs a pair even when it has no cached
+      pages, and every never-searched pair is in the filter, so an empty pass
+      looked busy and extraction ran forever while the collector never did;
+    * `urls_found > cache_hits_extract` — a page that *fails* counted, and a
+      failure caches nothing, so the next run found the identical state. One
+      permanently failing page drove about a hundred runs on 2026-08-18.
+
+    Found, minus served from cache, minus failed. A module-level function
+    because it is the part worth testing, and testing it through the worker
+    loop means asserting on source text rather than on the answer.
+    """
+    return sum(
+        max(0, int(p.get("urls_found") or 0)
+               - int(p.get("cache_hits_extract") or 0)
+               - int(p.get("extract_failed") or 0))
+        for p in pair_logs)
+
+
 def _log_throughput(extractor, run_mode: str) -> None:
     """Report where the window's time went, on every exit path.
 

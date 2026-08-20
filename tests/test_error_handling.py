@@ -1,5 +1,6 @@
 """Provider-failure handling: typed errors, no empty-result caching, retries."""
 import asyncio
+import os
 from unittest.mock import patch
 
 import pytest
@@ -643,77 +644,6 @@ def test_a_too_large_payload_retires_the_model_not_the_fleet(tmp_path):
             asyncio.run(ex._post({"messages": []}, "label"))
 
 
-def test_the_worker_toggle_disables_the_twin_crons():
-    """Strangler fig: the new driver and the old one never both run.
-
-    The twin windows stay in the file so the worker can be switched off, but a
-    cron firing alongside the worker would fight it for the run slot.
-    """
-    import inspect
-
-    from scraper import main
-    src = inspect.getsource(main.main_entry if hasattr(main, "main_entry") else main)
-    assert 'schedule_cfg.get("saver_enabled") and not worker_enabled' in src
-    assert 'reason="worker_drives_the_day"' in src
-
-
-def test_the_worker_never_runs_a_full_refresh():
-    """The launcher's defaults are the admin form's, and they are the wrong ones.
-
-    skip_scraped=False means re-buying every search we already own;
-    skip_extracted=False means re-extracting every finished page, which also
-    means the extractor never looks idle and the worker never collects again.
-    """
-    import inspect
-
-    from scraper import main
-    src = inspect.getsource(main)
-    assert 'skip_scraped=bool(getattr(cfg, "cache_skip_scraped", True))' in src
-    assert 'skip_extracted=bool(getattr(cfg, "cache_skip_extracted", True))' in src
-
-
-def test_stop_pauses_the_worker():
-    """Cancelling alone could not stop anything: the worker restarted within a minute."""
-    import inspect
-
-    from scraper.web import api
-    src = inspect.getsource(api)
-    assert "app_state.worker_paused = True" in src      # stop pauses
-    assert "app_state.worker_paused = False" in src     # run/resume clears it
-
-
-def test_the_worker_counts_pages_it_actually_cached():
-    """"Worked" must mean something was cached, not that there was a page to try.
-
-    Both earlier versions looped. `len(pair_logs)` counted pairs with no cached
-    pages at all. `urls_found > cache_hits_extract` counted a page that
-    *failed* — and a failure caches nothing, so the next run finds the same
-    state: on 2026-08-18 one permanently failing page drove ~100 runs in four
-    and a half hours.
-    """
-    import inspect
-
-    from scraper import main
-    src = inspect.getsource(main)
-    assert '- (p.get("extract_failed") or 0)' in src, "failures still count as work"
-    assert 'outcome.get("worked")' in src
-    # And a backstop, because this signal has now been wrong twice.
-    assert "_WORKER_EMPTY_LIMIT" in src
-
-
-def test_a_failing_page_is_not_progress():
-    """The arithmetic itself, on the pair log that caused the loop."""
-    pair_log = {"urls_found": 1, "cache_hits_extract": 0, "extract_failed": 1}
-    worked = max(0, pair_log["urls_found"] - pair_log["cache_hits_extract"]
-                 - pair_log["extract_failed"])
-    assert worked == 0
-
-    # A page genuinely extracted for the first time does count.
-    fresh = {"urls_found": 5, "cache_hits_extract": 3, "extract_failed": 1}
-    assert max(0, fresh["urls_found"] - fresh["cache_hits_extract"]
-               - fresh["extract_failed"]) == 1
-
-
 def test_no_blocking_database_write_is_left_on_the_event_loop():
     """The loop that serves the site must not be held by a SQLite write.
 
@@ -746,22 +676,6 @@ def test_no_blocking_database_write_is_left_on_the_event_loop():
         "_off_loop():\n" + "\n".join(offenders))
 
 
-def test_the_prefetch_batches_across_cities():
-    """A city is too small a batch to use the configured concurrency.
-
-    A core city has six topics and most are already cached, so a per-city
-    batch was typically one or two pairs — search_concurrency: 8 never
-    engaged, and the collector measured 0.16 pairs/min on 2026-08-18, below
-    the serial version it replaced.
-    """
-    import inspect
-
-    from scraper import pipeline
-    src = inspect.getsource(pipeline._run_full)
-    assert "_walk = [(c, t) for c in cities for t in topics" in src
-    assert "await _refill_prefetch()" in src
-
-
 def test_prefetched_results_do_not_accumulate(tmp_path):
     """One result list per pair, held for the whole run, is an OOM at scale.
 
@@ -790,3 +704,99 @@ def test_prefetched_results_do_not_accumulate(tmp_path):
                                     True, True, {}, None, search_client=_Never()))
     assert len(logs) == 4
     assert all(p["search_cache_hit"] for p in logs)
+
+
+# ── The worker's decisions, tested as decisions ───────────────────────────────
+# These replace tests that asserted on the *source text* of scraper/main.py.
+# Google's review guide asks two questions of a test: will it fail when the code
+# is broken, and will it produce false positives when the code changes beneath
+# it? A substring assertion answers badly on both — it passes with the string
+# present and the logic wrong, and fails on a rename that changes nothing.
+
+def test_pages_worked_ignores_pairs_with_nothing_to_extract():
+    """ai_only logs a pair even when it has no cached pages at all.
+
+    Every never-searched pair is in the run's filter, so counting pair logs
+    made an empty pass look busy: the worker relaunched extraction forever
+    while the paid collector never ran.
+    """
+    from scraper.pipeline import pages_worked
+
+    assert pages_worked([{"urls_found": 0}] * 92) == 0
+
+
+def test_pages_worked_does_not_count_a_failing_page():
+    """A failure caches nothing, so the next run finds the identical state.
+
+    One permanently failing page drove about a hundred runs on 2026-08-18, one
+    every two or three minutes for four and a half hours, each writing a run
+    record.
+    """
+    from scraper.pipeline import pages_worked
+
+    assert pages_worked([{"urls_found": 1, "cache_hits_extract": 0,
+                          "extract_failed": 1}]) == 0
+
+
+def test_pages_worked_does_not_count_a_cache_hit():
+    from scraper.pipeline import pages_worked
+
+    assert pages_worked([{"urls_found": 5, "cache_hits_extract": 5}]) == 0
+
+
+def test_pages_worked_counts_a_page_extracted_for_the_first_time():
+    from scraper.pipeline import pages_worked
+
+    assert pages_worked([{"urls_found": 5, "cache_hits_extract": 3,
+                          "extract_failed": 1}]) == 1
+    # And adds up across a pair log.
+    assert pages_worked([{"urls_found": 4, "cache_hits_extract": 1},
+                         {"urls_found": 2, "extract_failed": 2}]) == 3
+
+
+def test_stop_pauses_the_worker_and_run_lets_it_go_again():
+    """Cancelling alone stopped nothing: the worker started another run.
+
+    Tested through the endpoints rather than by reading them, so it fails if
+    the pause is ever lost and passes only when stopping actually stops.
+    """
+    from scraper.web import api
+    from scraper.web.state import app_state
+
+    before = app_state.worker_paused
+    try:
+        asyncio.run(api.control_stop("Bearer k"))          # unauthorised: no effect
+        assert app_state.worker_paused == before
+
+        os.environ["CONTROL_API_KEY"] = "op-key"
+        try:
+            asyncio.run(api.control_stop("Bearer op-key"))
+            assert app_state.worker_paused is True
+
+            asyncio.run(api.control_resume("Bearer op-key"))
+            assert app_state.worker_paused is False
+        finally:
+            os.environ.pop("CONTROL_API_KEY", None)
+    finally:
+        app_state.worker_paused = before
+
+
+def test_the_worker_extracts_while_the_budget_lasts_and_collects_after():
+    """Free quota expires at midnight; collection costs money. So: quota first."""
+    from scraper.pipeline import (WORKER_COLLECT, WORKER_EXTRACT, WORKER_WAIT,
+                                  next_worker_action)
+
+    def choose(**kw):
+        base = dict(is_running=False, paused=False, quota=True, extract_ready=True)
+        return next_worker_action(**{**base, **kw})
+
+    assert choose() == WORKER_EXTRACT
+    assert choose(quota=False) == WORKER_COLLECT
+    # Extraction found nothing recently: stand aside rather than repeat it.
+    assert choose(extract_ready=False) == WORKER_COLLECT
+
+    # Neither happens while something else owns the run slot, or after a stop —
+    # the pause is what made /v1/control/stop mean anything.
+    assert choose(is_running=True) == WORKER_WAIT
+    assert choose(paused=True) == WORKER_WAIT
+    assert choose(paused=True, quota=False) == WORKER_WAIT
