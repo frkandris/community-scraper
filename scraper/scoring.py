@@ -19,6 +19,7 @@ the two cannot drift.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import unicodedata
@@ -403,14 +404,24 @@ async def score_model(extractor, pages: list[dict],
 
 
 async def score_fleet(db_path: Path, extractors: list, pages: int = 8,
-                      locale: str | None = None) -> dict:
+                      locale: str | None = None,
+                      golden: "list[dict] | None" = None) -> dict:
     """Score every extractor over one shared golden set.
 
     Pass `locale` to measure a single market. A fleet ranked without it is
     ranked on whatever the corpus happens to contain most of, which is not the
     same question as "which model should serve our primary market".
     """
-    gs = golden_set(db_path, limit=pages, locale=locale)
+    # Off the event loop. Both of these scan large tables, and the loop also
+    # serves the public site: on 2026-08-20 a scoring request held it long
+    # enough for the container's liveness probe to fail, Traefik dropped the
+    # route and every visitor got a 404 — the same chain as the pipeline's
+    # writes, in a place I had not looked.
+    # `golden` lets a caller settle "is there anything to measure?" before
+    # committing to minutes of LLM calls — the API answers 422 on an empty
+    # sample rather than starting a background job that has nothing to do.
+    gs = golden if golden is not None else await asyncio.to_thread(
+        golden_set, db_path, pages, locale)
     if not gs:
         return {"error": "no usable golden pages (need cached pages with records)"
                          + (f" for locale {locale!r}" if locale else ""),
@@ -420,7 +431,7 @@ async def score_fleet(db_path: Path, extractors: list, pages: int = 8,
     # frequency to mean anything, and the topic word ("sakk", "futás") would
     # never look common enough to discount. The communities table has tens of
     # thousands of names and answers the question properly.
-    names, places = corpus_names(db_path)
+    names, places = await asyncio.to_thread(corpus_names, db_path)
     generic = _generic_tokens(names)
     places = frozenset(places)
     log.info("scoring_start", pages=len(gs), models=len(extractors),

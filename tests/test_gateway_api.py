@@ -356,13 +356,50 @@ def test_score_endpoint_measures_the_fleet(client, tmp_path):
     with patch("scraper.extract._ApiExtractor._post", side_effect=_reply):
         body = client.post("/v1/score?pages=1", headers=AUTH).json()
 
+    # The request only starts the measurement. A fleet-wide run is minutes of
+    # LLM calls and the CDN cuts a request off at about 100 seconds — on
+    # 2026-08-20 the work finished server-side, the caller got a 502 and the
+    # result was lost. What comes back is confirmation that there is something
+    # to measure; the answer goes to the log.
+    assert body["object"] == "score.started"
     assert body["pages"] == 1
-    assert body["results"], body
-    top = body["results"][0]
+    assert body["models"] >= 1
+    assert "fleet_scored" in body["note"]
+
+
+def test_the_score_measurement_itself_still_reports_agreement(tmp_path):
+    """The scoring, separately from how it is delivered."""
+    import asyncio
+
+    from scraper.db import init_db, update_cache_page
+    from scraper.scoring import score_fleet
+
+    db = tmp_path / "s.db"
+    init_db(db)
+    update_cache_page(db, "g1", {
+        "url": "https://x/g1", "city": "Szentendre", "topic": "running",
+        "extracted_at": "2026-08-01T00:00:00+00:00",
+        "raw_text": "A Szentendrei Futóklub keddenként edz a Duna-parton.",
+        "records": [{"name": "Szentendrei Futóklub", "locale": "hu"}],
+    }, create={"url": "https://x/g1"})
+
+    class _Model:
+        provider, model, quality = "p", "m", 50
+
+        async def extract(self, text, city, topic, locale, source_url,
+                          false_positive_examples=""):
+            from scraper.models import CommunityRecord
+            return [CommunityRecord(
+                name="Szentendrei Futóklub", topic=topic, city=city, locale=locale,
+                source_url=source_url, extracted_at="2026-08-01T00:00:00+00:00")]
+
+    out = asyncio.run(score_fleet(db, [_Model()], pages=1, locale="hu"))
+    assert out["pages"] == 1 and out["locale"] == "hu"
+    top = out["results"][0]
     assert top["score"] == 100          # exact match on the only expected name
     assert top["answered"] == 1
     # The scores are agreement with the incumbent, not truth — say so in-band.
-    assert "not ground truth" in body["note"]
+    assert "not ground truth" in out["note"]
 
 
 def test_score_endpoint_reports_an_empty_golden_set_clearly(client):

@@ -488,15 +488,53 @@ async def score(
         return _error(404, f"No models for provider '{provider}'.",
                       "invalid_request_error", "model_not_found")
 
-    from ..scoring import score_fleet
+    from ..scoring import golden_set, score_fleet
+
+    _pages, _locale = max(1, min(pages, 40)), (locale.strip() or None)
+
+    # Cheap and up front: one query decides whether there is anything to
+    # measure, so an empty sample is a 422 the caller can act on rather than a
+    # background job that quietly does nothing.
     try:
-        out = await score_fleet(app_state.db_path, fleet, locale=locale.strip() or None,
-                                pages=max(1, min(pages, 40)))
+        _golden = await asyncio.to_thread(golden_set, app_state.db_path, _pages, _locale)
     except FileNotFoundError as exc:
         return _error(503, str(exc), "server_error", "no_database")
-    if out.get("error"):
-        return _error(422, out["error"], "invalid_request_error", "no_golden_pages")
-    return out
+    if not _golden:
+        return _error(422, "no usable golden pages (need cached pages with records)"
+                           + (f" for locale {_locale!r}" if _locale else ""),
+                      "invalid_request_error", "no_golden_pages")
+
+    async def _run_scoring() -> None:
+        try:
+            out = await score_fleet(app_state.db_path, fleet,
+                                    locale=_locale, pages=_pages, golden=_golden)
+        except Exception as exc:
+            log.error("fleet_score_failed", error=str(exc), locale=_locale)
+            return
+        if out.get("error"):
+            log.warning("fleet_score_no_pages", error=out["error"], locale=_locale)
+            return
+        # Logged, not returned: this is the only durable copy. See below.
+        log.info("fleet_scored", locale=out.get("locale"), pages=out.get("pages"),
+                 sample=out.get("sample"),
+                 scores={f"{r['provider']}:{r['model']}": r.get("score")
+                         for r in out.get("results", [])},
+                 unmeasured=out.get("unmeasured"))
+
+    # In the background, and the answer goes to the log rather than the
+    # response. A fleet-wide measurement is minutes of LLM calls and the CDN
+    # cuts a request off at about 100 seconds: on 2026-08-20 the work completed
+    # server-side, the caller got a 502, and the result was simply lost.
+    asyncio.create_task(_run_scoring())
+    return {
+        "object": "score.started",
+        "locale": _locale or "mixed",
+        "pages": len(_golden),
+        "models": len(fleet),
+        "note": ("Running in the background — a fleet measurement outlives the "
+                 "CDN's request timeout. Read the result with "
+                 "GET /v1/logs?grep=fleet_scored."),
+    }
 
 
 @router.post("/chat/completions")
