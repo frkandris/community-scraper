@@ -392,6 +392,11 @@ async def main() -> None:
     #: midnight reset or a fresh batch of extractions is picked up promptly.
     _ENRICH_IDLE_PAUSE_S = 900
 
+    #: How long enrichment waits while an extraction run holds the budget.
+    #: Short, because extraction passes are minutes rather than hours and the
+    #: gap between them is when enrichment should be working.
+    _ENRICH_YIELD_PAUSE_S = 30
+
     def _release_enrich() -> None:
         """Hand the enrichment slot back on an early return."""
         app_state._enrich_running = False
@@ -464,6 +469,18 @@ async def main() -> None:
         total = 0
         try:
             while unbounded or _within_window(datetime.now(timezone.utc), start, end):
+                # Extraction first. They share one free-tier budget, and on
+                # 2026-08-20 enrichment took about two thirds of it — 900 of
+                # 1,325 successful calls — while extraction managed 138 pages
+                # against 8,692 collected. Descriptions improve records that
+                # exist; extraction is what makes them exist at all.
+                #
+                # Waiting rather than splitting the budget: a share would need
+                # a policy, a way to tune it and a way to see it, and the
+                # ordering answers the question without any of that.
+                if app_state.is_running and app_state.current_run_mode == "re-ai":
+                    await asyncio.sleep(_ENRICH_YIELD_PAUSE_S)
+                    continue
                 stats = await enrich_batch(
                     app_state.db_path, extractor, scope, limit=limit,
                     fetch_missing=False,
