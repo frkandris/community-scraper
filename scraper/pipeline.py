@@ -682,11 +682,21 @@ async def run_pipeline(
     venue_fp = get_venue_fingerprint(model)
     person_fp = get_person_fingerprint(model)
     done_pairs: set[tuple[str, str]] = set()
+    _filter_started = time.monotonic()
     if _skip_extracted:
+        # Off the loop like the writes. These are the two largest reads in the
+        # system — `get_fully_processed_pairs` loads every `cache_pages` row
+        # (199,537 of them) and JSON-parses each one — and they run at the start
+        # of every pass, which under the worker is every twenty minutes. Today's
+        # sweep moved the *writes* off the event loop and left these, which is
+        # why the site kept 404ing after it: a read that scans 200,000 rows
+        # holds the loop exactly as hard as a write.
         if run_mode == "search_only":
-            done_pairs = get_collected_pairs(config.db_path, config.search_max_pages)
+            done_pairs = await _off_loop(
+                get_collected_pairs, config.db_path, config.search_max_pages)
         else:
-            done_pairs = get_fully_processed_pairs(
+            done_pairs = await _off_loop(
+                get_fully_processed_pairs,
                 config.db_path,
                 current_fp,
                 venue_fp,
@@ -696,6 +706,14 @@ async def run_pipeline(
                 run_persons=run_persons,
                 max_pages=config.search_max_pages,
             )
+    if _skip_extracted:
+        # Timed because moving it to a thread is only half a fix: the SQLite
+        # call releases the GIL, but building a dict per row for 199,537 rows
+        # does not, so a slow scan still starves the loop that serves the site.
+        # If this reads in seconds, the query needs to get cheaper rather than
+        # move again.
+        log.info("done_pair_filter", pairs=len(done_pairs),
+                 seconds=round(time.monotonic() - _filter_started, 2))
     pairs_to_run = all_pairs - done_pairs
     skipped = len(all_pairs) - len(pairs_to_run)
     if skipped:
@@ -783,7 +801,7 @@ async def run_pipeline(
                         reason=getattr(search_client, "failure_reason", None))
             covered = uncovered = None
         else:
-            covered = get_covered_pairs(config.db_path)
+            covered = await _off_loop(get_covered_pairs, config.db_path)
             uncovered = all_pairs - covered - done_pairs
         # `full` mode's catch-up re-runs the whole search → fetch → extract
         # chain. Entering it with a fleet that already stopped means paying

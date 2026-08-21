@@ -662,6 +662,13 @@ def test_no_blocking_database_write_is_left_on_the_event_loop():
 
     verbs = ("save_", "upsert_", "mark_", "delete_", "update_", "record_",
              "insert_", "replace_")
+    # Reads that scan whole tables hold the loop exactly as hard as writes, and
+    # the first version of this test only listed verbs that sounded like
+    # writing. get_fully_processed_pairs loads every cache_pages row and
+    # JSON-parses it; leaving it on the loop is why the 404s continued after
+    # the writes were moved.
+    heavy_reads = ("get_fully_processed_pairs", "get_covered_pairs",
+                   "get_collected_pairs", "corpus_names")
     tree = ast.parse(_P("scraper/pipeline.py").read_text(encoding="utf-8"))
     offenders = []
     for node in ast.walk(tree):
@@ -669,7 +676,7 @@ def test_no_blocking_database_write_is_left_on_the_event_loop():
             continue
         func = node.func
         name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
-        if name.startswith(verbs):
+        if name.startswith(verbs) or name in heavy_reads:
             offenders.append(f"line {node.lineno}: {name}(...)")
     assert not offenders, (
         "blocking database calls left on the event loop — wrap them in "
