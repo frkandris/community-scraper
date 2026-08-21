@@ -19,6 +19,12 @@ scraper/web/static/css/app.css
 
 .agents/
 .claude/
+# …except the skills, which are documentation. The free-models skill carries
+# what three days of being wrong taught us — which signals lie, the four tests
+# a new provider has to pass, when the check is even conclusive — and none of
+# it was backed up or shared, because it lived under an ignored directory.
+!.claude/skills/
+!.claude/skills/**
 .superpowers/
 skills-lock.json
 
