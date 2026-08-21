@@ -118,6 +118,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[2026-07-deploy-truncates-collector]] — A deploy landing inside the 15 h search_only window kills the in-flight collector; with auto_run_on_startup off it never resumed and lost the rest of the day's page collection — invisible because the evening extractor lived off the cached-page backlog.
 - [[2026-07-llm-bare-array-run-abort]] — DeepSeek answered one page with a top-level JSON array, `.get()` hit a list, and the untyped AttributeError escaped the extractor chain and killed the 2026-07-30 ai_only window with 0 pairs processed.
 - [[2026-08-healthz-db-query-outage]] — /healthz queried the database, so a write lock failed the healthcheck and Traefik pulled the container from rotation — four apparent outages with a healthy process.
+- [[2026-06-search-index-collapse]] — Indexed pages fell from ~25,000 to 2,430 in the first week of June and never recovered — the trigger was fixed within a week, the reasons it stayed down were not.
 - [[2026-08-rate-limits-opened-the-breaker]] — The first full night on the free fleet ended 45 minutes in — the breaker counted "wait, you are going too fast" as "you are broken" and aborted the run with 13,523 calls still unspent.
 - [[2026-08-mobile-city-search-datalist]] — The home search combined an iOS-invisible <datalist> with an exact-match submit guard, so phone users got no suggestions and no results.
 

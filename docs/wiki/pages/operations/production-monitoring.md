@@ -81,6 +81,15 @@ Running it in GitHub Actions rather than on the server is the point: the checker
 must not share fate with the thing it checks. It uses only the Python standard
 library, so the job cannot fail for reasons unrelated to the site.
 
+## Why this is an SEO problem too
+
+An outage is not only lost visits. Googlebot asking for a page it has indexed
+and receiving a bare 404 is the strongest de-indexing signal there is —
+stronger than a 5xx, which Google treats as temporary. The site loses minutes
+several times a day whenever the pipeline stalls the event loop, and it is
+doing that while 23,461 pages are being re-evaluated after
+[[2026-06-search-index-collapse]]. Availability work is ranking work.
+
 ### Limits worth knowing
 
 - GitHub's scheduled runs are best-effort and can be delayed under load; treat
