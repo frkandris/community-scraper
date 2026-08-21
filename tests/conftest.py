@@ -17,3 +17,21 @@ def _reset_pacing_clock():
     QuotaLedger._last_call.clear()
     yield
     QuotaLedger._last_call.clear()
+
+
+@pytest.fixture(autouse=True)
+def _reset_sitemap_cache():
+    """Clear the rendered-sitemap cache between tests.
+
+    The cache is keyed by site alone — correct in production, where one process
+    serves one corpus, and wrong in a test run, where every test swaps
+    `app_state.db_path` under it. The first test to fetch /sitemap.xml pinned
+    its own corpus for the whole hour-long TTL, so a later assertion read
+    someone else's document: an order-dependent failure that passed when its
+    file ran alone.
+    """
+    from scraper.web.app import _SITEMAP_CACHE
+
+    _SITEMAP_CACHE.clear()
+    yield
+    _SITEMAP_CACHE.clear()
