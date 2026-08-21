@@ -146,5 +146,13 @@ async def enrich_batch(
                 "old_words": len((c["description"] or "").split()),
                 "long_words": len(long.split()),
             })
+    # Named so a day's total can be counted without inference. "Why did we
+    # modify existing communities instead of processing new ones?" took a
+    # correlation between two report rows to answer on 2026-08-20; this makes
+    # it a grep.
     log.info("enrich_batch_done", **{k: v for k, v in stats.items() if k != "samples"})
+    if stats["enriched"]:
+        log.info("enrich_records_updated", count=stats["enriched"],
+                 cities_in_scope=len(city_names),
+                 sample_city=next(iter(sorted(city_names)), ""))
     return stats

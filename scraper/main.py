@@ -283,6 +283,9 @@ async def main() -> None:
     log = structlog.get_logger()
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    # History goes to the persisted volume, next to the database. The ring in
+    # memory holds a few minutes under the worker's load, which is not a log.
+    broadcaster.attach_file(DATA_DIR / "logs")
     db_path = DATA_DIR / "scraper.db"
     init_db(db_path)
 
@@ -444,7 +447,15 @@ async def main() -> None:
         except Exception as exc:
             log.warning("enrich_skipped", reason="preflight_failed", error=str(exc))
             return
-        scope = {c.name for c in (app_state.cities or [])}
+        # The same country priority the pipeline walks, for the same reason.
+        # `get_enrichment_candidates` orders by id, and the international
+        # records were imported first — so an unscoped enrichment spends the
+        # whole budget on the secondary market before reaching a Hungarian
+        # record. On 2026-08-20 that was 488 international records updated and
+        # three Hungarian ones.
+        _groups = [g for g in _saver_city_groups(app_state.cities or [],
+                                                 _settings_country_priority()) if g]
+        scope = {c.name for c in (_groups[0] if _groups else [])}
         if not scope:
             return
         limit = int(cfg.get("enrich_batch_limit") or 200)
@@ -480,7 +491,15 @@ async def main() -> None:
                     log.info("enrich_window_closed", enriched_this_window=total)
                     break
                 if stats["pool"] == 0:
-                    log.info("enrich_complete", enriched_this_window=total)
+                    log.info("enrich_complete", enriched_this_window=total,
+                             scope_size=len(scope))
+                    # This market is caught up; hand the budget to the next one
+                    # rather than idling while a lower-priority backlog waits.
+                    _groups = _groups[1:]
+                    if _groups:
+                        scope = {c.name for c in _groups[0]}
+                        log.info("enrich_scope_advanced", cities=len(scope))
+                        continue
                     if not unbounded:
                         break
                     # Caught up. Extraction keeps adding communities, so wait

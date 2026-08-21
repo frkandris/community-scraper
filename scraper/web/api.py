@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import asyncio
 import hmac
-import json
 import os
 import time
 from typing import Any
@@ -421,8 +420,11 @@ async def logs(
     grep: str = "",
     level: str = "",
 ):
-    """Recent application log lines — the same in-memory ring the admin log page
-    streams, exposed under the gateway's Bearer auth.
+    """Application log lines, newest last, from the rotating file on disk.
+
+    Reads history, not a live buffer. The in-memory ring the admin page streams
+    holds 500 lines — a few minutes under the continuous worker — and every
+    "what happened last night?" this week hit a buffer that had forgotten.
 
     Exists so a debugging session can read production logs the way it reads
     /healthz, without a Coolify login. It is a *complement* to the platform's
@@ -438,14 +440,7 @@ async def logs(
                       "invalid_api_key")
     from .log_stream import broadcaster
 
-    rows = broadcaster.get_all()
-    if level:
-        want = level.lower()
-        rows = [r for r in rows if str(r.get("level", "")).lower() == want]
-    if grep:
-        needle = grep.lower()
-        rows = [r for r in rows if needle in json.dumps(r, ensure_ascii=False).lower()]
-    rows = rows[-max(1, min(lines, 1000)):]
+    rows = broadcaster.history(limit=max(1, min(lines, 5000)), grep=grep, level=level)
     return {"object": "list", "count": len(rows), "data": rows}
 
 

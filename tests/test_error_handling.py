@@ -800,3 +800,42 @@ def test_the_worker_extracts_while_the_budget_lasts_and_collects_after():
     assert choose(is_running=True) == WORKER_WAIT
     assert choose(paused=True) == WORKER_WAIT
     assert choose(paused=True, quota=False) == WORKER_WAIT
+
+
+def test_the_log_keeps_more_than_the_ring(tmp_path):
+    """500 lines is a few minutes under the worker, which is not a log.
+
+    Every "what happened last night?" this week hit a buffer that had already
+    forgotten, so history lives in a rotating file and the ring only serves the
+    live tail.
+    """
+    from scraper.web.log_stream import LogBroadcaster
+
+    b = LogBroadcaster()
+    b.attach_file(tmp_path / "logs")
+    for i in range(3000):
+        b.add_line({"event": f"line_{i}", "log_level": "info", "city": "Szentendre"})
+    b.add_line({"event": "boom", "log_level": "error"})
+
+    assert len(b.get_all()) == 500                      # the ring is unchanged
+    assert len(b.history(limit=5000)) == 3001           # the file is not
+    assert b.history(limit=5000)[0]["text"].startswith("line_0")
+
+    # The filters keep the semantics an operator already relies on:
+    # case-insensitive, and matching anywhere in the row.
+    assert len(b.history(limit=5000, grep="szentendre")) == 3000
+    assert [r["text"] for r in b.history(limit=10, level="error")] == ["boom"]
+
+
+def test_the_log_survives_a_directory_it_cannot_write(tmp_path):
+    """Losing history is bad; refusing to serve is worse."""
+    from scraper.web.log_stream import LogBroadcaster
+
+    blocker = tmp_path / "logs"
+    blocker.write_text("not a directory")            # mkdir will fail on this
+
+    b = LogBroadcaster()
+    b.attach_file(blocker)
+    b.add_line({"event": "still_works", "log_level": "info"})
+    assert b.get_all()[-1]["text"] == "still_works"
+    assert b.history(limit=10)[-1]["text"] == "still_works"   # falls back to the ring

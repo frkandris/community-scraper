@@ -190,6 +190,18 @@ def build_report_html(day: str, summary: dict, traffic: dict,
         _ok = max(0, _calls - _fails)
         _done = int(hu.get("pages_extracted") or 0) + int(intl.get("pages_extracted") or 0)
         _fetched = int(hu.get("pages_scraped") or 0) + int(intl.get("pages_scraped") or 0)
+        # Enrichment updates existing records; extraction creates them. Both
+        # spend the same free budget, and telling them apart in the report is
+        # what turns "488 international records modified" from a puzzle into a
+        # number with a cause.
+        _hu_mod = int(hu.get("changed_communities") or 0)
+        _intl_mod = int(intl.get("changed_communities") or 0)
+        if _hu_mod + _intl_mod:
+            ai_html += (
+                "<p style='margin:6px 0 0;font-size:13px;color:#8C8478'>"
+                f"Módosítás: {_hu_mod} magyar, {_intl_mod} nemzetközi rekord — "
+                "a leírás-generálás (enrichment) ugyanabból a keretből költ, "
+                "mint a kinyerés.</p>")
         if _done:
             per_page = _ok / _done
             capacity = int(_budget / per_page) if per_page else 0
