@@ -4094,6 +4094,42 @@ def _city_locale(city_name: str) -> str:
     return "en"
 
 
+#: Links shown in one related block. A screenful, not a dump: Budapest has
+#: hundreds of communities, and the Tailwind CDN scans the whole DOM before the
+#: page paints.
+_RELATED_LIMIT = 12
+
+
+def related_communities(records: list[dict], *, exclude_key: str, topic: str | None,
+                        locale: str, limit: int = _RELATED_LIMIT) -> dict:
+    """Neighbours of one community, grouped as a reader would ask for them.
+
+    Returns `{"same_topic": [...], "other_topics": [...]}` of link dicts. The
+    grouping is the point: "other running clubs here" and "what else happens in
+    this town" are two different questions, and a single mixed list answers
+    neither. Both are also crawl paths — 23,461 of our pages were fetched and
+    judged not worth indexing while each one stood alone.
+    """
+    labels = get_topic_labels(locale)
+    same, other = [], []
+    for rec in records:
+        name = (rec.get("name") or "").strip()
+        city = (rec.get("city") or "").strip()
+        if not name or not city:
+            continue
+        if _community_record_key(name, city, rec.get("topic") or "") == exclude_key:
+            continue
+        rec_topic = rec.get("topic") or ""
+        item = {
+            "name": name,
+            "url": f"/{_slugify(city)}/{_slugify(name)}",
+            "note": labels.get(rec_topic, rec_topic.replace("_", " ").title()),
+        }
+        (same if topic and rec_topic == topic else other).append(item)
+    return {"same_topic": same[:limit], "other_topics": other[:limit],
+            "same_topic_total": len(same), "other_topics_total": len(other)}
+
+
 def _topic_url_slug(topic_name: str, locale: str) -> str:
     """Return the URL slug for a topic in the given locale."""
     labels = get_topic_labels(locale)
@@ -7484,8 +7520,12 @@ async def public_venue_detail(request: Request, city_slug: str, venue_slug: str)
     venue["record_key"] = _vrk_detail(venue.get("name", ""), city_name)
     city_locale = _city_locale(city_name)
     topic_url_slugs = {t.name: _topic_url_slug(t.name, city_locale) for t in (app_state.topics or [])}
+    _city_records = await asyncio.to_thread(
+        get_communities_for_city, app_state.db_path, city_name) if app_state.db_path else []
     return templates.TemplateResponse(request, "public_venue_detail.html", {
         "v": venue,
+        "related": related_communities(_city_records, exclude_key="", topic=None,
+                                       locale="hu"),
         "city": city_name,
         "city_slug": city_slug,
         "communities": communities,
@@ -7550,8 +7590,12 @@ async def public_person_detail(request: Request, city_slug: str, name_slug: str)
     social_links = list(dict.fromkeys(
         lnk for p in merged for lnk in (p.get("social_links") or [])
     ))
+    _city_records = await asyncio.to_thread(
+        get_communities_for_city, app_state.db_path, city_name) if app_state.db_path else []
     return templates.TemplateResponse(request, "public_person_detail.html", {
         "person": person,
+        "related": related_communities(_city_records, exclude_key="", topic=None,
+                                       locale="hu"),
         "bio": bio,
         "website": website,
         "social_links": social_links,
@@ -7604,8 +7648,17 @@ async def public_city_segment(
         community_persons = get_persons_for_community(
             app_state.db_path, record["name"], city_name
         ) if app_state.db_path else []
+        # One query for the whole city, sliced two ways. Off the loop because a
+        # large city is a real read and the loop also serves everyone else.
+        _city_records = await asyncio.to_thread(
+            get_communities_for_city, app_state.db_path, city_name)
+        related = related_communities(
+            _city_records,
+            exclude_key=_community_record_key(record["name"], city_name, rec_topic),
+            topic=rec_topic, locale=city_locale)
         return templates.TemplateResponse(request, "public_community.html", {
             "r": record,
+            "related": related,
             "topic": rec_topic,
             "topic_slug": _topic_url_slug(rec_topic, city_locale),
             "city": city_name,

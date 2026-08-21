@@ -1,0 +1,38 @@
+{#
+  Related listings at the foot of a detail page.
+
+  23,461 of our pages sit in Google's "Crawled – currently not indexed" —
+  fetched, looked at, and judged not worth keeping. A community page's unique
+  content was a name, a city, a topic and often one line, inside a template
+  identical across tens of thousands of URLs. Real links to real neighbours are
+  content *and* a crawl path: they let a city's pages reinforce each other
+  instead of each standing alone.
+
+  Capped on purpose. Budapest has hundreds of communities and the Tailwind CDN
+  scans the whole DOM before the page paints — a page that dumps every sibling
+  is slower and no more useful than one that shows a screenful and links on.
+#}
+
+{% macro related_block(title, items, more_url=None, more_label=None) %}
+{% if items %}
+<section class="mt-8 pt-6 border-t border-[#F5F2EC]">
+  <h2 class="text-sm font-semibold text-[#8C8478] uppercase tracking-[0.08em] mb-4">{{ title }}</h2>
+  <ul class="grid gap-2 sm:grid-cols-2">
+    {% for item in items %}
+    <li>
+      <a href="{{ item.url }}"
+         class="block px-3 py-2 rounded-lg bg-[#FBF9F5] hover:bg-[#F5F2EC] transition-colors">
+        <span class="block text-sm font-medium text-[#2E2A24]">{{ item.name }}</span>
+        {% if item.note %}
+        <span class="block text-xs text-[#8C8478] mt-0.5">{{ item.note }}</span>
+        {% endif %}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% if more_url and more_label %}
+  <a href="{{ more_url }}" class="inline-block mt-3 text-sm text-[#7A6A55] hover:underline">{{ more_label }}</a>
+  {% endif %}
+</section>
+{% endif %}
+{% endmacro %}

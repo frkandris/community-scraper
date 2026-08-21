@@ -2,6 +2,7 @@
 {% block title %}{{ v.name }} – {{ site_name }}{% endblock %}
 {% block og_image_url %}/static/img/og/{% if v.welcomed_topics %}{{ v.welcomed_topics[0] }}{% else %}default{% endif %}.png{% endblock %}
 {% block og_desc %}{{ v.description or (v.name + ' helyszín ' + city + 'ban.') }}{% endblock %}
+{% from "_related.html" import related_block %}
 {% block content %}
 
 <!-- Mini gradient strip -->
@@ -258,5 +259,14 @@ async function submitVenueEditRequest(event, form) {
   }
 }
 </script>
+
+{# A path into the rest of the city. A detail page that links nowhere is a
+   dead end for a reader and for a crawler — see _related.html. #}
+{% if related %}
+{{ related_block(t('related_in_city', city=city), related.other_topics,
+                 '/' ~ (city | slugify),
+                 t('related_see_all_city', city=city)
+                   if related.other_topics_total > related.other_topics | length else None) }}
+{% endif %}
 
 {% endblock %}

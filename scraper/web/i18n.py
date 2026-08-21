@@ -856,6 +856,12 @@ _T: dict[str, dict[str, str]] = {
     "community_feedback_cancel": "Cancel",
     "community_feedback_thanks": "Thanks for your feedback!",
     "community_get_involved": "Get involved",
+    # Related listings at the foot of a detail page — content and crawl path
+    # both, for pages Google fetched and declined to index.
+    "related_same_topic": "More {topic} in {city}",
+    "related_in_city": "Other communities in {city}",
+    "related_see_all_topic": "See all {count}",
+    "related_see_all_city": "All communities in {city}",
     "footer_feedback_prompt": "How could we make this site better?",
     "footer_feedback_email_placeholder": "Your email (optional)",
     "footer_feedback_send": "Send",
@@ -1068,6 +1074,10 @@ _T: dict[str, dict[str, str]] = {
     "community_feedback_cancel": "Mégse",
     "community_feedback_thanks": "Köszönjük a visszajelzést!",
     "community_get_involved": "Csatlakozz",
+    "related_same_topic": "További {topic} {city} városában",
+    "related_in_city": "Egyéb közösségek {city} városában",
+    "related_see_all_topic": "Mind a(z) {count} megtekintése",
+    "related_see_all_city": "{city} összes közössége",
     "footer_feedback_prompt": "Hogyan tehetnénk jobbá ezt az oldalt?",
     "footer_feedback_email_placeholder": "E-mail cím (opcionális)",
     "footer_feedback_send": "Küldés",

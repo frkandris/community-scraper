@@ -4,6 +4,7 @@
 {% block og_image_url %}/static/img/og/{{ topic or 'default' }}.png{% endblock %}
 {% block og_desc %}{{ r.short_description or (r.description | truncate(160, True, '...')) if (r.short_description or r.description) else t('community_og_fallback', name=r.name) }}{% endblock %}
 
+{% from "_related.html" import related_block %}
 {% block content %}
 
 <!-- Mini gradient strip -->
@@ -710,5 +711,21 @@ async function submitReport() {
   document.getElementById('report-thanks').classList.remove('hidden');
 }
 </script>
+
+{# Neighbours, at the foot of the page. See _related.html for why. #}
+{% if related %}
+{{ related_block(
+     t('related_same_topic', topic=topic_labels.get(topic, topic or ''), city=city)
+       if topic else t('related_in_city', city=city),
+     related.same_topic,
+     '/' ~ (city | slugify) ~ '/' ~ topic_slug if topic else None,
+     t('related_see_all_topic', count=related.same_topic_total) if related.same_topic_total > related.same_topic | length else None) }}
+
+{{ related_block(
+     t('related_in_city', city=city),
+     related.other_topics,
+     '/' ~ (city | slugify),
+     t('related_see_all_city', city=city) if related.other_topics_total > related.other_topics | length else None) }}
+{% endif %}
 
 {% endblock %}
