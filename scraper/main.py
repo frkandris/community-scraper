@@ -371,17 +371,6 @@ async def main() -> None:
             finally:
                 app_state.run_coordinator.release(task)
 
-    async def _scheduled_run() -> None:
-        await _cron_run("full", "smart", None)
-
-    async def _search_collector_run() -> None:
-        # DataForSEO gyűjtögetés: search + fetch, zero LLM (standard mode ajánlott)
-        await _cron_run("search_only", "collect", _settings_schedule().get("search_until"))
-
-    async def _offpeak_extract_run() -> None:
-        # DeepSeek off-peak: extract the already-collected pages only
-        await _cron_run("ai_only", "re-ai", _settings_schedule().get("extract_until"))
-
     #: How long enrichment waits out a per-minute limit before trying again.
     #: Longer than the 60s windows the free tiers publish, short enough that a
     #: 9.5-hour budget is not spent asleep.
@@ -736,36 +725,7 @@ async def main() -> None:
             # Enrichment coexists with extraction (it does not take the run
             # slot), and with no window to wait for it should simply be running.
             app_state._enrich_boot_task = asyncio.create_task(_enrich_run())
-    if _settings_cron_enabled():
-        minute, hour, day, month, day_of_week = _cron_fields(cron_expr)
-        scheduler.add_job(
-            _scheduled_run, CronTrigger(
-                minute=minute, hour=hour, day=day, month=month, day_of_week=day_of_week,
-            ),
-            misfire_grace_time=900,
-        )
-        log.info("scheduler_cron_enabled", cron=cron_expr, version=app_state.version)
-
     schedule_cfg = _settings_schedule()
-    if schedule_cfg.get("saver_enabled") and not worker_enabled:
-        # Cost-saver twin jobs: search collects cheaply during the day; extraction
-        # runs only in DeepSeek's off-peak window on the already-collected pages.
-        # Complementary *_until windows keep the two from overlapping (single-run
-        # guard would otherwise skip one).
-        for job_fn, cron_key, default_cron in (
-            (_search_collector_run, "search_cron", "0 1 * * *"),
-            (_offpeak_extract_run, "extract_cron", "30 0 * * *"),
-        ):
-            m, h, d, mo, dow = _cron_fields(str(schedule_cfg.get(cron_key) or default_cron))
-            scheduler.add_job(
-                job_fn, CronTrigger(minute=m, hour=h, day=d, month=mo, day_of_week=dow),
-                misfire_grace_time=3600,
-            )
-        log.info("scheduler_saver_enabled",
-                 search_cron=schedule_cfg.get("search_cron"),
-                 search_until=schedule_cfg.get("search_until"),
-                 extract_cron=schedule_cfg.get("extract_cron"),
-                 extract_until=schedule_cfg.get("extract_until"))
     if schedule_cfg.get("enrich_enabled") and not worker_enabled:
         # Managed off-peak description enrichment — survives restarts (re-registered
         # here every startup + a startup-resume hook below). Runs only in DeepSeek's
@@ -792,8 +752,9 @@ async def main() -> None:
             minute=rm, hour=rh, day=rd, month=rmo, day_of_week=rdow), misfire_grace_time=3600)
         log.info("scheduler_report_enabled", cron=_settings_schedule().get("report_cron"))
 
-    if not _settings_cron_enabled() and not schedule_cfg.get("saver_enabled"):
-        log.info("scheduler_started_paused", cron=cron_expr, version=app_state.version)
+    if not worker_enabled:
+        log.warning("worker_disabled", version=app_state.version,
+                    hint="schedule.worker_enabled is off — nothing will run")
 
     async def _startup_run() -> None:
         await asyncio.sleep(5)
