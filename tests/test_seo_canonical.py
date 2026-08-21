@@ -84,10 +84,17 @@ def test_described_community_page_is_indexable(seo_client):
     assert 'content="noindex"' not in r.text
 
 
-def test_thin_community_page_is_noindexed(seo_client):
+def test_a_community_without_a_description_is_still_indexable(seo_client):
+    """The `noindex` was right when such a page was a name and nothing else.
+
+    It now lists its neighbours in the same town — content and a crawl path
+    both — while 68% of the corpus was excluding itself from search and 23,461
+    pages sat in "Crawled – currently not indexed". Hiding them was never going
+    to get them indexed.
+    """
     for headers in (KOZ, MEET):
         r = seo_client.get("/budapest/ures-klub", headers=headers)
-        assert 'content="noindex"' in r.text
+        assert 'content="noindex"' not in r.text
 
 
 def test_homepage_unaffected(seo_client):
@@ -96,11 +103,16 @@ def test_homepage_unaffected(seo_client):
     assert 'content="noindex"' not in r.text
 
 
-def test_kozossegek_sitemap_lists_only_indexable_pages(seo_client):
+def test_kozossegek_sitemap_submits_every_visible_community(seo_client):
+    """Indexable and unlisted is a contradiction Google resolves by ignoring us.
+
+    7,470 URLs are already stuck in "Discovered – currently not indexed";
+    leaving a page out of the sitemap means the only way to it is a crawl.
+    """
     xml = seo_client.get("/sitemap.xml", headers=KOZ).text
     assert "kozossegek.com/budapest<" in xml
     assert "/budapest/zenei-kor" in xml
-    assert "/budapest/ures-klub" not in xml
+    assert "/budapest/ures-klub" in xml
 
 
 def test_meetapedia_sitemap_omits_hu_cities(seo_client):

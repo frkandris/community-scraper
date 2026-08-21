@@ -5426,8 +5426,13 @@ def _build_sitemap(ctx: dict) -> str:
                 topic_sl = _topic_url_slug(topic_name, city_locale)
                 locs.append(f"{base}/{city_sl}/{topic_sl}")
                 for record in by_pair.get((city_name, topic_name), ()):
-                    if record["thin"]:
-                        continue  # noindexed — keep out of the sitemap
+                    # Described or not, every visible community is submitted.
+                    # The page used to be noindexed without a description, so
+                    # listing it here would have contradicted its own meta tag;
+                    # now it carries its neighbours and is indexable, and
+                    # leaving it out would mean Google can only find it by
+                    # crawling — with 7,470 URLs already stuck in "Discovered –
+                    # currently not indexed", that is the slow road to nowhere.
                     name_sl = _slugify(record["name"])
                     if name_sl:
                         loc = f"{base}/{city_sl}/{name_sl}"
@@ -7674,8 +7679,19 @@ async def public_city_segment(
             "all_topic_names": [(t.name, TOPIC_LABELS.get(t.name, t.name.replace("_", " ").title()))
                                 for t in (app_state.topics or [])],
             "canonical_base": _canonical_base(request, city_name),
-            "page_noindex": not ((record.get("description") or "").strip()
-                                  or (record.get("long_description") or "").strip()),
+            # Indexable whether or not it has a description. The guard was
+            # added when a community page with no description really was
+            # nothing — a name, a city, a topic, and links only to its own
+            # header pickers. It now carries up to two dozen links to real
+            # neighbours in the same town, which is content and a crawl path
+            # at once, and 68% of the corpus was excluding itself from search
+            # while 23,461 pages sat in "Crawled – currently not indexed".
+            #
+            # The risk is stated rather than hidden: these pages differ from
+            # their siblings mainly by title until enrichment reaches them, so
+            # if Google starts treating them as near-duplicates the answer is
+            # to make them substantive, not to hide them again.
+            "page_noindex": False,
             "breadcrumbs": _crumbs(
                 request,
                 (city_name, f"/{city_slug}"),

@@ -146,3 +146,26 @@ def test_every_link_a_community_page_offers_resolves(site):
 
     broken = [p for p in sorted(internal) if site.visit(p).status >= 400]
     assert not broken, f"dead links: {broken}"
+
+
+def test_a_community_without_a_description_is_still_offered_to_search_engines(site, tmp_path):
+    """68% of the corpus has no long description and used to exclude itself.
+
+    The `noindex` made sense when such a page was a name and nothing else. It
+    now lists its neighbours, which is content and a crawl path — and hiding
+    23,461 pages from search was never going to get them indexed.
+    """
+    from scraper.models import CommunityRecord
+    from scraper.store import save_results
+    from scraper.web.state import app_state
+
+    save_results("Szentendre", "running", [CommunityRecord(
+        name="Leírás Nélküli Klub", topic="running", city="Szentendre", locale="hu",
+        source_url="https://example.test/x", description="",
+        extracted_at="2026-08-01T00:00:00+00:00")], app_state.db_path)
+
+    page = site.visit("/szentendre/leiras-nelkuli-klub")
+    assert page.status == 200
+    assert page.is_indexable
+    # And it is not a dead end: it reaches the rest of the city.
+    assert page.links_to("/szentendre/szentendrei-sakk-kor")
