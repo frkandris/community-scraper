@@ -97,3 +97,6 @@ doing that while 23,461 pages are being re-evaluated after
 - GitHub disables schedules on a repository with no activity for 60 days.
 - The workflow checks reachability, not correctness. It cannot tell you the
   extraction stopped producing records — that is what the daily report is for.
+- Neither one tells you whether any of the traffic converts. That is the
+  [[acquisition-funnel]], carried by `/v1/funnel` and the report's
+  **Vevőszerzés** block since 2026-08-21.

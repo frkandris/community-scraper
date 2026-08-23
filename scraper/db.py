@@ -3642,3 +3642,85 @@ def get_sitemap_communities(db_path: Path) -> dict[tuple[str, str], list[dict]]:
         out.setdefault((city or "", topic or ""), []).append(
             {"name": name, "thin": not described})
     return out
+
+
+def get_funnel_counts(db_path: Path, days: int = 30) -> dict:
+    """The acquisition funnel, end to end, in one call.
+
+    Every stage of it was already being recorded — pageviews, unique visitors,
+    outclicks, subscriptions, claims, submissions — and none of it was readable
+    without the admin password, so "is anything converting?" had no answer and
+    the honest one was a guess. A funnel nobody can see is a funnel nobody
+    tunes; the same blind spot let a 90% index collapse pass unremarked.
+
+    `days` bounds the recent columns. Totals are lifetime.
+    """
+    empty = {
+        "visitors": 0, "pageviews": 0, "outclicks": 0, "outclicks_total": 0,
+        "subscriptions": 0, "subscriptions_total": 0, "subscribers_total": 0,
+        "claims": 0, "claims_total": 0, "submissions": 0, "submissions_total": 0,
+        "edit_requests": 0, "edit_requests_total": 0,
+        "reports": 0, "reports_total": 0,
+        "records": 0, "records_with_email": 0, "records_with_website": 0,
+        "days": days,
+    }
+    if not db_path.exists():
+        return empty
+    out = dict(empty)
+    since = f"-{int(days)} days"
+
+    def _one(sql: str, *params) -> int:
+        try:
+            row = conn.execute(sql, params).fetchone()
+        except sqlite3.OperationalError:
+            # A table added after this database was created. Report zero rather
+            # than failing the whole funnel over one missing column.
+            return 0
+        return int(row[0] or 0) if row else 0
+
+    with _connect(db_path) as conn:
+        out["pageviews"] = _one(
+            "SELECT SUM(pageviews) FROM traffic_daily WHERE day >= date('now',?)", since)
+        out["visitors"] = _one(
+            "SELECT COUNT(*) FROM traffic_visitors WHERE day >= date('now',?)", since)
+        out["outclicks"] = _one(
+            "SELECT COUNT(*) FROM outclick_events WHERE clicked_at >= datetime('now',?)", since)
+        out["outclicks_total"] = _one("SELECT COUNT(*) FROM outclick_events")
+        out["subscriptions"] = _one(
+            "SELECT COUNT(*) FROM subscriptions WHERE created_at >= datetime('now',?)", since)
+        out["subscriptions_total"] = _one("SELECT COUNT(*) FROM subscriptions")
+        # One person subscribing to four topics is one subscriber, four rows —
+        # and it is the person a mail goes to, so count them separately.
+        out["subscribers_total"] = _one("SELECT COUNT(DISTINCT email) FROM subscriptions")
+        out["claims"] = _one(
+            "SELECT COUNT(*) FROM edit_requests WHERE change_type='claim'"
+            " AND submitted_at >= datetime('now',?)", since)
+        out["claims_total"] = _one(
+            "SELECT COUNT(*) FROM edit_requests WHERE change_type='claim'")
+        out["edit_requests"] = _one(
+            "SELECT COUNT(*) FROM edit_requests WHERE change_type<>'claim'"
+            " AND submitted_at >= datetime('now',?)", since)
+        out["edit_requests_total"] = _one(
+            "SELECT COUNT(*) FROM edit_requests WHERE change_type<>'claim'")
+        out["submissions"] = _one(
+            "SELECT COUNT(*) FROM community_submissions WHERE submitted_at >= datetime('now',?)",
+            since)
+        out["submissions_total"] = _one("SELECT COUNT(*) FROM community_submissions")
+        out["reports"] = _one(
+            "SELECT COUNT(*) FROM not_community_reports WHERE reported_at >= datetime('now',?)",
+            since)
+        out["reports_total"] = _one("SELECT COUNT(*) FROM not_community_reports")
+        out["records"] = _one("SELECT COUNT(*) FROM communities")
+        if _has_json1(conn):
+            # Contactability of the corpus. Not a licence to mail any of it —
+            # Hungary's Advertising Act (2008. XLVIII. §6) needs prior express
+            # consent for advertising email to a natural person, with no
+            # legitimate-interest escape. This is here to size what an opt-in
+            # channel could reach, not to build a send list.
+            out["records_with_email"] = _one(
+                "SELECT COUNT(*) FROM communities"
+                " WHERE COALESCE(json_extract(data,'$.email'),'') <> ''")
+            out["records_with_website"] = _one(
+                "SELECT COUNT(*) FROM communities"
+                " WHERE COALESCE(json_extract(data,'$.website'),'') <> ''")
+    return out

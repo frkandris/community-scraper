@@ -98,3 +98,7 @@ None of this was visible from inside the system. The daily report counts
 records, pages and visitors; it never counted *indexed* pages, so a 90% index
 collapse produced no alert and no line anywhere. GA4 showed the traffic fall as
 a small number getting smaller.
+
+## Update, 2026-08-21
+
+A likelier explanation than thin content alone turned up when a live page was finally measured rather than read: 76% of every community page was a hidden city dropdown, byte-identical across all 42,091 of them, so two community pages agreed on roughly nine words in ten. The pages were thin *and* padded with shared boilerplate, which is the near-duplicate shape that produces "Crawled – currently not indexed" at this scale. See [[2026-08-boilerplate-outweighed-the-content]].

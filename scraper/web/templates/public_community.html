@@ -429,10 +429,13 @@
       <!-- Wrong city -->
       <div id="rf-city-field" class="hidden mb-4">
         <label class="block text-xs font-medium text-[#6A6259] mb-1">{{ t('community_report_correct_city') }}</label>
-        <select id="rf-new-city"
+        {# Options are fetched from /api/cities.json when this field is first
+           opened. Rendering them here cost 176 KB on every one of 42,091
+           community pages — 76% of the document, identical on all of them,
+           inside a hidden div nobody ever saw. #}
+        <select id="rf-new-city" data-cities-url="/api/cities.json"
           class="w-full text-sm px-3 py-2 border border-[#D8D1C4] rounded-lg focus:outline-none focus:border-[#C2613A] text-[#1C1917] bg-white">
           <option value="">{{ t('community_report_select_city') }}</option>
-          {% for c in all_cities | default([]) %}<option value="{{ c }}"{% if c == city %} selected{% endif %}>{{ c }}</option>{% endfor %}
         </select>
       </div>
 
@@ -643,6 +646,32 @@ function closeReport() {
   onReportType('');
 }
 
+// The city list arrives on demand. It is 176 KB of <option> and it belongs to
+// one branch of one form that most visitors never open — inlining it made it
+// 76% of every community page, and identical on all of them.
+let citiesLoaded = false;
+async function loadCities() {
+  const sel = document.getElementById('rf-new-city');
+  if (citiesLoaded || !sel) return;
+  citiesLoaded = true;  // set first: a double-click must not fetch twice
+  try {
+    const res = await fetch(sel.dataset.citiesUrl);
+    if (!res.ok) throw new Error(res.status);
+    const here = {{ city | tojson }};
+    const frag = document.createDocumentFragment();
+    for (const name of (await res.json()).cities || []) {
+      const o = document.createElement('option');
+      o.value = name; o.textContent = name;
+      if (name === here) o.selected = true;
+      frag.appendChild(o);
+    }
+    sel.appendChild(frag);
+  } catch (_) {
+    // Leave the placeholder in place and let the visitor retry by reopening.
+    citiesLoaded = false;
+  }
+}
+
 function onReportType(val) {
   const show = id => document.getElementById(id).classList.remove('hidden');
   const hide = id => document.getElementById(id).classList.add('hidden');
@@ -650,7 +679,7 @@ function onReportType(val) {
    'rf-notes-field','rf-message-field','rf-email-field','rf-actions'].forEach(hide);
   if (!val) return;
   if (val === 'not_community') { show('rf-not-community'); }
-  else if (val === 'wrong_city')       { show('rf-city-field');  show('rf-notes-field'); }
+  else if (val === 'wrong_city')       { loadCities(); show('rf-city-field');  show('rf-notes-field'); }
   else if (val === 'wrong_topic')      { show('rf-topic-field'); show('rf-notes-field'); }
   else if (val === 'name_correction')  { show('rf-name-field');  show('rf-notes-field'); }
   else if (val === 'other')            { show('rf-message-field'); show('rf-email-field'); }

@@ -114,25 +114,28 @@
   {% if venues %}
 
   {# Shared A-Z + free-text header, identical to the cities/people pages. #}
-  {{ lf.filter_bar(t, target='#venue-list', group='[data-city-section]') }}
+  {# No group selector: both branches are now flat lists of [data-name] items.
+     listing.js hides a group when it holds no visible child, so an element
+     that is both the group and the item hides itself on every keystroke. #}
+  {{ lf.filter_bar(t, target='#venue-list') }}
 
   <div id="venue-list">
   {# Group by city when no specific filter, else flat list #}
   {% if not selected_city %}
 
-    {% for city_group in city_sections %}
-    <section data-city-section class="mb-5">
-      <h3 class="text-sm font-semibold text-[#4A4441] mb-3 flex items-center gap-2">
-        <a href="/{{ city_group.name | slugify }}" class="hover:text-[#A8512F] transition-colors">{{ city_group.name }}</a>
-        <span class="text-xs font-normal text-[#B5ADA0]">{{ city_group.venues | length }}</span>
-      </h3>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {% for v in city_group.venues %}
-        {{ _venue_card(v) }}
-        {% endfor %}
-      </div>
-    </section>
-    {% endfor %}
+    {# A city index, not every card. Rendering all of them made this page
+       15.5 MB and 34 seconds — nobody scrolls 7,676 venues, and Googlebot
+       gives up long before the end of one. Each city links to its own list. #}
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+      {% for city_group in city_sections %}
+      <a data-name="{{ city_group.name }}"
+         href="/helyszinek?city={{ city_group.name | urlencode }}"
+         class="flex items-center justify-between gap-2 px-3 py-2 bg-white border border-[#EAE5DB] rounded-lg hover:border-[#C2613A] transition-colors">
+        <span class="text-sm text-[#1C1917] truncate">{{ city_group.name }}</span>
+        <span class="text-xs text-[#B5ADA0]">{{ city_group.count }}</span>
+      </a>
+      {% endfor %}
+    </div>
 
   {% else %}
 

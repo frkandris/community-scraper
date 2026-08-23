@@ -97,7 +97,8 @@ def fetch_ga4_traffic(day: str) -> dict | None:
 
 
 def build_report_html(day: str, summary: dict, traffic: dict,
-                      ga4: dict | None = None) -> tuple[str, str]:
+                      ga4: dict | None = None,
+                      funnel: dict | None = None) -> tuple[str, str]:
     """Returns (subject, html)."""
     hu, intl = summary["hu"], summary["intl"]
     totals = summary["totals"]
@@ -128,6 +129,37 @@ def build_report_html(day: str, summary: dict, traffic: dict,
 
     def s_site(sc: str, key: str) -> int:
         return stock.get(sc, {}).get(key, 0)
+
+    # The funnel. Pageviews and visitors already had a table; what a visit
+    # *leads to* did not, so the only reachable conclusion from the report was
+    # "traffic went up or down". An outclick is the one event where the site
+    # did its job — someone left for the community itself.
+    funnel_html = ""
+    if funnel:
+        _stages = [
+            ("Kimenő kattintás", funnel["outclicks"], funnel["outclicks_total"]),
+            ("Feliratkozás", funnel["subscriptions"], funnel["subscriptions_total"]),
+            ("Közösség igénylés", funnel["claims"], funnel["claims_total"]),
+            ("Beküldött közösség", funnel["submissions"], funnel["submissions_total"]),
+            ("Javítási kérés", funnel["edit_requests"], funnel["edit_requests_total"]),
+        ]
+        _rows = "".join(
+            f"<tr><td style='padding:4px 12px 4px 0'>{label}</td>"
+            f"<td align='right' style='padding:4px 8px;font-weight:600'>{recent}</td>"
+            f"<td align='right' style='padding:4px 0 4px 8px;color:#8C8478'>{total}</td></tr>"
+            for label, recent, total in _stages)
+        _days = funnel.get("days", 30)
+        funnel_html = f"""
+  <h3 style="margin:18px 0 6px">Vevőszerzés</h3>
+  <table style="border-collapse:collapse;font-size:14px">
+    <tr style="color:#8C8478;font-size:12px">
+      <td style="padding:4px 12px 4px 0"></td>
+      <td align="right" style="padding:4px 8px">{_days} nap</td>
+      <td align="right" style="padding:4px 0 4px 8px">Mindösszesen</td></tr>
+    {_rows}
+  </table>
+  <p style="color:#B5ADA0;font-size:11px;margin:4px 0 16px">
+    {funnel["subscribers_total"]} feliratkozó (egyedi email).</p>"""
 
     stock_rows = "".join(
         _ROW.format(label=label, hu=s_site("hu", k), intl=s_site("intl", k),
@@ -270,6 +302,8 @@ def build_report_html(day: str, summary: dict, traffic: dict,
   <p style="color:#B5ADA0;font-size:11px;margin:4px 0 16px">
     {"Forrás: Google Analytics 4. Szerveroldali számláló (bot-szűrt): " + str(t_site("kozossegek", "visitors") + t_site("meetapedia", "visitors")) + " látogató." if ga4 is not None else "Szerveroldali számláló (botok kiszűrve); GA4-bekötéshez GA4_PROPERTY_ID + GA4_CREDENTIALS_JSON env kell."}</p>
 
+  {funnel_html}
+
   <h3 style="margin:0 0 6px">Változások</h3>
   <table style="border-collapse:collapse;font-size:14px">
     <tr style="color:#8C8478;font-size:12px">
@@ -330,7 +364,15 @@ async def send_daily_report(db_path: Path, hu_cities: set, day: str | None = Non
         summary["providers"] = []
     traffic = get_traffic_for_day(db_path, day)
     ga4 = fetch_ga4_traffic(day)
-    subject, html = build_report_html(day, summary, traffic, ga4)
+    # Best-effort, like the provider block above: a missing funnel must not stop
+    # the report that carries everything else.
+    try:
+        from .db import get_funnel_counts
+        funnel = get_funnel_counts(db_path, days=30)
+    except Exception as exc:
+        log.warning("report_funnel_failed", error=str(exc))
+        funnel = None
+    subject, html = build_report_html(day, summary, traffic, ga4, funnel)
 
     import resend
     resend.api_key = api_key

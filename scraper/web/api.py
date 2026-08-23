@@ -413,6 +413,29 @@ async def backlog(authorization: str | None = Header(default=None)):
     }
 
 
+@router.get("/funnel")
+async def funnel(authorization: str | None = Header(default=None), days: int = 30):
+    """The acquisition funnel: visitors → outclicks → subscriptions → claims.
+
+    Separate from /backlog, which measures the crawler. This measures whether
+    any of the crawling reaches a person. Every number in it was already being
+    written to the database and none of it was readable without the admin
+    password, so the honest answer to "is anything converting?" was a guess.
+
+    Cheap on purpose — indexed counts over small tables, no corpus scan — so it
+    can be polled without the cost that makes /backlog a once-a-day question.
+    """
+    if not _authorized(authorization):
+        return _error(401, "Invalid or missing API key.", "invalid_request_error",
+                      "invalid_api_key")
+    if not app_state.db_path:
+        return _error(503, "No database configured.", "server_error", "no_config")
+    from ..db import get_funnel_counts
+    days = max(1, min(int(days or 30), 365))
+    counts = await asyncio.to_thread(get_funnel_counts, app_state.db_path, days)
+    return {"object": "funnel", **counts}
+
+
 @router.get("/logs")
 async def logs(
     authorization: str | None = Header(default=None),

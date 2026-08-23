@@ -4936,6 +4936,19 @@ async def public_claim_community(
 ):
     if not community_name or not claimant_email:
         return JSONResponse({"ok": False, "error": "missing_fields"})
+    # Persist before mailing. A claim is the strongest signal the public site
+    # produces — someone running the group types their address in and asks for
+    # it — and it was going out as an email and nowhere else. With no key set,
+    # or a Resend failure, it vanished while the visitor was told "ok".
+    if app_state.db_path:
+        try:
+            from ..db import init_db, save_edit_request
+            await asyncio.to_thread(init_db, app_state.db_path)
+            await asyncio.to_thread(
+                save_edit_request, app_state.db_path, "community", community_id,
+                community_name, city, "", "", "claim", None, page_url, claimant_email)
+        except Exception as exc:  # noqa: BLE001 — never fail the visitor's request
+            log.warning("claim_store_failed", error=str(exc))
     if _FEEDBACK_EMAIL and _RESEND_API_KEY:
         try:
             import resend
@@ -5282,12 +5295,37 @@ async def public_map_en(request: Request):
     return await _render_map(request)
 
 
+@_fastapi.get("/api/cities.json")
+async def public_cities_json(request: Request):
+    """City names for the pickers that used to be server-rendered on every page.
+
+    One cacheable download shared by every page on the site, instead of 176 KB
+    of <option> inlined into each of 42,091 documents. Site-scoped: the HU
+    domain offers Hungarian cities, exactly as the old server-rendered list did.
+    """
+    from fastapi.responses import JSONResponse as _JSONResponse
+    names = sorted((c.name for c in _site_cities(request)), key=_hu_sort_key)
+    return _JSONResponse(
+        {"cities": names},
+        # The list changes when a city is added — a deploy. A day is safe and
+        # makes this free for anyone reading more than one page.
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
 @_fastapi.get("/submit-community", response_class=HTMLResponse)
 @_fastapi.get("/kozosseg-bekuldes", response_class=HTMLResponse)
 async def submit_community_get(request: Request, city: str = "", topic: str = ""):
     init_db(_db())
     submitted = request.query_params.get("submitted") == "1"
-    all_cities = sorted((c.name for c in (app_state.cities or [])), key=_hu_sort_key)
+    # Site-scoped, like every other city list on the public site. It was
+    # offering all 3,914 configured cities on both domains, so a visitor to the
+    # Hungarian site could submit a Swedish community to a site that will never
+    # show it — and paid 273 KB of <option> for the privilege. This select is
+    # `required` and posted as a plain form, so it stays server-rendered: on
+    # the page where a broken control costs the conversion outright, half the
+    # weight is worth more than all of it.
+    all_cities = sorted((c.name for c in _site_cities(request)), key=_hu_sort_key)
     _topic_labels = get_topic_labels(lang_context(request)["lang"])
     all_topics = [
         {"name": t.name, "label": _topic_labels.get(t.name, t.name.replace("_", " ").title())}
@@ -7363,9 +7401,16 @@ _fastapi.include_router(_gateway_router)
 async def public_venues(request: Request, city: str = "", topic: str = ""):
     if not app_state.db_path:
         return RedirectResponse("/", status_code=302)
-    init_db(app_state.db_path)
+    # Off the loop, both of them. Unfiltered, this route read every venue in the
+    # database and rendered every one of them: measured live on 2026-08-21 the
+    # page was **15.5 MB and took 34 seconds**, all of it on the event loop, so
+    # a single request to it — a visitor's or Googlebot's — stalled the whole
+    # site for the duration. The site losing minutes several times a day has
+    # been chased all week as a deploy problem.
+    await asyncio.to_thread(init_db, app_state.db_path)
     site_names = {c.name for c in _site_cities(request)}
-    all_venues = [v for v in get_all_venues(app_state.db_path) if v.get("city", "") in site_names]
+    all_venues = [v for v in await asyncio.to_thread(get_all_venues, app_state.db_path)
+                  if v.get("city", "") in site_names]
 
     # Filter
     filtered = all_venues
@@ -7386,7 +7431,7 @@ async def public_venues(request: Request, city: str = "", topic: str = ""):
     for v in filtered:
         city_map[v.get("city") or "—"].append(v)
     city_sections = [
-        {"name": ci, "venues": vs}
+        {"name": ci, "venues": vs, "count": len(vs)}
         for ci, vs in sorted(city_map.items(), key=lambda kv: (-len(kv[1]), _hu_sort_key(kv[0])))
     ]
 
@@ -7418,9 +7463,12 @@ async def _render_people(request: Request, city: str = ""):
             "city_groups": [], "total_persons": 0, "all_cities": [],
             "selected_city": city, **lang_context(request),
         })
-    init_db(app_state.db_path)
+    # Same treatment as /helyszinek: this page renders little, but it still
+    # reads every person in the database, and a table scan on the event loop
+    # stalls every other request for as long as it runs.
+    await asyncio.to_thread(init_db, app_state.db_path)
     site_names = {c.name for c in _site_cities(request)}
-    all_persons = get_all_persons(app_state.db_path)
+    all_persons = await asyncio.to_thread(get_all_persons, app_state.db_path)
     # Deduplicate: one card per person (name+city slug), merged across communities
     seen: dict[tuple, dict] = {}
     for p in all_persons:
@@ -7675,7 +7723,16 @@ async def public_city_segment(
             "record_key": _community_record_key(record["name"], city_name, rec_topic),
             "community_venue": community_venue,
             "community_persons": community_persons,
-            "all_cities": sorted((c.name for c in (app_state.cities or [])), key=_hu_sort_key),
+            # No `all_cities` here on purpose. The wrong-city picker in the
+            # report form used to render every configured city as an <option>:
+            # 3,922 of them, 176 KB, **76% of the page**, byte-identical across
+            # all 42,091 community pages and sitting inside two nested `hidden`
+            # divs where no visitor ever saw it. Measured on the live page, the
+            # document held 5,089 words of text of which 510 were the community
+            # — the rest was a dropdown. That is what a near-duplicate looks
+            # like to a crawler, and 23,461 of these pages are sitting in
+            # "Crawled – currently not indexed". The picker now fetches
+            # /api/cities.json the first time someone opens it.
             "all_topic_names": [(t.name, TOPIC_LABELS.get(t.name, t.name.replace("_", " ").title()))
                                 for t in (app_state.topics or [])],
             "canonical_base": _canonical_base(request, city_name),

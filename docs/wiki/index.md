@@ -50,6 +50,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 
 ## Concepts
 
+- [[acquisition-funnel]] — The stages between a search result and a person who acts — visitors, outclicks, subscriptions, claims, submissions — where each is recorded and what may legally be done with the addresses collected.
 - [[community-identity]] — Two keys: community_id (stable URL slug) vs record_key (topic-aware DB uniqueness).
 - [[search-provider-fallback-chain]] — DataForSEO is the sole search provider (2026-07 cleanup); FallbackSearchClient remains as a single-provider wrapper with per-run exhaustion.
 - [[extraction-provider-fallback-chain]] — FallbackExtractor is the one failure path for every provider; since 2026-08 it carries a routed free-tier fleet instead of a single DeepSeek.
@@ -106,6 +107,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 
 ## Post-mortems
 
+- [[2026-08-boilerplate-outweighed-the-content]] — Every community page shipped a 176 KB hidden city dropdown — 76% of the document, identical on all 42,091 pages — and /helyszinek rendered all 7,676 venues in 15.5 MB over 34 seconds on the event loop.
 - [[2026-05-coverage-page-500]] — app_state.cities/topics are dataclasses, not dicts; dict-style access 500s any route touching them.
 - [[2026-06-coverage-amber-cells]] — get_fully_processed_pairs() and get_city_topic_states() disagreed on which URLs count as done.
 - [[2026-06-seo-traffic-collapse]] — kozossegek.com organic clicks fell from ~95/day to ~0 around 2026-06-01 as ~20K pages were devalued to "Crawled - currently not indexed."

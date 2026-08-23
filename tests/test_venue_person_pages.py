@@ -163,7 +163,14 @@ def test_person_detail_404_redirects(tmp_path):
         app_state.db_path = old_db
 
 
-def test_venues_list_contains_detail_links(tmp_path):
+def test_a_venue_detail_page_is_reachable_from_the_listing(tmp_path):
+    """One hop longer than it used to be, and still a path.
+
+    The unfiltered listing rendered every venue card, which at production scale
+    meant 7,676 of them in a 15.5 MB document served in 34 seconds. It is a city
+    index now; the detail links live in the per-city view it points at, and the
+    sitemap carries every venue page regardless.
+    """
     db = _db(tmp_path)
     v = _venue(name="Müpa Budapest", city="Budapest")
     upsert_venues(db, [v.model_dump()])
@@ -173,9 +180,17 @@ def test_venues_list_contains_detail_links(tmp_path):
     try:
         app_state.db_path = db
         app_state.cities = [CityConfig(name="Budapest", locale="hu", search_variants=[], country="Hungary")]
-        resp = TestClient(web_app.app).get("/helyszinek")
-        assert resp.status_code == 200
-        assert "/budapest/helyszin/mupa-budapest" in resp.text
+        client = TestClient(web_app.app)
+        index = client.get("/helyszinek")
+        assert index.status_code == 200
+        assert "/helyszinek?city=Budapest" in index.text
+
+        city_view = client.get("/helyszinek?city=Budapest")
+        assert city_view.status_code == 200
+        assert "/budapest/helyszin/mupa-budapest" in city_view.text
+
+        xml = client.get("/sitemap.xml", headers={"host": "kozossegek.com"}).text
+        assert "/budapest/helyszin/mupa-budapest" in xml
     finally:
         app_state.db_path = old_db
         app_state.cities = old_cities
