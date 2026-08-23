@@ -25,7 +25,7 @@ retry semantics) for every provider.
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import structlog
@@ -53,6 +53,14 @@ _MIN_TOKENS_TO_START = 2000
 
 def utc_day(now: datetime | None = None) -> str:
     return (now or datetime.now(timezone.utc)).strftime("%Y-%m-%d")
+
+
+def _next_utc_midnight() -> float:
+    """Epoch seconds of the next 00:00 UTC — when free daily budgets reset."""
+    now = datetime.now(timezone.utc)
+    tomorrow = (now + timedelta(days=1)).replace(
+        hour=0, minute=0, second=0, microsecond=0)
+    return tomorrow.timestamp()
 
 
 class QuotaLedger:
@@ -231,7 +239,7 @@ class QuotaLedger:
         self, provider: str, *, ok: bool = True, rate_limited: bool = False,
         retry_after: float | None = None, error: str | None = None,
         spec: ProviderSpec | None = None, reserved: bool = False,
-        tokens: int = 0,
+        tokens: int = 0, billing_blocked: bool = False,
     ) -> None:
         """Record one attempt. Counts even when it failed — a rejected request
         still consumed a slot at most providers, and undercounting is exactly
@@ -254,6 +262,20 @@ class QuotaLedger:
             row["failures"] = int(row.get("failures") or 0) + 1
         blocked_until = None
         observed_limit = None
+        if billing_blocked:
+            # HTTP 402 is not a wait-and-retry condition — the provider is
+            # saying there is no credit. It was recorded as one more failed
+            # call and nothing else, so every new run rebuilt the extractor and
+            # tried again: on 2026-08-22 Cerebras answered 402 to **all 283**
+            # calls it received, and it sits first in the routing order at
+            # quality 80, so each run's best pick was spent on a refusal.
+            # Blocked to the end of the UTC day, which is when free allowances
+            # and trial credit both reset, and persisted so the next run does
+            # not start the day's argument over.
+            blocked_until = _next_utc_midnight()
+            row["blocked_until"] = blocked_until
+            log.warning("provider_billing_blocked", provider=provider,
+                        until="next UTC midnight", error=(error or "")[:120])
         if rate_limited:
             row["rate_limits"] = int(row.get("rate_limits") or 0) + 1
             wait = float(retry_after or 60)

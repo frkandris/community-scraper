@@ -119,3 +119,7 @@ highest-quality model for the whole window.
 - **Do not enable a paid provider to clear a backlog.** The backlog is bounded
   by the run window, not by capacity; paying for it changes the cost model
   ([[cost-optimization-2026-07]]).
+
+## A provider that fails every call
+
+A 100% failure rate is a catalogue question, not a bug in the router. Make the real call and read the error: `billing limit (HTTP 402)` means the free tier is gone, not that the model is. Since 2026-08-23 the ledger blocks a 402 provider until the next UTC midnight and persists it, so the worker stops rebuilding an extractor around a dead provider every few minutes — see [[2026-08-cerebras-free-tier-ended]].

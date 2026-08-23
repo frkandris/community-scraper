@@ -85,8 +85,16 @@ providers:
 
   # ── Cerebras ──────────────────────────────────────────────────────────────
   # Very fast, large daily token budget, smaller catalogue than Groq.
+  # DISABLED 2026-08-23: Cerebras ended its free API tier on 2026-08-17 and
+  # moved existing accounts to a credit-based plan that requires a payment
+  # method. Every call since answers HTTP 402 "billing limit" — 283 of them on
+  # 2026-08-22, all refused, and because gemma-4-31b scores 80 it was the
+  # router's first pick each time. Re-enable only if the account is put on a
+  # paid plan, and then move it behind `router.allow_paid` where paid providers
+  # belong. The ledger now blocks a 402 provider for the rest of the UTC day,
+  # so this line saves one wasted first-choice call a day, not the whole loss.
   - name: cerebras
-    enabled: true
+    enabled: false
     api_key_env: CEREBRAS_API_KEY
     base_url: https://api.cerebras.ai/v1
     rpm: 30
@@ -107,7 +115,13 @@ providers:
     enabled: true
     api_key_env: GEMINI_API_KEY
     base_url: https://generativelanguage.googleapis.com/v1beta/openai
-    rpm: 15
+    # 10, not 15. Google publishes 15 RPM for Flash-Lite but 10 for Flash, and
+    # this is one number for both models: pacing at the higher figure means the
+    # faster model is always slightly over its limit. On 2026-08-22 Gemini took
+    # **301** 429s across 1,200 calls and the breaker had it blocked with 924
+    # requests still unspent. There is no published tokens-per-day cap to model
+    # here — the limits are RPM, TPM and RPD — so `tpd` stays unset.
+    rpm: 10
     rpd: 1500
     models:
       - model: gemini-3.6-flash

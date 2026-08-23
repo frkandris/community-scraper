@@ -19,6 +19,12 @@ from scraper.web import app as web_app
 from scraper.web.state import app_state
 
 KOZ = {"host": "kozossegek.com"}
+# Base64 of "admin:testpass"
+_ADMIN_HEADERS = {
+    "Authorization": "Basic YWRtaW46dGVzdHBhc3M=",
+    "Host": "testserver",
+    "Origin": "http://testserver",
+}
 
 
 @pytest.fixture()
@@ -158,3 +164,58 @@ def test_the_report_survives_a_missing_funnel(funnel_db):
     _, html = build_report_html("2026-08-21", summary, {}, None, None)
     assert "Vevőszerzés" not in html
     assert "Változások" in html
+
+
+def test_the_window_does_not_leak_the_cutoff_day(funnel_db):
+    """Two timestamp formats share this schema and text-compare wrongly.
+
+    Python writes `2026-07-24T00:00:01+00:00`, SQLite's datetime('now') writes
+    `2026-07-24 15:34:25`, and "T" sorts above " " — so a row from fifteen
+    hours outside the window compared as inside it.
+    """
+    import sqlite3
+    from datetime import datetime, timedelta, timezone
+
+    old = (datetime.now(timezone.utc) - timedelta(days=40))
+    # Same calendar day as the cutoff, but hours before it: outside the window.
+    edge = (datetime.now(timezone.utc) - timedelta(days=30)).replace(
+        hour=0, minute=0, second=1)
+    with sqlite3.connect(funnel_db) as c:
+        for stamp in (old.isoformat(), edge.isoformat()):
+            c.execute(
+                "INSERT INTO subscriptions(email, city, topic, token, created_at)"
+                " VALUES(?,?,?,?,?)",
+                (f"{stamp}@example.test", "Budapest", "music", stamp, stamp))
+        c.commit()
+
+    counts = get_funnel_counts(funnel_db, days=7)
+    assert counts["subscriptions"] == 0
+    assert counts["subscriptions_total"] == 2
+
+
+def test_a_claim_can_be_approved(funnel_db):
+    """A claim asks for no field change, so the generic apply path refuses it.
+
+    Approve therefore errored and Reject was the only way to clear the
+    highest-intent row on the page.
+    """
+    from scraper.db import get_edit_requests
+
+    client = TestClient(web_app.app)
+    client.post("/claim-community", data={
+        "community_id": "abc123", "community_name": "Zenei Kör",
+        "city": "Budapest", "page_url": "https://kozossegek.com/budapest/zenei-kor",
+        "claimant_email": "leader@example.test",
+    }, headers=KOZ)
+    pending = get_edit_requests(funnel_db, status="pending")
+    assert len(pending) == 1
+
+    from unittest.mock import patch
+    with patch("scraper.web.app._ADMIN_PASSWORD", "testpass"):
+        r = client.post(f"/admin/edit-requests/{pending[0]['id']}/approve",
+                        headers=_ADMIN_HEADERS)
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+    assert get_edit_requests(funnel_db, status="pending") == []
+    # Approving a claim must not silently mutate the community it names.
+    assert get_edit_requests(funnel_db, status="approved")[0]["change_type"] == "claim"

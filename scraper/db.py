@@ -3647,13 +3647,20 @@ def get_sitemap_communities(db_path: Path) -> dict[tuple[str, str], list[dict]]:
 def get_funnel_counts(db_path: Path, days: int = 30) -> dict:
     """The acquisition funnel, end to end, in one call.
 
-    Every stage of it was already being recorded — pageviews, unique visitors,
-    outclicks, subscriptions, claims, submissions — and none of it was readable
-    without the admin password, so "is anything converting?" had no answer and
-    the honest one was a guess. A funnel nobody can see is a funnel nobody
-    tunes; the same blind spot let a 90% index collapse pass unremarked.
+    Every stage of it was already being recorded — pageviews, outclicks,
+    subscriptions, claims, submissions — and none of it was readable without
+    the admin password, so "is anything converting?" had no answer and the
+    honest one was a guess. A funnel nobody can see is a funnel nobody tunes.
 
-    `days` bounds the recent columns. Totals are lifetime.
+    `days` bounds the recent columns and counts calendar buckets **including
+    today**, so days=1 is today alone.
+
+    Two of the `_total` columns are standing rows, not lifetime events, and the
+    names cannot be made honest without history tables nobody has asked for:
+    the subscription counts drop a person who unsubscribes (the row is deleted
+    by design — consent withdrawn means the address is erased), and
+    `reports_total` counts only reports an admin has not yet handled. Read
+    those as "standing", not "ever".
     """
     empty = {
         "visitors": 0, "pageviews": 0, "outclicks": 0, "outclicks_total": 0,
@@ -3667,7 +3674,20 @@ def get_funnel_counts(db_path: Path, days: int = 30) -> dict:
     if not db_path.exists():
         return empty
     out = dict(empty)
-    since = f"-{int(days)} days"
+
+    # Two timestamp formats share this schema: Python writes ISO-8601 with a
+    # "T" and an offset, SQLite's own datetime('now') writes a space and none.
+    # Comparing them as text silently widens the window — "T" sorts above " ",
+    # so `'2026-07-24T00:00:01+00:00' >= '2026-07-24 15:34:25'` is true and a
+    # row fifteen hours outside the window counts as inside it. Both sides are
+    # normalised to `YYYY-MM-DD HH:MM:SS` here, and the cutoff is computed in
+    # Python so there is exactly one definition of it.
+    from datetime import timedelta as _td
+    now = datetime.now(timezone.utc)
+    cutoff_ts = (now - _td(days=int(days))).strftime("%Y-%m-%d %H:%M:%S")
+    # `days` calendar buckets including today, not days+1: date('now','-30 days')
+    # is inclusive at both ends.
+    cutoff_day = (now - _td(days=int(days) - 1)).strftime("%Y-%m-%d")
 
     def _one(sql: str, *params) -> int:
         try:
@@ -3678,45 +3698,42 @@ def get_funnel_counts(db_path: Path, days: int = 30) -> dict:
             return 0
         return int(row[0] or 0) if row else 0
 
+    def _since(table: str, col: str) -> str:
+        return (f"SELECT COUNT(*) FROM {table}"
+                f" WHERE substr(replace({col},'T',' '),1,19) >= ?")
+
     with _connect(db_path) as conn:
         out["pageviews"] = _one(
-            "SELECT SUM(pageviews) FROM traffic_daily WHERE day >= date('now',?)", since)
+            "SELECT SUM(pageviews) FROM traffic_daily WHERE day >= ?", cutoff_day)
         out["visitors"] = _one(
-            "SELECT COUNT(*) FROM traffic_visitors WHERE day >= date('now',?)", since)
-        out["outclicks"] = _one(
-            "SELECT COUNT(*) FROM outclick_events WHERE clicked_at >= datetime('now',?)", since)
+            "SELECT COUNT(*) FROM traffic_visitors WHERE day >= ?", cutoff_day)
+        out["outclicks"] = _one(_since("outclick_events", "clicked_at"), cutoff_ts)
         out["outclicks_total"] = _one("SELECT COUNT(*) FROM outclick_events")
-        out["subscriptions"] = _one(
-            "SELECT COUNT(*) FROM subscriptions WHERE created_at >= datetime('now',?)", since)
+        out["subscriptions"] = _one(_since("subscriptions", "created_at"), cutoff_ts)
         out["subscriptions_total"] = _one("SELECT COUNT(*) FROM subscriptions")
         # One person subscribing to four topics is one subscriber, four rows —
-        # and it is the person a mail goes to, so count them separately.
+        # and it is the person a mail would go to, so count them separately.
         out["subscribers_total"] = _one("SELECT COUNT(DISTINCT email) FROM subscriptions")
+        # A claim is not a correction; counting them together hides both.
         out["claims"] = _one(
-            "SELECT COUNT(*) FROM edit_requests WHERE change_type='claim'"
-            " AND submitted_at >= datetime('now',?)", since)
+            _since("edit_requests", "submitted_at") + " AND change_type='claim'", cutoff_ts)
         out["claims_total"] = _one(
             "SELECT COUNT(*) FROM edit_requests WHERE change_type='claim'")
         out["edit_requests"] = _one(
-            "SELECT COUNT(*) FROM edit_requests WHERE change_type<>'claim'"
-            " AND submitted_at >= datetime('now',?)", since)
+            _since("edit_requests", "submitted_at") + " AND change_type<>'claim'", cutoff_ts)
         out["edit_requests_total"] = _one(
             "SELECT COUNT(*) FROM edit_requests WHERE change_type<>'claim'")
-        out["submissions"] = _one(
-            "SELECT COUNT(*) FROM community_submissions WHERE submitted_at >= datetime('now',?)",
-            since)
+        out["submissions"] = _one(_since("community_submissions", "submitted_at"), cutoff_ts)
         out["submissions_total"] = _one("SELECT COUNT(*) FROM community_submissions")
-        out["reports"] = _one(
-            "SELECT COUNT(*) FROM not_community_reports WHERE reported_at >= datetime('now',?)",
-            since)
+        out["reports"] = _one(_since("not_community_reports", "reported_at"), cutoff_ts)
         out["reports_total"] = _one("SELECT COUNT(*) FROM not_community_reports")
         out["records"] = _one("SELECT COUNT(*) FROM communities")
         if _has_json1(conn):
             # Contactability of the corpus. Not a licence to mail any of it —
             # Hungary's Advertising Act (2008. XLVIII. §6) needs prior express
             # consent for advertising email to a natural person, with no
-            # legitimate-interest escape. This is here to size what an opt-in
-            # channel could reach, not to build a send list.
+            # legitimate-interest escape. This sizes what an opt-in channel
+            # could reach; it is not a send list.
             out["records_with_email"] = _one(
                 "SELECT COUNT(*) FROM communities"
                 " WHERE COALESCE(json_extract(data,'$.email'),'') <> ''")

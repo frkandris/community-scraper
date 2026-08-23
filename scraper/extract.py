@@ -1362,7 +1362,13 @@ class FallbackExtractor:
                     self._exhausted[i] = True
                     last_error = str(exc)
                     self.failure_reason = str(exc)
-                    self._note_router(primary, ok=False, error=last_error, reserved=_reserved)
+                    # A billing refusal outlives the run. `_exhausted` only
+                    # skips this provider until the extractor is rebuilt, and
+                    # the worker rebuilds one every few minutes — which is how
+                    # one provider absorbed 283 first-choice picks in a day.
+                    self._note_router(primary, ok=False, error=last_error,
+                                      reserved=_reserved,
+                                      billing_blocked="402" in str(exc))
                     _settled = True
                     log.warning("extractor_quota_exhausted",
                                 provider=primary.__class__.__name__, reason=str(exc))

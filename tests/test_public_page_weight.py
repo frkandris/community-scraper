@@ -127,3 +127,19 @@ def test_the_filter_has_no_self_grouping(venue_client):
     html = venue_client.get("/helyszinek", headers=KOZ).text
     assert "data-group" not in html
     assert 'data-name="Varos003"' in html
+
+
+def test_the_city_link_keeps_the_topic_filter(venue_client):
+    """From /helyszinek?topic=…, picking a city must not widen the result."""
+    from scraper.db import upsert_venues
+
+    upsert_venues(app_state.db_path, [{
+        "name": "Varos003 Jazzklub", "city": "Varos003",
+        "address": "Fo ter 1.", "welcomed_topics": ["jazz"],
+    }])
+    html = venue_client.get("/helyszinek?topic=jazz", headers=KOZ).text
+    assert "/helyszinek?city=Varos003&amp;topic=jazz" in html or \
+           "/helyszinek?city=Varos003&topic=jazz" in html
+    # Unfiltered, the link carries no topic at all.
+    plain = venue_client.get("/helyszinek", headers=KOZ).text
+    assert "topic=" not in plain.split('href="/helyszinek?city=Varos003')[1][:40]

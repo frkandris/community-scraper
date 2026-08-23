@@ -171,7 +171,10 @@ def test_venues_page_has_name_search_structure(tmp_path):
         assert 'data-target="#venue-list"' in resp.text
         assert "data-mp-filter-az" in resp.text
         assert "data-name=" in resp.text
-        assert "data-city-section" in resp.text
+        # No group selector any more: the unfiltered page is a flat city index.
+        # listing.js hides a group holding no visible child, so an element that
+        # is both the group and the item hides itself on the first keystroke.
+        assert "data-group" not in resp.text
     finally:
         app_state.db_path = old_db
         app_state.cities = old_cities

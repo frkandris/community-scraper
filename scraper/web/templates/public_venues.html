@@ -129,7 +129,9 @@
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
       {% for city_group in city_sections %}
       <a data-name="{{ city_group.name }}"
-         href="/helyszinek?city={{ city_group.name | urlencode }}"
+         {# Carry the topic through: from /helyszinek?topic=music, picking a
+            city must not silently widen the result to every venue in it. #}
+         href="/helyszinek?city={{ city_group.name | urlencode }}{% if selected_topic %}&topic={{ selected_topic | urlencode }}{% endif %}"
          class="flex items-center justify-between gap-2 px-3 py-2 bg-white border border-[#EAE5DB] rounded-lg hover:border-[#C2613A] transition-colors">
         <span class="text-sm text-[#1C1917] truncate">{{ city_group.name }}</span>
         <span class="text-xs text-[#B5ADA0]">{{ city_group.count }}</span>

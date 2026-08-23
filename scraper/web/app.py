@@ -7339,6 +7339,16 @@ async def admin_edit_requests_approve(request_id: int):
     # (entity_name/city/topic). The form's record_key is client-controlled: a
     # submitter could pair an innocuous displayed name with another record's
     # key and have the approval mutate the unrelated record.
+    # A claim asks for nothing to be changed — an organiser is telling us the
+    # listing is theirs. There is no field to apply, so `apply_community_edit`
+    # answers "unsupported" and the Approve button errors out, leaving Reject
+    # as the only way to clear the highest-intent row on the page. Approving it
+    # means acknowledging it: mark it resolved and keep the address.
+    if r["change_type"] == "claim":
+        await asyncio.to_thread(resolve_edit_request, _db(), request_id, "approved")
+        log.info("claim_approved", request_id=request_id,
+                 community=r.get("entity_name", ""), email=r.get("email", ""))
+        return JSONResponse({"ok": True, "claim": True})
     if r["entity_type"] == "community":
         ckey = _community_record_key(
             r.get("entity_name", ""), r.get("entity_city", ""), r.get("entity_topic", ""))
