@@ -127,6 +127,62 @@ def _migrate_unicode_record_keys(conn: sqlite3.Connection) -> None:
 _initialised: set[str] = set()
 
 
+def backfill_records_count(db_path: Path) -> int:
+    """Fill `records_count` from the blob. Returns how many rows it wrote.
+
+    Deliberately NOT part of `init_db`. Measured on a 6.15 GB synthetic copy of
+    the corpus it takes ~97 seconds for 207K rows, and `init_db` runs on the
+    startup path and from a dozen routes — a two-minute migration there is a
+    two-minute deploy stall or a two-minute request. It is safe to run late,
+    and safe to interrupt, because the filter reads the blob for whatever rows
+    it has not reached yet.
+    """
+    if not db_path.exists():
+        return 0
+    with _connect(db_path) as conn:
+        return _backfill_records_count(conn)
+
+
+def _backfill_records_count(conn: sqlite3.Connection) -> int:
+    """Fill `records_count` from the blob, in chunks that release the lock.
+
+    One `UPDATE cache_pages SET …` over the whole table rewrites every row, and
+    the rows carry a ~30 KB blob each: on the production corpus that is a
+    multi-minute write holding SQLite's single writer slot, with the crawler
+    and every request behind it. Chunked with a commit between, other writers
+    interleave and the worst case is a slow migration rather than a stalled app.
+
+    Correctness does not depend on this finishing — `get_fully_processed_pairs`
+    reads the blob for whatever rows are still NULL. That matters more than it
+    sounds: treating an un-backfilled row as unextracted would send the whole
+    corpus back for re-extraction, which at the free fleet's ~650 pages a day
+    is a year of work.
+    """
+    _CHUNK = 2000
+    filled = 0
+    while True:
+        cur = conn.execute("""
+            UPDATE cache_pages
+            SET records_count = CASE
+                WHEN json_type(data, '$.records') = 'array'
+                THEN json_array_length(json_extract(data, '$.records'))
+                ELSE -1
+            END
+            WHERE rowid IN (
+                SELECT rowid FROM cache_pages
+                WHERE records_count IS NULL AND scraped_at IS NOT NULL
+                LIMIT ?
+            )
+        """, (_CHUNK,))
+        conn.commit()
+        if not cur.rowcount:
+            break
+        filled += cur.rowcount
+    if filled:
+        log.info("records_count_backfilled", rows=filled)
+    return filled
+
+
 def init_db(db_path: Path, force: bool = False) -> None:
     """Create/migrate every table. Idempotent, and now also *cheap to call*.
 
@@ -253,6 +309,17 @@ def init_db(db_path: Path, force: bool = False) -> None:
             conn.execute("ALTER TABLE cache_pages ADD COLUMN extract_model TEXT")
         except sqlite3.OperationalError:
             pass
+        try:
+            # Number of communities the extraction produced. NULL = no records
+            # key in the blob, i.e. never extracted. It exists so the done-pair
+            # filter never has to open `data`: that is a ~30 KB blob per row
+            # across ~207K rows, and `json_type(data,'$.records')` makes SQLite
+            # read every one of them. Measured on a 6.15 GB synthetic copy the
+            # filter went from 0.7 s with small blobs to 13.2 s with real ones,
+            # and /v1/backlog was answering 524 after 125 s in production.
+            conn.execute("ALTER TABLE cache_pages ADD COLUMN records_count INTEGER")
+        except sqlite3.OperationalError:
+            pass
         # Backfill fingerprint columns from JSON blob (runs once, skips already-set rows)
         conn.execute("""
             UPDATE cache_pages
@@ -261,6 +328,19 @@ def init_db(db_path: Path, force: bool = False) -> None:
             WHERE venue_fingerprint IS NULL AND person_fingerprint IS NULL
               AND (json_extract(data, '$.venue_fingerprint') IS NOT NULL
                 OR json_extract(data, '$.person_fingerprint') IS NOT NULL)
+        """)
+        # The done-pair filter reads three small columns from every scraped
+        # page and nothing else, so give it an index that carries all three.
+        # Without it SQLite scans the table, and the table is ~30 KB a row over
+        # ~207K rows: a covering scan of a few megabytes instead of six
+        # gigabytes. Measured on a 6.15 GB synthetic copy, the filter went from
+        # **11.03 s to 0.31 s** and EXPLAIN QUERY PLAN changed from
+        # "SCAN cache_pages" to "SCAN cache_pages USING INDEX". The partial
+        # clause must match the query's WHERE or the index is not eligible.
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_cache_pages_done
+            ON cache_pages(url_hash, extract_fingerprint, records_count)
+            WHERE scraped_at IS NOT NULL
         """)
         conn.commit()
 
@@ -1415,8 +1495,15 @@ def get_fully_processed_pairs(
     """
     import hashlib
 
+    # The same URL ranks for several topics in one city, so this is called more
+    # than once per page across ~54K search-cache rows.
+    _hash_memo: dict[str, str] = {}
+
     def _url_hash(url: str) -> str:
-        return hashlib.sha256(url.encode()).hexdigest()[:16]
+        h = _hash_memo.get(url)
+        if h is None:
+            h = _hash_memo[url] = hashlib.sha256(url.encode()).hexdigest()[:16]
+        return h
 
     def _json_object_keys(raw: str | None) -> set[str]:
         if not raw:
@@ -1429,27 +1516,75 @@ def get_fully_processed_pairs(
 
     if not db_path.exists():
         return set()
+
+    # Ask only for what this run reads. The venue and person columns cost three
+    # more JSON traversals of every `data` blob, and `persons_data` is a whole
+    # sub-object pulled out as text and re-parsed in Python — over ~207K cached
+    # pages, for a caller that never looks at it. /v1/backlog and every
+    # `search_only` run take the defaults, where run_venues and run_persons are
+    # both false, and the endpoint was timing out past 200 seconds.
+    want_extras = run_venues or run_persons
+    # `records_count` replaces two JSON traversals of `data`. That blob is
+    # ~30 KB per row in production and `json_type(data,'$.records')` makes
+    # SQLite read every one of ~207K of them: measured on a 6.15 GB copy the
+    # filter took 13.2 s against 0.7 s with small blobs, which is why
+    # /v1/backlog answered 524 after 125 seconds. Only the person path still
+    # opens the blob, and only when persons are actually being extracted.
+    cols = ["url_hash", "extract_fingerprint", "records_count"]
+    if want_extras:
+        cols += ["venue_fingerprint", "person_fingerprint",
+                 "json_extract(data, '$.persons_data')"]
+
     with _connect(db_path) as conn:
-        pages_by_hash: dict[str, dict] = {
-            row[0]: {
+        # One snapshot for all three reads. The bulk scan and the NULL fallback
+        # are separate statements and the backfill runs concurrently in the
+        # background: without a transaction a row can flip NULL -> count between
+        # them, so the first read calls it unextracted and the second no longer
+        # matches `records_count IS NULL` to correct it. The page then reads as
+        # outstanding and its pair is re-extracted — the outcome the fallback
+        # exists to prevent, during exactly the window it exists for. WAL gives
+        # a reader a consistent snapshot for the life of its transaction.
+        conn.execute("BEGIN")
+        pages_by_hash: dict[str, dict] = {}
+        for row in conn.execute(
+                f"SELECT {', '.join(cols)} FROM cache_pages"
+                " WHERE scraped_at IS NOT NULL"):
+            # NULL is either "never extracted" or "the backfill has not
+            # reached this row yet". The loop below tells those apart from the
+            # blob, for the shrinking set of rows where it still matters.
+            count = row[2]
+            entry = {
                 "extract_fingerprint": row[1],
-                "venue_fingerprint": row[2],
-                "person_fingerprint": row[3],
-                "records_present": bool(row[4]),
-                "has_communities": bool(row[5]),
-                "person_keys": _json_object_keys(row[6]),
+                "records_present": count is not None and count >= 0,
+                "has_communities": count is not None and count > 0,
+                "venue_fingerprint": None,
+                "person_fingerprint": None,
+                "person_keys": frozenset(),
             }
-            for row in conn.execute(
-                "SELECT url_hash, extract_fingerprint, venue_fingerprint,"
-                " person_fingerprint,"
+            if want_extras:
+                entry["venue_fingerprint"] = row[3]
+                entry["person_fingerprint"] = row[4]
+                entry["person_keys"] = _json_object_keys(row[5])
+            pages_by_hash[row[0]] = entry
+        # Whatever the backfill has not reached yet, read from the blob. The
+        # alternative — treating a NULL as "never extracted" — would send the
+        # whole corpus back for re-extraction the moment this shipped, and at
+        # the free fleet's ~650 pages a day that is a year of work. The index
+        # answers this in one probe once the backfill is done, and the rows it
+        # returns shrink to none.
+        for uh, is_array, length in conn.execute(
+                "SELECT url_hash,"
                 " json_type(data, '$.records') = 'array',"
-                " COALESCE(json_array_length(json_extract(data, '$.records')), 0) > 0,"
-                " json_extract(data, '$.persons_data')"
+                " json_array_length(json_extract(data, '$.records'))"
                 " FROM cache_pages"
-                " WHERE scraped_at IS NOT NULL"
-            )
-        }
+                " WHERE scraped_at IS NOT NULL AND records_count IS NULL"):
+            entry = pages_by_hash.get(uh)
+            if entry is None:
+                continue
+            entry["records_present"] = bool(is_array)
+            entry["has_communities"] = bool(is_array) and bool(length)
         search_rows = conn.execute("SELECT city, topic, urls FROM search_cache").fetchall()
+        conn.rollback()  # read-only: end the snapshot without pretending to write
 
     result: set[tuple[str, str]] = set()
     for city, topic, urls_json in search_rows:
@@ -1558,6 +1693,27 @@ def delete_all_communities(db_path: Path) -> int:
 
 # ── Cache pages ───────────────────────────────────────────────────────────────
 
+#: `records_count` for a page that has been scraped but never extracted.
+#: A sentinel rather than NULL, because NULL has to mean exactly one thing —
+#: "the backfill has not reached this row" — for the blob fallback to empty out.
+#: Using NULL for both left every un-extracted page NULL forever, so the
+#: fallback opened its ~30 KB blob on every scan: the optimisation defeated
+#: precisely where the backlog is largest.
+_NOT_EXTRACTED = -1
+
+
+def _records_count(entry: dict) -> int:
+    """How many communities this page's extraction produced.
+
+    -1 is "scraped, never extracted"; 0 is "extracted, found nothing" — a
+    finished page. The done-pair filter needs to tell those apart, and reads
+    this column instead of `json_type(data,'$.records')` so a covering index
+    can answer it without touching the blob. Every writer must set it.
+    """
+    records = entry.get("records")
+    return len(records) if isinstance(records, list) else _NOT_EXTRACTED
+
+
 def _write_cache_page(conn: sqlite3.Connection, entry: dict) -> None:
     # extract_quality/extract_model mirror the blob into real columns so the
     # router's upgrade sweep can filter and order in SQL rather than by decoding
@@ -1567,8 +1723,8 @@ def _write_cache_page(conn: sqlite3.Connection, entry: dict) -> None:
         INSERT INTO cache_pages
             (url_hash, url, city, topic, domain, scraped_at, extracted_at,
              extract_fingerprint, venue_fingerprint, person_fingerprint,
-             extract_quality, extract_model, data)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             extract_quality, extract_model, records_count, data)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(url_hash) DO UPDATE SET
             city=excluded.city,
             topic=excluded.topic,
@@ -1580,6 +1736,7 @@ def _write_cache_page(conn: sqlite3.Connection, entry: dict) -> None:
             person_fingerprint=excluded.person_fingerprint,
             extract_quality=excluded.extract_quality,
             extract_model=excluded.extract_model,
+            records_count=excluded.records_count,
             data=excluded.data
     """, (
         entry["url_hash"],
@@ -1594,6 +1751,7 @@ def _write_cache_page(conn: sqlite3.Connection, entry: dict) -> None:
         entry.get("person_fingerprint"),
         int(quality) if isinstance(quality, (int, float)) else None,
         entry.get("extract_model"),
+        _records_count(entry),
         json.dumps(entry, ensure_ascii=False),
     ))
 
@@ -1639,8 +1797,9 @@ def save_cache_page(db_path: Path, entry: dict) -> None:
         conn.execute("""
             INSERT INTO cache_pages
                 (url_hash, url, city, topic, domain, scraped_at, extracted_at,
-                 extract_fingerprint, venue_fingerprint, person_fingerprint, data)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 extract_fingerprint, venue_fingerprint, person_fingerprint,
+                 records_count, data)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(url_hash) DO UPDATE SET
                 city=excluded.city,
                 topic=excluded.topic,
@@ -1650,6 +1809,7 @@ def save_cache_page(db_path: Path, entry: dict) -> None:
                 extract_fingerprint=excluded.extract_fingerprint,
                 venue_fingerprint=excluded.venue_fingerprint,
                 person_fingerprint=excluded.person_fingerprint,
+                records_count=excluded.records_count,
                 data=excluded.data
         """, (
             entry["url_hash"],
@@ -1662,6 +1822,7 @@ def save_cache_page(db_path: Path, entry: dict) -> None:
             entry.get("extract_fingerprint"),
             entry.get("venue_fingerprint"),
             entry.get("person_fingerprint"),
+            _records_count(entry),
             json.dumps(entry, ensure_ascii=False),
         ))
         conn.commit()
@@ -1726,7 +1887,13 @@ def invalidate_extraction_cache(
     with _connect(db_path) as conn:
         if city is None:
             cur = conn.execute(
+                # records_count follows $.records out of the blob. The done-pair
+                # verdict is already correct without this — extract_fingerprint
+                # is NULL, which fails the currency check first — but a column
+                # that disagrees with the blob it mirrors is a trap for the next
+                # reader, and the backfill will not repair it (it only fills NULLs).
                 f"UPDATE cache_pages SET extracted_at=NULL, extract_fingerprint=NULL, "
+                f"records_count={_NOT_EXTRACTED}, "
                 f"data=json_remove(data, {json_paths}) WHERE {stale_predicate}"
             )
             conn.commit()
@@ -1760,7 +1927,13 @@ def invalidate_extraction_cache(
             chunk = hashes[start:start + 500]
             placeholders = ",".join("?" for _ in chunk)
             cur = conn.execute(
+                # records_count follows $.records out of the blob. The done-pair
+                # verdict is already correct without this — extract_fingerprint
+                # is NULL, which fails the currency check first — but a column
+                # that disagrees with the blob it mirrors is a trap for the next
+                # reader, and the backfill will not repair it (it only fills NULLs).
                 f"UPDATE cache_pages SET extracted_at=NULL, extract_fingerprint=NULL, "
+                f"records_count={_NOT_EXTRACTED}, "
                 f"data=json_remove(data, {json_paths}) "
                 f"WHERE url_hash IN ({placeholders}) AND {stale_predicate}",
                 chunk,

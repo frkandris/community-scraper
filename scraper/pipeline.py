@@ -4,7 +4,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, NamedTuple
 
 import structlog
 
@@ -441,6 +441,98 @@ def pages_worked(pair_logs: "list[dict]") -> int:
         max(0, int(p.get("urls_found") or 0)
                - int(p.get("cache_hits_extract") or 0)
                - int(p.get("extract_failed") or 0))
+        for p in pair_logs)
+
+
+def worker_outcome(pair_logs: "list[dict]", total_new: int) -> dict:
+    """What a finished run did, in the terms the worker's decision needs.
+
+    Here rather than in the loop's callback so the mapping is testable. It is
+    the mapping that has been wrong every time: `worked` is an extraction
+    measure and `fetched` a collection one, and reading either through the
+    other is what produced ~200 empty runs on 2026-08-22 and ~100 on 08-18.
+    """
+    return {
+        "pairs": len(pair_logs),
+        "worked": pages_worked(pair_logs),
+        "fetched": pages_fetched(pair_logs),
+        "new": total_new,
+    }
+
+
+class WorkerAfterRun(NamedTuple):
+    """What the worker should carry into its next iteration."""
+    empty_extractions: int
+    empty_collections: int
+    #: Seconds to hold extraction back; 0 releases it, None leaves it as it was.
+    extract_cooldown: float | None
+    #: Seconds to sleep before looking again; 0 means loop straight on.
+    sleep: float
+
+
+def worker_after_run(*, mode: str, worked: int, fetched: int, new_records: int,
+                     cancelled: bool, empty_extractions: int, empty_collections: int,
+                     empty_limit: int, idle_s: float, retry_s: float) -> WorkerAfterRun:
+    """The worker's post-run bookkeeping, as a function of what the run did.
+
+    Lifted out of `_worker_loop` for the same reason `next_worker_action` was:
+    in place, the only way to check it was to assert on the source text of a
+    closure — which passes when the logic is wrong and fails when a variable is
+    renamed. Reverting the collector to consult `worked` left every test green.
+    """
+    cooldown: float | None = None
+    sleep = 0.0
+    if mode == "ai_only":
+        if cancelled:
+            # A cancelled pass says nothing about whether work exists — the
+            # quota ran out mid-run, or an operator stopped it. It must not
+            # park extraction, and it must not count toward the empty streak
+            # either: three interruptions would park it on no evidence at all.
+            # The old loop parked on neither but still counted, which the rule
+            # it documented did not survive being written down as a function.
+            return WorkerAfterRun(empty_extractions, empty_collections, None, 0.0)
+        # Independent of the "worked" signal, which has been wrong twice.
+        # Whatever it says, an extraction pass producing no records three times
+        # running is not making progress and must stand aside for the collector.
+        empty_extractions = 0 if new_records else empty_extractions + 1
+        if empty_extractions >= empty_limit or not worked:
+            # Either backstop parks it for the same quarter of an hour: an
+            # empty pass means there is nothing cached to extract yet.
+            cooldown = retry_s
+    elif mode == "search_only":
+        if fetched:
+            # Downloaded, not merely found. Clearing this on "URLs the search
+            # returned" ran ~200 empty runs on 2026-08-22.
+            empty_collections = 0
+            cooldown = 0.0
+        elif not cancelled:
+            empty_collections += 1
+            # A caught-up system should idle, not poll: nothing changes either
+            # half except the quota rolling over at midnight, or an operator.
+            sleep = retry_s if empty_collections >= empty_limit else idle_s
+    return WorkerAfterRun(empty_extractions, empty_collections, cooldown, sleep)
+
+
+def pages_fetched(pair_logs: "list[dict]") -> int:
+    """Pages this run newly downloaded — the collector's "was that worth it?".
+
+    Not `pages_worked`. That one subtracts extraction cache hits and extraction
+    failures, and a `search_only` run extracts nothing, so both subtrahends are
+    always zero and it degrades to `urls_found` — a pass that downloaded
+    *nothing* because every URL was already cached still reported every one of
+    them as work.
+
+    That is what kept the worker awake on 2026-08-22: the collector cleared the
+    extraction cooldown on every pass, extraction restarted immediately, and
+    the pair alternated every three or four minutes for twenty hours. The daily
+    report has both halves of the proof on one page — around 200 runs, and
+    "Letöltött oldal: 0".
+
+    Fetched, minus the ones that came from the cache.
+    """
+    return sum(
+        max(0, len(p.get("fetched_urls") or ())
+               - int(p.get("cache_hits_scrape") or 0))
         for p in pair_logs)
 
 

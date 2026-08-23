@@ -103,3 +103,29 @@ holds connections belonging to the loop that created them).
 
 Concurrency did not cause this. It revealed it — one connection per request was
 always wrong.
+
+## Two measures, not one (2026-08-23)
+
+`pages_worked` answers "did extraction do anything?" — found, minus served from cache, minus failed. The collector branch consulted the same function, and a `search_only` run extracts nothing, so both subtrahends are always zero and it degrades to *URLs the search returned*. A pass that downloaded nothing because every URL was already cached still reported all of them as work, cleared the extraction cooldown, and let extraction start again immediately.
+
+That is the 2026-08-22 report: around 200 runs, `ai_only` and `search_only` alternating every three or four minutes for twenty hours, and the same page shows **0 pages downloaded, 0 pairs searched**, 78 pages extracted against the previous day's 387.
+
+`pages_fetched` is the collector's own measure — downloaded, minus the ones that came from the cache. And when both halves come back empty three times running the worker now sleeps for the extraction retry interval rather than polling every minute: nothing changes a caught-up system except the quota rolling over at midnight, or an operator.
+
+This is the *third* wrong answer to "was that pass worth anything?" in a week. The pattern in all three: a signal that is correct for one run mode read as if it were general.
+
+The bookkeeping lives in `pipeline.worker_after_run` and the measurement in
+`pipeline.worker_outcome`, both pure functions, for the same reason
+`next_worker_action` does. Inside the loop's closure the only way to check
+either was to assert on source text, and review rounds proved the point twice:
+reverting the collector to consult `worked` left every test in
+`tests/test_worker_idle.py` green, and so did passing `fetched=worked` in the
+callback. The mapping between a run's pair logs and the numbers the decision
+reads is the thing that has been wrong every single time, so it is a function
+with its own test now.
+
+A cancelled pass counts for nothing, in both halves. The old loop declined to
+*park* on cancellation but still counted it toward the empty streak, so three
+interruptions — a quota running out mid-run, an operator pressing stop — parked
+extraction for a quarter of an hour on no evidence at all. Writing the rule
+down as a function is what made the contradiction with its own comment visible.

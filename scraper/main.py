@@ -13,9 +13,11 @@ from apscheduler.triggers.cron import CronTrigger
 
 from .cache import CacheManager
 from .config import CONFIG_DIR, load_config
-from .db import finish_run, get_last_run, get_last_run_row, init_db, start_run
+from .db import (backfill_records_count, finish_run, get_last_run,
+                 get_last_run_row, init_db, start_run)
 from .pipeline import (RUN_ABORTED, WORKER_EXTRACT, classify_run_outcome,
-                        next_worker_action, pages_worked, run_pipeline)
+                        next_worker_action, run_pipeline, worker_after_run,
+                        worker_outcome)
 from .router import build_router
 from .web.app import app as web_app, templates
 from .web.log_stream import broadcaster
@@ -288,6 +290,27 @@ async def main() -> None:
     broadcaster.attach_file(DATA_DIR / "logs")
     db_path = DATA_DIR / "scraper.db"
     init_db(db_path)
+    #: The migration is resumable, so a retry costs only the rows still NULL.
+    _BACKFILL_ATTEMPTS = 5
+    _BACKFILL_RETRY_S = 120
+    # Off the startup path: ~97 s for the production corpus, and the done-pair
+    # filter reads the blob for whatever this has not reached, so nothing waits
+    # on it. Chunked, so the crawler keeps its turn at the writer lock.
+    async def _backfill_once() -> None:
+        # Retried: a transient write lock or one malformed blob used to end the
+        # migration for the lifetime of the process. Reads stay correct either
+        # way — the filter falls back to the blob — but the rows it has not
+        # reached are exactly the ones that keep the scan slow, so giving up
+        # silently leaves the performance fix half-applied until a restart.
+        for attempt in range(_BACKFILL_ATTEMPTS):
+            try:
+                await asyncio.to_thread(backfill_records_count, db_path)
+                return
+            except Exception as exc:  # noqa: BLE001 — never stop boot for this
+                log.warning("records_count_backfill_failed",
+                            attempt=attempt + 1, error=str(exc))
+                await asyncio.sleep(_BACKFILL_RETRY_S)
+    app_state._backfill_task = asyncio.create_task(_backfill_once())
 
     cities, topics, pipeline_cfg = load_config(db_path)
     cache = CacheManager(db_path)
@@ -609,6 +632,7 @@ async def main() -> None:
         import time as _time
         extract_idle_until = 0.0
         empty_extractions = 0
+        empty_collections = 0
         log.info("worker_started")
         while True:
             try:
@@ -651,9 +675,7 @@ async def main() -> None:
                 outcome: dict = {}
 
                 def _on_finished(pair_logs: list, total_new: int) -> None:
-                    outcome["worked"] = pages_worked(pair_logs)
-                    outcome["pairs"] = len(pair_logs)
-                    outcome["new"] = total_new
+                    outcome.update(worker_outcome(pair_logs, total_new))
                     finished.set()
 
                 cfg = app_state.pipeline_cfg
@@ -688,37 +710,39 @@ async def main() -> None:
                 # afterwards always said "not cancelled".
                 was_cancelled = bool(run_task is not None and run_task.cancelled())
                 log.info("worker_run_finished", mode=mode, pairs=outcome.get("pairs"),
-                         worked=outcome.get("worked"), new_records=outcome.get("new"),
-                         cancelled=was_cancelled)
+                         worked=outcome.get("worked"), fetched=outcome.get("fetched"),
+                         new_records=outcome.get("new"), cancelled=was_cancelled)
 
-                if mode == "ai_only":
-                    # Independent of the "worked" signal, which has now been
-                    # wrong twice in two days. Whatever it says, an extraction
-                    # pass that produces no records three times running is not
-                    # making progress and must stand aside for the collector.
-                    empty_extractions = 0 if outcome.get("new") else empty_extractions + 1
-                    if empty_extractions >= _WORKER_EMPTY_LIMIT and not was_cancelled:
-                        log.info("worker_extraction_idle",
-                                 consecutive_empty=empty_extractions)
-                        extract_idle_until = _time.monotonic() + _WORKER_EXTRACT_RETRY_S
-                if mode == "ai_only" and not outcome.get("worked") and not was_cancelled:
-                    # An empty pass means there is nothing to extract yet. A
-                    # *cancelled* pass means someone stopped it, which says
-                    # nothing about whether work exists — parking extraction for
-                    # a quarter of an hour on that would be wrong.
-                    extract_idle_until = _time.monotonic() + _WORKER_EXTRACT_RETRY_S
-                elif mode == "search_only" and outcome.get("worked"):
-                    # Only when collection actually fetched something. Clearing
-                    # it unconditionally made a caught-up system alternate empty
-                    # ai_only and search_only runs with no pause at all, writing
-                    # a run record for each.
-                    extract_idle_until = 0.0
-                elif mode == "search_only" and not was_cancelled:
-                    # Nothing left to collect either. Sleep — and deliberately
-                    # do NOT touch the extraction cooldown: pushing it forward
-                    # on every empty pass made it a ratchet that never expired,
-                    # so extraction stayed off even after the quota reset.
-                    await asyncio.sleep(_WORKER_IDLE_SECONDS)
+                after = worker_after_run(
+                    mode=mode,
+                    worked=int(outcome.get("worked") or 0),
+                    fetched=int(outcome.get("fetched") or 0),
+                    new_records=int(outcome.get("new") or 0),
+                    cancelled=was_cancelled,
+                    empty_extractions=empty_extractions,
+                    empty_collections=empty_collections,
+                    empty_limit=_WORKER_EMPTY_LIMIT,
+                    idle_s=_WORKER_IDLE_SECONDS,
+                    retry_s=_WORKER_EXTRACT_RETRY_S)
+                if mode == "ai_only" and after.extract_cooldown:
+                    # Log the decision, not the counter: the old line fired on
+                    # every pass once the counter sat at the limit, which said
+                    # nothing new, and stayed silent when a single empty pass
+                    # parked extraction for the same quarter hour.
+                    log.info("worker_extraction_idle",
+                             consecutive_empty=after.empty_extractions,
+                             parked_s=after.extract_cooldown)
+                empty_extractions = after.empty_extractions
+                empty_collections = after.empty_collections
+                if after.extract_cooldown is not None:
+                    # 0 releases extraction; anything else parks it. Never a
+                    # ratchet: pushing the cooldown forward on every empty pass
+                    # kept extraction off even after the quota reset.
+                    extract_idle_until = (
+                        _time.monotonic() + after.extract_cooldown
+                        if after.extract_cooldown else 0.0)
+                if after.sleep:
+                    await asyncio.sleep(after.sleep)
             except asyncio.CancelledError:
                 log.info("worker_stopped")
                 raise

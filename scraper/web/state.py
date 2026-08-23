@@ -73,6 +73,9 @@ class AppState:
     current_city: str | None = None      # city being processed in current pair
     current_topic: str | None = None     # topic being processed in current pair
     _run_task: Any = None
+    #: One-shot `records_count` migration, started after boot. Held so it is not
+    #: garbage-collected mid-run — asyncio keeps only a weak reference.
+    _backfill_task: Any = None
     last_enrich_result: dict | None = None   # result of the most recent /api/enrich batch
     _enrich_running: bool = False            # guards the managed off-peak enrichment job
     _enrich_task: Any = None                 # manual /api/enrich task (cancellable via /api/stop)
