@@ -156,3 +156,37 @@ about *correctness* rather than agreement. See
 Caveat the paper states plainly, and it applies to us: needles measure retrieval
 of what you inserted. They cannot tell you what you are missing in the original
 page.
+
+## The score does not include the answer rate (2026-08-24)
+
+Measuring the paid candidates on 14 Hungarian pages produced two models with
+**the same score and a tenfold difference in usefulness**:
+
+| model | score | answered | truncations |
+|---|---:|---:|---:|
+| `deepseek/deepseek-v4-flash` (0423, OpenRouter) | 80 | 13/14 | 2 |
+| `deepseek-v4-flash` (0731, DeepSeek's own API) | 80 | 4/14 | 28 |
+| `qwen/qwen3.7-flash` | — | 0/14 | 18 |
+
+`score_fleet` grades the answers a model *gave*. A model that answers four
+pages out of fourteen and gets them right scores exactly as well as one that
+answers thirteen. Effective quality is `score × answered/pages` — 74, 23 and 0
+here — and nothing in the catalogue records it, so the `quality:` values were
+written by hand as 80 and 23 with the arithmetic in a comment.
+
+**Reasoning models fail this workload at our settings.** All three of the
+failures are `llm_output_truncated`: the `reasoning` text is billed and counted
+as output, and it spends the 1,500-token cap before the extraction JSON closes.
+Qwen writes eighty tokens of reasoning for a one-word question. The cheapest
+list price on the market ($0.03/$0.13) was 100% waste — and a truncated call is
+charged in full, so this is not "cheaper but weaker", it is money for nothing.
+
+`max_output_tokens` is global, not per-provider, so a reasoning model cannot be
+given a larger cap without also handing one to Groq, whose free tier reserves
+`prompt + max_tokens` against an 8,000-token minute window
+([[free-tier-model-router]]). Making it per-provider would be the prerequisite
+for re-measuring these two.
+
+The lesson from the sibling project held again, in the other direction: the
+**four times more expensive** snapshot lost to the cheaper one on the real
+Hungarian workload.

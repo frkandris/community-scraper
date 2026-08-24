@@ -194,18 +194,23 @@ providers:
       # off-peak, double in peak — weekdays 01:00-04:00 and 06:00-10:00 UTC.
       # The cheaper 0423 snapshot is not on this endpoint at all; it is reached
       # through OpenRouter below, at roughly a quarter of the price.
+      #
+      # 23, not the 80 it scored. `POST /v1/score` measures answer *quality* on
+      # the pages a model answered, and this one answered **4 of 14** Hungarian
+      # pages on 2026-08-24 — 28 truncations. It is a reasoning model, the
+      # `reasoning` text is billed and counted as output, and it eats the
+      # 1,500-token cap before the JSON closes. 80 × 4/14 ≈ 23 is what it
+      # actually delivers. Kept enabled only as a last-resort fallback for the
+      # day OpenRouter is unreachable; nothing should ever route here first.
       - model: deepseek-v4-flash
-        quality: 66
+        quality: 23
 
   # ── OpenRouter, paid tier ─────────────────────────────────────────────────
   # Same key as the free entry above, a separate provider because `paid` is a
   # provider-level flag and the two must not share a budget: the free one is
   # capped at 50 requests a day and this one is not.
   #
-  # Quality is a PLACEHOLDER on both models. 40 keeps them behind every free
-  # provider until `POST /v1/score` measures them on our own pages — the
-  # catalogue's numbers were measured for English extraction, and a sibling
-  # project's ranking reversed when it was measured on the real workload.
+  # Measured on 14 Hungarian pages, 2026-08-24, `POST /v1/score?locale=hu`.
   - name: openrouter_paid
     enabled: true
     paid: true
@@ -217,9 +222,17 @@ providers:
       # DeepSeek V4 Flash 0423: $0.0574 in / $0.1148 out per 1M, cache read
       # $0.01148. Named vendor, MIT licence, 1M context, 17 providers behind
       # it on OpenRouter — so a single provider going down does not stop it.
+      #
+      # Measured 80 on 13 of 14 Hungarian pages: the same score as the four
+      # times more expensive 0731 above, on more than three times as many
+      # answers. Two truncations out of fourteen, against that one's
+      # twenty-eight.
       - model: deepseek/deepseek-v4-flash
-        quality: 40
-      # Qwen3.7 Flash: $0.03 / $0.13 per 1M, the cheapest credible option, but
-      # served by a single provider (Alibaba Cloud Int.).
-      - model: qwen/qwen3.7-flash
-        quality: 40
+        quality: 80
+      # Qwen3.7 Flash ($0.03/$0.13) was measured and REMOVED the same day: it
+      # answered **0 of 14** pages, truncated on every one. It reasons at
+      # length — eighty tokens of it for a one-word question — and the
+      # `reasoning` text is billed as output, so it spends the whole 1,500-token
+      # cap before the JSON closes. The cheapest list price on the market and
+      # 100% waste at our settings; the truncated calls are still charged.
+      # Re-measure it if `max_output_tokens` ever becomes per-provider.
