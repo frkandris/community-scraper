@@ -43,9 +43,11 @@ def test_shipped_catalogue_parses():
     for expected in ("groq", "cerebras", "gemini", "mistral", "openrouter",
                      "github", "deepseek"):
         assert expected in names
-    # DeepSeek is the only paid one and it is parked by default.
-    assert [p.name for p in cat.providers if p.paid] == ["deepseek"]
-    assert cat.router.allow_paid is False
+    # Paid providers, on since 2026-08-24: the free fleet manages ~105 pages a
+    # day against a 91,919-page backlog. They do not jump the queue — the
+    # router picks by quality, so free models still go first.
+    assert [p.name for p in cat.providers if p.paid] == ["deepseek", "openrouter_paid"]
+    assert cat.router.allow_paid is True
 
 
 def test_models_are_sorted_best_first_on_load():
@@ -452,7 +454,8 @@ def test_providers_admin_page_lists_the_fleet(tmp_path):
         # A provider with no key must be shown, not hidden — the env var name is
         # the actionable part of the page.
         assert "GROQ_API_KEY" in resp.text
-        assert "Free only" in resp.text  # paid is parked by default
+        # "Free only" no longer: paid providers are reachable as overflow.
+        assert "Free only" not in resp.text
     app_state.db_path = old
 
 

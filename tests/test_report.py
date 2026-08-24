@@ -1,11 +1,14 @@
 
 
-def test_the_report_states_the_daily_processing_capacity():
-    """"How much can we process in a day, and are we collecting that much?"
+def test_the_report_states_what_was_spent_and_what_came_out():
+    """"How much did we spend, and what did it produce?"
 
-    Both numbers were already in the email and the answer still took an
-    afternoon of arithmetic: on 2026-08-18 we fetched 2,434 pages and
-    AI-processed 353 of them.
+    It used to derive a "~N pages/day capacity" from that. Five versions of
+    that number were wrong in one morning, and the last review closed it: the
+    budget is not one scalar — Groq's binding limit is 200,000 tokens a day,
+    not its 14,400 requests — so summing request allowances and dividing by
+    attempts-per-page has no answer. Measured quantities only; pages per day is
+    an observation across reports, not a derivation inside one.
     """
     import html as _html
     import re
@@ -23,22 +26,26 @@ def test_the_report_states_the_daily_processing_capacity():
         "totals": {"hu": 12536, "intl": 29493,
                    "covered_pairs_hu": 13911, "covered_pairs_intl": 32769},
         "runs": [],
+        "enrich_attempts": 120, "extract_attempts": 400,
         "providers": [
             {"name": "groq", "used": 400, "budget": 1000, "failures": 100},
             {"name": "gemini", "used": 200, "budget": 1000, "failures": 100},
         ],
     }
     _subject, html = build_report_html("2026-08-18", summary, {})
-    # Tags become spaces, so collapse runs of whitespace before matching —
-    # otherwise "</b> kapacitás" reads as two spaces.
     text = " ".join(_html.unescape(re.sub(r"<[^>]+>", " ", html)).split())
 
-    # 600 calls, 200 failed -> 400 successful over 353 pages ≈ 1.1 calls/page,
-    # and 2,000 of budget therefore buys about 1,700 pages.
-    assert "1.1 hívás/oldal" in text
-    assert "oldal/nap kapacitás" in text
+    assert "600 hívás" in text
+    assert "400 kinyerés" in text
+    assert "120 leírás" in text
+    # 600 - 400 - 120: preflight and the gateway, named rather than folded in.
+    assert "80 egyéb" in text
+    assert "353 feldolgozott oldal" in text
     assert "6.9×" in text          # fetched vs processed
     assert "33%" in text           # refused calls
+    # The number that cannot be computed from this accounting.
+    assert "kapacitás" not in text
+    assert "hívás/oldal" not in text
 
 
 def test_the_capacity_line_is_omitted_when_nothing_was_processed():

@@ -235,15 +235,33 @@ def build_report_html(day: str, summary: dict, traffic: dict,
                 "a leírás-generálás (enrichment) ugyanabból a keretből költ, "
                 "mint a kinyerés.</p>")
         if _done:
-            per_page = _ok / _done
-            capacity = int(_budget / per_page) if per_page else 0
+            # No derived "pages/day capacity" here, deliberately. Five versions
+            # of that number were wrong in one morning — modified records vs
+            # calls, batch totals vs per-call, successes vs attempts, logical
+            # calls vs provider attempts, inferred vs measured — and the last
+            # review closed it for good: the budget is not one scalar. Groq's
+            # binding limit is 200,000 tokens a day, not its 14,400 requests,
+            # so summing request allowances across the fleet and dividing by
+            # attempts-per-page is not a computation with an answer. Computing
+            # it honestly needs per-workload attempt tagging *and* a mixed-unit
+            # budget model; that is a project, not a report line.
+            #
+            # What is left is measured: what was spent, what came out, and the
+            # ratio between collection and processing. Pages per day is then an
+            # observation across reports rather than a derivation inside one.
+            _enrich = int(summary.get("enrich_attempts") or 0)
+            _extract = int(summary.get("extract_attempts") or 0)
+            _other = max(0, _calls - _enrich - _extract)
             ratio = f"{_fetched / _done:.1f}×" if _done else "—"
             refused = f"{_fails * 100 // _calls}%" if _calls else "0%"
+            _split = f"{_extract} kinyerés, {_enrich} leírás"
+            if _other:
+                # preflight() probes every provider once per run, and the /v1
+                # gateway is other software entirely. Named, not folded in.
+                _split += f", {_other} egyéb (preflight, átjáró)"
             ai_html += (
                 "<p style='margin:8px 0 0;font-size:13px;color:#8C8478'>"
-                f"{_ok} sikeres hívás / {_done} feldolgozott oldal = "
-                f"<b>{per_page:.1f} hívás/oldal</b>. A teljes napi kerettel ez "
-                f"<b>~{capacity:,} oldal/nap</b> kapacitás. "
+                f"{_calls} hívás ({_split}) → <b>{_done} feldolgozott oldal</b>. "
                 f"Letöltve {_fetched} oldal — {ratio} a feldolgozottnak. "
                 f"Elutasított hívás: {refused}.</p>".replace(",", " "))
 
@@ -350,6 +368,16 @@ async def send_daily_report(db_path: Path, hu_cities: set, day: str | None = Non
     end_iso = f"{end_day}T00:00:00"
 
     summary = get_daily_summary(db_path, start_iso, end_iso, hu_cities)
+    # Enrichment spends the same free budget as extraction; without this the
+    # report's per-page figure counts description calls against pages they
+    # never touched.
+    try:
+        from .db import get_daily_counter
+        summary["enrich_attempts"] = get_daily_counter(db_path, day, "enrich_attempts")
+        summary["extract_attempts"] = get_daily_counter(db_path, day, "extract_attempts")
+    except Exception as exc:  # noqa: BLE001 — a counter must not stop the report
+        log.warning("report_enrich_counter_failed", error=str(exc))
+        summary["enrich_attempts"] = summary["extract_attempts"] = 0
     # Free-tier AI spend for the reported day. Best-effort: a report must still
     # go out if the router config is unreadable.
     try:

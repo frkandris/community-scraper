@@ -392,3 +392,71 @@ def test_report_omits_the_ai_block_when_nothing_was_called(tmp_path):
     }
     _, html = build_report_html("2026-08-16", summary, {}, None)
     assert "Ingyenes AI-keret" not in html
+
+
+def test_the_spend_line_names_each_workload():
+    """Enrichment, extraction and "other" spend the same allowance.
+
+    Undifferentiated, the line read "8.9 calls/page, ~239 pages/day" on
+    2026-08-23 while 384 of the 936 calls had written descriptions — and that
+    figure was used to size a paid-model decision. Both parts are measured at
+    their source now; what is left over is preflight and the /v1 gateway, which
+    is other people's software and is named rather than blamed on extraction.
+    """
+    from scraper.report import build_report_html
+
+    def _blank():
+        return {k: 0 for k in ("new_communities", "changed_communities", "change_rows",
+                               "new_venues", "new_persons", "pages_scraped",
+                               "pages_extracted", "searches")}
+
+    hu = _blank()
+    hu["pages_extracted"] = 105
+    summary = {
+        "hu": hu, "intl": _blank(),
+        "totals": {"hu": 0, "intl": 0, "covered_pairs_hu": 0, "covered_pairs_intl": 0},
+        "runs": [],
+        "enrich_attempts": 384, "extract_attempts": 1200,
+        # The 2026-08-23 fleet, verbatim: 1,794 attempts, 858 failures.
+        "providers": [
+            {"name": "mistral", "configured": True, "used": 485, "budget": 475,
+             "failures": 9, "rate_limits": 0, "tokens": 816995},
+            {"name": "groq", "configured": True, "used": 200, "budget": 186,
+             "failures": 116, "rate_limits": 45, "tokens": 164113},
+            {"name": "gemini", "configured": True, "used": 1062, "budget": 1425,
+             "failures": 721, "rate_limits": 704, "tokens": 439651},
+            {"name": "openrouter", "configured": True, "used": 47, "budget": 47,
+             "failures": 12, "rate_limits": 6, "tokens": 82160},
+        ],
+    }
+    _, html = build_report_html("2026-08-23", summary, {}, None, None)
+
+    assert "1794 hívás" in html
+    assert "1200 kinyerés" in html
+    assert "384 leírás" in html
+    assert "210 egyéb" in html          # 1794 - 1200 - 384
+    assert "105 feldolgozott oldal" in html
+    # No derived capacity: the allowance is not one scalar (Groq is token-bound).
+    assert "kapacitás" not in html
+    assert "oldal/nap" not in html
+
+
+def test_a_run_that_aborts_at_preflight_still_records_its_attempts():
+    """A counter written only on the happy path is the bug it was added to fix.
+
+    `preflight()` probes every provider, so an aborted run has already spent
+    attempts. Losing them makes the "other" bucket absorb the difference.
+    """
+    import ast
+    from pathlib import Path
+
+    tree = ast.parse(Path("scraper/pipeline.py").read_text(encoding="utf-8"))
+    persisted = {n.func.id for n in ast.walk(tree)
+                 if isinstance(n, ast.Call) and getattr(n.func, "id", "") == "_persist_attempts"}
+    assert "_persist_attempts" in persisted
+
+    # Both exits: the preflight abort and the normal end of the run.
+    src = Path("scraper/pipeline.py").read_text(encoding="utf-8")
+    assert src.count("_persist_attempts(") >= 3      # def + abort + throughput
+    i = src.index("extractor_preflight_failed")
+    assert "_persist_attempts(" in src[i:i + 400]

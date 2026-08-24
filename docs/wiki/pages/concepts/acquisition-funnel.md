@@ -30,7 +30,20 @@ none was readable without the admin password, so "is anything converting?" was
 answered by guessing — the same blind spot that let a 90% index collapse pass
 unremarked for two months ([[2026-06-search-index-collapse]]).
 
-**The outclick is the stage that matters.** A pageview says Google sent someone;
+**The outclick is not being recorded.** `log_outclick` has no callers: the
+tracking was removed in `e7d373e` (2026-06-05), the revert that also removed the
+listing shuffle during the traffic-drop investigation. The 1,403 lifetime
+outclicks are historical, and the funnel block showed 0 in thirty days on the
+first morning it shipped — which is what it was for.
+
+The removal was right. The old implementation routed **every** outbound link
+through `/out?url=…`, a 302 on our own domain, so a crawler never saw a direct
+link to the community's own site; Search Console still lists 2,120 "Page with
+redirect". Restoring that shape would repeat the mistake. Measuring it without
+touching the link — a `sendBeacon` on click, `<a href>` pointing straight at
+the community — is the version worth building, and has not been built.
+
+**The outclick is the stage that would matter.** A pageview says Google sent someone;
 an outclick says the site did its job and they went on to the community. Traffic
 without outclicks is a page that ranks and helps nobody.
 

@@ -536,8 +536,38 @@ def pages_fetched(pair_logs: "list[dict]") -> int:
         for p in pair_logs)
 
 
-def _log_throughput(extractor, run_mode: str) -> None:
+def _persist_attempts(extractor, db_path) -> None:
+    """Record this run's provider attempts under `extract_attempts`.
+
+    Called wherever a run ends — normal exit, preflight abort, cancellation —
+    because a counter written only on the happy path is the bug it was added to
+    fix. Idempotent per run only in the sense that each run's extractor is
+    fresh; calling it twice for the same extractor would double-count, so it is
+    called once per exit path.
+    """
+    if db_path is None:
+        return
+    attempts = int(getattr(extractor, "calls_made", 0) or 0)
+    if attempts <= 0:
+        return
+    from datetime import datetime as _dt, timezone as _tz
+
+    from .db import bump_daily_counter
+    bump_daily_counter(db_path, _dt.now(_tz.utc).strftime("%Y-%m-%d"),
+                       "extract_attempts", attempts)
+
+
+def _log_throughput(extractor, run_mode: str, db_path=None) -> None:
     """Report where the window's time went, on every exit path.
+
+    Also persists the run's provider attempts under `extract_attempts`, so the
+    daily report can state a per-page cost without having to *infer* which
+    calls were extraction's. Inferring it — "everything that is not
+    enrichment" — silently charges extraction for `preflight()`, which runs
+    once per run against every provider, and for the `/v1/chat/completions`
+    gateway, which is other people's software entirely. With the worker
+    starting a run every twenty minutes, preflight alone is a few hundred
+    attempts a day against a fleet that manages under two thousand.
 
     The yield of a serial chain is decided by two numbers: compare
     `calls_per_min` against the fleet's combined rpm ceiling (185 as configured
@@ -547,6 +577,7 @@ def _log_throughput(extractor, run_mode: str) -> None:
     """
     if extractor is not None and getattr(extractor, "calls_made", 0):
         log.info("extractor_throughput", run_mode=run_mode, **extractor.throughput())
+    _persist_attempts(extractor, db_path)
 
 
 def classify_run_outcome(pair_logs: list[dict], run_error: str | None = None) -> str:
@@ -832,7 +863,7 @@ async def run_pipeline(
             )
             total_new += upgrade_new
             pair_logs += upgrade_logs
-        _log_throughput(extractor, run_mode)
+        _log_throughput(extractor, run_mode, config.db_path)
         return pair_logs, total_new
 
     # Preflight: one live extraction before the pair loops start. A provider-side
@@ -845,6 +876,7 @@ async def run_pipeline(
             await extractor.preflight()
         except Exception as exc:
             log.error("extractor_preflight_failed", run_mode=run_mode, error=str(exc))
+            _persist_attempts(extractor, config.db_path)
             raise ExtractorUnavailableError(
                 f"extractor preflight failed, no work attempted: {exc}") from exc
 
@@ -918,7 +950,7 @@ async def run_pipeline(
             log.info("catchup_pass_complete", new_records=catchup_new, pairs=len(uncovered))
 
     log.info("pipeline_complete", run_mode=run_mode, total_new_records=total_new)
-    _log_throughput(extractor, run_mode)
+    _log_throughput(extractor, run_mode, config.db_path)
     if run_mode != "search_only":
         try:
             from .duplicates import detect_all

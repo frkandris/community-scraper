@@ -58,6 +58,27 @@ def validate(short: str, long: str) -> tuple[str, str] | None:
     return short, long
 
 
+def _count_attempts(db_path, n: int) -> None:
+    """`n` enrichment provider attempts, on the UTC day they were made.
+
+    Attempts, not successes, because that is the unit a provider's daily
+    allowance is denominated in: a refused call spends a slot too. The report
+    subtracts this from the fleet's total attempts to get extraction's share,
+    so counting successes here and dividing by an attempt budget would mix two
+    units and overstate capacity — on a day with 47% refusals, materially.
+
+    Per attempt, not per batch: the batch total was written after the loop, so
+    a cancelled run — which the admin stop route makes routine — left the
+    records enriched, the ledger charged, and the counter empty. Per attempt
+    also stamps the right day for a batch running through midnight, which the
+    ledger already does; a batch-end stamp moved an evening's spend into the
+    next morning's report.
+    """
+    from .db import bump_daily_counter
+    bump_daily_counter(db_path, datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                       "enrich_attempts", max(1, int(n)))
+
+
 async def enrich_batch(
     db_path, extractor, city_names: set[str], limit: int = 20,
     dry_run: bool = False, fetch_missing: bool = True,
@@ -103,6 +124,12 @@ async def enrich_batch(
             if not dry_run:
                 mark_enrichment_attempted(db_path, c["record_key"])
             continue
+        # `calls_made` counts *provider* attempts, and one logical call can walk
+        # several providers down the fallback chain. The ledger counts the same
+        # attempts, so the report can only subtract like from like — counting
+        # one per description under-subtracts exactly as often as the fleet
+        # fails over, which on 2026-08-23 was 858 attempts in 1,794.
+        _attempts_before = int(getattr(extractor, "calls_made", 0) or 0)
         try:
             res = await extractor.write_descriptions(
                 c["name"], c["city"], c["topic"], c.get("locale", "hu"), text)
@@ -129,6 +156,14 @@ async def enrich_batch(
                 log.warning("enrich_stopped_no_provider", failed=stats["failed"])
                 break
             continue  # transient provider error — do NOT mark; retry next batch
+        finally:
+            # `finally`, so the attempts are recorded however the call ended —
+            # including `asyncio.CancelledError`, which is a BaseException and
+            # never reaches the `except Exception` above. An extractor that
+            # does not track `calls_made` still counts as one attempt.
+            _count_attempts(
+                db_path,
+                int(getattr(extractor, "calls_made", 0) or 0) - _attempts_before)
         ok = validate(res.get("short_description", ""), res.get("long_description", ""))
         if not ok:
             stats["skipped"] += 1

@@ -49,10 +49,12 @@
 router:
   # Master switch. Off → the old single-provider DeepSeek path, unchanged.
   enabled: true
-  # Paid providers are parked: free capacity is used first and, for now, only.
-  # Flip to true to let the router fall through to DeepSeek when every free
-  # provider is spent.
-  allow_paid: false
+  # ON since 2026-08-24. The free fleet manages ~105 pages a day against a
+  # backlog of 91,919, and Cerebras ending its free tier took a third of what
+  # capacity there was. Paid providers do not jump the queue: the router picks
+  # by measured quality, so the free models still go first and paid ones are
+  # reached when the free budget is spent. Overflow, not replacement.
+  allow_paid: true
   # Re-extracting an already-processed page is only ever a filler for quota that
   # would otherwise expire unused. New pages always come first; a page is
   # re-extracted only when an available model scores at least this many points
@@ -187,5 +189,37 @@ providers:
     rpm: 60
     rpd: 100000
     models:
+      # Their own API serves exactly three models and this alias is the 0731
+      # snapshot (checked against /v1/models 2026-08-24). $0.22/$0.66 per 1M
+      # off-peak, double in peak — weekdays 01:00-04:00 and 06:00-10:00 UTC.
+      # The cheaper 0423 snapshot is not on this endpoint at all; it is reached
+      # through OpenRouter below, at roughly a quarter of the price.
       - model: deepseek-v4-flash
         quality: 66
+
+  # ── OpenRouter, paid tier ─────────────────────────────────────────────────
+  # Same key as the free entry above, a separate provider because `paid` is a
+  # provider-level flag and the two must not share a budget: the free one is
+  # capped at 50 requests a day and this one is not.
+  #
+  # Quality is a PLACEHOLDER on both models. 40 keeps them behind every free
+  # provider until `POST /v1/score` measures them on our own pages — the
+  # catalogue's numbers were measured for English extraction, and a sibling
+  # project's ranking reversed when it was measured on the real workload.
+  - name: openrouter_paid
+    enabled: true
+    paid: true
+    api_key_env: OPENROUTER_API_KEY
+    base_url: https://openrouter.ai/api/v1
+    rpm: 60
+    rpd: 100000
+    models:
+      # DeepSeek V4 Flash 0423: $0.0574 in / $0.1148 out per 1M, cache read
+      # $0.01148. Named vendor, MIT licence, 1M context, 17 providers behind
+      # it on OpenRouter — so a single provider going down does not stop it.
+      - model: deepseek/deepseek-v4-flash
+        quality: 40
+      # Qwen3.7 Flash: $0.03 / $0.13 per 1M, the cheapest credible option, but
+      # served by a single provider (Alibaba Cloud Int.).
+      - model: qwen/qwen3.7-flash
+        quality: 40

@@ -257,3 +257,133 @@ def test_batch_stops_when_the_fleet_is_down(tmp_path):
     assert DeadExtractor.calls == 1
     assert stats["failed"] == 1
     assert stats["stopped_no_provider"] is True
+
+
+# ── the enrichment call counter ──────────────────────────────────────────────
+#
+# The report subtracts this from the fleet's successful calls to get extraction
+# capacity. Every way of getting it wrong shows up as a wrong per-page cost.
+
+def _setup_many(base: Path, count: int) -> Path:
+    """A database with `count` un-enriched communities, each with source text."""
+    base = Path(base)
+    base.mkdir(parents=True, exist_ok=True)
+    db = base / "scraper.db"
+    init_db(db)
+    cache = CacheManager(db)
+    # Names have to be genuinely unlike each other: `save_results` dedups
+    # fuzzily, and "Zenei Kör 0/1/2" collapses into a single record.
+    names = ["Zenei Kör", "Futóklub", "Sakk Egylet", "Kertbarátok",
+             "Fotósműhely", "Néptánc Csoport"]
+    for i in range(count):
+        url = f"https://klub.test/{i}"
+        save_results("Budapest", "music",
+                     [_rec(name=names[i % len(names)], source_url=url)], db)
+        cache.save_scraped(url, "Forrásszöveg. " * 60, "Budapest", "music")
+    return db
+
+
+def _counter(db) -> int:
+    from datetime import datetime, timezone
+
+    from scraper.db import get_daily_counter
+    return get_daily_counter(db, datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                             "enrich_attempts")
+
+
+def test_a_refused_description_still_counts_as_a_call(tmp_path):
+    """The provider was paid for it; the report must not blame extraction.
+
+    `validate` rejects thin or missing descriptions, and a malformed answer
+    arrives as `{}`. Counting accepted records instead of calls left those
+    attributed to page extraction — pages they never touched.
+    """
+    db = _setup(tmp_path)
+
+    class _Refuser:
+        exhausted = False
+
+        async def write_descriptions(self, *a, **kw):
+            return {"short_description": "", "long_description": ""}
+
+    stats = asyncio.run(enrich_batch(db, _Refuser(), HU, limit=5, fetch_missing=False))
+    assert stats["enriched"] == 0
+    assert stats["skipped"] == 1
+    assert _counter(db) == 1
+
+
+def test_a_raised_call_still_counts_as_an_attempt(tmp_path):
+    """A refused call spends a slot in the daily allowance like any other.
+
+    The report works in attempts, because that is the unit the allowance is
+    denominated in. Counting only successes here and dividing by an attempt
+    budget overstates capacity by the refusal rate — 47% on 2026-08-23.
+    """
+    db = _setup(tmp_path)
+
+    class _Broken:
+        rate_limited_out = False
+        providers_down = False
+        quota_exhausted = False
+        exhausted = False
+
+        async def write_descriptions(self, *a, **kw):
+            raise RuntimeError("upstream 500")
+
+    stats = asyncio.run(enrich_batch(db, _Broken(), HU, limit=5, fetch_missing=False))
+    assert stats["failed"] == 1
+    assert _counter(db) == 1
+
+
+def test_completed_calls_survive_a_batch_that_never_finishes(tmp_path):
+    """Cancellation is routine — the admin stop route exists for it.
+
+    Writing the total after the loop lost every call the batch had already
+    completed, while the records stayed enriched and the ledger stayed charged.
+    """
+    import pytest
+
+    db = _setup_many(tmp_path, 3)
+
+    class _DiesOnThird:
+        exhausted = False
+
+        def __init__(self):
+            self.calls = 0
+
+        async def write_descriptions(self, *a, **kw):
+            self.calls += 1
+            if self.calls == 3:
+                raise asyncio.CancelledError()
+            return {"short_description": SHORT, "long_description": LONG}
+
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(enrich_batch(db, _DiesOnThird(), HU, limit=5, fetch_missing=False))
+    # Two completed plus the cancelled one — all three were issued.
+    assert _counter(db) == 3
+
+
+def test_a_call_that_walks_the_fallback_chain_counts_every_attempt(tmp_path):
+    """The ledger counts provider attempts; so must this, or it under-subtracts.
+
+    One logical description can try several providers. Counting one per
+    description leaves the failed attempts attributed to extraction — exactly
+    as often as the fleet fails over, which on 2026-08-23 was 858 attempts in
+    1,794.
+    """
+    db = _setup(tmp_path)
+
+    class _FailsOverTwice:
+        exhausted = False
+
+        def __init__(self):
+            self.calls_made = 0
+
+        async def write_descriptions(self, *a, **kw):
+            self.calls_made += 3      # two refusals, then a provider that answers
+            return {"short_description": SHORT, "long_description": LONG}
+
+    stats = asyncio.run(enrich_batch(db, _FailsOverTwice(), HU, limit=5,
+                                     fetch_missing=False))
+    assert stats["enriched"] == 1
+    assert _counter(db) == 3

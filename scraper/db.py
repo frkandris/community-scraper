@@ -586,6 +586,19 @@ def init_db(db_path: Path, force: bool = False) -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_outclick_clicked_at ON outclick_events(clicked_at)"
         )
+        # Per-day counters that belong to no run and no provider. The first is
+        # enrichment: it spends the same free budget as extraction, and without
+        # a number for it the report divided *every* successful call by the
+        # pages extracted and called the result a per-page cost. Modified
+        # records cannot stand in for it — a re-extraction modifies records too.
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS daily_counters (
+                day   TEXT NOT NULL,
+                name  TEXT NOT NULL,
+                value INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (day, name)
+            )
+        """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS traffic_daily (
                 day       TEXT NOT NULL,
@@ -3502,6 +3515,34 @@ def record_pageview(db_path: Path, day: str, site: str, visitor_hash: str) -> No
             "INSERT OR IGNORE INTO traffic_visitors(day, site, visitor_hash) VALUES(?,?,?)",
             (day, site, visitor_hash))
         conn.commit()
+
+
+def bump_daily_counter(db_path: Path, day: str, name: str, amount: int = 1) -> None:
+    """Add to a per-day counter. Best-effort: never fail the caller's work."""
+    if amount <= 0:
+        return
+    try:
+        with _connect(db_path) as conn:
+            conn.execute(
+                "INSERT INTO daily_counters(day, name, value) VALUES(?,?,?)"
+                " ON CONFLICT(day, name) DO UPDATE SET value = value + excluded.value",
+                (day, name, int(amount)))
+            conn.commit()
+    except Exception as exc:  # noqa: BLE001 — a counter must not stop a run
+        log.warning("daily_counter_failed", name=name, error=str(exc))
+
+
+def get_daily_counter(db_path: Path, day: str, name: str) -> int:
+    if not db_path.exists():
+        return 0
+    try:
+        with _connect(db_path) as conn:
+            row = conn.execute(
+                "SELECT value FROM daily_counters WHERE day=? AND name=?",
+                (day, name)).fetchone()
+    except sqlite3.OperationalError:
+        return 0
+    return int(row[0]) if row else 0
 
 
 def get_traffic_for_day(db_path: Path, day: str) -> dict:
