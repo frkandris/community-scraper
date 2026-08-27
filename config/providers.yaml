@@ -63,6 +63,24 @@ router:
   # Hard ceiling on re-extraction calls per run, so an upgrade sweep can never
   # crowd out the next day's new work.
   upgrade_max_per_run: 500
+  # ── The money ceiling ────────────────────────────────────────────────────
+  # What every paid provider together may spend in one UTC day. Reached → paid
+  # providers are unavailable until midnight and the day finishes on free
+  # capacity, which is the ordinary end of a window, not an outage.
+  #
+  # **0 means no paid calls at all, and that is the safe default.** On
+  # 2026-08-24 `allow_paid` was switched on by itself. The provider it was
+  # switched on *for* — openrouter_paid, measured cheapest and best — had no
+  # credit on the account, so all 41 of its calls a day were refused and every
+  # page fell through to DeepSeek's own API: four times the price, 4 answers in
+  # 14, and every truncated answer charged in full. Four days, roughly $60, and
+  # nothing in the system held a number that could have noticed, because the
+  # ledger counted requests and tokens and the bill was in dollars.
+  #
+  # $2.00 is deliberately generous for the good path and small for the bad one.
+  # At openrouter_paid's price a day's extraction is a few cents; at the rate
+  # that experiment actually burned, this is caught before lunch.
+  daily_budget_usd: 2.00
 
 providers:
 
@@ -204,6 +222,20 @@ providers:
       # day OpenRouter is unreachable; nothing should ever route here first.
       - model: deepseek-v4-flash
         quality: 23
+        # $0.22/$0.66 per 1M off-peak, double during peak (01:00-04:00 and
+        # 06:00-10:00 UTC on weekdays). The off-peak price is the one written
+        # here, so the guard *under*-counts during peak rather than over —
+        # which is the wrong direction for a ceiling and the reason this model
+        # should not be the one doing the work. It is a last resort.
+        usd_per_1m_in: 0.22
+        usd_per_1m_out: 0.66
+        # A reasoning model: the `reasoning` text is billed and counted as
+        # output, and at the global 1,500 it spent the whole cap before the
+        # JSON closed — 28 truncations across 14 pages on 2026-08-24, all
+        # charged. Per-model since 2026-08-27, so raising it here does not hand
+        # the same number to Groq, whose free tier reserves prompt + max_tokens
+        # against an 8,000-token minute window before generating.
+        max_output_tokens: 4000
 
   # ── OpenRouter, paid tier ─────────────────────────────────────────────────
   # Same key as the free entry above, a separate provider because `paid` is a
@@ -229,6 +261,16 @@ providers:
       # twenty-eight.
       - model: deepseek/deepseek-v4-flash
         quality: 80
+        # Checked against OpenRouter's own /api/v1/models on 2026-08-27:
+        # $0.0795 in / $0.159 out per 1M, up from the $0.0574/$0.1148 measured
+        # on 2026-08-24 and still about a quarter of DeepSeek's own API. Prices
+        # move; this one is the input to a spend guard, so re-read it from the
+        # catalogue rather than trusting this line indefinitely.
+        usd_per_1m_in: 0.0795
+        usd_per_1m_out: 0.159
+        # Same reasoning-model problem as the 0731 above, and it still
+        # truncated 2 of 14 pages at the global cap.
+        max_output_tokens: 4000
       # Qwen3.7 Flash ($0.03/$0.13) was measured and REMOVED the same day: it
       # answered **0 of 14** pages, truncated on every one. It reasons at
       # length — eighty tokens of it for a one-word question — and the

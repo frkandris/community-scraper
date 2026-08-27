@@ -51,21 +51,26 @@ The full run is orchestrated by `pipeline.py:run_pipeline()`. Modes:
 
 **Model routing**: `config/providers.yaml` holds the free-tier fleet (Groq, Cerebras, Gemini, Mistral, OpenRouter, GitHub Models) with per-model quality scores; DeepSeek is paid and parked behind `router.allow_paid`. Routing happens **before** generation, never as a cheap-first cascade. **Every model in the fleet shares one `fingerprint_model`** — the fingerprint keys the extraction cache, so letting it vary per model would invalidate ~74K cached extractions. Which model actually ran lives in `cache_pages.extract_model`/`extract_quality`, outside every key; read it with `pipeline._served_by()`, never `extractor.model` (that names the head of the chain and lies after failover). `QuotaLedger` persists per-day spend in `provider_usage` and lowers a provider's ceiling when a 429 proves the published limit wrong. Admin view: `/admin/providers`.
 
+**Paid providers need a ceiling, not just a permission.** `router.allow_paid` says paid models *may* be used; `router.daily_budget_usd` says how much, and **0 (the default) means no paid calls at all** — `paid_allowed()` requires both. A free provider stops us with a 429; nothing stops a paid one, which is why `allow_paid: true` alone burned ~$60 in four days (2026-08-24..27, see `docs/wiki/pages/post-mortems/`). `provider_usage.cost_usd` accumulates from the provider's own reported token split × the model's `usd_per_1m_in`/`usd_per_1m_out`; **refused calls are charged too**, because a truncated answer is billed in full. `build_extractors` refuses to build an unpriced paid model — it would report $0.00 against the ceiling. Reaching the ceiling removes paid providers from routing until 00:00 UTC; it never aborts a run. `ModelRouter.done_for_today()` — money, requests *and* tokens — is what `preflight()` must ask before probing, or every run spends one paid call proving what the ledger already knows.
+
 **External LLM gateway**: `/v1/chat/completions` + `/v1/models` + `/v1/quota` (`scraper/web/api.py`) expose the router to other software with the OpenAI wire format. Bearer auth from comma-separated `ROUTER_API_KEY`; **unset = the gateway 401s everything**, never open. Deliberately general purpose — no project prompt or schema is injected. Gateway calls spend the same daily ledger as the crawler.
 
 **Search cost rules**: every *successful* search is saved to `search_cache` — even empty results and Full Refresh runs (an unsaved empty search is re-paid every run). Provider failures raise (`SearchQuotaError` / `ExtractorUnavailableError`) and are NOT cached: the pair/page is skipped with a `search_failed`/`extract_failed` pair-log counter and retried next run. Never convert these errors to empty results — caching an empty extraction under the current fingerprint is permanent silent data loss. `FallbackSearchClient.search_all(stop_after=…)` stops issuing paid queries once enough unique URLs are collected. Production uses `dataforseo_mode: standard` with `standard_priority: 2` (~$1.2/1K, normally ≤1 minute); normal priority may legally exceed the client's 5-minute polling window and must not be used with the current sequential collector.
 
 **Extractor failure rules**: `run_pipeline()` calls `extractor.preflight()` — one live mini-extraction — before any pair loop, so a broken model name or revoked key fails the run immediately instead of one skipped page at a time (`search_only` skips it: no LLM). During a run, `FallbackExtractor` opens a circuit breaker after `_FAILURE_THRESHOLD` (20) *consecutive* failed calls; one success resets the counter. `providers_down` (providers configured but all dead) aborts the run with the reason in the pair log's `extract_error` → run detail banner + daily email. `exhausted` alone must NOT abort — it is also true when no API key is set, which is a deliberate no-LLM run.
 
-**`max_tokens` is capacity, not headroom.** Free tiers charge `prompt +
-max_tokens` against a per-minute token window **before generating** — Groq's is
-8,000. Sending no cap (as we did until 2026-08-19) reserves the model's maximum
-on every call: roughly one request per minute, which is why Groq stopped at 354
-calls in a day and 838 of Gemini's 1,205 came back 429, and why an 8,000-char
-prompt returned a plain HTTP 413 instead of a truncated answer. Raising
-`deepseek.max_output_tokens` "for safety" makes runs slower, not safer. If
-`llm_output_truncated` appears in the log, cut `max_text_chars` first: past a
-page's useful content that half of the sum buys nothing. Learned on a sibling
+**`max_tokens` is capacity, not headroom — and it is per model.** Free tiers
+charge `prompt + max_tokens` against a per-minute token window **before
+generating** — Groq's is 8,000. Sending no cap (as we did until 2026-08-19)
+reserves the model's maximum on every call: roughly one request per minute,
+which is why Groq stopped at 354 calls in a day and 838 of Gemini's 1,205 came
+back 429, and why an 8,000-char prompt returned a plain HTTP 413 instead of a
+truncated answer. The resolution order is model → provider → the global
+`deepseek.max_output_tokens`; a paid reasoning endpoint gets 4,000 without
+handing the same number to Groq. Do not raise the *global* one "for safety" —
+that makes runs slower, not safer. If `llm_output_truncated` appears for a
+free provider, cut `max_text_chars` first: past a page's useful content that
+half of the sum buys nothing. Learned on a sibling
 project, where measuring a model on the *real* workload — not a synthetic
 prompt — also reversed the catalogue's quality ranking, so treat
 `providers.yaml` scores as measured-for-English-extraction, not universal.

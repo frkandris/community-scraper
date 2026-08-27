@@ -146,7 +146,8 @@ class QuotaLedger:
         return self._usage.setdefault(
             provider,
             {"calls": 0, "failures": 0, "rate_limits": 0, "tokens": 0,
-             "observed_limit": None, "blocked_until": 0.0, "last_error": None},
+             "cost_usd": 0.0, "observed_limit": None, "blocked_until": 0.0,
+             "last_error": None},
         )
 
     def budget(self, spec: ProviderSpec) -> int:
@@ -158,6 +159,18 @@ class QuotaLedger:
 
     def used(self, provider: str) -> int:
         return int(self._row(provider).get("calls") or 0)
+
+    def cost_used(self, provider: str) -> float:
+        return float(self._row(provider).get("cost_usd") or 0.0)
+
+    def cost_total(self, providers) -> float:
+        """What this set of providers has spent today, in USD.
+
+        Takes the names rather than reading every row: the ledger holds free
+        providers too, and they contribute 0.00 whether or not anyone asks. The
+        budget question is only ever about the paid ones.
+        """
+        return sum(self.cost_used(name) for name in providers)
 
     def tokens_used(self, provider: str) -> int:
         return int(self._row(provider).get("tokens") or 0)
@@ -239,7 +252,7 @@ class QuotaLedger:
         self, provider: str, *, ok: bool = True, rate_limited: bool = False,
         retry_after: float | None = None, error: str | None = None,
         spec: ProviderSpec | None = None, reserved: bool = False,
-        tokens: int = 0, billing_blocked: bool = False,
+        tokens: int = 0, cost_usd: float = 0.0, billing_blocked: bool = False,
     ) -> None:
         """Record one attempt. Counts even when it failed — a rejected request
         still consumed a slot at most providers, and undercounting is exactly
@@ -320,6 +333,12 @@ class QuotaLedger:
         # provider's own.
         if tokens:
             row["tokens"] = int(row.get("tokens") or 0) + int(tokens)
+        if cost_usd:
+            # A refused call is usually free, but a truncated one is charged in
+            # full — and that was most of what the 2026-08-24 experiment bought.
+            # What the provider reported as used is what gets billed, so that is
+            # what the budget counts, success or not.
+            row["cost_usd"] = float(row.get("cost_usd") or 0.0) + float(cost_usd)
         if error:
             row["last_error"] = error[:200]
         if not self.db_path:
@@ -328,7 +347,7 @@ class QuotaLedger:
             record_provider_call(
                 self.db_path, self.day, provider, ok=ok, rate_limited=rate_limited,
                 blocked_until=blocked_until, error=error, observed_limit=observed_limit,
-                tokens=int(tokens or 0),
+                tokens=int(tokens or 0), cost_usd=float(cost_usd or 0.0),
             )
         except Exception as exc:
             log.warning("quota_ledger_write_failed", provider=provider, error=str(exc))
@@ -350,6 +369,7 @@ class QuotaLedger:
                 "used": self.used(spec.name),
                 "remaining": self.remaining(spec),
                 "tokens": int(row.get("tokens") or 0),
+                "cost_usd": round(float(row.get("cost_usd") or 0.0), 4),
                 "tpd": int(spec.tpd or 0),
                 "tokens_left": self.tokens_left(spec) if spec.tpd else None,
                 "rate_limits": int(row.get("rate_limits") or 0),
@@ -374,6 +394,70 @@ class ModelRouter:
         self.ledger = ledger
         self._all = extractors
         self._specs = {p.name: p for p in catalogue.providers}
+        self._paid = frozenset(p.name for p in catalogue.providers if p.paid)
+        #: The UTC day whose exhaustion has already been logged. Once per day
+        #: rather than once per refused call — the guard is consulted before
+        #: every routing decision, which is thousands of identical lines an
+        #: hour — and per *day* rather than once ever, because the worker holds
+        #: a router across midnight and the second day's ceiling is as worth
+        #: knowing about as the first's.
+        self._budget_warned_day: str | None = None
+
+    # ── The money guard ──────────────────────────────────────────────────────
+    #
+    # Free capacity is bounded by the provider: run out of requests or tokens
+    # and the answer is a 429. Paid capacity has no such edge — it bills until
+    # someone notices, and on 2026-08-24..27 nobody did for four days. So the
+    # edge is drawn here, in the same place and the same way as the free one:
+    # a daily budget the router checks before it picks a model.
+
+    def paid_spend_today(self) -> float:
+        """USD spent by every paid provider today."""
+        self.ledger._sync()
+        return self.ledger.cost_total(self._paid)
+
+    @property
+    def paid_budget_usd(self) -> float:
+        return max(0.0, float(self.catalogue.router.daily_budget_usd or 0.0))
+
+    def paid_allowed(self) -> bool:
+        """False when today's paid spend has reached the ceiling.
+
+        Also false when no ceiling is configured. `allow_paid` says paid
+        providers *may* be used; a budget says how much. Without the second the
+        first is an open tab, which is what this whole guard exists to prevent —
+        so the two are one decision and both are required.
+        """
+        if not self.catalogue.router.allow_paid or self.paid_budget_usd <= 0:
+            return False
+        if self.paid_spend_today() < self.paid_budget_usd:
+            return True
+        if self._budget_warned_day != self.ledger.day:
+            self._budget_warned_day = self.ledger.day
+            log.warning("paid_daily_budget_spent", day=self.ledger.day,
+                        spent_usd=round(self.paid_spend_today(), 4),
+                        budget_usd=self.paid_budget_usd,
+                        note="paid providers are off until 00:00 UTC")
+        return False
+
+    def _spendable(self, spec) -> bool:
+        """Is this provider allowed to be called *at all* right now?
+
+        Free providers: always. Paid: only inside the day's money budget.
+        """
+        return not spec.paid or self.paid_allowed()
+
+    def done_for_today(self, extractor) -> bool:
+        """True when nothing this run does can make this provider callable again.
+
+        Money, requests and tokens — the three things that only reset at
+        midnight. Deliberately distinct from `can_use`, which is also false for
+        a two-second rpm cooldown: a caller that skips on *that* skips a healthy
+        provider, and a caller that probes a provider which is out for the day
+        pays for the answer it already had.
+        """
+        spec = self.spec_for(extractor)
+        return spec is not None and not self._has_daily_budget(spec)
 
     @property
     def enabled(self) -> bool:
@@ -401,14 +485,15 @@ class ModelRouter:
         return sorted(self._all, key=lambda e: -e.quality)
 
     def _has_daily_budget(self, spec) -> bool:
-        """Requests *and* tokens. Either running out ends the provider's day.
+        """Money, requests *and* tokens. Any of them running out ends the day.
 
         Checking requests alone let the worker choose extraction while Groq's
         200,000 tokens were gone but 13,000 of its 14,400 requests were not —
         so the pass started, hit the first pair with real work, and stopped on
         "all providers rate limited". Every run, all day, on 2026-08-19.
         """
-        return (self.ledger.remaining(spec) > 0
+        return (self._spendable(spec)
+                and self.ledger.remaining(spec) > 0
                 and self.ledger.tokens_left(spec) > _MIN_TOKENS_TO_START)
 
     def has_capacity(self, scope: list | None = None) -> bool:
@@ -473,7 +558,9 @@ class ModelRouter:
     def can_use(self, extractor) -> bool:
         """Is this extractor's provider within budget, pacing and back-off?"""
         spec = self.spec_for(extractor)
-        return spec is None or self.ledger.available(spec)
+        if spec is None:
+            return True
+        return self._spendable(spec) and self.ledger.available(spec)
 
     def pace_wait(self, extractor) -> float:
         """Seconds until this extractor's provider is rpm-ready (0 = now).
@@ -550,4 +637,13 @@ def build_router(
         log.info("model_router_ready",
                  fleet=[f"{e.provider}:{e.model}" for e in extractors[:6]],
                  total=len(extractors))
-    return ModelRouter(cat, ledger, extractors)
+    router = ModelRouter(cat, ledger, extractors)
+    if cat.router.allow_paid and router.paid_budget_usd <= 0 and router._paid:
+        # Visible at startup rather than at the first refused call. `allow_paid`
+        # with no `daily_budget_usd` is the state that reads as "paid providers
+        # are on" and behaves as "paid providers are off" — worth one loud line
+        # either way round.
+        log.warning("paid_providers_have_no_budget",
+                    providers=sorted(router._paid),
+                    hint="set router.daily_budget_usd in providers.yaml")
+    return router

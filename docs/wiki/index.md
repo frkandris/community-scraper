@@ -54,6 +54,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[community-identity]] — Two keys: community_id (stable URL slug) vs record_key (topic-aware DB uniqueness).
 - [[search-provider-fallback-chain]] — DataForSEO is the sole search provider (2026-07 cleanup); FallbackSearchClient remains as a single-provider wrapper with per-run exhaustion.
 - [[extraction-provider-fallback-chain]] — FallbackExtractor is the one failure path for every provider; since 2026-08 it carries a routed free-tier fleet instead of a single DeepSeek.
+- [[paid-spend-guard]] — A daily USD ceiling in the quota ledger that makes paid providers unavailable once the day's spend reaches it — the money equivalent of the free tier's 429, which nobody sends us.
 - [[measuring-extraction-quality]] — How model scores are computed, what they actually mean, and the three ways the measurement was wrong before it was right.
 - [[joinable-quality-gate]] — The primary quality filter — only records the LLM marks joinable=True survive; a 3-condition AND rule defines it.
 - [[false-positive-injection]] — Admin negatives feed both extraction paths and explicitly invalidate only the affected community-extraction cache.
@@ -107,6 +108,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 
 ## Post-mortems
 
+- [[2026-08-paid-fallback-burned-the-budget]] — allow_paid went on without a spend ceiling, the cheap provider it was switched on for had no account credit, and four days of extraction ran through a fallback costing four times as much — about $60 for pages that mostly failed.
 - [[2026-08-cerebras-free-tier-ended]] — Cerebras closed its free API tier on 2026-08-17; every call since answered HTTP 402, and because a 402 only retired the provider for one run the worker handed it 283 first-choice picks in a day.
 - [[2026-08-boilerplate-outweighed-the-content]] — Every community page shipped a 176 KB hidden city dropdown — 76% of the document, identical on all 42,091 pages — and /helyszinek rendered all 7,676 venues in 15.5 MB over 34 seconds on the event loop.
 - [[2026-05-coverage-page-500]] — app_state.cities/topics are dataclasses, not dicts; dict-style access 500s any route touching them.

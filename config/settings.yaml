@@ -90,6 +90,20 @@ pipeline:
   # search.standard_priority: 1 worth having — half the price ($0.6 vs $1.2 per
   # 1K SERPs) for a slower queue only pays off when the waits overlap.
   search_concurrency: 8
+  # Content failures at one fingerprint after which a page stops being
+  # re-extracted. A failed extraction is deliberately never cached — caching it
+  # would record "0 communities" permanently — so without this a page whose
+  # answer cannot fit the token cap is attempted by every run, against every
+  # provider, forever. On 2026-08-26 that was ~21 pages × ~30 runs, roughly ten
+  # thousand charged calls for 335 pages of actual output.
+  #
+  # Only failures where a model *answered* and the answer was unusable count.
+  # An outage, a 429 or a spent quota says nothing about the page. 3 is low
+  # enough to stop the bleeding within a day and high enough that a genuinely
+  # unlucky page still gets three tries across three separate runs; 0 disables
+  # the quarantine. Releases automatically when the fingerprint changes, and by
+  # hand at /admin/quarantine.
+  extract_max_page_failures: 3
   commit_after_run: false
   push_after_commit: false
   test_mode: false

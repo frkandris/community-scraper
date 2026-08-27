@@ -661,6 +661,12 @@ class PipelineConfig:
     #: collector. Raising this is what makes `standard_priority: 1` viable —
     #: half the price for a slower queue only pays off if the wait overlaps.
     search_concurrency: int = 1
+    #: Content failures at one fingerprint after which a page stops being
+    #: re-extracted. A failed extraction is deliberately never cached, so
+    #: without this a page whose answer will not fit the token cap is retried by
+    #: every run against every provider — ~21 pages × 30 runs a day, and once
+    #: paid providers were on, most of the bill. 0 disables the quarantine.
+    extract_max_page_failures: int = 3
 
 
 async def _extract_traced(extractor, **kwargs):

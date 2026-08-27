@@ -1200,11 +1200,37 @@ def test_truncation_is_reported_as_truncation():
     ex = OpenAICompatExtractor(provider="p", base_url="https://x.test",
                                api_key="k", model="m", quality=50)
     with structlog.testing.capture_logs() as captured:
-        ex._warn_if_truncated({"choices": [{"finish_reason": "length"}]}, "url")
-        ex._warn_if_truncated({"choices": [{"finish_reason": "stop"}]}, "url")
-        ex._warn_if_truncated({}, "url")            # malformed: must not raise
+        assert ex._was_truncated({"choices": [{"finish_reason": "length"}]}, "url") is True
+        assert ex._was_truncated({"choices": [{"finish_reason": "stop"}]}, "url") is False
+        assert ex._was_truncated({}, "url") is False   # malformed: must not raise
     names = [e.get("event") for e in captured]
     assert names.count("llm_output_truncated") == 1
+
+
+def test_a_truncated_answer_names_the_cap_that_cut_it():
+    """"Invalid JSON" reads as a bad page; the cap is ours and is the fix."""
+    from scraper.extract import ExtractorUnavailableError
+    from scraper.providers import OpenAICompatExtractor
+
+    ex = OpenAICompatExtractor(provider="p", base_url="https://x.test",
+                               api_key="k", model="m", quality=50,
+                               max_output_tokens=1500)
+
+    def _parse():
+        raise ExtractorUnavailableError("LLM returned invalid communities JSON: x")
+
+    with pytest.raises(ExtractorUnavailableError) as cut:
+        ex._parsed({"choices": [{"finish_reason": "length"}]}, "url", _parse)
+    assert "max_output_tokens=1500" in str(cut.value)
+
+    # A complete answer that will not parse is not blamed on the cap.
+    with pytest.raises(ExtractorUnavailableError) as whole:
+        ex._parsed({"choices": [{"finish_reason": "stop"}]}, "url", _parse)
+    assert "max_output_tokens" not in str(whole.value)
+
+    # And a cap hit *after* the closing brace still yields the answer.
+    assert ex._parsed({"choices": [{"finish_reason": "length"}]},
+                      "url", lambda: ["kept"]) == ["kept"]
 
 
 def test_a_token_ceiling_ends_the_day_even_with_requests_left(tmp_path):

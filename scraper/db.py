@@ -639,14 +639,57 @@ def init_db(db_path: Path, force: bool = False) -> None:
                 -- calls, while our catalogue planned for 14,400. A request
                 -- count cannot express that ceiling at all.
                 tokens          INTEGER NOT NULL DEFAULT 0,
+                -- What the day's calls cost, in USD, for providers that charge.
+                -- A request count cannot express a budget denominated in money:
+                -- the same 10,000 calls cost $0.40 on one paid model and $20 on
+                -- another, and on 2026-08-24..27 the fleet spent ~$60 through
+                -- the expensive one because nothing in the ledger was counting
+                -- dollars. Accumulated from the provider's own usage numbers
+                -- and the catalogue's per-model price.
+                cost_usd        REAL NOT NULL DEFAULT 0,
                 PRIMARY KEY (day, provider)
             )
         """)
-        for _col, _type in (("tokens", "INTEGER NOT NULL DEFAULT 0"),):
+        for _col, _type in (("tokens", "INTEGER NOT NULL DEFAULT 0"),
+                            ("cost_usd", "REAL NOT NULL DEFAULT 0")):
             try:
                 conn.execute(f"ALTER TABLE provider_usage ADD COLUMN {_col} {_type}")
             except sqlite3.OperationalError:
                 pass
+
+        # Pages whose extraction keeps failing at one fingerprint.
+        #
+        # A failed extraction is deliberately never cached: caching it would
+        # record "0 communities" permanently and the page would never be retried.
+        # The cost of that rule is that a page which fails *deterministically*
+        # — the model's answer does not fit in max_output_tokens, so the JSON is
+        # cut off — is re-attempted by every run, forever, against every provider
+        # in the fleet. On 2026-08-26 that was ~21 pages retried by 30 runs, and
+        # with paid providers on it was most of the day's bill.
+        #
+        # This table is the missing memory: not "the page is empty" (which would
+        # be data loss) but "the page failed N times at this fingerprint, stop
+        # paying to find out again". The fingerprint is part of the key, so any
+        # prompt or model change clears the quarantine automatically — exactly
+        # the change that could produce a different answer.
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS extract_failures (
+                url_hash    TEXT NOT NULL,
+                fingerprint TEXT NOT NULL,
+                url         TEXT,
+                fail_count  INTEGER NOT NULL DEFAULT 0,
+                last_error  TEXT,
+                first_at    TEXT,
+                last_at     TEXT,
+                PRIMARY KEY (url_hash, fingerprint)
+            )
+        """)
+        # The quarantine is read once per run as a whole-fingerprint sweep, and
+        # written one row at a time.
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_extract_failures_fp
+            ON extract_failures(fingerprint, fail_count)
+        """)
 
         _migrate_unicode_record_keys(conn)
         conn.commit()
@@ -1494,6 +1537,7 @@ def get_fully_processed_pairs(
     run_venues: bool = False,
     run_persons: bool = False,
     max_pages: int | None = None,
+    quarantine_threshold: int = 0,
 ) -> set[tuple[str, str]]:
     """Return (city, topic) pairs that need no pipeline work this run.
 
@@ -1505,6 +1549,12 @@ def get_fully_processed_pairs(
     scraped page is current for every extraction family enabled for this run.
     Venue/person extraction is only expected when the cached community result
     is non-empty, matching the pipeline's cost gates.
+
+    A page in extraction quarantine (`quarantine_threshold` content failures at
+    `current_fp`) counts as done. It is not extracted and never will be at this
+    fingerprint, so leaving its pair outstanding would put the pair back in the
+    loop on every run of the day to skip the same page again — which is the
+    noise the done-pair filter exists to remove.
     """
     import hashlib
 
@@ -1573,6 +1623,7 @@ def get_fully_processed_pairs(
                 "venue_fingerprint": None,
                 "person_fingerprint": None,
                 "person_keys": frozenset(),
+                "quarantined": False,
             }
             if want_extras:
                 entry["venue_fingerprint"] = row[3]
@@ -1596,6 +1647,21 @@ def get_fully_processed_pairs(
                 continue
             entry["records_present"] = bool(is_array)
             entry["has_communities"] = bool(is_array) and bool(length)
+        quarantined: set[str] = set()
+        if quarantine_threshold > 0:
+            try:
+                quarantined = {
+                    r[0] for r in conn.execute(
+                        "SELECT url_hash FROM extract_failures"
+                        " WHERE fingerprint=? AND fail_count>=?",
+                        (current_fp, int(quarantine_threshold)))
+                }
+            except sqlite3.OperationalError:
+                quarantined = set()  # older database: nothing is quarantined
+        for _uh in quarantined:
+            _entry = pages_by_hash.get(_uh)
+            if _entry is not None:
+                _entry["quarantined"] = True
         search_rows = conn.execute("SELECT city, topic, urls FROM search_cache").fetchall()
         conn.rollback()  # read-only: end the snapshot without pretending to write
 
@@ -1626,7 +1692,7 @@ def get_fully_processed_pairs(
             community_current = (
                 page["extract_fingerprint"] == current_fp
                 and page["records_present"]
-            )
+            ) or page["quarantined"]
             if (run_communities or run_persons) and not community_current:
                 all_current = False
                 break
@@ -3701,12 +3767,18 @@ def record_provider_call(
     error: str | None = None,
     observed_limit: int | None = None,
     tokens: int = 0,
+    cost_usd: float = 0.0,
 ) -> None:
     """Count one provider call against its daily budget.
 
     Every attempt increments `calls`, including failures: a 429 or a 400 still
     consumed a request slot at most providers, and undercounting is what makes a
     router walk straight into a hard block.
+
+    `cost_usd` follows the same rule and for the same reason. A refused call is
+    usually free, but a *truncated* one is charged in full — that is most of what
+    a reasoning model costs us — so the price is taken from the usage the
+    provider itself reported, not from whether we could use the answer.
 
     `observed_limit` is only ever lowered, never raised — once a provider has
     proven it stops at N requests, a later run must not optimistically restore a
@@ -3722,6 +3794,7 @@ def record_provider_call(
             UPDATE provider_usage
                SET calls          = calls + 1,
                    tokens         = tokens + ?,
+                   cost_usd       = cost_usd + ?,
                    failures       = failures + ?,
                    rate_limits    = rate_limits + ?,
                    blocked_until  = MAX(blocked_until, COALESCE(?, 0)),
@@ -3733,11 +3806,133 @@ def record_provider_call(
                    END
              WHERE day=? AND provider=?
             """,
-            (int(tokens or 0), 0 if ok else 1, 1 if rate_limited else 0,
+            (int(tokens or 0), float(cost_usd or 0.0),
+             0 if ok else 1, 1 if rate_limited else 0,
              blocked_until, error,
              observed_limit, observed_limit, observed_limit, day, provider),
         )
         conn.commit()
+
+
+# ── Extraction quarantine ─────────────────────────────────────────────────────
+
+def bump_extract_failure(
+    db_path: Path, url_hash: str, fingerprint: str, *,
+    url: str | None = None, error: str | None = None,
+) -> int:
+    """Record one *content* failure for a page and return the new count.
+
+    Only failures where a model answered and the answer was unusable belong
+    here — a truncated or malformed response. An outage, a 429 or a spent quota
+    says nothing about the page and must never reach this function, or a bad
+    afternoon would quarantine the corpus.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO extract_failures
+                   (url_hash, fingerprint, url, fail_count, last_error, first_at, last_at)
+            VALUES (?, ?, ?, 1, ?, ?, ?)
+            ON CONFLICT(url_hash, fingerprint) DO UPDATE SET
+                   fail_count = fail_count + 1,
+                   last_error = excluded.last_error,
+                   last_at    = excluded.last_at,
+                   url        = COALESCE(extract_failures.url, excluded.url)
+            """,
+            (url_hash, fingerprint, url, (error or "")[:300], now, now),
+        )
+        row = conn.execute(
+            "SELECT fail_count FROM extract_failures WHERE url_hash=? AND fingerprint=?",
+            (url_hash, fingerprint),
+        ).fetchone()
+        conn.commit()
+    return int(row[0]) if row else 1
+
+
+def clear_extract_failure(db_path: Path, url_hash: str,
+                          fingerprint: str | None = None) -> None:
+    """Forget a page's failures — it just extracted, or an admin reset it.
+
+    `fingerprint=None` clears every fingerprint for the page, which is what the
+    admin "try this page again" button wants.
+    """
+    with _connect(db_path) as conn:
+        if fingerprint is None:
+            conn.execute("DELETE FROM extract_failures WHERE url_hash=?", (url_hash,))
+        else:
+            conn.execute(
+                "DELETE FROM extract_failures WHERE url_hash=? AND fingerprint=?",
+                (url_hash, fingerprint),
+            )
+        conn.commit()
+
+
+def get_extract_failure_counts(db_path: Path, fingerprint: str) -> dict[str, int]:
+    """{url_hash: failures} at this fingerprint — every page, not just the
+    quarantined ones.
+
+    One query per run, not one per page. The counts below the threshold are
+    worth carrying too: they are what tells a page that has just succeeded that
+    it has a row to clear, so a success costs a write only for pages that
+    actually failed before.
+
+    Bounded by how many distinct pages fail deterministically at one
+    fingerprint — a few hundred in production. If it ever grows past that, the
+    prompt or the token cap is wrong for the whole corpus, which is a louder
+    problem than this dictionary.
+    """
+    if not db_path.exists():
+        return {}
+    with _connect(db_path) as conn:
+        try:
+            rows = conn.execute(
+                "SELECT url_hash, fail_count FROM extract_failures WHERE fingerprint=?",
+                (fingerprint,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            # Older database, table not created yet. An unreadable quarantine
+            # means "nothing is quarantined", never an aborted run.
+            return {}
+    return {r[0]: int(r[1] or 0) for r in rows}
+
+
+def count_quarantined_pages(db_path: Path, fingerprint: str, threshold: int) -> int:
+    """How many pages are currently in quarantine at this fingerprint."""
+    if threshold <= 0 or not db_path.exists():
+        return 0
+    with _connect(db_path) as conn:
+        try:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM extract_failures"
+                " WHERE fingerprint=? AND fail_count>=?",
+                (fingerprint, int(threshold)),
+            ).fetchone()
+        except sqlite3.OperationalError:
+            return 0
+    return int(row[0]) if row else 0
+
+
+def get_extract_failures(db_path: Path, fingerprint: str | None = None,
+                         min_count: int = 1, limit: int = 200) -> list[dict]:
+    """Quarantined pages for the admin page, worst first."""
+    if not db_path.exists():
+        return []
+    sql = ("SELECT url_hash, fingerprint, url, fail_count, last_error, first_at, last_at"
+           " FROM extract_failures WHERE fail_count>=?")
+    params: list = [int(min_count)]
+    if fingerprint:
+        sql += " AND fingerprint=?"
+        params.append(fingerprint)
+    sql += " ORDER BY fail_count DESC, last_at DESC LIMIT ?"
+    params.append(int(limit))
+    with _connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        try:
+            rows = conn.execute(sql, params).fetchall()
+        except sqlite3.OperationalError:
+            return []
+    return [dict(r) for r in rows]
 
 
 def get_upgradable_pages(

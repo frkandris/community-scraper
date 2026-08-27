@@ -6,11 +6,14 @@ from urllib.parse import urlparse
 import structlog
 
 from .db import (
+    bump_extract_failure,
     clear_all_cache_pages,
+    clear_extract_failure,
     clear_person_cache,
     delete_cache_page,
     get_all_scraped_cache,
     get_cache_index,
+    get_extract_failure_counts,
     get_scraped_cache_by_search_pair,
     get_scraped_cache_for_search_pair,
     load_cache_page,
@@ -216,6 +219,29 @@ class CacheManager:
                   "enrich_scraped_at", "enrich_scrape_duration_s",
                   "enrich_extracted_at", "enrich_extract_duration_s", "enrich_count",
                   "enrich_model", "enrich_log"]) is not None
+
+    # ── Extraction quarantine ────────────────────────────────────────────────
+    #
+    # A failed extraction is never cached (that would record "0 communities"
+    # permanently), so without a memory of failures a page that fails the same
+    # way every time is re-attempted by every run against every provider. These
+    # three methods are that memory; see `db.bump_extract_failure`.
+
+    def note_extract_failure(self, url: str, fingerprint: str,
+                             error: str | None = None) -> int:
+        return bump_extract_failure(self.db_path, _url_hash(url), fingerprint,
+                                    url=url, error=error)
+
+    def clear_extract_failure(self, url: str, fingerprint: str | None = None) -> None:
+        clear_extract_failure(self.db_path, _url_hash(url), fingerprint)
+
+    def extract_failure_counts(self, fingerprint: str) -> dict[str, int]:
+        return get_extract_failure_counts(self.db_path, fingerprint)
+
+    @staticmethod
+    def url_hash(url: str) -> str:
+        """The key `quarantined_hashes` returns, for callers holding urls."""
+        return _url_hash(url)
 
     def get_entry(self, url_hash: str) -> dict | None:
         return load_cache_page(self.db_path, url_hash)

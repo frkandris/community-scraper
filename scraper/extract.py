@@ -17,11 +17,13 @@ log = structlog.get_logger()
 _CALL_TOKENS: "contextvars.ContextVar[int]" = contextvars.ContextVar(
     "extractor_call_tokens", default=0)
 
-#: A preflight probe is small, so it needs less headroom than a real page —
-#: but not none: probing a provider whose token budget is spent buys a refusal
-#: and nothing else.
-_MIN_PREFLIGHT_TOKENS = 500
-
+#: The same number split the way providers price it. Input and output cost
+#: different amounts — 2x on DeepSeek, 2x on OpenRouter's DeepSeek — so a
+#: single total cannot be turned into money. Same per-task reasoning as above.
+_CALL_PROMPT_TOKENS: "contextvars.ContextVar[int]" = contextvars.ContextVar(
+    "extractor_call_prompt_tokens", default=0)
+_CALL_COMPLETION_TOKENS: "contextvars.ContextVar[int]" = contextvars.ContextVar(
+    "extractor_call_completion_tokens", default=0)
 
 #: Keyed by (event loop, timeout): a client holds connections belonging to the
 #: loop that created them, so one must never be shared across loops.
@@ -637,31 +639,81 @@ class _ApiExtractor:
         """
         return _CALL_TOKENS.get()
 
+    @property
+    def last_cost_usd(self) -> float:
+        """What the call *this task* just made cost, in USD.
+
+        0.0 for a free model and for any model with no price in the catalogue —
+        and a paid provider with no price never reaches this, because
+        `build_extractors` refuses to build one. An unpriced call must not read
+        as a free one; the way to be sure of that is to not make it.
+        """
+        rate_in = float(getattr(self, "usd_per_1m_in", 0.0) or 0.0)
+        rate_out = float(getattr(self, "usd_per_1m_out", 0.0) or 0.0)
+        if not rate_in and not rate_out:
+            return 0.0
+        prompt = _CALL_PROMPT_TOKENS.get()
+        completion = _CALL_COMPLETION_TOKENS.get()
+        if not prompt and not completion:
+            # Some providers report only a total. Priced at the input rate,
+            # which understates rather than overstates — but never at zero,
+            # because a spend guard that reads a call as free is not a guard.
+            return _CALL_TOKENS.get() * rate_in / 1_000_000
+        return (prompt * rate_in + completion * rate_out) / 1_000_000
+
     def _note_usage(self, data: dict) -> None:
         try:
             usage = data.get("usage") or {}
-            _CALL_TOKENS.set(int(usage.get("total_tokens")
-                                 or (int(usage.get("prompt_tokens") or 0)
-                                     + int(usage.get("completion_tokens") or 0))))
+            prompt = int(usage.get("prompt_tokens") or 0)
+            completion = int(usage.get("completion_tokens") or 0)
+            _CALL_PROMPT_TOKENS.set(prompt)
+            _CALL_COMPLETION_TOKENS.set(completion)
+            _CALL_TOKENS.set(int(usage.get("total_tokens") or (prompt + completion)))
         except Exception:
             _CALL_TOKENS.set(0)
+            _CALL_PROMPT_TOKENS.set(0)
+            _CALL_COMPLETION_TOKENS.set(0)
 
-    def _warn_if_truncated(self, data: dict, label: str) -> None:
+    def _was_truncated(self, data: dict, label: str) -> bool:
         """Say so when the cap cut the answer off.
 
-        A truncated response is invalid JSON, and the parser reports it as
+        A truncated response is invalid JSON, and the parser reported it as
         "LLM returned invalid JSON" — which reads like a bad model rather than
-        a budget we set. The page is then retried forever against the same cap.
+        a budget we set, and the page was then retried forever against the same
+        cap. The answer is now carried to the parser so the *error* can say
+        which of the two it was; the quarantine that stops the retrying reads
+        that message.
         """
         try:
             reason = (data.get("choices") or [{}])[0].get("finish_reason")
         except Exception:
-            return
-        if reason == "length":
-            log.warning("llm_output_truncated", provider=getattr(self, "provider", "?"),
-                        model=self.model, label=label,
-                        max_tokens=self.max_output_tokens,
-                        hint="shorten the prompt (max_text_chars) before raising this")
+            return False
+        if reason != "length":
+            return False
+        log.warning("llm_output_truncated", provider=getattr(self, "provider", "?"),
+                    model=self.model, label=label,
+                    max_tokens=self.max_output_tokens,
+                    hint="raise this provider's max_output_tokens, or cut max_text_chars")
+        return True
+
+    def _parsed(self, data: dict, label: str, parse):
+        """Run a parser over an answer, naming truncation when it is the cause.
+
+        Truncation is only *probably* fatal — a cap hit after the closing brace
+        still yields usable JSON — so the parser decides, and this only relabels
+        the failure. Getting the label right is what makes the quarantine list
+        actionable: "truncated at 1500 tokens" names a setting to change, while
+        "invalid JSON" reads as a page nobody can extract.
+        """
+        truncated = self._was_truncated(data, label)
+        try:
+            return parse()
+        except ExtractorUnavailableError as exc:
+            if truncated:
+                raise ExtractorUnavailableError(
+                    f"answer truncated at max_output_tokens="
+                    f"{self.max_output_tokens} ({exc})") from exc
+            raise
 
     def _headers(self) -> dict:
         return {"Authorization": f"Bearer {self.api_key}"}
@@ -686,6 +738,14 @@ class _ApiExtractor:
 
     async def _post(self, payload: dict, label: str) -> dict:
         await self._rate_limit()
+        # Clear the task's usage before the attempt, not only after a 4xx. A
+        # connection error never reaches `_note_usage`, and the caller would
+        # then charge this attempt with whatever the *previous* call in this
+        # task reported — quietly inflating both the token ledger and, now that
+        # money is counted the same way, the daily spend.
+        _CALL_TOKENS.set(0)
+        _CALL_PROMPT_TOKENS.set(0)
+        _CALL_COMPLETION_TOKENS.set(0)
         try:
             # Pooled, not per-call: with four extractions and enrichment in
             # flight this opened a socket per LLM request, and on 2026-08-18 the
@@ -735,6 +795,8 @@ class _ApiExtractor:
                 f"{getattr(self, 'provider', '?')}:{self.model} HTTP {resp.status_code}")
         if resp.status_code >= 400:
             _CALL_TOKENS.set(0)
+            _CALL_PROMPT_TOKENS.set(0)
+            _CALL_COMPLETION_TOKENS.set(0)
             log.warning("api_request_failed", provider=self.__class__.__name__, label=label,
                         status=resp.status_code, body=resp.text[:200])
             raise ExtractorUnavailableError(
@@ -767,9 +829,10 @@ class _ApiExtractor:
             **self._budgeted(),
         }
         data = await self._post(payload, label=source_url)
-        self._warn_if_truncated(data, source_url)
         raw = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-        return _parse_communities(raw, city, topic, locale, source_url)
+        return self._parsed(
+            data, source_url,
+            lambda: _parse_communities(raw, city, topic, locale, source_url))
 
     async def extract_venues(
         self, text: str, city: str, locale: str, source_url: str,
@@ -797,7 +860,8 @@ class _ApiExtractor:
         try:
             data = await self._post(payload, label=source_url)
             raw = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-            return _parse_venues(raw, city, locale, source_url)
+            return self._parsed(data, source_url,
+                                lambda: _parse_venues(raw, city, locale, source_url))
         except (ExtractorQuotaError, ExtractorRateLimitError, ExtractorUnavailableError):
             raise
         except Exception as exc:
@@ -828,7 +892,9 @@ class _ApiExtractor:
         try:
             data = await self._post(payload, label=source_url)
             raw = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-            return _parse_persons(raw, city, topic, locale, source_url)
+            return self._parsed(
+                data, source_url,
+                lambda: _parse_persons(raw, city, topic, locale, source_url))
         except (ExtractorQuotaError, ExtractorRateLimitError, ExtractorUnavailableError):
             raise
         except Exception as exc:
@@ -1189,6 +1255,11 @@ class FallbackExtractor:
         """
         if self.router is None:
             return
+        # Read from the extractor rather than asked for at each of the fifteen
+        # call sites. A budget guard that depends on every future `except`
+        # branch remembering to pass the price is a guard with holes in it; the
+        # cost of the attempt this task just made is already on the extractor.
+        kwargs.setdefault("cost_usd", float(getattr(primary, "last_cost_usd", 0.0) or 0.0))
         try:
             self.router.note(primary, **kwargs)
         except Exception as exc:
@@ -1640,16 +1711,16 @@ class FallbackExtractor:
             # so an unconditional 16-model probe costs ~80 requests a window —
             # around 7% of GitHub Models' whole daily allowance, spent proving
             # nothing.
-            if self.router is not None and not self.router.can_use(primary):
-                spec = self.router.spec_for(primary)
-                # Tokens as well as requests: Groq's day ends on its 200,000
-                # tokens while thousands of requests remain, and probing it
-                # then spends a refusal proving what the ledger already knows.
-                if spec is not None and (
-                        self.router.ledger.remaining(spec) <= 0
-                        or self.router.ledger.tokens_left(spec) <= _MIN_PREFLIGHT_TOKENS):
-                    live.append(label + " (no budget)")
-                    continue
+            if self.router is not None and self.router.done_for_today(primary):
+                # Tokens and money as well as requests: Groq's day ends on its
+                # 200,000 tokens while thousands of requests remain, and a paid
+                # provider's day ends when the dollar budget does. Probing then
+                # spends a refusal — or a charge — proving what the ledger
+                # already knows. Until 2026-08-27 this asked only about
+                # requests and tokens, so every run probed `openrouter_paid`
+                # once; 41 calls a day, all refused, none of them necessary.
+                live.append(label + " (no budget)")
+                continue
             try:
                 await primary.extract(
                     text=self._PREFLIGHT_TEXT, city="Preflight", topic="running",

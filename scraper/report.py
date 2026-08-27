@@ -192,6 +192,15 @@ def build_report_html(day: str, summary: dict, traffic: dict,
                 note.append(f"{p['rate_limits']}× 429")
             if p.get("failures"):
                 note.append(f"{p['failures']} hiba")
+            if p.get("cost_usd"):
+                note.append(f"${p['cost_usd']:.2f}")
+            # A paid provider that answers nothing is the expensive failure, and
+            # it is invisible in a table of call counts: `openrouter_paid` sat at
+            # 41 calls / 41 failures for four days while every page fell through
+            # to a fallback costing four times as much. Named here because a
+            # report that only shows totals is how it stayed unnoticed.
+            if p.get("paid") and used and p.get("failures") == used:
+                note.append("⚠️ egyetlen hívása sem sikerült")
             rows.append(
                 f"<tr><td style='padding:4px 12px 4px 0'>{p['name']}</td>"
                 f"<td align='right' style='padding:4px 8px;color:{colour};font-weight:600'>"
@@ -201,7 +210,7 @@ def build_report_html(day: str, summary: dict, traffic: dict,
                 f"<td style='padding:4px 0 4px 8px;color:#8C8478;font-size:12px'>"
                 f"{', '.join(note)}</td></tr>")
         ai_html = (
-            "<h3 style='margin:18px 0 6px'>Ingyenes AI-keret (aznapi hívások)</h3>"
+            "<h3 style='margin:18px 0 6px'>AI-keret (aznapi hívások)</h3>"
             "<table style='border-collapse:collapse;font-size:14px'>"
             "<tr style='color:#8C8478;font-size:12px'>"
             "<td style='padding:4px 12px 4px 0'>Szolgáltató</td>"
@@ -219,6 +228,27 @@ def build_report_html(day: str, summary: dict, traffic: dict,
         _calls = sum(int(p.get("used") or 0) for p in providers)
         _fails = sum(int(p.get("failures") or 0) for p in providers)
         _budget = sum(int(p.get("budget") or 0) for p in providers)
+        # The money line. Free capacity ends in a 429 that nobody has to read;
+        # paid capacity ends when someone notices the invoice, so the day's
+        # spend and the ceiling it is measured against are stated every morning,
+        # whether or not anything went wrong.
+        _spent = sum(float(p.get("cost_usd") or 0.0) for p in providers)
+        _cap = float(summary.get("paid_budget_usd") or 0.0)
+        if _spent or _cap:
+            _pct = int(_spent * 100 // _cap) if _cap else 0
+            _cap_txt = (f"${_cap:.2f} napi keret ({_pct}%)" if _cap
+                        else "nincs napi keret beállítva — fizetős "
+                             "szolgáltató nem hívható")
+            ai_html += (
+                "<p style='margin:8px 0 0;font-size:13px'>"
+                f"<b>Fizetős költés ma: ${_spent:.2f}</b> / {_cap_txt}.</p>")
+        _quarantined = int(summary.get("quarantined_pages") or 0)
+        if _quarantined:
+            ai_html += (
+                "<p style='margin:6px 0 0;font-size:13px;color:#8C8478'>"
+                f"Karanténban {_quarantined} oldal — ugyanannál az ujjlenyomatnál "
+                "többször ugyanúgy elakadt a kinyerésük, ezért nem próbáljuk "
+                "újra. A prompt vagy a modell változása mindet feloldja.</p>")
         _ok = max(0, _calls - _fails)
         _done = int(hu.get("pages_extracted") or 0) + int(intl.get("pages_extracted") or 0)
         _fetched = int(hu.get("pages_scraped") or 0) + int(intl.get("pages_scraped") or 0)
@@ -387,9 +417,32 @@ async def send_daily_report(db_path: Path, hu_cities: set, day: str | None = Non
         ledger = QuotaLedger(db_path, day=day)
         summary["providers"] = [p for p in ledger.snapshot(cat)
                                 if p["configured"] and p["used"]]
+        summary["paid_budget_usd"] = float(cat.router.daily_budget_usd or 0.0)
     except Exception as exc:
         log.warning("report_provider_usage_failed", error=str(exc))
         summary["providers"] = []
+        summary["paid_budget_usd"] = 0.0
+    # Pages the pipeline has stopped paying to re-extract. Not an error — it is
+    # the guard working — but a number that must not grow quietly: a rising
+    # count means the token cap or the prompt is wrong for a whole class of
+    # pages, and nothing else in the report would say so.
+    try:
+        import yaml as _yaml
+
+        from .config import CONFIG_DIR
+        from .db import count_quarantined_pages
+        from .extract import get_extract_fingerprint
+        _settings = _yaml.safe_load(
+            (CONFIG_DIR / "settings.yaml").read_text(encoding="utf-8")) or {}
+        _ds = _settings.get("deepseek") or {}
+        _threshold = int((_settings.get("pipeline") or {}).get(
+            "extract_max_page_failures", 3) or 0)
+        _fp = get_extract_fingerprint(_ds.get("fingerprint_model") or _ds.get("model") or "")
+        summary["quarantined_pages"] = count_quarantined_pages(
+            db_path, _fp, _threshold)
+    except Exception as exc:
+        log.warning("report_quarantine_count_failed", error=str(exc))
+        summary["quarantined_pages"] = 0
     traffic = get_traffic_for_day(db_path, day)
     ga4 = fetch_ga4_traffic(day)
     # Best-effort, like the provider block above: a missing funnel must not stop

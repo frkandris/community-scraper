@@ -369,7 +369,7 @@ def test_report_shows_free_ai_usage_per_provider(tmp_path):
     }
     _, html = build_report_html("2026-08-16", summary, {}, None)
 
-    assert "Ingyenes AI-keret" in html
+    assert "AI-keret" in html
     assert "groq" in html and "openrouter" in html
     assert "13680" in html and "120" in html
     # A spent provider must read as spent, not as a quiet row.

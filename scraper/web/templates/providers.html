@@ -26,6 +26,43 @@
     </div>
   </div>
 
+  {% if paid_budget_usd or paid_spent_usd %}
+  {% set pct = (paid_spent_usd * 100 / paid_budget_usd) if paid_budget_usd else 100 %}
+  <div class="mb-5 px-4 py-3 rounded-lg border text-sm
+              {% if paid_blocked %}bg-red-50 border-red-200 text-red-800
+              {% elif pct >= 60 %}bg-amber-50 border-amber-200 text-amber-800
+              {% else %}bg-gray-50 border-gray-200 text-gray-700{% endif %}">
+    <div class="flex items-baseline justify-between gap-4 flex-wrap">
+      <div>
+        <span class="font-semibold">Paid spend today: ${{ '%.2f' % paid_spent_usd }}</span>
+        {% if paid_budget_usd %}
+        of ${{ '%.2f' % paid_budget_usd }} daily budget ({{ pct | round | int }}%)
+        {% else %}
+        — no daily budget set, so paid providers cannot be called at all
+        {% endif %}
+      </div>
+      {% if paid_blocked %}
+      <span class="px-2 py-1 rounded-md bg-red-100 text-red-800 border border-red-200 text-xs font-semibold">
+        Paid providers off until 00:00 UTC
+      </span>
+      {% endif %}
+    </div>
+    {% if paid_budget_usd %}
+    <div class="h-1.5 rounded-full bg-white/70 overflow-hidden mt-2">
+      <div class="h-full rounded-full {% if paid_blocked %}bg-red-500{% elif pct >= 60 %}bg-amber-500{% else %}bg-green-500{% endif %}"
+           style="width: {{ [pct, 100] | min }}%"></div>
+    </div>
+    {% endif %}
+    <p class="text-xs mt-2 opacity-80">
+      Free capacity ends in a 429 nobody has to read; paid capacity ends when
+      someone reads an invoice. This is that ceiling. Change it in
+      <code class="font-mono">config/providers.yaml</code> under
+      <code class="font-mono">router.daily_budget_usd</code> — config is not a
+      persisted volume, so it has to go through git.
+    </p>
+  </div>
+  {% endif %}
+
   {% if not configured_count %}
   <div class="mb-5 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
     No provider has an API key set, so the router is inactive and extraction falls
@@ -60,7 +97,19 @@
             {% endif %}
           </td>
           <td class="px-3 py-2.5 text-right font-bold text-gray-900">{{ p.best_quality }}</td>
-          <td class="px-3 py-2.5 text-right tabular-nums text-gray-700">{{ p.used }}</td>
+          <td class="px-3 py-2.5 text-right tabular-nums text-gray-700">
+            {{ p.used }}
+            {% if p.paid %}
+            <div class="text-[11px] {% if p.cost_usd %}text-gray-500{% else %}text-gray-300{% endif %}">
+              ${{ '%.2f' % (p.cost_usd or 0) }}
+            </div>
+            {% endif %}
+            {% if p.used and p.failures == p.used %}
+            <div class="text-[11px] text-red-600 font-semibold" title="Every call this provider took today failed">
+              0 answered
+            </div>
+            {% endif %}
+          </td>
           <td class="px-3 py-2.5 w-48">
             {% set pct = (p.used * 100 // p.budget) if p.budget else 0 %}
             <div class="h-1.5 rounded-full bg-gray-100 overflow-hidden">

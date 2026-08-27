@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Extraction quarantine – Admin{% endblock %}
+{% block content %}
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+
+  <div class="mb-5">
+    <h1 class="text-xl font-bold text-gray-900">Extraction quarantine</h1>
+    <p class="text-sm text-gray-500 mt-1">
+      Pages that failed extraction the same way {{ threshold }} times at the
+      current fingerprint. They are no longer attempted: nothing about the next
+      run changes the answer, and every attempt walks the whole provider fleet
+      and is charged for it.
+    </p>
+  </div>
+
+  <div class="mb-5 px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-700">
+    <span class="font-semibold">{{ held }}</span> held of {{ rows | length }} pages
+    with failures, at fingerprint
+    <code class="font-mono text-xs">{{ fingerprint }}</code>.
+    A prompt or model change releases every one of them automatically — that is
+    the same key. Release a page by hand when you have changed something else,
+    such as a provider's <code class="font-mono">max_output_tokens</code>.
+  </div>
+
+  {% if not rows %}
+  <div class="px-4 py-6 text-sm text-gray-500 border border-gray-200 rounded-lg bg-white text-center">
+    Nothing quarantined. Pages that fail are retried on the next run, as normal.
+  </div>
+  {% else %}
+  <div class="overflow-x-auto border border-gray-200 rounded-lg bg-white">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
+        <tr>
+          <th class="px-3 py-2 font-semibold">Page</th>
+          <th class="px-3 py-2 font-semibold text-right">Failures</th>
+          <th class="px-3 py-2 font-semibold">Last error</th>
+          <th class="px-3 py-2 font-semibold">Last seen</th>
+          <th class="px-3 py-2 font-semibold"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for r in rows %}
+        <tr class="{% if threshold and r.fail_count < threshold %}opacity-55{% endif %}">
+          <td class="px-3 py-2.5 max-w-md">
+            {% if r.url %}
+            <a href="{{ r.url }}" rel="nofollow noopener" target="_blank"
+               class="text-blue-700 hover:underline break-all text-xs">{{ r.url }}</a>
+            {% else %}
+            <span class="font-mono text-xs text-gray-500">{{ r.url_hash }}</span>
+            {% endif %}
+          </td>
+          <td class="px-3 py-2.5 text-right tabular-nums font-semibold
+                     {% if threshold and r.fail_count >= threshold %}text-red-600{% else %}text-gray-600{% endif %}">
+            {{ r.fail_count }}
+          </td>
+          <td class="px-3 py-2.5 text-xs text-gray-600 max-w-sm break-words">{{ r.last_error }}</td>
+          <td class="px-3 py-2.5 text-xs text-gray-500 whitespace-nowrap">{{ (r.last_at or '')[:16] | replace('T', ' ') }}</td>
+          <td class="px-3 py-2.5 text-right">
+            <form method="post" action="/admin/quarantine/release">
+              <input type="hidden" name="url_hash" value="{{ r.url_hash }}">
+              <input type="hidden" name="redirect_to" value="/admin/quarantine">
+              <button type="submit"
+                      class="px-2.5 py-1 text-xs rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">
+                Release
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -5703,6 +5703,15 @@ async def providers_page(request: Request):
     except Exception as exc:
         log.warning("provider_quality_mix_failed", error=str(exc))
 
+    # The spend guard's state, shown whether or not it has tripped. A breaker
+    # nobody can see is a breaker nobody trusts — and this one was added
+    # because four days of paid overspend were invisible in a table of call
+    # counts (martinfowler.com/bliki/CircuitBreaker.html: state changes get
+    # logged, state gets revealed, operators get a control).
+    paid_budget = float(catalogue.router.daily_budget_usd or 0.0)
+    paid_names = {p.name for p in catalogue.providers if p.paid}
+    paid_spent = ledger.cost_total(paid_names)
+
     return templates.TemplateResponse(request, "providers.html", {
         "providers": providers,
         "day": day,
@@ -5711,7 +5720,54 @@ async def providers_page(request: Request):
         "upgrade_min_gain": catalogue.router.upgrade_min_gain,
         "configured_count": sum(1 for p in providers if p["configured"]),
         "quality_mix": quality_mix,
+        "paid_budget_usd": paid_budget,
+        "paid_spent_usd": paid_spent,
+        "paid_blocked": bool(paid_names) and (
+            not catalogue.router.allow_paid
+            or paid_budget <= 0
+            or paid_spent >= paid_budget),
     })
+
+
+@admin.get("/quarantine", response_class=HTMLResponse)
+async def quarantine_page(request: Request):
+    """Pages the pipeline has stopped paying to re-extract, and the way back.
+
+    The operator half of the guard: what it is holding, why, and a button to
+    release one. Without that a quarantine is indistinguishable from a page
+    that silently disappeared from the corpus.
+    """
+    from ..db import get_extract_failures
+    from ..extract import get_extract_fingerprint
+
+    init_db(_db())
+    _, _, cfg = load_config(app_state.db_path)
+    fingerprint = get_extract_fingerprint(
+        cfg.deepseek_fingerprint_model or cfg.deepseek_model)
+    threshold = int(cfg.extract_max_page_failures or 0)
+    rows = get_extract_failures(_db(), fingerprint=fingerprint, min_count=1, limit=500)
+    return templates.TemplateResponse(request, "quarantine.html", {
+        "rows": rows,
+        "threshold": threshold,
+        "fingerprint": fingerprint,
+        "held": sum(1 for r in rows if threshold > 0 and r["fail_count"] >= threshold),
+    })
+
+
+@admin.post("/quarantine/release")
+async def quarantine_release(
+    request: Request,
+    url_hash: str = Form(...),
+    redirect_to: str = Form(""),
+):
+    """Let one page be attempted again — every fingerprint, not just the current
+    one, because the operator is saying "try this", not "try this once"."""
+    from ..db import clear_extract_failure
+
+    clear_extract_failure(_db(), url_hash, None)
+    log.info("extract_quarantine_released", url_hash=url_hash)
+    return RedirectResponse(
+        _safe_redirect_target(redirect_to, "/admin/quarantine"), status_code=302)
 
 
 @admin.get("/prompts", response_class=HTMLResponse)
