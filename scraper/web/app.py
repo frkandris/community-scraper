@@ -6095,6 +6095,7 @@ _COVERAGE_PAGE_SIZE = 50  # was 2 — a shipped 'for fast loading during testing
 
 @admin.get("/coverage", response_class=HTMLResponse)
 async def admin_coverage(request: Request, country: str = "", page: int = 1):
+    from ..config import extract_quarantine_threshold
     from ..db import get_city_topic_states, get_fully_processed_pairs
     from ..extract import get_extract_fingerprint
     current_fp = get_extract_fingerprint()
@@ -6102,7 +6103,12 @@ async def admin_coverage(request: Request, country: str = "", page: int = 1):
     done_pairs: set[tuple[str, str]] = set()
     if app_state.db_path and app_state.db_path.exists():
         states = get_city_topic_states(app_state.db_path, current_fp)
-        done_pairs = get_fully_processed_pairs(app_state.db_path, current_fp)
+        # Same question the pipeline asks: a quarantined page is not work
+        # waiting to be done, and a view that says otherwise sends someone
+        # looking for a run that will never pick it up.
+        done_pairs = get_fully_processed_pairs(
+            app_state.db_path, current_fp,
+            quarantine_threshold=extract_quarantine_threshold())
     topic_names = [t.name for t in (app_state.topics or [])]
     countries: dict[str, list[str]] = {}
     for city in (app_state.cities or []):
@@ -6163,13 +6169,16 @@ def _coverage_state(fp: str):
     coverage page polls /api/coverage/cell every 3 s and each call otherwise
     re-scanned cache_pages + hashed every search_cache URL."""
     import time as _time
+    from ..config import extract_quarantine_threshold
     from ..db import get_city_topic_states, get_fully_processed_pairs
     now = _time.monotonic()
     c = _coverage_state_cache
     if c["states"] is None or c["fp"] != fp or now - c["ts"] > 3.0:
         c.update(ts=now, fp=fp,
                  states=get_city_topic_states(app_state.db_path, fp),
-                 done=get_fully_processed_pairs(app_state.db_path, fp))
+                 done=get_fully_processed_pairs(
+                     app_state.db_path, fp,
+                     quarantine_threshold=extract_quarantine_threshold()))
     return c["states"], c["done"]
 
 

@@ -93,9 +93,10 @@ against the same cap."* It was written before retrying cost money.
   actually revive.
 - **Per-model `max_output_tokens`.** The paid reasoning models get 4,000; Groq
   keeps the global 1,500.
-- **An extraction quarantine**, landing with the second half of this fix:
-  `extract_failures` remembers that a page has been tried, so after three
-  *content* failures at one fingerprint it stops being attempted.
+- **An extraction quarantine.** After three *content* failures at one
+  fingerprint a page stops being attempted. Only `ExtractorContentError` counts —
+  a model answered and the answer was unusable. Outages, 429s and spent quotas
+  say nothing about the page. See [[extraction-quarantine]].
 - **The report states the money**: spend against ceiling every morning, and a
   paid provider whose calls all failed is named rather than tabulated.
 

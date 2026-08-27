@@ -1209,7 +1209,7 @@ def test_truncation_is_reported_as_truncation():
 
 def test_a_truncated_answer_names_the_cap_that_cut_it():
     """"Invalid JSON" reads as a bad page; the cap is ours and is the fix."""
-    from scraper.extract import ExtractorUnavailableError
+    from scraper.extract import ExtractorContentError
     from scraper.providers import OpenAICompatExtractor
 
     ex = OpenAICompatExtractor(provider="p", base_url="https://x.test",
@@ -1217,14 +1217,14 @@ def test_a_truncated_answer_names_the_cap_that_cut_it():
                                max_output_tokens=1500)
 
     def _parse():
-        raise ExtractorUnavailableError("LLM returned invalid communities JSON: x")
+        raise ExtractorContentError("LLM returned invalid communities JSON: x")
 
-    with pytest.raises(ExtractorUnavailableError) as cut:
+    with pytest.raises(ExtractorContentError) as cut:
         ex._parsed({"choices": [{"finish_reason": "length"}]}, "url", _parse)
     assert "max_output_tokens=1500" in str(cut.value)
 
     # A complete answer that will not parse is not blamed on the cap.
-    with pytest.raises(ExtractorUnavailableError) as whole:
+    with pytest.raises(ExtractorContentError) as whole:
         ex._parsed({"choices": [{"finish_reason": "stop"}]}, "url", _parse)
     assert "max_output_tokens" not in str(whole.value)
 

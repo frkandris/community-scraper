@@ -8,9 +8,10 @@ from typing import TYPE_CHECKING, Any, Callable, NamedTuple
 
 import structlog
 
-from .extract import (DeepSeekExtractor, ExtractorUnavailableError,
-                      FallbackExtractor, get_extract_fingerprint,
-                      get_person_fingerprint, get_venue_fingerprint)
+from .extract import (DeepSeekExtractor, ExtractorContentError,
+                      ExtractorUnavailableError, FallbackExtractor,
+                      get_extract_fingerprint, get_person_fingerprint,
+                      get_venue_fingerprint)
 from .false_positives import build_prompt_section
 from .false_positives import load as load_false_positives
 from .fetch import fetch_and_clean
@@ -293,6 +294,84 @@ async def _off_loop(fn, *args, **kwargs):
         return await asyncio.to_thread(lambda: fn(*args, **kwargs))
 
 
+class _Quarantine:
+    """Pages that keep failing the same way, and are no longer paid to re-fail.
+
+    An extraction that fails is never cached — caching it would record "this
+    page has 0 communities" permanently under the current fingerprint, and that
+    is unrecoverable data loss. The price of that rule is that a page which
+    fails *deterministically* is attempted again by every run: on 2026-08-26,
+    ~21 pages against ~30 runs, each walking the whole provider fleet. While
+    the fleet was free that was wasted quota; with paid providers on it was
+    most of the day's bill, and none of it could ever succeed.
+
+    So this is not a cache of the failure — it is a memory of *having tried*.
+    The fingerprint is part of the key, so any prompt or model change releases
+    every page automatically, which is exactly the change that could produce a
+    different answer. Only `ExtractorContentError` counts: a model answered and
+    what it said was unusable. An outage, a 429 or a spent quota says nothing
+    about the page, and counting those would quarantine the corpus over one bad
+    afternoon.
+    """
+
+    def __init__(self, cache, fingerprint: str, threshold: int):
+        self.cache = cache
+        self.fingerprint = fingerprint
+        #: 0 or less disables the quarantine — the escape hatch if it is ever
+        #: found to be hiding work that would now succeed. A run with no cache
+        #: at all (`_run_full` allows one) disables it the same way: there is
+        #: nowhere to read the counts from and nowhere to write them.
+        self.threshold = int(threshold or 0) if cache is not None else 0
+        self._counts: dict[str, int] = {}
+        if self.threshold > 0:
+            try:
+                self._counts = cache.extract_failure_counts(fingerprint)
+            except Exception as exc:  # a broken quarantine must not stop a run
+                log.warning("extract_quarantine_unreadable", error=str(exc))
+
+    @property
+    def size(self) -> int:
+        if self.threshold <= 0:
+            return 0
+        return sum(1 for c in self._counts.values() if c >= self.threshold)
+
+    def holds(self, url: str) -> bool:
+        if self.threshold <= 0:
+            return False
+        return self._counts.get(self.cache.url_hash(url), 0) >= self.threshold
+
+    async def note(self, url: str, error: BaseException) -> None:
+        """Count one content failure against a page."""
+        if self.threshold <= 0 or not isinstance(error, ExtractorContentError):
+            return
+        try:
+            count = await _off_loop(self.cache.note_extract_failure, url,
+                                    self.fingerprint, str(error))
+        except Exception as exc:
+            log.warning("extract_quarantine_write_failed", url=url, error=str(exc))
+            return
+        self._counts[self.cache.url_hash(url)] = count
+        if count == self.threshold:
+            # Once, at the moment it happens. The page is silent from here on,
+            # so this line and the admin list are the only places it appears.
+            log.warning("extract_page_quarantined", url=url, failures=count,
+                        threshold=self.threshold, reason=str(error)[:200])
+
+    async def forgive(self, url: str) -> None:
+        """The page just extracted — drop whatever it had accumulated.
+
+        Only writes for a page that actually has a row: a success is the common
+        case and must not cost a database write.
+        """
+        if self.threshold <= 0:
+            return
+        if self._counts.pop(self.cache.url_hash(url), 0):
+            try:
+                await _off_loop(self.cache.clear_extract_failure, url, self.fingerprint)
+            except Exception as exc:
+                log.warning("extract_quarantine_clear_failed", url=url, error=str(exc))
+
+
 async def _extract_pair_pages(
     extractor, pages, *, city, topic, fp_section, concurrency, on_progress,
 ) -> "tuple[dict[str, Any], tuple[str, bool] | None]":
@@ -433,14 +512,21 @@ def pages_worked(pair_logs: "list[dict]") -> int:
       failure caches nothing, so the next run found the identical state. One
       permanently failing page drove about a hundred runs on 2026-08-18.
 
-    Found, minus served from cache, minus failed. A module-level function
-    because it is the part worth testing, and testing it through the worker
-    loop means asserting on source text rather than on the answer.
+    Found, minus served from cache, minus failed, minus quarantined. The last
+    one for exactly the reason in the second bullet: a quarantined page caches
+    nothing either, so counting it as outstanding would keep the worker
+    starting extraction passes that can only skip it again — the same empty
+    loop, one guard later.
+
+    A module-level function because it is the part worth testing, and testing
+    it through the worker loop means asserting on source text rather than on
+    the answer.
     """
     return sum(
         max(0, int(p.get("urls_found") or 0)
                - int(p.get("cache_hits_extract") or 0)
-               - int(p.get("extract_failed") or 0))
+               - int(p.get("extract_failed") or 0)
+               - int(p.get("extract_quarantined") or 0))
         for p in pair_logs)
 
 
@@ -834,6 +920,7 @@ async def run_pipeline(
                 run_venues=run_venues,
                 run_persons=run_persons,
                 max_pages=config.search_max_pages,
+                quarantine_threshold=config.extract_max_page_failures,
             )
     if _skip_extracted:
         # Timed because moving it to a thread is only half a fix: the SQLite
@@ -1080,6 +1167,8 @@ async def _run_full(
 
     all_fps = load_false_positives(config.db_path)
     enrich_fp_section = build_prompt_section(all_fps, fp_type="enrichment")
+    quarantine = _Quarantine(cache, extractor.canonical_fingerprint,
+                             config.extract_max_page_failures)
     total_new = 0
     pair_logs: list[dict] = []
 
@@ -1321,6 +1410,14 @@ async def _run_full(
                         # Do NOT cache an empty result.
                         pair_log["extract_failed"] += 1
                         continue
+                    if quarantine.holds(url):
+                        # Failed the same way `extract_max_page_failures` times
+                        # at this fingerprint. Counted apart from `extract_failed`:
+                        # it is not this run failing, it is this run declining to
+                        # pay for a failure already established.
+                        pair_log["extract_quarantined"] = (
+                            pair_log.get("extract_quarantined", 0) + 1)
+                        continue
                     if on_progress:
                         on_progress("extract", url)
                     t0 = time.monotonic()
@@ -1341,6 +1438,7 @@ async def _run_full(
                         )
                     except ExtractorUnavailableError as exc:
                         pair_log["extract_failed"] += 1
+                        await quarantine.note(url, exc)
                         log.warning("extract_unavailable_page_skipped", url=url, reason=str(exc))
                         # The guards above run *before* the call, so a stop
                         # caused by the last page of a pair would never be seen:
@@ -1733,9 +1831,14 @@ async def _run_ai_only(
         return 0, []
 
     all_fps = load_false_positives(config.db_path)
+    # Read once for the whole pass. A page that has failed `threshold` times at
+    # this fingerprint is not attempted again: nothing about the run changes the
+    # answer, and every attempt walks the fleet and is charged for it.
+    quarantine = _Quarantine(cache, extractor.canonical_fingerprint,
+                             config.extract_max_page_failures)
     log.info("ai_only_start", load_strategy="pair_by_pair",
              run_communities=run_communities, run_venues=run_venues,
-             run_persons=run_persons)
+             run_persons=run_persons, quarantined_pages=quarantine.size)
 
     total_new = 0
     pair_logs: list[dict] = []
@@ -1788,10 +1891,23 @@ async def _run_ai_only(
             fresh_by_url: dict = {}
             pair_stop: "tuple[str, bool] | None" = None
             deferred_urls: set = set()
+            # Held pages are counted, not attempted — and only when this pass
+            # would have extracted communities at all. A venues-only run never
+            # asks the question, so it must not report an answer.
+            to_extract, quarantined_here = [], 0
+            for _u, _t in pages:
+                if cached_by_url.get(_u) is not None:
+                    continue
+                if run_communities and quarantine.holds(_u):
+                    quarantined_here += 1
+                else:
+                    to_extract.append((_u, _t))
+            if quarantined_here:
+                pair_log["extract_quarantined"] = quarantined_here
             if run_communities and not extractor.exhausted:
                 fresh_by_url, pair_stop, deferred_urls = await _extract_pair_pages(
                     extractor,
-                    [(u, t) for u, t in pages if cached_by_url.get(u) is None],
+                    to_extract,
                     city=city, topic=topic, fp_section=extraction_fp_section,
                     concurrency=config.extract_concurrency, on_progress=on_progress,
                 )
@@ -1828,6 +1944,12 @@ async def _run_ai_only(
                     community_cache_hit = True
 
                 if not community_cache_hit and run_communities:
+                    if quarantine.holds(url):
+                        # Not a failure of this run: it was decided on an
+                        # earlier one and is counted separately, so the daily
+                        # report shows a quarantined corpus as quarantined
+                        # rather than as a run that keeps failing.
+                        continue
                     outcome = fresh_by_url.get(url)
                     if outcome is None:
                         # Never attempted, for one of three reasons. The fleet
@@ -1842,6 +1964,7 @@ async def _run_ai_only(
                         continue
                     if isinstance(outcome, BaseException):
                         pair_log["extract_failed"] = pair_log.get("extract_failed", 0) + 1
+                        await quarantine.note(url, outcome)
                         log.warning("extract_unavailable_page_skipped", url=url,
                                     reason=str(outcome))
                         continue
@@ -1855,6 +1978,7 @@ async def _run_ai_only(
                     await _off_loop(cache.save_extracted, url, joinable,
                                          fingerprint=extractor.canonical_fingerprint,
                                          model=_model, quality=_quality)
+                    await quarantine.forgive(url)
 
                     records.extend(joinable)
                     total_new += len(joinable)

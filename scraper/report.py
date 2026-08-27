@@ -429,17 +429,15 @@ async def send_daily_report(db_path: Path, hu_cities: set, day: str | None = Non
     try:
         import yaml as _yaml
 
-        from .config import CONFIG_DIR
+        from .config import CONFIG_DIR, extract_quarantine_threshold
         from .db import count_quarantined_pages
         from .extract import get_extract_fingerprint
         _settings = _yaml.safe_load(
             (CONFIG_DIR / "settings.yaml").read_text(encoding="utf-8")) or {}
         _ds = _settings.get("deepseek") or {}
-        _threshold = int((_settings.get("pipeline") or {}).get(
-            "extract_max_page_failures", 3) or 0)
         _fp = get_extract_fingerprint(_ds.get("fingerprint_model") or _ds.get("model") or "")
         summary["quarantined_pages"] = count_quarantined_pages(
-            db_path, _fp, _threshold)
+            db_path, _fp, extract_quarantine_threshold())
     except Exception as exc:
         log.warning("report_quarantine_count_failed", error=str(exc))
         summary["quarantined_pages"] = 0

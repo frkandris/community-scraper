@@ -383,7 +383,8 @@ async def backlog(authorization: str | None = Header(default=None)):
         # that are pending forever and invisible to it. `pairs_pending` is the
         # number the run actually acts on — report both, and their disagreement.
         done = get_fully_processed_pairs(
-            app_state.db_path, fp, max_pages=cfg.search_max_pages)
+            app_state.db_path, fp, max_pages=cfg.search_max_pages,
+            quarantine_threshold=cfg.extract_max_page_failures)
         total = len(app_state.cities or []) * len(app_state.topics or [])
         counts["pairs_total"] = total
         counts["pairs_done"] = len(done)

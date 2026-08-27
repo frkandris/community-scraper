@@ -1,4 +1,5 @@
 import os
+from functools import lru_cache
 from pathlib import Path
 
 import yaml
@@ -88,6 +89,28 @@ def load_config_from_docs(
         deepseek_rate_limit_seconds=deepseek_cfg.get("rate_limit_seconds", 1.0),
     )
     return cities, topics, pipeline_cfg
+
+
+@lru_cache(maxsize=1)
+def extract_quarantine_threshold() -> int:
+    """`pipeline.extract_max_page_failures`, for readers that only need this.
+
+    The read-only views (coverage, `/v1/backlog`) have to answer the same
+    question the pipeline does — a quarantined page is not outstanding work —
+    but `load_config` parses cities.yaml, which is thousands of entries, and
+    coverage polls every three seconds. Cached for the life of the process:
+    config/ is baked into the image, so the value cannot change without a
+    deploy, and a deploy is a new process.
+    """
+    try:
+        with open(CONFIG_DIR / "settings.yaml", encoding="utf-8") as f:
+            settings = yaml.safe_load(f) or {}
+        return int((settings.get("pipeline") or {}).get(
+            "extract_max_page_failures", 3) or 0)
+    except Exception:
+        # A missing or malformed setting means "no quarantine", which shows the
+        # pages as outstanding — the pre-quarantine answer, never a crash.
+        return 0
 
 
 def load_config(db_path: Path) -> tuple[list[CityConfig], list[TopicConfig], PipelineConfig]:

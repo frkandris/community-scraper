@@ -85,6 +85,22 @@ class ExtractorUnavailableError(Exception):
     under the current fingerprint and the page would never be retried."""
 
 
+class ExtractorContentError(ExtractorUnavailableError):
+    """The model answered, and the answer was unusable — truncated by
+    `max_output_tokens`, or JSON we cannot read.
+
+    A subclass, so every existing handler, the circuit breaker and the
+    never-cache rule treat it exactly as before. What it adds is *attribution*:
+    this failure is about the page and the settings we sent, not about the
+    provider being down. A network error says try again later; this says trying
+    again changes nothing until the fingerprint does.
+
+    That distinction is what lets the pipeline quarantine a page instead of
+    paying to rediscover the same failure on every run — 21 pages × 30 runs a
+    day when paid providers were switched on (2026-08-24..27).
+    """
+
+
 SYSTEM_PROMPT = """\
 You are a data extraction assistant. Identify community groups and clubs from web page text.
 
@@ -383,11 +399,12 @@ def _json_items(raw: str, key: str, kind: str, source_url: str) -> list:
                     error=str(exc), raw=raw[:200])
         # Caching [] here would permanently record a failed call as an empty
         # page under the current fingerprint — raise so the page is retried.
-        raise ExtractorUnavailableError(f"LLM returned invalid {kind} JSON: {exc}") from exc
+        raise ExtractorContentError(
+            f"LLM returned invalid {kind} JSON: {exc}") from exc
     if not isinstance(payload, dict):
         log.warning("llm_json_not_an_object", kind=kind, source_url=source_url,
                     got=type(payload).__name__, raw=raw[:200])
-        raise ExtractorUnavailableError(
+        raise ExtractorContentError(
             f"LLM {kind} output malformed (top level is {type(payload).__name__}, not an object)")
     if key not in payload:
         # A bare `{}` is how a model says "nothing here" — a legitimate empty
@@ -397,12 +414,12 @@ def _json_items(raw: str, key: str, kind: str, source_url: str) -> list:
         if payload:
             log.warning("llm_json_key_missing", kind=kind, source_url=source_url,
                         expected=key, got=sorted(payload)[:5], raw=raw[:200])
-            raise ExtractorUnavailableError(
+            raise ExtractorContentError(
                 f"LLM {kind} output malformed (no '{key}' key, got {sorted(payload)[:5]})")
         return []
     items = payload[key]
     if not isinstance(items, list):
-        raise ExtractorUnavailableError(f"LLM {kind} output malformed ({key} not a list)")
+        raise ExtractorContentError(f"LLM {kind} output malformed ({key} not a list)")
     return items
 
 
@@ -708,9 +725,9 @@ class _ApiExtractor:
         truncated = self._was_truncated(data, label)
         try:
             return parse()
-        except ExtractorUnavailableError as exc:
+        except ExtractorContentError as exc:
             if truncated:
-                raise ExtractorUnavailableError(
+                raise ExtractorContentError(
                     f"answer truncated at max_output_tokens="
                     f"{self.max_output_tokens} ({exc})") from exc
             raise
@@ -1349,6 +1366,16 @@ class FallbackExtractor:
         # stale catalogue entry and a spent quota is the designed end of a free
         # window; both already have their own handling and neither may count.
         real_failure_seen = False
+        # Two kinds of failure, kept apart because only one of them is evidence
+        # about the *page*. A truncated or malformed answer means a model
+        # answered and we could not use what it said; a timeout, a 500 or a
+        # parser bug means we never heard back. Rate limits and retired models
+        # count as neither — that provider simply did not answer about this page.
+        # When every provider that answered said the same thing about the page,
+        # the caller may quarantine it; a single transient error anywhere makes
+        # that unsafe, so the failure stays a plain unavailability.
+        content_failures = 0
+        other_failures = 0
         # Providers that produced a real error during *this* call. Applied once
         # at the end: `_call` retries transient errors a second round, so
         # counting per attempt would silently halve the configured threshold.
@@ -1446,7 +1473,15 @@ class FallbackExtractor:
                 except ExtractorUnavailableError as exc:
                     self._note_attempt(_t0)
                     real_failure_seen = True
-                    transient_seen = True
+                    if isinstance(exc, ExtractorContentError):
+                        content_failures += 1
+                        # Not retried within the call: the second round sends
+                        # the identical prompt to the same fleet, and an answer
+                        # that did not fit the cap will not fit it now either.
+                        # Every one of those retries is charged in full.
+                    else:
+                        other_failures += 1
+                        transient_seen = True
                     last_error = str(exc)
                     # Tokens too: an HTTP 200 whose body will not parse still
                     # cost what the provider says it cost, and not counting it
@@ -1459,6 +1494,7 @@ class FallbackExtractor:
                 except Exception as exc:
                     self._note_attempt(_t0)
                     real_failure_seen = True
+                    other_failures += 1
                     # Last-resort net: an untyped bug (a parser AttributeError, a
                     # response shape nobody anticipated) used to escape the chain
                     # and abort the entire run from one bad page — 2026-07-30's
@@ -1489,6 +1525,14 @@ class FallbackExtractor:
             if round_no == 0 and not self.exhausted:
                 if transient_seen:
                     continue  # one immediate retry for transient API/network errors
+                if content_failures and not other_failures:
+                    # Every provider that answered said the answer did not fit.
+                    # The wait below exists to give a *paced* provider its turn,
+                    # and it will sit out up to 15 minutes to do it — worth it
+                    # when the alternative is losing the page, and not worth it
+                    # here: three separate runs will each offer this page a
+                    # differently-paced fleet before the quarantine takes it.
+                    break
                 waits = [self._blocked_until[i] - time.monotonic()
                          for i in range(len(self.primaries)) if not self._exhausted[i]]
                 wait = min(waits) if waits else -1.0
@@ -1522,6 +1566,11 @@ class FallbackExtractor:
                 f"{method} unavailable: all providers rate limited")
 
         self._note_failure(last_error)
+        if content_failures and not other_failures:
+            # Everything that answered agreed the answer, not the connection,
+            # was the problem. The caller counts these per page and stops
+            # paying to reproduce them; see `db.bump_extract_failure`.
+            raise ExtractorContentError(f"{method} unavailable: {last_error}")
         raise ExtractorUnavailableError(f"{method} unavailable: {last_error}")
 
     def _note_attempt(self, t0: float) -> None:
