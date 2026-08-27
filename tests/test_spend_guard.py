@@ -149,6 +149,49 @@ def test_the_ceiling_announces_itself_once_a_day(tmp_path):
     assert [e["event"] for e in tomorrow].count("paid_daily_budget_spent") == 1
 
 
+def test_a_zero_budget_leaves_the_free_fleet_alone(tmp_path):
+    """The shipped state since 2026-08-27: paid permitted, nothing to spend.
+
+    The ceiling exists to stop paid providers, and the failure that would make
+    it useless is stopping the free ones with them — the free fleet is the only
+    thing extracting anything at all. So this asserts the whole free path, not
+    just that the paid one is shut: a free provider is callable, it is what the
+    router orders, and the run still reads as having capacity.
+    """
+    router = _router(tmp_path, _paid_spec(quality=90), _free_spec(quality=60),
+                     budget=0.0)
+    paid = [e for e in router._all if e.provider == "paid"][0]
+    free = [e for e in router._all if e.provider == "free"][0]
+
+    assert router.can_use(paid) is False
+    assert router.done_for_today(paid) is True
+
+    assert router.can_use(free) is True
+    assert router.done_for_today(free) is False
+    # The paid model outscores the free one 90 to 60 and still does not appear.
+    assert router.order() == [free]
+    assert router.with_budget() == [free]
+    assert router.has_capacity() is True
+    assert router.best_available_quality() == 60
+
+    # And spending the free allowance is what ends the day — not the ceiling.
+    for _ in range(1000):
+        router.ledger.note_call("free", ok=True)
+    assert router.has_capacity() is False
+
+
+def test_the_shipped_catalogue_spends_nothing_until_someone_says_otherwise():
+    """`allow_paid` is the permission and `daily_budget_usd` is the amount.
+
+    Asserted on the real config because the whole guard reduces to this pair,
+    and a stray edit to either half is the exact shape of the 2026-08-24
+    failure.
+    """
+    from scraper.providers import load_catalogue
+
+    assert load_catalogue().router.daily_budget_usd == 0.0
+
+
 def test_a_paid_model_with_no_price_is_never_built(tmp_path):
     """Fail closed: an unpriced paid model reports $0.00 against the ceiling,
     so the guard would wave through exactly the runaway it exists to stop."""

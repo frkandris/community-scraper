@@ -32,12 +32,20 @@ Three settings, one of which is the whole point:
 ```yaml
 router:
   allow_paid: true          # paid providers MAY be used
-  daily_budget_usd: 2.00    # ...up to this much per UTC day. 0 = not at all.
+  daily_budget_usd: 0.00    # ...up to this much per UTC day. 0 = not at all.
 ```
 
 `allow_paid` is a permission; `daily_budget_usd` is the amount. Neither works
 alone: `paid_allowed()` is false without both, so the historical failure mode —
 a boolean switched on by itself — is now a no-op rather than an open tab.
+
+**The shipped amount is 0.00** (2026-08-27): there is no credit on the
+OpenRouter account and $0.69 left on DeepSeek's, and the decision was not to top
+either up. Zero is the honest setting for that — the alternative would quietly
+drain the DeepSeek remainder through the quality-23 model. The free fleet is
+untouched by it: the ceiling vetoes paid providers only, `has_capacity()` still
+answers yes while any free allowance is left, and the day ends when the free
+allowances do, exactly as before paid providers existed.
 
 Per model, the price the ceiling is measured in:
 
