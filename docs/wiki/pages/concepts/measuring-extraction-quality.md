@@ -60,6 +60,11 @@ reasons that have nothing to do with models. This produced an apparent
 Each result carries a `sample` fingerprint. Two runs with different fingerprints
 are not comparable.
 
+That ordering is also what makes the sample portable: copying the `url_hash`
+prefix out of the production database yields the identical pages the full one
+would, so a score measured off-server is still comparable with the catalogue.
+See [[exporting-a-golden-set]].
+
 ## Matching: lenient about phrasing, strict about identity
 
 MINEA (arXiv:2404.04068) measured the same extractions at **59.4%** with exact
