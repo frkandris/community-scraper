@@ -102,8 +102,17 @@ highest-quality model for the whole window.
 - Reorder by editing `quality:` values, or better: run
   `PYTHONPATH=. .venv/bin/python scripts/score_providers.py --apply` on the
   server, where the database with the golden set lives. Dry run first.
-- `router.allow_paid: true` lets the fleet fall through to DeepSeek when free
-  capacity is spent. Off by default — turning it on costs money.
+- Paid capacity needs **three** switches since 2026-09-05, not one, and setting
+  only the first is a silent no-op — `configured` fails quietly, so you get no
+  paid capacity *and* no error:
+    1. `router.allow_paid: true` (the permission),
+    2. `router.daily_budget_usd: <amount>` (the ceiling; 0 blocks everything),
+    3. `enabled: true` on `deepseek` / `openrouter_paid` in the same file.
+  All three are deliberately off. Note that `openrouter_paid` shares
+  `OPENROUTER_API_KEY` with the *free* OpenRouter entry, and that key's account
+  holds ~$10.80 bought to unlock the free tier's 1000/day — spending it down
+  loses that capacity, and going negative makes OpenRouter 402 the free models
+  too. See [[paid-spend-guard]].
 - `router.enabled: false` disables routing entirely; extraction reverts to the
   single configured provider with no other behaviour change.
 - `upgrade_min_gain` / `upgrade_max_per_run` bound the re-extraction sweep. Raise

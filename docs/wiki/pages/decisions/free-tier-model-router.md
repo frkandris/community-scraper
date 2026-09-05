@@ -1,7 +1,7 @@
 ---
 type: Decision
 title: Free-Tier Model Router
-description: Extraction routes across six free LLM providers by measured quality under a persisted daily quota ledger, with paid DeepSeek parked behind a flag.
+description: Extraction routes across the free LLM fleet by measured quality under a persisted daily quota ledger; paid providers are permission-, budget- and enable-gated, all three off.
 tags: [llm, routing, cost, providers, quota, decision]
 timestamp: 2026-08-16
 resource: scraper/router.py
@@ -13,9 +13,20 @@ resource: scraper/router.py
 
 ## Decision
 
-Extraction runs over a **fleet** of free-tier providers (Groq, Cerebras, Google
-Gemini, Mistral, OpenRouter `:free`, GitHub Models) instead of a single paid one.
-DeepSeek stays configured but **parked** behind `router.allow_paid: false`.
+Extraction runs over a **fleet** of free-tier providers instead of a single paid
+one. As of 2026-09-05 the live fleet is **Groq, Google Gemini, Mistral,
+OpenRouter `:free` and Cloudflare Workers AI**; Cerebras (free tier ended
+2026-08-17) and GitHub Models (retired) remain in the catalogue as
+`enabled: false` so the decisions about them stay visible.
+
+Cloudflare is the odd one: its allowance is denominated in **neurons**, not
+requests or tokens, and its response reports `usage.neurons` — the only provider
+whose cost is booked rather than estimated. The ledger has no neuron unit, so
+the allowance is expressed as a measured `rpd`.
+
+The paid providers, DeepSeek and `openrouter_paid`, are gated three ways and all
+three are **off**: `router.allow_paid: false`, `daily_budget_usd: 0.00`, and
+`enabled: false` on each.
 
 The catalogue lives in `config/providers.yaml`, not in code, because free
 providers rename and retire models constantly — Groq deprecated two Llama models

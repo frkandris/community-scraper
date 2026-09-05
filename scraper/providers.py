@@ -205,6 +205,41 @@ def fetch_upstream_models(spec: ProviderSpec, timeout: int = 20) -> tuple[list[s
                 data = _json.load(resp)
             return sorted(m["name"].removeprefix("models/")
                           for m in data.get("models", [])), None
+        if spec.name == "cloudflare":
+            # Cloudflare's OpenAI-compat layer answers 405 on /models; its
+            # native API lists them. base_url ends in /ai/v1 and the catalogue
+            # sits one level up.
+            #
+            # Filtered and paged on the *server* rather than trimmed here. A
+            # single `per_page=200` looked sufficient — the account serves ~65
+            # models — but "looked sufficient" is how a configured model
+            # silently becomes UNLISTED, and this function's caller exits 1 on
+            # that, which gates the scheduled check.
+            root = spec.base_url.rstrip("/")
+            root = root[: -len("/v1")] if root.endswith("/v1") else root
+            names: list[str] = []
+            page = 1
+            while True:
+                url = (f"{root}/models/search?task=Text+Generation"
+                       f"&per_page=100&page={page}")
+                req = urllib.request.Request(
+                    url, headers={"User-Agent": _UA,
+                                  "Authorization": f"Bearer {key}"})
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    data = _json.load(resp)
+                batch = data.get("result") or []
+                names.extend(m["name"] for m in batch)
+                info = data.get("result_info") or {}
+                total = info.get("total_count")
+                # Stop on a short page as well as on the count: `result_info`
+                # is not guaranteed, and an unbounded loop against a paid-ish
+                # API is worse than a slightly short list.
+                if not batch or total is None or len(names) >= int(total):
+                    break
+                page += 1
+                if page > 20:
+                    break
+            return sorted(names), None
         req = urllib.request.Request(
             f"{spec.base_url.rstrip('/')}/models",
             headers={"User-Agent": _UA, "Authorization": f"Bearer {key}"})

@@ -48,12 +48,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from scraper.providers import load_catalogue  # noqa: E402
+from scraper.providers import fetch_upstream_models, load_catalogue  # noqa: E402
 
-#: Providers whose model list endpoint follows the OpenAI convention. Gemini's
-#: and Cloudflare's OpenAI-compat surfaces do not implement /models (Cloudflare
-#: answers 405), so both are queried on their native endpoints instead.
-_LIST_PATH = {"gemini": None, "cloudflare": None}
+# There was a `_LIST_PATH` dict here that looked like a dispatch table for
+# providers whose /models is not OpenAI-shaped. Nothing ever read it — the real
+# dispatch is the `if spec.name == ...` chain in `providers.fetch_upstream_models`
+# — and on 2026-09-05 it was dutifully extended for Cloudflare, which of course
+# changed nothing. Deleted rather than wired up: a second place to register a
+# provider is how the Cloudflare bug happened in the first place.
 
 TIMEOUT = 25
 
@@ -68,43 +70,16 @@ def _get_json(url: str, headers: dict) -> dict:
 
 
 def live_models(spec) -> tuple[list[str], str | None]:
-    """(model ids, error). An error is reported, never raised: one dead provider
-    must not hide the others' answers."""
-    key = spec.api_key
-    if not key:
-        return [], "no API key in env"
-    try:
-        if spec.name == "gemini":
-            # The OpenAI-compat layer has no /models; the native API does.
-            data = _get_json(
-                f"https://generativelanguage.googleapis.com/v1beta/models?key={key}",
-                {},
-            )
-            return sorted(m["name"].removeprefix("models/")
-                          for m in data.get("models", [])), None
-        if spec.name == "cloudflare":
-            # The OpenAI-compat layer answers 405 on /models; the native API
-            # lists them. base_url ends in /ai/v1, and the catalogue lives one
-            # level up at /ai/models/search.
-            root = spec.base_url.rstrip("/").removesuffix("/v1")
-            data = _get_json(f"{root}/models/search?per_page=200",
-                             {"Authorization": f"Bearer {key}"})
-            return sorted(
-                m["name"] for m in data.get("result", [])
-                if (m.get("task") or {}).get("name") == "Text Generation"
-            ), None
-        data = _get_json(f"{spec.base_url.rstrip('/')}/models",
-                         {"Authorization": f"Bearer {key}"})
-        return sorted(m["id"] for m in data.get("data", [])), None
-    except urllib.error.HTTPError as exc:
-        body = ""
-        try:
-            body = exc.read().decode()[:120]
-        except Exception:
-            pass
-        return [], f"HTTP {exc.code} {body}"
-    except Exception as exc:
-        return [], f"{type(exc).__name__}: {exc}"
+    """(model ids, error), delegated to `scraper.providers`.
+
+    This used to be a second copy of the same logic, and on 2026-09-05 that
+    cost exactly what a duplicate costs: Cloudflare's native model endpoint was
+    taught to this copy only, so `--remote` — which asks the deployed app, and
+    is the *normal* way to run this check because the keys live there — still
+    hit the OpenAI-compat /models and reported HTTP 405 for a provider that was
+    working fine. One implementation, used by both paths.
+    """
+    return fetch_upstream_models(spec, timeout=TIMEOUT)
 
 
 def remote_report(base: str, token: str) -> list[dict]:

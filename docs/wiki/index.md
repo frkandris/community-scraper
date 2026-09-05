@@ -71,7 +71,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[sweden-pipeline-priority]] — Country order in the bounded saver windows lives in config, not code, so whichever market has the largest unprocessed backlog can lead.
 - [[hungary-sweden-intl-three-passes]] — main.py partitions Hungary, Sweden, and world into independent passes; bounded saver jobs are expansion-first while startup recovery is Hungary-first.
 - [[scheduler-disabled-no-cron]] — APScheduler registers the enabled twin cost-saver jobs and daily report; the legacy combined cron remains opt-in.
-- [[free-tier-model-router]] — Extraction routes across six free LLM providers by measured quality under a persisted daily quota ledger, with paid DeepSeek parked behind a flag.
+- [[free-tier-model-router]] — Extraction routes across the free LLM fleet by measured quality under a persisted daily quota ledger; paid providers are permission-, budget- and enable-gated, all three off.
 - [[concurrent-extraction]] — Why a pair's pages are extracted several at a time, what had to be true first, and the config knob that turns it off.
 - [[continuous-worker]] — Why the twin time windows were deleted, what decides the work now, and the ten defects the reviews found in getting there.
 - [[cost-optimization-2026-07]] — Cost controls reduce paid search and LLM work through caching, query short-circuiting, venue gates, off-peak extraction, standard search, and topic tiers.

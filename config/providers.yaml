@@ -277,6 +277,16 @@ providers:
         # still opens on Mistral, and this is second. On 95 calls a day the
         # blast radius of being wrong is bounded either way, but there is no
         # reason to buy the optimistic reading.
+        #
+        # Note what this does NOT claim. Groq serves the *same weights* at
+        # `quality: 67`, and the two numbers come from different measurement
+        # runs on different samples — the spread above shows a single sample
+        # moves this score by more than the 7 points between them. So the
+        # router draining Cloudflare's 95 calls before touching Groq's copy is
+        # a **capacity** ordering, not evidence that one host is better. It is
+        # a defensible one (Cloudflare's allowance expires daily and is the
+        # smaller of the two), but do not read the gap as quality, and do not
+        # "fix" it by nudging either number without re-scoring both together.
         quality: 74
 
   # ── GitHub Models ─────────────────────────────────────────────────────────
