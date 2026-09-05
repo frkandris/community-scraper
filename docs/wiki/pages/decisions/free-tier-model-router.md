@@ -47,7 +47,7 @@ publishing their limits in 2026, so a config constant is a guess. A 429 whose
 `Retry-After` is long (or that arrives near the configured `rpd`) records the
 count at which the provider actually refused, and that number is only ever
 lowered. A *short* 429 is the per-minute limit, which says nothing about the
-daily ceiling: free tiers publish `rpm` of 10-30 next to `rpd` of 150-14400, so
+daily ceiling: free tiers publish `rpm` of 10-30 next to `rpd` of 150-1500, so
 reading a minute-limit hit as a daily one would collapse Gemini's 1500/day to 15.
 `rpm` is enforced separately, per provider — a provider with two models has two
 extractors, and each `_ApiExtractor` otherwise paces itself independently.

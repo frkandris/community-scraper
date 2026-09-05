@@ -60,6 +60,18 @@ ROUTER_API_KEY=sk-app-crm,sk-app-billing,sk-laptop-scratch
 unauthenticated LLM proxy is a free-credit faucet for whoever finds it, so
 absent configuration closes the door rather than opening it.
 
+**A weak key is the same faucet with an extra step.** On 2026-09-05 the live
+value carried two keys, and the first was the literal string `ROUTER_API_KEY`
+repeated three times. This repository is public and that name appears in
+`CLAUDE.md`, `AGENTS.md`, this page and `scraper/web/api.py`, so the key was
+derivable from our own documentation. It authenticated against
+`/v1/chat/completions` — which spends the free-tier budget the crawler depends
+on — and, because `CONTROL_API_KEY` is unset and `_control_keys()` falls back to
+the gateway keys, against `/v1/control/*`, which starts and stops pipeline runs.
+Removed the same day. Two things follow: keys go in as random strings, and
+**deleting one in Coolify does not revoke it** — the container keeps the old
+environment until a redeploy, which is what actually took it out of service.
+
 ## Endpoints
 
 ### `POST /v1/chat/completions`

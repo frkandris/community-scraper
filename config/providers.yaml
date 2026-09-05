@@ -96,13 +96,19 @@ router:
 providers:
 
   # ── Groq ──────────────────────────────────────────────────────────────────
-  # Fastest free inference; the most generous daily request budget of the set.
+  # Fastest free inference. Not the largest daily allowance — that is Gemini;
+  # Groq's day ends on tokens (tpd), usually inside ~150 calls.
   - name: groq
     enabled: true
     api_key_env: GROQ_API_KEY
     base_url: https://api.groq.com/openai/v1
     rpm: 30
-    rpd: 14400
+    # 1000, not 14400. 14,400/day is Groq's *organisation* default; the docs'
+    # per-model table gives every model we run (gpt-oss-120b, gpt-oss-20b,
+    # qwen3.6-27b) "RPM 30, RPD 1K, TPM 8K, TPD 200K" — confirmed against
+    # console.groq.com/docs/rate-limits on 2026-09-05. It is not the binding
+    # limit (tpd is), but the ledger budgeted against a figure 14x too high.
+    rpd: 1000
     # Measured from Groq's own 429 on 2026-08-20: "tokens per day (TPD):
     # Limit 200000". This, not rpd, is what ends Groq's day.
     tpd: 200000
