@@ -51,9 +51,9 @@ sys.path.insert(0, str(ROOT))
 from scraper.providers import load_catalogue  # noqa: E402
 
 #: Providers whose model list endpoint follows the OpenAI convention. Gemini's
-#: OpenAI-compat surface does not implement /models, so it is queried on its
-#: native endpoint instead.
-_LIST_PATH = {"gemini": None}
+#: and Cloudflare's OpenAI-compat surfaces do not implement /models (Cloudflare
+#: answers 405), so both are queried on their native endpoints instead.
+_LIST_PATH = {"gemini": None, "cloudflare": None}
 
 TIMEOUT = 25
 
@@ -82,6 +82,17 @@ def live_models(spec) -> tuple[list[str], str | None]:
             )
             return sorted(m["name"].removeprefix("models/")
                           for m in data.get("models", [])), None
+        if spec.name == "cloudflare":
+            # The OpenAI-compat layer answers 405 on /models; the native API
+            # lists them. base_url ends in /ai/v1, and the catalogue lives one
+            # level up at /ai/models/search.
+            root = spec.base_url.rstrip("/").removesuffix("/v1")
+            data = _get_json(f"{root}/models/search?per_page=200",
+                             {"Authorization": f"Bearer {key}"})
+            return sorted(
+                m["name"] for m in data.get("result", [])
+                if (m.get("task") or {}).get("name") == "Text Generation"
+            ), None
         data = _get_json(f"{spec.base_url.rstrip('/')}/models",
                          {"Authorization": f"Bearer {key}"})
         return sorted(m["id"] for m in data.get("data", [])), None

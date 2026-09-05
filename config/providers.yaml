@@ -54,7 +54,15 @@ router:
   # capacity there was. Paid providers do not jump the queue: the router picks
   # by measured quality, so the free models still go first and paid ones are
   # reached when the free budget is spent. Overflow, not replacement.
-  allow_paid: true
+  # OFF since 2026-09-05, at the operator's instruction: no path may spend money
+  # on a model for now. This is the *permission*, and `daily_budget_usd` below
+  # is the *amount*; `paid_allowed()` requires both, so either one alone already
+  # blocks a paid call. Both are set, deliberately — the OpenRouter account now
+  # holds $10.80 of real money (bought to unlock the free tier's 1000/day, not
+  # to spend), and one config line is a thin guard for a live balance. The paid
+  # providers are also `enabled: false` individually further down, so a paid
+  # call now needs three separate reversals rather than one.
+  allow_paid: false
   # Re-extracting an already-processed page is only ever a filler for quota that
   # would otherwise expire unused. New pages always come first; a page is
   # re-extracted only when an available model scores at least this many points
@@ -219,6 +227,46 @@ providers:
       # 45 was the weakest of the three, and `daily_budget_usd` is 0.00. The
       # other two were re-confirmed live the same day.
 
+  # ── Cloudflare Workers AI ─────────────────────────────────────────────────
+  # Added 2026-09-05. The only provider whose budget is denominated in neither
+  # requests nor tokens: the free allocation is **10,000 Neurons a day**, and
+  # the response's `usage.neurons` reports what a call actually cost — so this
+  # is the one provider we could book exactly rather than estimate. The ledger
+  # has no neuron unit, so the allowance is expressed as `rpd` below.
+  #
+  # The account is on the **Workers Free** plan (verified in the dashboard
+  # 2026-09-05), where exceeding the daily allocation refuses requests rather
+  # than billing. That is what makes this a free-tier provider at all; if the
+  # account is ever upgraded to Workers Paid, overage bills and this entry must
+  # be re-examined before the next run.
+  - name: cloudflare
+    enabled: true
+    api_key_env: CLOUDFLARE_API_TOKEN
+    # The account id is not a secret — it is in every dashboard URL — so it is
+    # inlined here rather than templated, which keeps this a catalogue entry
+    # with no code behind it.
+    base_url: https://api.cloudflare.com/client/v4/accounts/809bd7dcd8939fa5e520a96ab4923429/ai/v1
+    rpm: 20
+    # 100, from measurement rather than a published figure. One real extraction
+    # — our own SYSTEM_PROMPT plus a page at the `max_text_chars: 8000` cap —
+    # cost **91.9 neurons** on gpt-oss-20b (3,531 in / 1,016 out). 10,000/91.9
+    # is 108, and 100 leaves room for pages that generate more output. The
+    # ledger's own 5% headroom takes the effective figure to 95, or ~8,700
+    # neurons: 87% of the allowance.
+    #
+    # gpt-oss-120b was measured too and is deliberately **not** listed: at
+    # 176.9 neurons it halves the day to 56 calls, and our own catalogue
+    # already scores the 20b higher than the 120b on Groq. One model also makes
+    # the neuron spend predictable, which a two-model mix would not be.
+    rpd: 100
+    models:
+      - model: '@cf/openai/gpt-oss-20b'
+        # 0 = not scored yet, which sorts it last — deliberate. A number here
+        # would be a guess, and a guess is what `POST /v1/score` exists to
+        # replace. It returned our exact schema in the measurement above, but
+        # parsing correctly is not quality. Score it, then set the real value.
+        quality: 0
+
   # ── GitHub Models ─────────────────────────────────────────────────────────
   # DISABLED 2026-08-16: the API answers 410 with
   # {"code":"github_models_retirement_brownout"} — the service is being retired,
@@ -240,7 +288,10 @@ providers:
   # is always spent first. Its model/fingerprint pinning still lives in
   # settings.yaml under `deepseek:`.
   - name: deepseek
-    enabled: true
+    # Disabled 2026-09-05 alongside `allow_paid: false` — see there. $0.69 left
+    # on the account and no top-up; re-enable together with the two switches
+    # above, not on its own.
+    enabled: false
     paid: true
     api_key_env: DEEPSEEK_API_KEY
     base_url: https://api.deepseek.com/v1
@@ -284,7 +335,11 @@ providers:
   #
   # Measured on 14 Hungarian pages, 2026-08-24, `POST /v1/score?locale=hu`.
   - name: openrouter_paid
-    enabled: true
+    # Disabled 2026-09-05 alongside `allow_paid: false` — see there. It shares
+    # OPENROUTER_API_KEY with the free `openrouter` entry above, and that key
+    # now has $10.80 behind it, so this is the one paid provider that could
+    # actually succeed in spending. Off is the point.
+    enabled: false
     paid: true
     api_key_env: OPENROUTER_API_KEY
     base_url: https://openrouter.ai/api/v1

@@ -43,11 +43,18 @@ def test_shipped_catalogue_parses():
     for expected in ("groq", "cerebras", "gemini", "mistral", "openrouter",
                      "github", "deepseek"):
         assert expected in names
-    # Paid providers, on since 2026-08-24: the free fleet manages ~105 pages a
-    # day against a 91,919-page backlog. They do not jump the queue — the
-    # router picks by quality, so free models still go first.
+    # The two paid providers stay in the catalogue so the decision about them
+    # is visible, but nothing may reach them: OFF since 2026-09-05 at the
+    # operator's instruction that no path spend money on a model.
     assert [p.name for p in cat.providers if p.paid] == ["deepseek", "openrouter_paid"]
-    assert cat.router.allow_paid is True
+    assert cat.router.allow_paid is False
+    assert cat.router.daily_budget_usd == 0.0
+    # Belt and braces, and each one is load-bearing on its own: `paid_allowed()`
+    # needs the permission *and* the amount, and `configured` needs `enabled`.
+    # The OpenRouter account holds real money that was bought to unlock the free
+    # tier rather than to spend, and openrouter_paid shares its key — so it is
+    # the one paid provider that could actually succeed in spending.
+    assert all(not p.enabled for p in cat.providers if p.paid)
 
 
 def test_models_are_sorted_best_first_on_load():
@@ -454,8 +461,11 @@ def test_providers_admin_page_lists_the_fleet(tmp_path):
         # A provider with no key must be shown, not hidden — the env var name is
         # the actionable part of the page.
         assert "GROQ_API_KEY" in resp.text
-        # "Free only" no longer: paid providers are reachable as overflow.
-        assert "Free only" not in resp.text
+        # "Free only" again since 2026-09-05: paid providers are switched off,
+        # so the page must say so. This assertion is the inverse of the one it
+        # replaced, and it is here for the same reason — the page has to report
+        # the policy that is actually in force, in whichever direction.
+        assert "Free only" in resp.text
     app_state.db_path = old
 
 
