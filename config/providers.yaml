@@ -261,11 +261,23 @@ providers:
     rpd: 100
     models:
       - model: '@cf/openai/gpt-oss-20b'
-        # 0 = not scored yet, which sorts it last — deliberate. A number here
-        # would be a guess, and a guess is what `POST /v1/score` exists to
-        # replace. It returned our exact schema in the measurement above, but
-        # parsing correctly is not quality. Score it, then set the real value.
-        quality: 0
+        # 74, measured 2026-09-05 on the largest independent sample. Four runs,
+        # and the spread is the point:
+        #
+        #     2 pages  (sample 9609dafa)  -> 20
+        #    10 pages  (sample 410610e1)  -> 89
+        #    10 pages  (sample 410610e1)  -> 84   <- same sample, re-run
+        #    20 pages  (sample c47a3a02)  -> 74   <- independent, and chosen
+        #
+        # The 84/89 pair is one sample measured twice, so it shows the model's
+        # own non-determinism (±5), not how much the score moves with different
+        # pages. The 2-page 20 and the 20-page 74 are different samples, and
+        # they are what say the number is sample-sensitive. Taking 74 rather
+        # than the flattering 86 keeps it *below* mistral-small (80): the fleet
+        # still opens on Mistral, and this is second. On 95 calls a day the
+        # blast radius of being wrong is bounded either way, but there is no
+        # reason to buy the optimistic reading.
+        quality: 74
 
   # ── GitHub Models ─────────────────────────────────────────────────────────
   # DISABLED 2026-08-16: the API answers 410 with
