@@ -77,13 +77,18 @@ router:
   # nothing in the system held a number that could have noticed, because the
   # ledger counted requests and tokens and the bill was in dollars.
   #
-  # **0.00 since 2026-08-27, deliberately.** There is no credit on the OpenRouter
-  # account and $0.69 left on DeepSeek's, and the decision is not to top either
-  # up for now — so the honest setting is the one that spends nothing rather
-  # than one that would quietly drain the DeepSeek remainder through the
-  # quality-23 model. The free fleet is unaffected: the ceiling vetoes paid
-  # providers only, and `has_capacity()` still answers yes while any free
-  # allowance is left.
+  # **0.00 since 2026-08-27, deliberately — and since 2026-09-05 the reason is
+  # stronger, not weaker.** There is now $10.80 on the OpenRouter account. It
+  # was not put there to buy extraction: it was bought to cross OpenRouter's
+  # $10 all-time-purchase threshold, which raises the `:free` daily cap from 50
+  # to 1000. Spending it is therefore actively counterproductive, and spending
+  # *past* it is worse — a negative balance makes OpenRouter answer 402 on the
+  # free models too, which would cost us the capacity the money was for.
+  # `openrouter_paid` shares `OPENROUTER_API_KEY`, so this ceiling is the only
+  # thing standing between that balance and a paid call. DeepSeek's own account
+  # still holds $0.69 and is not being topped up. The free fleet is unaffected:
+  # the ceiling vetoes paid providers only, and `has_capacity()` still answers
+  # yes while any free allowance is left.
   #
   # To switch paid back on, put credit on the account and set an amount here.
   # $2.00 was the figure this shipped with and is a reasonable one to return
@@ -180,21 +185,39 @@ providers:
         quality: 76
 
   # ── OpenRouter (`:free` models) ───────────────────────────────────────────
-  # One key, many models — but the tightest free request budget of the set, so
-  # it sits low in the effective order despite decent model quality.
+  # One key, many models. Was the tightest free budget of the set at 50/day
+  # until 2026-09-05.
   - name: openrouter
     enabled: true
     api_key_env: OPENROUTER_API_KEY
     base_url: https://openrouter.ai/api/v1
     rpm: 20
-    rpd: 50
+    # 1000, not 50. OpenRouter gates the `:free` daily cap on credit *purchased
+    # all time*, not on the balance: under $10 it is 50/day, at or above it
+    # 1000/day, and the higher tier survives the balance being spent back down
+    # (openrouter.ai/docs/api-reference/limits). $11.00 was bought on
+    # 2026-09-05 for exactly this, so the ceiling is now twenty times what it
+    # was. `rpm` is unchanged — 20/min applies to every `:free` model
+    # regardless of purchase history, and at 20/min a full 1000 takes ~50
+    # minutes of pure OpenRouter time.
+    #
+    # The learned ceiling does not block this: `QuotaLedger.budget()` prefers
+    # `observed_limit`, but that lives in the per-UTC-day usage row, so each
+    # day starts from this number again and only a genuine "per day" 429
+    # lowers it.
+    rpd: 1000
     models:
       - model: nvidia/nemotron-3-super-120b-a12b:free
         quality: 58
       - model: google/gemma-4-31b-it:free
         quality: 52
-      - model: openai/gpt-oss-20b:free
-        quality: 45
+      # openai/gpt-oss-20b:free removed 2026-09-05. Absent from OpenRouter's
+      # public catalogue (431 models, 19 `:free`) and, unlike the recurring
+      # open-mistral-nemo case, a real call agrees: HTTP 404 "This model is
+      # unavailable for free. The paid version is available now - use this slug
+      # instead: openai/gpt-oss-20b". Not added back as the paid slug — quality
+      # 45 was the weakest of the three, and `daily_budget_usd` is 0.00. The
+      # other two were re-confirmed live the same day.
 
   # ── GitHub Models ─────────────────────────────────────────────────────────
   # DISABLED 2026-08-16: the API answers 410 with
