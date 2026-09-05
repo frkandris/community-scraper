@@ -116,8 +116,15 @@ async def main() -> int:
     if out.get("error"):
         raise SystemExit(out["error"])
 
+    # The sample fingerprint, not just the page count. `score_fleet` computes it
+    # precisely so two measurements can be compared, and printing only the count
+    # withheld the one field that answers "are these two numbers about the same
+    # pages?" — which is the question every comparison against a previously
+    # written `quality:` actually asks. Two runs with different fingerprints
+    # measured different pages, whatever their page counts say.
     print(f"golden set: {out['pages']} pages, "
-          f"{out['expected_communities']} expected communities\n")
+          f"{out['expected_communities']} expected communities, "
+          f"locale={out['locale']}, sample={out['sample']}\n")
     print(f"{'score':>5}  {'prior':>5}  {'ans':>4} {'fail':>4}  model")
     for r in out["results"]:
         shown = "  n/a" if r["score"] is None else f"{r['score']:5}"
