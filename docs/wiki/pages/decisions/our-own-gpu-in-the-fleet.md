@@ -106,7 +106,19 @@ On the machine: `llama-server` and `cloudflared` run as launchd agents
 - **The scores measure agreement with the incumbent extraction**, not ground
   truth — see [[measuring-extraction-quality]]. A model that finds a real club
   the incumbent missed is scored down for it.
-- **Constrained decoding is untested.** `--json-schema-file` with the project's
-  own `EXTRACTION_SCHEMA` failed with `Failed to initialize samplers`, and the
-  cause is not yet known. It matters because Qwen's single failure was a
-  markdown fence, which a grammar makes impossible to emit.
+- **Constrained decoding is available and not yet used.** The project's own
+  `EXTRACTION_SCHEMA`, sent as a per-request
+  `response_format: {"type": "json_schema", ...}`, is enforced at the sampler and
+  returns clean JSON with every field — verified 2026-09-06. Only the
+  *server-level* `--json-schema-file` flag fails (`Failed to initialize
+  samplers: std::exception`), so the schema is fine and the flag is not.
+  Meanwhile `response_format: {"type": "json_object"}` — what `json_mode: true`
+  sends — is **silently ignored** by llama.cpp, so the prompt is doing all the
+  work today.
+
+  Not adopted yet, deliberately. It would change the payload of every extraction
+  call, which is the highest-risk shared path in `extract.py`, and it would need
+  a per-call-site schema (extraction, venue, person and enrichment each have
+  their own) rather than one flag. The failure it prevents is already *recovered*
+  by `_json_items` unwrapping fences; the gain is preventing them instead, which
+  does not justify an unreviewed change to that path.
