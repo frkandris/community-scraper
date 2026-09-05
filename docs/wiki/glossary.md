@@ -16,7 +16,7 @@ Domain vocabulary. One line per term; details live in the linked pages.
 - **joinable** — the LLM-emitted quality gate: recurring + open to the public + has group identity; only `joinable=True` records survive.
 - **hidden** — moderation flag on a community (merged duplicate or approved "not a community" report); survives re-scrapes.
 - **false positive** — an admin-curated negative example injected into extraction prompts so the same non-community stops being extracted.
-- **thin page** — a community page without a description; noindexed and excluded from sitemaps.
+- **thin page** — a page with little useful unique content; community details without descriptions have been indexable and sitemap-listed since 2026-08-21 (the earlier noindex policy was removed). See [[search-console-2026-09-05]].
 - **canonical domain** — kozossegek.com for HU-city content even when served on meetapedia.com; everything else self-canonicalizes.
 - **topic tier / core topics** — cities marked `topic_tier: core` (260 small Swedish kommuner) only run the 12 `pipeline.core_topics`; other pairs are frozen.
 - **stock (állomány)** — current absolute totals (communities, venues, persons, pages, covered pairs) as opposed to daily diffs; both appear in the daily email.

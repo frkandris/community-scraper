@@ -5424,7 +5424,9 @@ def _build_sitemap(ctx: dict) -> str:
         # list canonical URLs, so they are omitted here.
         site_city_names -= _hu_city_names()
     if is_meetapedia:
-        static_paths = ["/", "/about", "/map", "/people", "/cities", "/explore", "/submit-community"]
+        # About/explore still render at their HU paths on both domains; the
+        # English aliases redirect and must not be submitted as canonicals.
+        static_paths = ["/", "/rolunk", "/map", "/people", "/cities", "/felfedezes", "/submit-community"]
         venue_prefix = "/venue/"
         person_prefix = "/person/"
     else:
@@ -5450,6 +5452,7 @@ def _build_sitemap(ctx: dict) -> str:
             locs.extend(f"{base}/cities/{_slugify(cn)}" for cn in countries)
 
         counts = get_city_topic_counts(_db())
+        configured_topics = {t.name for t in (app_state.topics or [])}
         # One query for every community, instead of one per city×topic pair.
         # At 3.8K cities the old loop issued thousands of queries on the event
         # loop and took >30s, blocking every other request behind it.
@@ -5461,8 +5464,11 @@ def _build_sitemap(ctx: dict) -> str:
             city_locale = _city_locale(city_name)
             locs.append(f"{base}/{city_sl}")
             for topic_name in topics:
-                topic_sl = _topic_url_slug(topic_name, city_locale)
-                locs.append(f"{base}/{city_sl}/{topic_sl}")
+                if topic_name in configured_topics:
+                    topic_sl = _topic_url_slug(topic_name, city_locale)
+                    locs.append(f"{base}/{city_sl}/{topic_sl}")
+                # Legacy DB topics may no longer have a listing route, but
+                # their community detail URLs remain valid and indexable.
                 for record in by_pair.get((city_name, topic_name), ()):
                     # Described or not, every visible community is submitted.
                     # The page used to be noindexed without a description, so
@@ -7769,6 +7775,7 @@ async def public_city_segment(
         history = get_community_history(app_state.db_path, record.get("community_id", ""))
         rec_topic = record.get("topic", "")
         city_locale = _city_locale(city_name)
+        public_topic = rec_topic if rec_topic in topic_names else None
         topic_url_slugs = {t.name: _topic_url_slug(t.name, city_locale) for t in (app_state.topics or [])}
         community_venue = get_venue_for_community(
             app_state.db_path, record.get("community_id", ""), city_name
@@ -7783,12 +7790,22 @@ async def public_city_segment(
         related = related_communities(
             _city_records,
             exclude_key=_community_record_key(record["name"], city_name, rec_topic),
-            topic=rec_topic, locale=city_locale)
+            topic=public_topic, locale=city_locale)
+        breadcrumb_pairs = [(city_name, f"/{city_slug}")]
+        if public_topic:
+            breadcrumb_pairs.append((
+                get_topic_labels(lang_context(request)["lang"]).get(
+                    public_topic, public_topic.replace("_", " ").title()),
+                f"/{city_slug}/{_topic_url_slug(public_topic, city_locale)}",
+            ))
+        breadcrumb_pairs.append((
+            record.get("name", ""), f"/{city_slug}/{_slugify(record.get('name', ''))}",
+        ))
         return templates.TemplateResponse(request, "public_community.html", {
             "r": record,
             "related": related,
             "topic": rec_topic,
-            "topic_slug": _topic_url_slug(rec_topic, city_locale),
+            "topic_slug": _topic_url_slug(public_topic, city_locale) if public_topic else None,
             "city": city_name,
             "schema_json": schema_json,
             "topic_icons": TOPIC_ICONS,
@@ -7824,14 +7841,7 @@ async def public_city_segment(
             # if Google starts treating them as near-duplicates the answer is
             # to make them substantive, not to hide them again.
             "page_noindex": False,
-            "breadcrumbs": _crumbs(
-                request,
-                (city_name, f"/{city_slug}"),
-                (get_topic_labels(lang_context(request)["lang"]).get(
-                    rec_topic, rec_topic.replace("_", " ").title()),
-                 f"/{city_slug}/{_topic_url_slug(rec_topic, city_locale)}"),
-                (record.get("name", ""), f"/{city_slug}/{_slugify(record.get('name',''))}"),
-            ),
+            "breadcrumbs": _crumbs(request, *breadcrumb_pairs),
             **lang_context(request),
             "sister_url": _sister_url(request, city_name),
         })

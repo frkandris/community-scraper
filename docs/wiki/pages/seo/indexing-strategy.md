@@ -17,6 +17,13 @@ resource: scraper/web/app.py
 
 ## Thin-page noindex
 
+**Correction, 2026-09-05:** the detail-page and sitemap exclusions described
+below are historical. Commit `04282ff` (2026-08-21) made every visible community
+detail indexable (`page_noindex=False`) and included undescribed communities in
+the sitemap. The empty city+topic explore guard remains. See
+[[search-console-2026-09-05]] for fresh measurements and the distinction between
+indexability and actual indexing. The following text preserves the earlier policy.
+
 `public_base.html` adds `<meta name="robots" content="noindex">` when `page_noindex` is true:
 
 - **Explore**: `city and topic and total == 0` — a city+topic combo with zero communities.
@@ -25,6 +32,13 @@ resource: scraper/web/app.py
 Rationale: stop Google indexing empty/thin programmatic pages, a major trigger of the mass "Crawled – currently not indexed" devaluation. Thickening the *non-empty-but-thin* descriptions (the bigger population) is the complementary lever — planned, staged, and deferred to supervised runs in [[description-enrichment-plan]].
 
 ## Sitemap scoping
+
+**Update, 2026-09-05:** topic listing URLs are emitted only for configured
+topics, matching `public_city_segment`. Communities stored under retired topics
+keep their detail URLs in the sitemap. Meetapedia uses `/rolunk` and `/felfedezes`
+for its about/explore entries because `/about` and `/explore` redirect there.
+Legacy-topic details omit invalid topic breadcrumbs/links but preserve their
+stored identity for reports. Regression coverage: `tests/test_sitemap_routes.py`.
 
 `GET /sitemap.xml` is domain-scoped via `lang_context` + `_site_cities`:
 

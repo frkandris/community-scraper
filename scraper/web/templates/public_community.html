@@ -1,6 +1,7 @@
 {% extends "public_base.html" %}
+{% set topic_label = topic_labels.get(topic, topic_labels.get('other', 'Other')) %}
 {% block head %}{% if schema_json %}<script type="application/ld+json">{{ schema_json | safe }}</script>{% endif %}{% endblock %}
-{% block title %}{{ r.name }}{% if topic %} – {{ topic_labels.get(topic, topic) }}{% if city %} {{ city }}{% endif %}{% elif city %} – {{ city }}{% endif %} | {{ site_name }}{% endblock %}
+{% block title %}{{ r.name }}{% if topic %} – {{ topic_label }}{% if city %} {{ city }}{% endif %}{% elif city %} – {{ city }}{% endif %} | {{ site_name }}{% endblock %}
 {% block og_image_url %}/static/img/og/{{ topic or 'default' }}.png{% endblock %}
 {% block og_desc %}{{ r.short_description or (r.description | truncate(160, True, '...')) if (r.short_description or r.description) else t('community_og_fallback', name=r.name) }}{% endblock %}
 
@@ -11,7 +12,7 @@
 <div class="brand-gradient relative overflow-hidden">
   <div class="max-w-3xl mx-auto px-4 sm:px-6 py-5 sm:py-7 relative">
     <p class="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/70 mb-1.5">
-      {{ city }}{% if topic %} · {{ topic_labels.get(topic, topic.replace('_',' ').title()) }}{% endif %}
+      {{ city }}{% if topic %} · {{ topic_label }}{% endif %}
     </p>
     <h1 class="text-xl sm:text-2xl font-black tracking-[-0.025em] text-white leading-tight">{{ r.name }}</h1>
   </div>
@@ -26,11 +27,11 @@
     <span class="text-[#D8D1C4]">/</span>
     <a href="/{{ city | slugify }}" class="hover:text-[#1C1917] transition-colors shrink-0">{{ city }}</a>
     {% endif %}
-    {% if topic %}
+    {% if topic and topic_slug %}
     <span class="text-[#D8D1C4]">/</span>
     <a href="/{{ city | slugify }}/{{ topic_slug }}"
        class="hover:text-[#1C1917] transition-colors shrink-0">
-      {{ topic_labels.get(topic, topic.replace('_',' ').title()) }}
+      {{ topic_label }}
     </a>
     {% endif %}
     <span class="text-[#D8D1C4]">/</span>
@@ -68,11 +69,11 @@
             <i class="ph ph-map-pin text-[#B5ADA0]"></i> {{ city }}
           </a>
           {% endif %}
-          {% if topic %}
+          {% if topic and topic_slug %}
           <a href="/{{ city | slugify }}/{{ topic_slug }}"
              class="inline-flex items-center gap-1 text-xs text-[#8A4226] bg-[#FDF0EA] border border-[#FAD9C7] px-2 py-0.5 rounded-md hover:bg-[#FAD9C7] transition-colors">
             <i class="ph ph-{{ topic_icons.get(topic, 'circle') }}"></i>
-            {{ topic_labels.get(topic, topic.replace('_',' ').title()) }}
+            {{ topic_label }}
           </a>
           {% endif %}
         </div>
@@ -596,12 +597,12 @@
   {% endif %}
 
   <!-- Back link -->
-  {% if city and topic %}
+  {% if city and topic and topic_slug %}
   <div class="mt-6 text-center">
     <a href="/{{ city | slugify }}/{{ topic_slug }}"
        class="inline-flex items-center gap-2 text-sm text-[#A8512F] hover:text-[#8A4226] transition-colors font-medium">
       <i class="ph ph-arrow-left"></i>
-      {{ t('community_more_in').format(label=topic_labels.get(topic, topic.replace('_',' ').title()), city=city) }}
+      {{ t('community_more_in').format(label=topic_label, city=city) }}
     </a>
   </div>
   {% endif %}
@@ -743,11 +744,12 @@ async function submitReport() {
 
 {# Neighbours, at the foot of the page. See _related.html for why. #}
 {% if related %}
+<div class="max-w-3xl mx-auto px-4 sm:px-6 pb-6 sm:pb-8">
 {{ related_block(
-     t('related_same_topic', topic=topic_labels.get(topic, topic or ''), city=city)
-       if topic else t('related_in_city', city=city),
+     t('related_same_topic', topic=topic_label, city=city)
+       if topic_slug else t('related_in_city', city=city),
      related.same_topic,
-     '/' ~ (city | slugify) ~ '/' ~ topic_slug if topic else None,
+     '/' ~ (city | slugify) ~ '/' ~ topic_slug if topic_slug else None,
      t('related_see_all_topic', count=related.same_topic_total) if related.same_topic_total > related.same_topic | length else None) }}
 
 {{ related_block(
@@ -755,6 +757,7 @@ async function submitReport() {
      related.other_topics,
      '/' ~ (city | slugify),
      t('related_see_all_city', city=city) if related.other_topics_total > related.other_topics | length else None) }}
+</div>
 {% endif %}
 
 {% endblock %}
