@@ -260,6 +260,99 @@ def test_output_cap_is_per_model_then_per_provider_then_global():
     assert built["free-m"].max_output_tokens == 1500       # global
 
 
+def test_timeout_is_per_provider_then_global():
+    """A model on our own GPU is minutes of work; a hosted API is seconds.
+
+    The global 60 is sized for the hosted case, and a timeout is scored as a
+    *failure* — so a slow-but-working provider would be retired by the circuit
+    breaker rather than reported as slow. Raising the global instead would let a
+    genuinely hung hosted call hold a slot for as long as the slowest local
+    model is allowed, which is the opposite of what the ceiling is for.
+    """
+    slow = ProviderSpec(
+        name="local", base_url="http://127.0.0.1:8080/v1", api_key_env="FREE_KEY",
+        models=(ModelSpec(model="on-our-gpu", quality=50),),
+        timeout_seconds=900)
+    built = {e.model: e for e in build_extractors(
+        _catalogue(slow, _free_spec()), timeout_seconds=60)}
+    assert built["on-our-gpu"].timeout_seconds == 900   # provider's
+    assert built["free-m"].timeout_seconds == 60        # global
+
+
+def test_catalogue_parses_the_provider_timeout():
+    """The override is useless if the YAML key is not read."""
+    import yaml
+
+    from scraper.providers import load_catalogue
+
+    raw = yaml.safe_load("""
+router:
+  enabled: true
+providers:
+  - name: withtimeout
+    api_key_env: X
+    base_url: http://127.0.0.1:8080/v1
+    timeout_seconds: 900
+    models:
+      - model: m
+        quality: 50
+  - name: without
+    api_key_env: Y
+    base_url: https://api.test/v1
+    models:
+      - model: m
+        quality: 50
+""")
+    import tempfile
+    from pathlib import Path as _P
+    with tempfile.TemporaryDirectory() as d:
+        (_P(d) / "providers.yaml").write_text(yaml.safe_dump(raw), encoding="utf-8")
+        cat = load_catalogue(_P(d))
+    by = {p.name: p for p in cat.providers}
+    assert by["withtimeout"].timeout_seconds == 900
+    assert by["without"].timeout_seconds is None
+
+
+def test_base_url_comes_from_the_env_when_named(monkeypatch):
+    """A self-hosted endpoint's address is deployment state, not code.
+
+    A tunnel to a machine on a desk gets a new hostname whenever it reconnects,
+    and config/ is not a persisted volume — a URL in the YAML would make each
+    reconnection a code deploy.
+    """
+    spec = ProviderSpec(
+        name="local", base_url="http://127.0.0.1:8080/v1",
+        base_url_env="LOCAL_GPU_URL", api_key_env="FREE_KEY",
+        models=(ModelSpec(model="m", quality=50),))
+    monkeypatch.setenv("FREE_KEY", "k")
+
+    monkeypatch.delenv("LOCAL_GPU_URL", raising=False)
+    assert spec.url == "http://127.0.0.1:8080/v1"          # falls back to YAML
+
+    monkeypatch.setenv("LOCAL_GPU_URL", "https://x.trycloudflare.com/v1 ")
+    assert spec.url == "https://x.trycloudflare.com/v1"    # env wins, stripped
+    # By model, not by position: build_extractors orders by quality.
+    built = {e.model: e for e in build_extractors(_catalogue(spec, _free_spec()))}
+    assert built["m"]._BASE_URL == "https://x.trycloudflare.com/v1"
+
+
+def test_a_provider_with_no_address_is_skipped_not_built(monkeypatch):
+    """Absent is the honest state for a self-hosted provider whose tunnel is down.
+
+    Building it would mean every call in the run failing at connect time until
+    the circuit breaker retires it — a run-long outage reported as a bad
+    provider rather than a missing one.
+    """
+    spec = ProviderSpec(
+        name="local", base_url="", base_url_env="LOCAL_GPU_URL",
+        api_key_env="FREE_KEY", models=(ModelSpec(model="m", quality=99),))
+    monkeypatch.setenv("FREE_KEY", "k")
+    monkeypatch.delenv("LOCAL_GPU_URL", raising=False)
+    assert spec.configured is False
+    built = [e.model for e in build_extractors(_catalogue(spec, _free_spec()))]
+    assert "m" not in built and "free-m" in built
+
+
 def test_the_shipped_catalogue_prices_every_paid_model():
     """Every paid model the fleet can actually reach has a price, or the daily
     ceiling is measuring a subset of the spend."""

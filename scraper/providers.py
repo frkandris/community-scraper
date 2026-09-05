@@ -61,6 +61,15 @@ class ProviderSpec:
     base_url: str
     api_key_env: str
     models: tuple[ModelSpec, ...]
+    #: Env var holding this provider's base URL, overriding `base_url` when set.
+    #:
+    #: For an endpoint we host ourselves, the URL is deployment state, not code.
+    #: A tunnel to a machine on someone's desk gets a new hostname every time it
+    #: reconnects, and config/ is not a persisted volume — so a URL written in
+    #: the YAML would make each reconnection a code deploy. This keeps the
+    #: provider's *identity* in git and its *address* in the environment, which
+    #: is the same split `api_key_env` already makes for its credential.
+    base_url_env: str = ""
     rpm: int = 30
     rpd: int = 1000
     #: Tokens per day. 0 = unknown/unlimited. For several free tiers this is the
@@ -73,16 +82,39 @@ class ProviderSpec:
     #: Provider-wide default for its models' generated-token cap. None → the
     #: global `deepseek.max_output_tokens` from settings.yaml.
     max_output_tokens: int | None = None
+    #: Seconds to wait for this provider's answer, overriding the global
+    #: `deepseek.timeout_seconds`. None → the global.
+    #:
+    #: The global 60 is sized for a hosted API answering in seconds. It is the
+    #: wrong number for a model generating on our own GPU, where the same page
+    #: is minutes of real work and a timeout is scored as a failure — which
+    #: would retire a working provider through the circuit breaker rather than
+    #: report that it is merely slow. Raising the *global* instead is the wrong
+    #: fix, and an expensive one: it would leave a genuinely hung hosted call
+    #: holding a slot for as long as the slowest local model is allowed.
+    timeout_seconds: int | None = None
 
     @property
     def api_key(self) -> str:
         return (os.environ.get(self.api_key_env) or "").strip()
 
     @property
+    def url(self) -> str:
+        """The address to call: the env var when set, else the YAML value."""
+        return ((os.environ.get(self.base_url_env) or "").strip()
+                if self.base_url_env else "") or self.base_url
+
+    @property
     def configured(self) -> bool:
         """A provider with no key is skipped silently — that is the normal
-        state for one we have not signed up for, not an error."""
-        return self.enabled and bool(self.api_key) and bool(self.models)
+        state for one we have not signed up for, not an error.
+
+        A missing *address* is skipped the same way, and for the same reason: a
+        self-hosted provider whose tunnel is down has no URL in the environment,
+        and building it would mean every call in the run failing at connect time
+        until the circuit breaker retires it. Absent is the honest state."""
+        return (self.enabled and bool(self.api_key) and bool(self.models)
+                and bool(self.url))
 
     @property
     def min_interval_s(self) -> float:
@@ -215,7 +247,7 @@ def fetch_upstream_models(spec: ProviderSpec, timeout: int = 20) -> tuple[list[s
             # models — but "looked sufficient" is how a configured model
             # silently becomes UNLISTED, and this function's caller exits 1 on
             # that, which gates the scheduled check.
-            root = spec.base_url.rstrip("/")
+            root = spec.url.rstrip("/")
             root = root[: -len("/v1")] if root.endswith("/v1") else root
             names: list[str] = []
             page = 1
@@ -241,7 +273,7 @@ def fetch_upstream_models(spec: ProviderSpec, timeout: int = 20) -> tuple[list[s
                     break
             return sorted(names), None
         req = urllib.request.Request(
-            f"{spec.base_url.rstrip('/')}/models",
+            f"{spec.url.rstrip('/')}/models",
             headers={"User-Agent": _UA, "Authorization": f"Bearer {key}"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = _json.load(resp)
@@ -327,6 +359,7 @@ def load_catalogue(config_dir: Path | None = None) -> ProviderCatalogue:
         providers.append(ProviderSpec(
             name=str(entry["name"]),
             base_url=str(entry.get("base_url") or ""),
+            base_url_env=str(entry.get("base_url_env") or ""),
             api_key_env=str(entry.get("api_key_env") or ""),
             models=models,
             rpm=int(entry.get("rpm", 30) or 30),
@@ -335,6 +368,7 @@ def load_catalogue(config_dir: Path | None = None) -> ProviderCatalogue:
             paid=bool(entry.get("paid", False)),
             enabled=bool(entry.get("enabled", True)),
             max_output_tokens=_opt_int(entry.get("max_output_tokens")),
+            timeout_seconds=_opt_int(entry.get("timeout_seconds")),
         ))
     return ProviderCatalogue(router=router, providers=tuple(providers))
 
@@ -373,13 +407,16 @@ def build_extractors(
                 continue
             out.append(OpenAICompatExtractor(
                 provider=spec.name,
-                base_url=spec.base_url,
+                base_url=spec.url,
                 api_key=spec.api_key,
                 model=m.model,
                 quality=m.quality,
                 json_mode=m.json_mode,
                 temperature=temperature,
-                timeout_seconds=timeout_seconds,
+                # Per provider, then the global setting. Same precedence as
+                # max_output_tokens below, and for the same reason: one number
+                # cannot serve a hosted API and a local GPU at once.
+                timeout_seconds=spec.timeout_seconds or timeout_seconds,
                 max_text_chars=max_text_chars,
                 # Per model, then per provider, then the global setting.
                 max_output_tokens=(m.max_output_tokens

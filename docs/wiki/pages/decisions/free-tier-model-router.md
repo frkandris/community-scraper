@@ -195,3 +195,8 @@ DeepSeek path. Bringing a provider online is one env var; turning the whole
 thing off is `router.enabled: false`. Operational view:
 [[ai-provider-quota-runbook]]. The same fleet is exposed to other software as an
 OpenAI-compatible endpoint — [[router-gateway-api]].
+
+Not every provider is somebody else's. `localgpu` is a model on hardware we own,
+reached through the same catalogue and ordered by the same measured quality —
+its point is that it has no daily allowance to spend, which is what the rest of
+this file is otherwise entirely about. See [[our-own-gpu-in-the-fleet]].

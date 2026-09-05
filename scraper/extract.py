@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import json
+import re
 import time
 import contextvars
 from datetime import datetime, timezone
@@ -381,6 +382,25 @@ ENRICH_SCHEMA = {
 }
 
 
+#: A fenced code block wrapping the whole answer. Not a formatting nicety to
+#: forgive — `_json_items` raises `ExtractorContentError` on it, `_Quarantine`
+#: counts that, and three of them retire the page permanently under the current
+#: fingerprint. A model that habitually fences its JSON would therefore delete
+#: pages from the corpus for a wrapper, and the JSON inside is correct.
+#: Measured on Qwen3-8B, which fences roughly one answer in sixteen.
+_FENCE = re.compile(r"^\s*```(?:json|JSON)?\s*\n(?P<body>.*?)\n?\s*```\s*$", re.S)
+
+
+def _unfenced(raw: str) -> str:
+    """The JSON inside a ``` block, or `raw` unchanged.
+
+    Applied only after a strict parse has already failed, so a well-formed
+    answer never goes near this and genuinely malformed output still raises.
+    """
+    m = _FENCE.match(raw)
+    return m.group("body") if m else raw
+
+
 def _json_items(raw: str, key: str, kind: str, source_url: str) -> list:
     """Pull `key`'s list out of an LLM JSON response.
 
@@ -394,13 +414,19 @@ def _json_items(raw: str, key: str, kind: str, source_url: str) -> list:
     """
     try:
         payload = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        log.warning("llm_json_parse_failed", kind=kind, source_url=source_url,
-                    error=str(exc), raw=raw[:200])
-        # Caching [] here would permanently record a failed call as an empty
-        # page under the current fingerprint — raise so the page is retried.
-        raise ExtractorContentError(
-            f"LLM returned invalid {kind} JSON: {exc}") from exc
+    except json.JSONDecodeError:
+        # Second chance, and only this one: the answer may be correct JSON
+        # inside a markdown fence. Strict first so nothing else is loosened.
+        try:
+            payload = json.loads(_unfenced(raw))
+        except json.JSONDecodeError as exc:
+            log.warning("llm_json_parse_failed", kind=kind, source_url=source_url,
+                        error=str(exc), raw=raw[:200])
+            # Caching [] here would permanently record a failed call as an
+            # empty page under the current fingerprint — raise so the page is
+            # retried.
+            raise ExtractorContentError(
+                f"LLM returned invalid {kind} JSON: {exc}") from exc
     if not isinstance(payload, dict):
         log.warning("llm_json_not_an_object", kind=kind, source_url=source_url,
                     got=type(payload).__name__, raw=raw[:200])

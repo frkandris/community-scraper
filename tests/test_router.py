@@ -1325,3 +1325,41 @@ def test_capacity_means_requests_and_tokens(tmp_path, monkeypatch):
 
     assert router.has_capacity() is False, "token exhaustion must end the day"
     assert router.with_budget() == []
+
+
+# ── fenced JSON ──────────────────────────────────────────────────────────────
+
+def test_a_markdown_fence_is_unwrapped_not_rejected():
+    """A fenced answer is correct JSON in a wrapper, and rejecting it loses pages.
+
+    `_json_items` raises ExtractorContentError, `_Quarantine` counts exactly
+    that error, and three of them retire the page permanently under the current
+    fingerprint. So a model that habitually fences would delete pages from the
+    corpus over a formatting habit — measured on Qwen3-8B at roughly one answer
+    in sixteen.
+    """
+    from scraper.extract import _json_items
+
+    want = [{"name": "Szentendrei Futóklub"}]
+    body = '{"communities": [{"name": "Szentendrei Futóklub"}]}'
+    for raw in (body,
+                f"```json\n{body}\n```",
+                f"```JSON\n{body}\n```",
+                f"```\n{body}\n```",
+                f"  ```json\n{body}\n```  "):
+        assert _json_items(raw, "communities", "communities", "u") == want
+
+
+def test_unfencing_does_not_forgive_actually_broken_output():
+    """The second chance is for the wrapper only.
+
+    Truncation and prose still have to raise: caching them as an empty page
+    would record "0 communities" permanently under the current fingerprint.
+    """
+    from scraper.extract import ExtractorContentError, _json_items
+
+    for raw in ("I could not find any communities on this page.",
+                '```json\n{"communities": [{"name": "Cut off mid',
+                '{"communities": [{"name": "Cut off mid'):
+        with pytest.raises(ExtractorContentError):
+            _json_items(raw, "communities", "communities", "u")

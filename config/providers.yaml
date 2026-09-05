@@ -289,6 +289,61 @@ providers:
         # "fix" it by nudging either number without re-scoring both together.
         quality: 74
 
+  # ── Our own GPU (llama.cpp on the operator's Mac) ────────────────────────
+  # A provider with no quota. Every other entry in this file is rationed by
+  # somebody else's allowance; this one is rationed by wall-clock, which is why
+  # it is worth having even though it does not top the quality order. On
+  # 2026-09-05 the whole free fleet was spent by 22:30 UTC — that is the hole
+  # this fills, not a better answer.
+  #
+  # MEASURED, not guessed: 67 on the hu golden set (sample d13dfe914a92, 16
+  # pages, 17 expected), against gpt-oss-20b's 65 on the identical sample.
+  # Qwen3-8B was chosen over gpt-oss-20b on everything except the score: 27 s
+  # per page against 45, and 5.0 GB of weights against 12.1, which is the
+  # difference between a laptop that still works and one that does not.
+  #
+  # llama.cpp, NOT Ollama. Ollama packages gpt-oss as MXFP4, and that path does
+  # not reach Metal on Apple Silicon: 14.5 tok/s with `ollama ps` reporting
+  # 19%/81% CPU/GPU, against llama.cpp's 27-29 tok/s on the same machine and
+  # the same weights. Prefill went 124 -> 290 tok/s. The runtime was the
+  # variable, not the hardware.
+  #
+  # BOTH the address and the key come from the environment, and the provider is
+  # skipped silently unless both are set — which is the correct state whenever
+  # the machine is asleep, closed, or off. `base_url` is deliberately empty:
+  # there is no sensible default for a tunnel, and a stale one would send every
+  # call in the run to a dead host.
+  - name: localgpu
+    enabled: true
+    base_url: ""
+    base_url_env: LOCAL_GPU_URL
+    api_key_env: LOCAL_GPU_KEY
+    # No allowance exists, so these are not budgets — they are large enough not
+    # to bind, and `rpm` is what actually paces us: llama-server answers one
+    # request at a time, and a low value here would idle the GPU between pages.
+    rpm: 600
+    rpd: 100000
+    tpd: 0
+    paid: false
+    # 600 s, against the global 60. The global is sized for a hosted API
+    # answering in seconds; this model spends 27 s on a *short* golden-set page
+    # and production sends the full `max_text_chars: 8000`. A timeout is scored
+    # as a failure, so the wrong number here would not report a slow provider —
+    # it would retire a working one through the circuit breaker.
+    timeout_seconds: 600
+    # 4,000, against the free fleet's 1,500 — the one place that rule inverts.
+    # The 1,500 exists because Groq reserves `prompt + max_tokens` against an
+    # 8,000-token minute window *before* generating. Nothing is reserved here
+    # and nothing is billed, so the cap costs only the seconds actually spent.
+    max_output_tokens: 4000
+    models:
+      # llama-server ignores the `model` field and serves whichever GGUF it was
+      # started with, so this name is a label — for our logs and for the
+      # (provider, model) key score_providers.py writes back to. Keep it
+      # describing the file actually loaded.
+      - model: qwen3-8b-q4km
+        quality: 67
+
   # ── GitHub Models ─────────────────────────────────────────────────────────
   # DISABLED 2026-08-16: the API answers 410 with
   # {"code":"github_models_retirement_brownout"} — the service is being retired,

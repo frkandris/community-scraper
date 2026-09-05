@@ -13,6 +13,10 @@ logs/
 .DS_Store
 
 data/scraper.db
+# Golden-set exports pulled from production for model scoring. Real
+# corpus data, and large; scripts/make_golden_db.py rebuilds one on
+# demand, so there is nothing here worth committing.
+data/golden*.db
 data/cache/
 
 scraper/web/static/css/app.css

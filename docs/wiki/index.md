@@ -66,6 +66,7 @@ vocabulary), [faq.md](faq.md) (recurring questions).
 - [[server-side-url-safety]] — Every server-side fetch validates HTTP(S) syntax, public DNS answers, blocked domains, and each redirect target before connecting.
 
 ## Decisions
+- [[our-own-gpu-in-the-fleet]] — A laptop running Qwen3-8B scores 67 on our task against the free fleet's 52-80, and its allowance never runs out — which is the hole it fills, not a better answer.
 
 - [[search-ttl-3650-days]] — TTL set to ~10 years: index the world first, worry about freshness later.
 - [[sweden-pipeline-priority]] — Country order in the bounded saver windows lives in config, not code, so whichever market has the largest unprocessed backlog can lead.
