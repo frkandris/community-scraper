@@ -667,15 +667,30 @@ class _ApiExtractor:
     #: inside llama-server (`--parallel 1`) would instead have the request sat
     #: in the origin's own queue with the connection open, timing out exactly
     #: as before.
-    _slots: "asyncio.Semaphore | None" = None
+    #: Keyed by provider name and shared by every extractor for it, because the
+    #: thing being rationed is one GPU, not one Python object. A per-instance
+    #: semaphore looked right and did nothing: `build_extractor()` builds a
+    #: chain for the pipeline and `_enrich_run` builds its own, deliberately
+    #: concurrent with it, so one provider has several live extractors in a
+    #: single process — each politely limiting itself to one call while three
+    #: ran at once. Measured on 2026-09-06: three slots busy, 1.6-4.0 tok/s, and
+    #: single calls stretched to 76 s against Cloudflare's 100 s ceiling.
+    _PROVIDER_SLOTS: "dict[str, asyncio.Semaphore]" = {}
     max_concurrency: int | None = None
 
     def _slot(self) -> "asyncio.Semaphore | None":
+        """The one semaphore for this provider, created on first use.
+
+        Not at construction: extractors are built before the event loop exists.
+        """
         if self.max_concurrency is None:
             return None
-        if self._slots is None:
-            self._slots = asyncio.Semaphore(max(1, int(self.max_concurrency)))
-        return self._slots
+        key = getattr(self, "provider", None) or self.__class__.__name__
+        sem = _ApiExtractor._PROVIDER_SLOTS.get(key)
+        if sem is None:
+            sem = asyncio.Semaphore(max(1, int(self.max_concurrency)))
+            _ApiExtractor._PROVIDER_SLOTS[key] = sem
+        return sem
 
     #: Cap on generated tokens, sent on every request.
     #:

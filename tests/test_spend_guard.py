@@ -388,6 +388,48 @@ async def test_provider_concurrency_queues_before_the_request_is_sent():
 
 
 @pytest.mark.asyncio
+async def test_the_limit_is_shared_by_every_extractor_for_that_provider():
+    """One GPU is being rationed, not one Python object.
+
+    `build_extractor()` builds a chain for the pipeline and `_enrich_run`
+    builds its own, deliberately concurrent with it, so one provider has
+    several live extractors in a single process. Per-instance semaphores let
+    each politely limit itself to one call while three ran at once — measured
+    2026-09-06 at 1.6-4.0 tok/s with single calls stretched to 76 s against
+    Cloudflare's 100 s ceiling.
+    """
+    import asyncio
+
+    from scraper.extract import _ApiExtractor
+    from scraper.providers import OpenAICompatExtractor
+
+    _ApiExtractor._PROVIDER_SLOTS.clear()
+
+    def _mk():
+        return OpenAICompatExtractor(
+            provider="localgpu", base_url="http://127.0.0.1:8080/v1",
+            api_key="k", model="m", quality=67, max_concurrency=1)
+
+    live, peak = 0, 0
+
+    async def _fake_post_now(payload, label):
+        nonlocal live, peak
+        live += 1
+        peak = max(peak, live)
+        await asyncio.sleep(0.02)
+        live -= 1
+        return {}
+
+    # Three separate extractors, as the pipeline and enrichment would build.
+    fleet = [_mk() for _ in range(3)]
+    for e in fleet:
+        e._post_now = _fake_post_now
+    await asyncio.gather(*[e._post({}, "p") for e in fleet for _ in range(2)])
+    assert peak == 1, f"{peak} calls were in flight across {len(fleet)} extractors"
+    _ApiExtractor._PROVIDER_SLOTS.clear()
+
+
+@pytest.mark.asyncio
 async def test_unlimited_by_default_so_hosted_apis_are_unaffected():
     """Concurrency is free where the wait is network latency, and every hosted
     provider depends on it — `pipeline.extract_concurrency` governs there."""

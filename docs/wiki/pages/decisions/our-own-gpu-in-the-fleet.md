@@ -100,6 +100,12 @@ in the pipeline knows it is ours.
   that were otherwise fine. That 100 s is the real ceiling regardless of
   `timeout_seconds: 600`, on every non-Enterprise plan.
 
+  The limit is shared by every extractor for that provider, not held per
+  object — the first version was per-instance and limited nothing, because the
+  pipeline's chain and `_enrich_run`'s own chain are separate extractors for the
+  same provider in the same process. Three of them each politely allowed
+  themselves one call.
+
   The queue belongs on our side of the wire. Waiting on the semaphore holds no
   HTTP connection open, so the proxy's clock does not start until the model is
   free. Serialising at the far end instead (`llama-server --parallel 1`) would
