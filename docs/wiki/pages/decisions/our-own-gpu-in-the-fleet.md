@@ -96,6 +96,24 @@ On the machine: `llama-server` and `cloudflared` run as launchd agents
 `caffeinate -i` so the provider does not vanish when the laptop is left alone.
 `llama-server --api-key` means the tunnel answers 401 without the bearer token.
 
+**Use a named tunnel, not a quick one.** `cloudflared tunnel --url` needs no
+account and is the obvious way to start, but its hostname is random and it gets
+a *new* one on every reconnect. The first night's tunnel ran 8 hours, dropped,
+and then failed to retake its own name — 22 consecutive `control stream
+encountered a failure while serving`. The failure mode is the problem: the
+server's `LOCAL_GPU_URL` keeps pointing at a hostname that no longer resolves to
+anything, `configured` is still true because the variable is still set, and every
+call fails at connect time until a human notices. A named tunnel
+(`gpu.meetapedia.com`, created 2026-09-06) keeps its hostname across restarts,
+reboots and network changes, so the variable is set once and `base_url_env` stops
+being a maintenance burden. Costs one browser login; nothing else changes.
+
+The hostname sits on the public brand domain deliberately — the name should say
+which project the provider belongs to, and there is nothing to leak behind it:
+Cloudflare proxies it (so the machine's own IP is never exposed) and it answers
+401 to everything without the key. Credentials are `~/.cloudflared/cert.pem` and
+`~/.cloudflared/<tunnel-id>.json`, outside the repository and secret.
+
 ## What this does not settle
 
 - **Throughput does not transfer.** 27 s/page is this M3's number. The Hetzner
