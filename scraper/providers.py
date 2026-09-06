@@ -82,6 +82,12 @@ class ProviderSpec:
     #: Provider-wide default for its models' generated-token cap. None → the
     #: global `deepseek.max_output_tokens` from settings.yaml.
     max_output_tokens: int | None = None
+    #: Most in-flight calls allowed to this provider at once. None = unlimited,
+    #: which is correct for every hosted API. Set it to 1 for a model on
+    #: hardware we own: there the GPU is the bottleneck, so concurrency buys
+    #: nothing and multiplies every call's latency — see `max_concurrency` in
+    #: extract.py for what that cost on 2026-09-06.
+    max_concurrency: int | None = None
     #: Seconds to wait for this provider's answer, overriding the global
     #: `deepseek.timeout_seconds`. None → the global.
     #:
@@ -183,6 +189,7 @@ class OpenAICompatExtractor(_ApiExtractor):
         max_text_chars: int = 8000,
         max_output_tokens: int = 1500,
         rate_limit_seconds: float = 1.0,
+        max_concurrency: int | None = None,
         fingerprint_model: str | None = None,
         usd_per_1m_in: float = 0.0,
         usd_per_1m_out: float = 0.0,
@@ -192,6 +199,7 @@ class OpenAICompatExtractor(_ApiExtractor):
             rate_limit_seconds, fingerprint_model=fingerprint_model,
         )
         self.max_output_tokens = max_output_tokens
+        self.max_concurrency = max_concurrency
         self.provider = provider
         self.quality = quality
         self.json_mode = json_mode
@@ -369,6 +377,7 @@ def load_catalogue(config_dir: Path | None = None) -> ProviderCatalogue:
             enabled=bool(entry.get("enabled", True)),
             max_output_tokens=_opt_int(entry.get("max_output_tokens")),
             timeout_seconds=_opt_int(entry.get("timeout_seconds")),
+            max_concurrency=_opt_int(entry.get("max_concurrency")),
         ))
     return ProviderCatalogue(router=router, providers=tuple(providers))
 
@@ -423,6 +432,7 @@ def build_extractors(
                                    or spec.max_output_tokens
                                    or max_output_tokens),
                 rate_limit_seconds=rate_limit_seconds,
+                max_concurrency=spec.max_concurrency,
                 fingerprint_model=fingerprint_model,
                 usd_per_1m_in=m.usd_per_1m_in,
                 usd_per_1m_out=m.usd_per_1m_out,

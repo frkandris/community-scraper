@@ -330,7 +330,22 @@ providers:
     # and production sends the full `max_text_chars: 8000`. A timeout is scored
     # as a failure, so the wrong number here would not report a slow provider —
     # it would retire a working one through the circuit breaker.
+    #
+    # Note this is NOT the binding limit. Cloudflare's proxy gives an origin
+    # 100 seconds on every non-Enterprise plan and answers 524 after that, so
+    # the real ceiling is 100 s no matter what is set here. `max_concurrency: 1`
+    # below is what keeps a single call comfortably inside it; this number only
+    # has to be larger than that ceiling.
     timeout_seconds: 600
+    # ONE call at a time. Not a politeness setting — the GPU is the bottleneck,
+    # so four concurrent pages do not return four answers in the time of one;
+    # they return four answers each about four times slower (measured 27 tok/s
+    # alone against 1.85 tok/s with four slots busy). Nothing is gained, and on
+    # 2026-09-06 the quadrupled latency pushed every call past Cloudflare's
+    # 100-second origin timeout: HTTP 524 on extractions that were working.
+    # `pipeline.extract_concurrency: 4` is right for hosted APIs, where the wait
+    # is network latency and overlapping is free; this is the exception.
+    max_concurrency: 1
     # 4,000, against the free fleet's 1,500 — the one place that rule inverts.
     # The 1,500 exists because Groq reserves `prompt + max_tokens` against an
     # 8,000-token minute window *before* generating. Nothing is reserved here

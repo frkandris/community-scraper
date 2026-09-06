@@ -353,6 +353,77 @@ def test_a_provider_with_no_address_is_skipped_not_built(monkeypatch):
     assert "m" not in built and "free-m" in built
 
 
+@pytest.mark.asyncio
+async def test_provider_concurrency_queues_before_the_request_is_sent():
+    """The wait must happen on our side, not in the origin's queue.
+
+    A proxy starts its timeout clock when the request arrives, so anything that
+    waits *with a connection open* still times out. Cloudflare gives an origin
+    100 s and answers 524 after that; on 2026-09-06 four concurrent pages on one
+    GPU each took four times as long and every one of them blew through it.
+    Holding the slot before `_post_now` means the model is already free when the
+    request is sent.
+    """
+    import asyncio
+
+    from scraper.providers import OpenAICompatExtractor
+
+    ex = OpenAICompatExtractor(
+        provider="localgpu", base_url="http://127.0.0.1:8080/v1", api_key="k",
+        model="m", quality=67, max_concurrency=1)
+
+    live, peak = 0, 0
+
+    async def _fake_post_now(payload, label):
+        nonlocal live, peak
+        live += 1
+        peak = max(peak, live)
+        await asyncio.sleep(0.02)
+        live -= 1
+        return {"choices": [{"message": {"content": "{}"}}]}
+
+    ex._post_now = _fake_post_now
+    await asyncio.gather(*[ex._post({}, f"p{i}") for i in range(6)])
+    assert peak == 1, f"{peak} calls were in flight at once"
+
+
+@pytest.mark.asyncio
+async def test_unlimited_by_default_so_hosted_apis_are_unaffected():
+    """Concurrency is free where the wait is network latency, and every hosted
+    provider depends on it — `pipeline.extract_concurrency` governs there."""
+    import asyncio
+
+    from scraper.providers import OpenAICompatExtractor
+
+    ex = OpenAICompatExtractor(provider="groq", base_url="https://api.test/v1",
+                               api_key="k", model="m", quality=60)
+    assert ex.max_concurrency is None
+
+    live, peak = 0, 0
+
+    async def _fake_post_now(payload, label):
+        nonlocal live, peak
+        live += 1
+        peak = max(peak, live)
+        await asyncio.sleep(0.02)
+        live -= 1
+        return {}
+
+    ex._post_now = _fake_post_now
+    await asyncio.gather(*[ex._post({}, f"p{i}") for i in range(4)])
+    assert peak == 4
+
+
+def test_the_shipped_catalogue_limits_our_own_gpu():
+    """The one provider where concurrency costs rather than buys."""
+    from scraper.providers import load_catalogue
+
+    by = {p.name: p for p in load_catalogue().providers}
+    assert by["localgpu"].max_concurrency == 1
+    assert all(p.max_concurrency is None
+               for n, p in by.items() if n != "localgpu")
+
+
 def test_the_shipped_catalogue_prices_every_paid_model():
     """Every paid model the fleet can actually reach has a price, or the daily
     ceiling is measuring a subset of the spend."""

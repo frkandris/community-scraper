@@ -648,6 +648,35 @@ class _ApiExtractor:
     #: the event loop that runs them exists.
     _rate_lock: "asyncio.Lock | None" = None
 
+    #: Most in-flight calls allowed to this provider at once. None = unlimited,
+    #: which is right for every hosted API: there the wait is network latency,
+    #: several requests overlap for free, and `pipeline.extract_concurrency`
+    #: is what governs.
+    #:
+    #: It is wrong for a model on a GPU we own, where the GPU *is* the
+    #: bottleneck. Four concurrent pages there do not produce four answers in
+    #: the time of one — they produce four answers each about four times
+    #: slower: measured 27 tok/s alone against 1.85 tok/s with four slots busy.
+    #: Nothing is gained and the latency of every single call quadruples, which
+    #: on 2026-09-06 pushed each one past Cloudflare's 100-second origin
+    #: timeout and turned working extractions into HTTP 524.
+    #:
+    #: The queue must be here rather than at the far end, and that is the whole
+    #: point: waiting for this semaphore holds no HTTP connection open, so the
+    #: proxy's clock does not start until the model is actually free. Queueing
+    #: inside llama-server (`--parallel 1`) would instead have the request sat
+    #: in the origin's own queue with the connection open, timing out exactly
+    #: as before.
+    _slots: "asyncio.Semaphore | None" = None
+    max_concurrency: int | None = None
+
+    def _slot(self) -> "asyncio.Semaphore | None":
+        if self.max_concurrency is None:
+            return None
+        if self._slots is None:
+            self._slots = asyncio.Semaphore(max(1, int(self.max_concurrency)))
+        return self._slots
+
     #: Cap on generated tokens, sent on every request.
     #:
     #: Not headroom — **capacity**. Groq's free tier reserves
@@ -780,6 +809,13 @@ class _ApiExtractor:
             self._last_request_time = time.monotonic()
 
     async def _post(self, payload: dict, label: str) -> dict:
+        slot = self._slot()
+        if slot is None:
+            return await self._post_now(payload, label)
+        async with slot:
+            return await self._post_now(payload, label)
+
+    async def _post_now(self, payload: dict, label: str) -> dict:
         await self._rate_limit()
         # Clear the task's usage before the attempt, not only after a 4xx. A
         # connection error never reaches `_note_usage`, and the caller would

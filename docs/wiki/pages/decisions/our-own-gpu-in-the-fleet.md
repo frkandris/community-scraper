@@ -90,6 +90,21 @@ in the pipeline knows it is ours.
   that rule inverts. The 1,500 exists because Groq reserves `prompt + max_tokens`
   against an 8,000-token minute window *before* generating; nothing is reserved
   here and nothing is billed, so the cap costs only seconds actually spent.
+- **`max_concurrency: 1`**, against unlimited everywhere else — and this is the
+  setting that made it work at all. `pipeline.extract_concurrency: 4` is right
+  for hosted APIs, where the wait is network latency and four requests overlap
+  for free. On one GPU they do not overlap: they share it. Four concurrent pages
+  returned four answers each about four times slower (27 tok/s alone against
+  **1.85 tok/s** with four slots busy), which bought nothing and pushed every
+  call past **Cloudflare's 100-second origin timeout** — HTTP 524 on extractions
+  that were otherwise fine. That 100 s is the real ceiling regardless of
+  `timeout_seconds: 600`, on every non-Enterprise plan.
+
+  The queue belongs on our side of the wire. Waiting on the semaphore holds no
+  HTTP connection open, so the proxy's clock does not start until the model is
+  free. Serialising at the far end instead (`llama-server --parallel 1`) would
+  do the opposite: the request sits in the origin's own queue with the
+  connection open and times out exactly as before.
 
 On the machine: `llama-server` and `cloudflared` run as launchd agents
 (`com.meetapedia.llama`, `com.meetapedia.tunnel`) with `KeepAlive`, under
