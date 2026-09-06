@@ -1,7 +1,7 @@
 ---
 type: Decision
 title: Our Own GPU in the Fleet
-description: A laptop running Qwen3-8B scores 67 on our task against the free fleet's 52-80, and its allowance never runs out — which is the hole it fills, not a better answer.
+description: A laptop running Qwen3-4B scores 73 on our task — above the 8B and the 20B — and its allowance never runs out, which is the hole it fills.
 tags: [providers, router, local-inference, llama-cpp, quota, measurement]
 timestamp: 2026-09-06
 resource: config/providers.yaml
@@ -18,27 +18,39 @@ having". Both halves were measured on 2026-09-05/06 against the Hungarian golden
 set — sample `d13dfe914a92`, 16 pages, 17 expected communities, exported with
 [[exporting-a-golden-set]] and verified identical to the server's by fingerprint.
 
-| model, on this machine | score | s/page | answered | weights |
-|---|---|---|---|---|
-| Qwen3-8B Q4_K_M | **67** | 27 | 15/16 | 5.0 GB |
-| gpt-oss-20b MXFP4 | 65 | 45 | 16/16 | 12.1 GB |
+| model, on this machine | score | answered | weights |
+|---|---|---|---|
+| **Qwen3-4B Q4_K_M** | **73** | 16/16 | 2.5 GB |
+| Qwen3-8B Q4_K_M | 67 | 15/16 | 5.0 GB |
+| gpt-oss-20b MXFP4 | 65 | 16/16 | 12.1 GB |
+
+**The smallest model won**, and it is also the one that runs fastest and leaves
+the machine usable. Do not read that as "4B beats 20B": read it as the thing
+`providers.yaml` already warns about in its own header — LLMStructBench
+(arXiv:2602.14743) found prompting strategy outweighs model size for JSON
+extraction, and this is our prompt doing the work. The practical lesson is to
+measure the small model first, not last.
 
 For scale, the free fleet on its own (older, differently-sampled) numbers runs
-52-80, with `mistral-small` at 80 and Groq's gpt-oss-20b at 67. So this is the
-fleet's middle, not its top — and the cloud comparison on *this* sample is still
-outstanding, because on 2026-09-05 every free provider's daily allowance was
-already spent by 22:30 UTC.
+52-80, with `mistral-small` at 80 and Groq's gpt-oss-20b at 67. So this sits
+near the fleet's top rather than its middle — and the cloud comparison on *this*
+sample is still outstanding, because on 2026-09-05 every free provider's daily
+allowance was already spent by 22:30 UTC and the same was true again at 08:49
+the next morning.
 
 **That last sentence is the decision.** A provider scoring 67 with no allowance
 is worth more than one scoring 74 that has been unavailable since lunchtime.
 Routing is by quality, so the better free models still go first; this one is what
 remains when they are gone.
 
-Qwen3-8B over gpt-oss-20b on everything except the score: 1.7x faster, and 5.0 GB
-against 12.1 — the difference between a laptop that is still usable and one that
-is not. gpt-oss-20b's appeal was that Cloudflare and Groq serve the *same
-weights*, which would have isolated "where it runs" from "which model it is".
-Worth measuring; not worth running.
+Memory settled the rest. On a 16 GB machine that its owner is actually using —
+Chrome, a chat app, Spotlight indexing — the 8B ran at **5.4 tok/s** against
+15.8-16.6 on an idle one, because everything else was paging and unified memory
+means that steals the bandwidth the GPU needs. At 5.4 tok/s a single extraction
+takes ~109 s, past the ceiling below. The 4B leaves 2.5 GB more headroom and does
+not have the problem. gpt-oss-20b's appeal was that Cloudflare and Groq serve the
+*same weights*, which would have isolated "where it runs" from "which model it
+is" — worth measuring, not worth running.
 
 ## The runtime was the variable, not the hardware
 
@@ -135,9 +147,37 @@ Cloudflare proxies it (so the machine's own IP is never exposed) and it answers
 401 to everything without the key. Credentials are `~/.cloudflared/cert.pem` and
 `~/.cloudflared/<tunnel-id>.json`, outside the repository and secret.
 
+## Two ways the runtime can lie about quality
+
+Both were hit here, and both look like a bad model in the score.
+
+**A thinking model that reasons in plain text.** Qwen3-4B ignores llama.cpp's
+generic `--reasoning-budget 0` (which works on gpt-oss) and emits `"Okay, let's
+tackle this..."` as `content` — no `<think>` tags, no `reasoning` field, so
+neither the runtime nor `_json_items` can separate it. All 16 golden pages came
+back as `ExtractorContentError`, scoring `n/a`. In production that error is
+precisely what `_Quarantine` counts, so a misconfigured local model would retire
+real pages permanently while looking merely unlucky. The fix reaches the model's
+own template: `--chat-template-kwargs '{"enable_thinking":false}'`.
+
+**A context window shorter than the prompt.** Covered above under `-c 8192`: the
+runtime trims rather than fails, and it trims the page text.
+
+The general rule both point at: when adding a model, look at the *shape* of one
+answer before trusting any score. `n/a` and `0` look alike in a summary table and
+mean opposite things.
+
 ## What this does not settle
 
-- **Throughput does not transfer.** 27 s/page is this M3's number. The Hetzner
+- **The Cloudflare ceiling is close.** The scored run averaged **89 s/page**
+  against a 100 s origin timeout, and that run went over loopback where no
+  timeout applied. Through the tunnel a slow page will 524. That failure is
+  benign — `ExtractorUnavailableError`, not `ExtractorContentError`, so it never
+  reaches the quarantine and the page is retried next run — but it caps how much
+  this provider can actually contribute. Getting off Cloudflare's HTTP proxy
+  (a reverse tunnel to the server itself) is the fix if it ever matters enough.
+- **Throughput does not transfer.** These are this M3's numbers, under this
+  machine's load. The Hetzner
   box has no GPU; the same model there would be far slower. This machine
   contributes as a machine, not as a proof about the server.
 - **The same-sample cloud comparison is still owed.** Scheduled for the next

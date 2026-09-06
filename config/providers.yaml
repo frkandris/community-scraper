@@ -296,11 +296,24 @@ providers:
   # 2026-09-05 the whole free fleet was spent by 22:30 UTC — that is the hole
   # this fills, not a better answer.
   #
-  # MEASURED, not guessed: 67 on the hu golden set (sample d13dfe914a92, 16
-  # pages, 17 expected), against gpt-oss-20b's 65 on the identical sample.
-  # Qwen3-8B was chosen over gpt-oss-20b on everything except the score: 27 s
-  # per page against 45, and 5.0 GB of weights against 12.1, which is the
-  # difference between a laptop that still works and one that does not.
+  # MEASURED on one shared sample (hu golden set d13dfe914a92, 16 pages, 17
+  # expected communities), so these three numbers are comparable with each
+  # other:
+  #
+  #     Qwen3-4B  Q4_K_M   73   2.5 GB
+  #     Qwen3-8B  Q4_K_M   67   5.0 GB
+  #     gpt-oss-20b MXFP4  65  12.1 GB
+  #
+  # The smallest model won, and it won on the machine where it also runs
+  # fastest. That is not a fluke to be explained away — it is the result this
+  # file already warns about in its own header: LLMStructBench (arXiv:2602.14743)
+  # found prompting strategy outweighs model size for JSON extraction. Read it
+  # as evidence that our prompt does the work, not that 4B beats 20B in general.
+  #
+  # It also settled the memory question by itself. On a 16 GB machine that its
+  # owner is actually using, the 8B ran at 5.4 tok/s (against 15.8-16.6 on an
+  # idle one) because everything else was paging; the 4B leaves 2.5 GB more
+  # headroom and does not have that problem.
   #
   # llama.cpp, NOT Ollama. Ollama packages gpt-oss as MXFP4, and that path does
   # not reach Metal on Apple Silicon: 14.5 tok/s with `ollama ps` reporting
@@ -356,8 +369,16 @@ providers:
       # started with, so this name is a label — for our logs and for the
       # (provider, model) key score_providers.py writes back to. Keep it
       # describing the file actually loaded.
-      - model: qwen3-8b-q4km
-        quality: 67
+      #
+      # That server MUST run with `--chat-template-kwargs
+      # '{"enable_thinking":false}'`. Qwen3-4B ignores llama.cpp's generic
+      # `--reasoning-budget 0` and reasons in PLAIN TEXT — no <think> tags, no
+      # reasoning field — so the thinking lands in `content` and every answer is
+      # unparseable. That raises ExtractorContentError, which is exactly what
+      # `_Quarantine` counts: three per page retires a real page for good. The
+      # first scored run with the wrong flag failed all 16 pages this way.
+      - model: qwen3-4b-q4km
+        quality: 73
 
   # ── GitHub Models ─────────────────────────────────────────────────────────
   # DISABLED 2026-08-16: the API answers 410 with
